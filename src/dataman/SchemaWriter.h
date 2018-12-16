@@ -10,8 +10,7 @@
 #include "base/Base.h"
 #include "dataman/ResultSchemaProvider.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 class SchemaWriter : public ResultSchemaProvider {
 public:
@@ -29,7 +28,6 @@ public:
 private:
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_SCHEMAWRITER_H_
 

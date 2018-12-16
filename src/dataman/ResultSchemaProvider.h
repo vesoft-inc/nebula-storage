@@ -10,8 +10,7 @@
 #include "base/Base.h"
 #include "dataman/SchemaProviderIf.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 class ResultSchemaProvider : public SchemaProviderIf {
     using ColumnDefs = std::vector<storage::cpp2::ColumnDef>;
@@ -62,6 +61,5 @@ protected:
     ResultSchemaProvider() = default;
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_RESULTSCHEMAPROVIDER_H_

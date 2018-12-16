@@ -9,8 +9,7 @@
 
 #include "base/Base.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 enum class ResultType {
     SUCCEEDED = 0,
@@ -48,7 +47,6 @@ inline bool strToBool(folly::StringPiece str) {
            str == "true" || str == "True" || str == "TRUE";
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_DATACOMMON_H_
 

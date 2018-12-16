@@ -4,8 +4,7 @@
  *  (found in the LICENSE.Apache file in the root directory)
  */
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 template<typename T>
 typename std::enable_if<std::is_integral<T>::value, RowWriter&>::type
@@ -42,6 +41,5 @@ RowWriter::writeInt(T v) {
     cord_ << folly::ByteRange(buf, len);
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

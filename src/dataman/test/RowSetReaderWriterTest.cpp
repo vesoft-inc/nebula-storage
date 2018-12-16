@@ -12,8 +12,7 @@
 #include "dataman/RowWriter.h"
 #include "dataman/SchemaWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 TEST(RowSetReaderWriter, allInts) {
     SchemaWriter schema;
@@ -55,8 +54,7 @@ TEST(RowSetReaderWriter, allInts) {
     EXPECT_EQ(it, rsReader.end());
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {

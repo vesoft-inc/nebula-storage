@@ -2,7 +2,7 @@
 
 ### Step 1: Fork in the cloud
 
-1. Visit https://github.com/vesoft-inc/vgraph
+1. Visit https://github.com/vesoft-inc/nebula-graph
 2. Click `Fork` button (top right) to establish a cloud-based fork.
 
 ### Step 2: Clone fork to local storage
@@ -25,40 +25,40 @@ Create your clone:
 ```sh
 mkdir -p $working_dir
 cd $working_dir
-git clone https://github.com/$user/vgraph.git
+git clone https://github.com/$user/nebula-graph.git
 # the following is recommended
-# or: git clone git@github.com:$user/vgraph.git
+# or: git clone git@github.com:$user/nebula-graph.git
 
-cd $working_dir/vgraph
-git remote add upstream https://github.com/vesoft-inc/vgraph.git
-# or: git remote add upstream git@github.com:vesoft-inc/vgraph.git
+cd $working_dir/nebula-graph
+git remote add upstream https://github.com/vesoft-inc/nebula-graph.git
+# or: git remote add upstream git@github.com:vesoft-inc/nebula-graph.git
 
 # Never push to upstream master since you do not have write access.
 git remote set-url --push upstream no_push
 
 # Confirm that your remotes make sense:
 # It should look like:
-# origin    git@github.com:$(user)/vgraph.git (fetch)
-# origin    git@github.com:$(user)/vgraph.git (push)
-# upstream  https://github.com/vesoft-inc/vgraph (fetch)
+# origin    git@github.com:$(user)/nebula-graph.git (fetch)
+# origin    git@github.com:$(user)/nebula-graph.git (push)
+# upstream  https://github.com/vesoft-inc/nebula-graph (fetch)
 # upstream  no_push (push)
 git remote -v
 ```
 
 #### Define a pre-commit hook
 
-Please link the vGraph pre-commit hook into your `.git` directory.
+Please link the Nebula Graph pre-commit hook into your `.git` directory.
 
 This hook checks your commits for formatting, building, doc generation, etc.
 
 ```sh
-cd $working_dir/vgraph/.git/hooks
+cd $working_dir/nebula-graph/.git/hooks
 ln -s ../../hooks/pre-commit .
 ```
 Sometime, pre-commit hook can not be executable. In such case, you have to make it executable manually.
 
 ```sh
-cd $working_dir/vgraph/.git/hooks
+cd $working_dir/nebula-graph/.git/hooks
 chmod +x pre-commit
 ```
 
@@ -67,7 +67,7 @@ chmod +x pre-commit
 Get your local master up to date:
 
 ```sh
-cd $working_dir/vgraph
+cd $working_dir/nebula-graph
 git fetch upstream
 git checkout master
 git rebase upstream/master
@@ -100,19 +100,19 @@ You can now edit the code on the `myfeature` branch. Please follow the coding st
 #### Run stand-alone mode
 
 If you want to reproduce and investigate an issue, you may need
-to run vGraph in stand-alone mode.
+to run Nebula Graph in stand-alone mode.
 
 ```sh
 # Build the binary.
 make server
 
 # Run in stand-alone mode.
-vgraphd
+nebula-graphd
 ```
 
-Then you can connect the vGraph console to your local server
+Then you can connect the Nebula Graph console to your local server
 ```sh
-vgraph
+nebula
 ```
 
 #### Run Test
@@ -151,7 +151,7 @@ git push -f origin myfeature
 
 ### Step 8: Create a pull request
 
-1. Visit your fork at https://github.com/$user/vgraph (replace `$user` obviously).
+1. Visit your fork at https://github.com/$user/nebula-graph (replace `$user` obviously).
 2. Click the `Compare & pull request` button next to your `myfeature` branch.
 
 ### Step 9: Get a code review

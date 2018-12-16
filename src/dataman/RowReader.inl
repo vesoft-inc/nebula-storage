@@ -4,8 +4,7 @@
  *  (found in the LICENSE.Apache file in the root directory)
  */
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /*********************************************
  *
@@ -68,6 +67,5 @@ RowReader::readInteger(int64_t offset, T& v) const noexcept {
     return range.begin() - start;
 }
 
-}  // namespace vgraph
 }  // NAMESPACE VESOFT
 

@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/RowWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 using namespace storage;
 
@@ -261,6 +260,5 @@ RowWriter& RowWriter::operator<<(Skip&& skip) noexcept {
     return *this;
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

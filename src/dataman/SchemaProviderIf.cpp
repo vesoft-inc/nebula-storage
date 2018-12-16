@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/SchemaProviderIf.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /******************************************
  *
@@ -80,6 +79,5 @@ SchemaProviderIf::Iterator SchemaProviderIf::end(int32_t ver) const {
     return Iterator(this, ver, getNumFields(ver));
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

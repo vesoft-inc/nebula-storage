@@ -9,13 +9,12 @@
 
 
 #include "base/Base.h"
-#include "interface/gen-cpp2/vgraph_types.h"
+#include "gen-cpp2/graph_types.h"
 #include "dataman/DataCommon.h"
 #include "dataman/SchemaProviderIf.h"
 #include "dataman/RowReader.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /**
  * This class is mainly used to update an existing row. The schema has
@@ -75,8 +74,7 @@ private:
     std::unordered_map<uint64_t, FieldValue> updatedFields_;
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 #define RU_GET_TYPE_BY_NAME() \

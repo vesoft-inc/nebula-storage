@@ -4,8 +4,7 @@
  *  (found in the LICENSE.Apache file in the root directory)
  */
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 template<typename T>
 typename std::enable_if<std::is_integral<T>::value, ResultType>::type
@@ -44,6 +43,5 @@ RowUpdater::getInt(const folly::StringPiece name, T& v) const noexcept {
     return ResultType::SUCCEEDED;
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

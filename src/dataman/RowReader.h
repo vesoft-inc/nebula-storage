@@ -9,12 +9,11 @@
 
 #include "base/Base.h"
 #include <gtest/gtest_prod.h>
-#include "interface/gen-cpp2/vgraph_types.h"
+#include "gen-cpp2/graph_types.h"
 #include "dataman/DataCommon.h"
 #include "dataman/SchemaProviderIf.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /**
  * This class decodes one row of data
@@ -170,8 +169,7 @@ private:
     ResultType getVid(int32_t index, int64_t& offset, int64_t& v) const noexcept;
 };
 
-}  // namepsace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 #define RR_CELL_GET_VALUE(FN) \
