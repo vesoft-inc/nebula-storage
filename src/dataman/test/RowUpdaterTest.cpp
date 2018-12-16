@@ -10,19 +10,19 @@
 #include "dataman/RowUpdater.h"
 #include "dataman/SchemaWriter.h"
 
-using namespace vesoft::vgraph;
+using namespace nebula;
 
 SchemaWriter schema;
 
 void prepareSchema() {
-    schema.appendCol("col1", vesoft::storage::cpp2::SupportedType::INT);
-    schema.appendCol("col2", vesoft::storage::cpp2::SupportedType::INT);
-    schema.appendCol("col3", vesoft::storage::cpp2::SupportedType::STRING);
-    schema.appendCol("col4", vesoft::storage::cpp2::SupportedType::STRING);
-    schema.appendCol("col5", vesoft::storage::cpp2::SupportedType::BOOL);
-    schema.appendCol("col6", vesoft::storage::cpp2::SupportedType::FLOAT);
-    schema.appendCol("col7", vesoft::storage::cpp2::SupportedType::VID);
-    schema.appendCol("col8", vesoft::storage::cpp2::SupportedType::DOUBLE);
+    schema.appendCol("col1", nebula::storage::cpp2::SupportedType::INT);
+    schema.appendCol("col2", nebula::storage::cpp2::SupportedType::INT);
+    schema.appendCol("col3", nebula::storage::cpp2::SupportedType::STRING);
+    schema.appendCol("col4", nebula::storage::cpp2::SupportedType::STRING);
+    schema.appendCol("col5", nebula::storage::cpp2::SupportedType::BOOL);
+    schema.appendCol("col6", nebula::storage::cpp2::SupportedType::FLOAT);
+    schema.appendCol("col7", nebula::storage::cpp2::SupportedType::VID);
+    schema.appendCol("col8", nebula::storage::cpp2::SupportedType::DOUBLE);
 }
 
 

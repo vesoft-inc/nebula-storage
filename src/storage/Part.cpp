@@ -6,7 +6,7 @@
 
 #include "storage/Part.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 ResultCode SimplePart::asyncMultiPut(std::vector<KV> keyValues, KVCallback cb) {
@@ -17,5 +17,5 @@ ResultCode SimplePart::asyncMultiPut(std::vector<KV> keyValues, KVCallback cb) {
 }
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 

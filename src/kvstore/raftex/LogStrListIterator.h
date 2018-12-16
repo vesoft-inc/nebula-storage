@@ -11,7 +11,7 @@
 #include "raftex/LogIterator.h"
 #include "gen-cpp2/raftex_types.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class LogStrListIterator final : public LogIterator {
@@ -37,7 +37,7 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_LOGSTRLISTITERATOR_H_
 

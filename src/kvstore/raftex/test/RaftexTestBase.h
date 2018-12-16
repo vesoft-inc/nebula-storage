@@ -16,7 +16,7 @@
 #include "network/NetworkUtils.h"
 
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class RaftexService;
@@ -71,6 +71,6 @@ void checkLeadership(std::vector<std::shared_ptr<test::TestShard>>& copies,
                      std::shared_ptr<test::TestShard>& leader);
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // RAFTEX_TEST_RAFTEXTESTBASE_H_
 

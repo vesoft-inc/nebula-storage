@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 class StorageIter {
@@ -28,6 +28,6 @@ public:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_INCLUDE_ITERATOR_H_
 

@@ -10,7 +10,7 @@
 #include "raftex/FileBasedWal.h"
 #include "raftex/BufferFlusher.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 namespace test {
 
@@ -90,5 +90,5 @@ bool TestShard::getLogMsg(LogID id, folly::StringPiece& msg) const {
 
 }  // namespace test
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

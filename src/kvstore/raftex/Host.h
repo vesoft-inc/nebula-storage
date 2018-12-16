@@ -16,7 +16,7 @@ class EventBase;
 }  // namespace folly
 
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class RaftPart;
@@ -108,7 +108,7 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_HOST_H_
 

@@ -11,7 +11,7 @@
 #include "thread/NamedThread.h"
 #include "raftex/InMemoryLogBuffer.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class FileBasedWal;
@@ -39,7 +39,7 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_BUFFERFLUSHER_H_
 

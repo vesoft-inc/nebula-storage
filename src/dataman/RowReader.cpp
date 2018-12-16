@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/RowReader.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /*********************************************
  *
@@ -539,5 +538,4 @@ ResultType RowReader::getVid(int32_t index, int64_t& v) const noexcept {
     return getVid(index, offset, v);
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula

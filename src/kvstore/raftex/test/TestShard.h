@@ -10,7 +10,7 @@
 #include "base/Base.h"
 #include "raftex/RaftPart.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class RaftexService;
@@ -63,7 +63,7 @@ private:
 
 }  // namespace test
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_TEST_TESTSHARD_H_
 

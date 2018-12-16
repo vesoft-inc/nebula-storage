@@ -9,7 +9,7 @@
 #include "raftex/RaftPart.h"
 #include "raftex/FileBasedWal.h"
 #include <folly/io/async/EventBase.h>
-#include "interface/gen-cpp2/RaftexServiceAsyncClient.h"
+#include "gen-cpp2/RaftexServiceAsyncClient.h"
 #include "thrift/ThriftClientManager.h"
 #include "network/NetworkUtils.h"
 
@@ -19,11 +19,11 @@ DEFINE_uint32(max_outstanding_requests, 1024,
               "The max number of outstanding appendLog requests");
 
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
-using namespace vesoft::network;
-using namespace vesoft::thrift;
+using namespace nebula::network;
+using namespace nebula::thrift;
 
 Host::Host(const HostAddr& addr, std::shared_ptr<RaftPart> part)
         : part_(std::move(part))
@@ -45,8 +45,8 @@ void Host::waitForStop() {
 }
 
 
-cpp2::ErrorCode Host::checkStatus(std::lock_guard<std::mutex>& lck)
-        const {
+cpp2::ErrorCode Host::checkStatus(std::lock_guard<std::mutex>& lck) const {
+    UNUSED(lck);
     if (stopped_) {
         VLOG(2) << idStr_ << "The host is stopped, just return";
         return cpp2::ErrorCode::E_HOST_STOPPED;
@@ -314,6 +314,7 @@ folly::Future<cpp2::AppendLogResponse> Host::appendLogsInternal(
 
 std::shared_ptr<cpp2::AppendLogRequest>
 Host::prepareAppendLogRequest(std::lock_guard<std::mutex>& lck) const {
+    UNUSED(lck);
     auto req = std::make_shared<cpp2::AppendLogRequest>();
     req->set_space(part_->spaceId());
     req->set_part(part_->partitionId());
@@ -377,5 +378,5 @@ folly::Future<cpp2::AppendLogResponse> Host::sendAppendLogRequest(
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

@@ -10,8 +10,7 @@
 #include "dataman/RowReader.h"
 #include "dataman/SchemaWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 TEST(RowWriter, withoutSchema) {
     RowWriter writer(nullptr, 0x0000FFFF);
@@ -268,8 +267,7 @@ TEST(RowWriter, skip) {
     EXPECT_DOUBLE_EQ(0.0, dVal);
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {

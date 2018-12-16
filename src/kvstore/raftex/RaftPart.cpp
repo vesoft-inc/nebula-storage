@@ -9,7 +9,7 @@
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/gen/Base.h>
-#include "interface/gen-cpp2/RaftexServiceAsyncClient.h"
+#include "gen-cpp2/RaftexServiceAsyncClient.h"
 #include "base/CollectNSucceeded.h"
 #include "thrift/ThriftClientManager.h"
 #include "network/NetworkUtils.h"
@@ -29,12 +29,12 @@ DEFINE_uint32(num_worker_threads, 4,
 DEFINE_uint32(max_batch_size, 256, "The max number of logs in a batch");
 
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
-using namespace vesoft::network;
-using namespace vesoft::thrift;
-using namespace vesoft::thread;
+using namespace nebula::network;
+using namespace nebula::thrift;
+using namespace nebula::thread;
 
 class AppendLogsIterator final : public LogIterator {
 public:
@@ -202,6 +202,7 @@ void RaftPart::stop() {
 
 typename RaftPart::AppendLogResult RaftPart::canAppendLogs(
         std::lock_guard<std::mutex>& lck) {
+    UNUSED(lck);
     if (status_ == Status::STARTING) {
         LOG(ERROR) << idStr_ << "The partition is still starting";
         return AppendLogResult::E_NOT_READY;
@@ -973,7 +974,7 @@ cpp2::ErrorCode RaftPart::verifyLeader(
         const cpp2::AppendLogRequest& req,
         std::lock_guard<std::mutex>& lck) {
     VLOG(2) << idStr_ << "The current role is " << roleStr(role_);
-
+    UNUSED(lck);
     switch (role_) {
         case Role::FOLLOWER: {
             if (req.get_current_term() == term_ &&
@@ -1123,5 +1124,5 @@ folly::Future<RaftPart::AppendLogResult> RaftPart::sendHeartbeat() {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

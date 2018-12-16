@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/ResultSchemaProvider.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 using namespace folly::hash;
 using namespace storage;
@@ -69,6 +68,7 @@ int32_t ResultSchemaProvider::getNumFields(int32_t /*ver*/) const noexcept {
 
 int32_t ResultSchemaProvider::getFieldIndex(const folly::StringPiece name,
                                             int32_t ver) const {
+    UNUSED(ver);
     uint64_t hash = SpookyHashV2::Hash64(name.begin(), name.size(), 0);
     auto iter = nameIndex_.find(hash);
     if (iter == nameIndex_.end()) {
@@ -80,6 +80,7 @@ int32_t ResultSchemaProvider::getFieldIndex(const folly::StringPiece name,
 
 const char* ResultSchemaProvider::getFieldName(int32_t index,
                                                int32_t ver) const {
+    UNUSED(ver);
     if (index < 0 || index >= static_cast<int32_t>(columns_.size())) {
         return nullptr;
     }
@@ -89,6 +90,7 @@ const char* ResultSchemaProvider::getFieldName(int32_t index,
 
 const cpp2::ValueType* ResultSchemaProvider::getFieldType(int32_t index,
                                                           int32_t ver) const {
+    UNUSED(ver);
     if (index < 0 || index >= static_cast<int32_t>(columns_.size())) {
         return nullptr;
     }
@@ -110,6 +112,7 @@ const cpp2::ValueType* ResultSchemaProvider::getFieldType(
 
 std::unique_ptr<ResultSchemaProvider::Field>
 ResultSchemaProvider::field(int32_t index, int32_t ver) const {
+    UNUSED(ver);
     if (index < 0 || index >= static_cast<int32_t>(columns_.size())) {
         return std::unique_ptr<Field>();
     }
@@ -126,6 +129,5 @@ ResultSchemaProvider::field(const folly::StringPiece name, int32_t ver) const {
     return std::make_unique<ResultSchemaField>(&(columns_[index]));
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

@@ -10,10 +10,10 @@
 #include "raftex/BufferFlusher.h"
 #include "fs/TempDir.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
-using namespace vesoft::fs;
+using namespace nebula::fs;
 
 // Make a message which length > 1KB
 static const char* kLongMsg =
@@ -193,7 +193,7 @@ TEST(FileBasedWal, Rollback) {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
     folly::init(&argc, &argv, true);
     google::SetStderrLogging(google::INFO);
 
-    using namespace vesoft::raftex;
+    using namespace nebula::raftex;
     flusher.reset(new BufferFlusher());
 
     return RUN_ALL_TESTS();

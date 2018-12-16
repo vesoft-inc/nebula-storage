@@ -16,7 +16,7 @@
 #include "raftex/test/RaftexTestBase.h"
 #include "raftex/test/TestShard.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 TEST(LeaderElection, ElectionAfterBoot) {
@@ -104,7 +104,7 @@ TEST(LeaderElection, LeaderCrash) {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {
@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
     folly::init(&argc, &argv, true);
     google::SetStderrLogging(google::INFO);
 
-    using namespace vesoft::raftex;
+    using namespace nebula::raftex;
     flusher = std::make_unique<BufferFlusher>();
 
     return RUN_ALL_TESTS();

@@ -11,7 +11,7 @@
 #include "storage/include/ResultCode.h"
 #include "storage/include/Iterator.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 
@@ -60,6 +60,6 @@ protected:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_INCLUDE_KVSTORE_H_
 

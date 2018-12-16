@@ -10,10 +10,10 @@
 #include "base/Base.h"
 #include <folly/RWSpinLock.h>
 #include <thrift/lib/cpp2/server/ThriftServer.h>
-#include "interface/gen-cpp2/RaftexService.h"
+#include "gen-cpp2/RaftexService.h"
 #include "thread/GenericThreadPool.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class RaftPart;
@@ -69,7 +69,7 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_RAFTEXSERVICE_H_
 

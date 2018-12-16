@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 
-namespace vesoft {
+namespace nebula {
 namespace meta {
 
 class HostManager final {
@@ -39,5 +39,5 @@ private:
 };
 
 }  // namespace meta
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // META_HOSTMANAGER_H_

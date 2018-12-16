@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/SchemaWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 using namespace storage;
 
@@ -46,6 +45,5 @@ SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
     return *this;
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

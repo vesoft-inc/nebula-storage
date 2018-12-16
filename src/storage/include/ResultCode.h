@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 using KV = std::pair<std::string, std::string>;
@@ -23,6 +23,6 @@ enum ResultCode {
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_RESULTCODE_H_
 

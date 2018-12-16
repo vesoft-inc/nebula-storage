@@ -9,8 +9,7 @@
 #include "dataman/ResultSchemaProvider.h"
 #include "dataman/RowReader.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /***********************************
  *
@@ -124,6 +123,5 @@ RowSetReader::Iterator RowSetReader::end() const noexcept {
     return Iterator(schema_.get(), data_, data_.size());
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

@@ -8,8 +8,7 @@
 #include "dataman/RowUpdater.h"
 #include "dataman/RowWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 using namespace folly::hash;
 
@@ -272,6 +271,5 @@ ResultType RowUpdater::getVid(const folly::StringPiece name,
 
 #undef CHECK_UPDATED_FIELDS
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

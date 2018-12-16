@@ -10,7 +10,7 @@
 #include "base/Base.h"
 #include "raftex/LogIterator.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 /**
@@ -47,6 +47,6 @@ public:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // RAFTEX_WAL_H_
 

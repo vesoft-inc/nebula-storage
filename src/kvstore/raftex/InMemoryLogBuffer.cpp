@@ -7,7 +7,7 @@
 #include "base/Base.h"
 #include "raftex/InMemoryLogBuffer.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 void InMemoryLogBuffer::push(TermID term,
@@ -117,5 +117,5 @@ std::pair<LogID, TermID> InMemoryLogBuffer::accessAllLogs(
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

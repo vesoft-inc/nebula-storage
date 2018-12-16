@@ -11,7 +11,7 @@
 #include "raftex/LogIterator.h"
 #include "raftex/InMemoryLogBuffer.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class FileBasedWal;
@@ -74,6 +74,6 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 #endif  // RAFTEX_FILEBASEDWALITERATOR_H_

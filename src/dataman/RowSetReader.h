@@ -8,11 +8,10 @@
 #define DATAMAN_ROWSETREADER_H_
 
 #include "base/Base.h"
-#include "interface/gen-cpp2/storage_types.h"
+#include "gen-cpp2/storage_types.h"
 #include "dataman/SchemaProviderIf.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 class RowReader;
 
@@ -81,7 +80,6 @@ private:
     folly::StringPiece data_;
 };
 
-}  // namepsace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_ROWSETREADER_H_
 

@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 #include <folly/futures/SharedPromise.h>
-#include "interface/gen-cpp2/raftex_types.h"
+#include "gen-cpp2/raftex_types.h"
 #include "time/Duration.h"
 #include "thread/GenericThreadPool.h"
 #include "raftex/LogIterator.h"
@@ -19,7 +19,7 @@ class IOThreadPoolExecutor;
 class EventBase;
 }  // namespace folly;
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 class FileBasedWal;
@@ -312,5 +312,5 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // RAFTEX_RAFTPART_H_

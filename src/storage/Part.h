@@ -11,7 +11,7 @@
 #include "storage/StorageEngine.h"
 #include "storage/include/KVStore.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 class Part {
@@ -55,6 +55,6 @@ public:
 
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_PART_H_
 

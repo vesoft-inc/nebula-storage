@@ -7,7 +7,7 @@
 #include "base/Base.h"
 #include "raftex/LogStrListIterator.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 LogStrListIterator::LogStrListIterator(
@@ -56,5 +56,5 @@ folly::StringPiece LogStrListIterator::logMsg() const {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

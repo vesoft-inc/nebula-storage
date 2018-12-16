@@ -9,8 +9,8 @@
 #include "dataman/SchemaWriter.h"
 #include "dataman/RowWriter.h"
 
-using namespace vesoft::vgraph;
-using namespace vesoft::storage;
+using namespace nebula;
+using namespace nebula::storage;
 
 SchemaWriter schemaAllInts;
 SchemaWriter schemaAllBools;

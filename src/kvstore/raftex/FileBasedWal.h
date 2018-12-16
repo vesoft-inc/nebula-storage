@@ -13,7 +13,7 @@
 #include "raftex/InMemoryLogBuffer.h"
 #include "raftex/WalFileInfo.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 struct FileBasedWalPolicy {
@@ -198,6 +198,6 @@ private:
 };
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // RAFTEX_FILEBASEDWAL_H_
 

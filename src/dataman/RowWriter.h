@@ -11,8 +11,7 @@
 #include "base/Cord.h"
 #include "dataman/SchemaWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 /**
  * It's a write-only data streamer, used to encode one row of data
@@ -125,8 +124,7 @@ private:
     int32_t calcOccupiedBytes(uint64_t v) const noexcept;
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 #define RW_GET_COLUMN_TYPE(STYPE) \

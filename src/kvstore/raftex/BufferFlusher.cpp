@@ -8,7 +8,7 @@
 #include "raftex/BufferFlusher.h"
 #include "raftex/FileBasedWal.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 BufferFlusher::BufferFlusher()
@@ -80,5 +80,5 @@ void BufferFlusher::flushLoop() {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 
-namespace vesoft {
+namespace nebula {
 namespace meta {
 
 class ShardManager final {
@@ -61,5 +61,5 @@ private:
 };
 
 }  // namespace meta
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // META_SHARDMANAGER_H_

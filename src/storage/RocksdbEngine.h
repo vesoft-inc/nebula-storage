@@ -12,7 +12,7 @@
 #include "base/Base.h"
 #include "storage/StorageEngine.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 class RocksdbRangeIter : public StorageIter {
@@ -111,6 +111,6 @@ private:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_ROCKSDBENGINE_H_
 

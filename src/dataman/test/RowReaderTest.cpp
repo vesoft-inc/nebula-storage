@@ -9,8 +9,7 @@
 #include "dataman/RowReader.h"
 #include "dataman/SchemaWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 TEST(RowReader, headerInfo) {
     // Sinplest row, nothing in it
@@ -269,8 +268,7 @@ TEST(RowReader, iterator) {
     EXPECT_EQ(it, reader.end());
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {

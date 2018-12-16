@@ -10,7 +10,7 @@
 #include <gtest/gtest_prod.h>
 #include "base/Base.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 using MachineID = uint32_t;
@@ -68,6 +68,6 @@ private:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_PARTMANAGER_H_
 

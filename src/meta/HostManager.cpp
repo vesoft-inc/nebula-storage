@@ -8,7 +8,7 @@
 #include "meta/HostManager.h"
 #include "meta/ShardManager.h"
 
-namespace vesoft {
+namespace nebula {
 namespace meta {
 
 // static
@@ -74,4 +74,4 @@ HostManager::clusterIdsToHosts(GraphSpaceID space,
 }
 
 }  // namespace meta
-}  // namespace vesoft
+}  // namespace nebula

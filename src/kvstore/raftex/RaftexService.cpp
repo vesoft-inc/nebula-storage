@@ -9,7 +9,7 @@
 #include <folly/ScopeGuard.h>
 #include "raftex/RaftPart.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 using namespace folly;
@@ -166,5 +166,5 @@ void RaftexService::appendLog(
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

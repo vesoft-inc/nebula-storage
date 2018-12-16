@@ -8,10 +8,9 @@
 #define DATAMAN_SCHEMAPROVIDERIF_H_
 
 #include "base/Base.h"
-#include "interface/gen-cpp2/storage_types.h"
+#include "gen-cpp2/storage_types.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 class SchemaProviderIf {
 public:
@@ -75,6 +74,5 @@ public:
     Iterator end(int32_t ver) const;
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_SCHEMAPROVIDERIF_H_

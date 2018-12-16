@@ -10,7 +10,7 @@
 #include "fs/TempDir.h"
 #include "storage/Part.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 TEST(PartTest, SimpleTest) {
@@ -51,7 +51,7 @@ TEST(PartTest, RocksdbTest) {
 }
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);

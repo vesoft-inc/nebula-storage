@@ -8,12 +8,11 @@
 #define DATAMAN_ROWSETWRITER_H_
 
 #include "base/Base.h"
-#include "interface/gen-cpp2/vgraph_types.h"
+#include "gen-cpp2/graph_types.h"
 #include "dataman/SchemaProviderIf.h"
 #include "dataman/RowWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 class RowSetWriter {
 public:
@@ -48,7 +47,6 @@ private:
     void writeRowLength(int64_t len);
 };
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // DATAMAN_ROWSETWRITER_H_
 

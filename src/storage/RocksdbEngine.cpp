@@ -10,15 +10,15 @@
 
 DEFINE_uint32(batch_reserved_bytes, 4 * 1024, "default reserved bytes for one batch operation");
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 RocksdbEngine::RocksdbEngine(GraphSpaceID spaceId, const std::string& dataPath)
     : StorageEngine(spaceId)
     , dataPath_(dataPath) {
     LOG(INFO) << "open rocksdb on " << dataPath;
-    if (vesoft::fs::FileUtils::fileType(dataPath.c_str()) == vesoft::fs::FileType::NOTEXIST) {
-        vesoft::fs::FileUtils::makeDir(dataPath);
+    if (nebula::fs::FileUtils::fileType(dataPath.c_str()) == nebula::fs::FileType::NOTEXIST) {
+        nebula::fs::FileUtils::makeDir(dataPath);
     }
     rocksdb::Options options;
     options.create_if_missing = true;
@@ -90,5 +90,5 @@ ResultCode RocksdbEngine::prefix(const std::string& prefix,
 }
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 

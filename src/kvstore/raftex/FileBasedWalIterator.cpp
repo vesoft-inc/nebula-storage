@@ -9,7 +9,7 @@
 #include "raftex/FileBasedWal.h"
 #include "raftex/WalFileInfo.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 FileBasedWalIterator::FileBasedWalIterator(
@@ -308,6 +308,6 @@ LogID FileBasedWalIterator::getFirstIdInNextFile() const {
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 
 

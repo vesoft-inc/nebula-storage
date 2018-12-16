@@ -14,7 +14,7 @@
 
 DECLARE_string(part_man_type);
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 TEST(KVStoreTest, SimpleTest) {
@@ -53,7 +53,9 @@ TEST(KVStoreTest, SimpleTest) {
     EXPECT_EQ(folly::stringPrintf("%s/disk2", rootPath.path()), kv->kvs_[2]->engines_[1].second);
 
     auto shouldNotReach =  [](ResultCode code, HostAddr addr){
-        LOG(FATAL) << "Should not reach here";        
+        UNUSED(code);
+        UNUSED(addr);
+        LOG(FATAL) << "Should not reach here";
     };
 
     EXPECT_EQ(ResultCode::ERR_SPACE_NOT_FOUND,
@@ -70,6 +72,7 @@ TEST(KVStoreTest, SimpleTest) {
     }
     EXPECT_EQ(ResultCode::SUCCESSED,
               kv->asyncMultiPut(1, 1, std::move(data), [](ResultCode code, HostAddr addr){
+                  UNUSED(addr);
                   EXPECT_EQ(ResultCode::SUCCESSED, code);
               }));
     int32_t start = 0, end = 100;
@@ -90,7 +93,7 @@ TEST(KVStoreTest, SimpleTest) {
 }
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 
 
 int main(int argc, char** argv) {

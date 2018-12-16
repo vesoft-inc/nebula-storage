@@ -26,7 +26,7 @@ DEFINE_string(part_type, "simple", "simple, consensus...");
     if (UNLIKELY(partIt == parts.end())) { \
         return ResultCode::ERR_PART_NOT_FOUND; \
     }
-/** 
+/**
  * Check spaceId, partId and return related storage engine.
  * */
 #define CHECK_AND_RETURN_ENGINE(spaceId, partId) \
@@ -37,7 +37,7 @@ DEFINE_string(part_type, "simple", "simple, consensus...");
         CHECK_NOTNULL(engine); \
     } while (false)
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 // static
@@ -53,7 +53,7 @@ std::vector<Engine> KVStoreImpl::initEngines(GraphSpaceID spaceId) {
         if (FLAGS_engine_type == "rocksdb") {
             engines.emplace_back(
                 new RocksdbEngine(spaceId,
-                                  folly::stringPrintf("%s/vgraph/%d/data",
+                                  folly::stringPrintf("%s/nebula/%d/data",
                                                       path.c_str(), spaceId)),
                 path);
         } else {
@@ -86,7 +86,7 @@ void KVStoreImpl::init() {
                 parts.emplace(partId, new SimplePart(
                                             spaceId,
                                             partId,
-                                            folly::stringPrintf("%s/vgraph/%d/wals/%d",
+                                            folly::stringPrintf("%s/nebula/%d/wals/%d",
                                                                 path.c_str(), spaceId, partId),
                                             enginePtr.get()));
             } else {
@@ -128,5 +128,5 @@ ResultCode KVStoreImpl::asyncMultiPut(GraphSpaceID spaceId, PartitionID partId,
 }
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 

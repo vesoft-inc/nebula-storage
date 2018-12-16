@@ -11,7 +11,7 @@
 #include "storage/include/Iterator.h"
 #include "storage/include/ResultCode.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 class StorageEngine {
@@ -46,6 +46,6 @@ protected:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_STORAGEENGINE_H_
 

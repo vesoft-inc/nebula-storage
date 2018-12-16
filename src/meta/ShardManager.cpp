@@ -10,7 +10,7 @@
 #define ID_HASH(id, numShards) \
     ((static_cast<uint64_t>(id)) % numShards)
 
-namespace vesoft {
+namespace nebula {
 namespace meta {
 
 // static
@@ -107,4 +107,4 @@ std::vector<GraphSpaceID> ShardManager::graphSpacesOnHost(HostAddr host) const {
 }
 
 }  // namespace meta
-}  // namespace vesoft
+}  // namespace nebula

@@ -14,7 +14,7 @@
 #include "storage/Part.h"
 #include "storage/StorageEngine.h"
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 // <engine pointer, path>
@@ -81,6 +81,6 @@ private:
 };
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 #endif  // STORAGE_KVSTOREIMPL_H_
 

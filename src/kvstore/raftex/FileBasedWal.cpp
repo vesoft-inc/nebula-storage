@@ -10,11 +10,11 @@
 #include "raftex/BufferFlusher.h"
 #include "fs/FileUtils.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
-using namespace vesoft::fs;
-using namespace vesoft::thread;
+using namespace nebula::fs;
+using namespace nebula::thread;
 
 /**********************************************
  *
@@ -662,5 +662,5 @@ size_t FileBasedWal::accessAllBuffers(
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

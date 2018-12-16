@@ -10,7 +10,7 @@
 #include "raftex/RaftexService.h"
 #include "raftex/test/TestShard.h"
 
-namespace vesoft {
+namespace nebula {
 namespace raftex {
 
 using namespace network;
@@ -202,5 +202,5 @@ void checkLeadership(std::vector<std::shared_ptr<test::TestShard>>& copies,
 }
 
 }  // namespace raftex
-}  // namespace vesoft
+}  // namespace nebula
 

@@ -7,8 +7,7 @@
 #include "base/Base.h"
 #include "dataman/RowSetWriter.h"
 
-namespace vesoft {
-namespace vgraph {
+namespace nebula {
 
 RowSetWriter::RowSetWriter(const SchemaProviderIf* schema,
                            int64_t reservedSize)
@@ -36,6 +35,5 @@ void RowSetWriter::addRow(const std::string& data) {
     data_.append(data);
 }
 
-}  // namespace vgraph
-}  // namespace vesoft
+}  // namespace nebula
 

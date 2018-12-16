@@ -7,7 +7,7 @@
 
 DEFINE_string(part_man_type, "memory", "memory, meta");
 
-namespace vesoft {
+namespace nebula {
 namespace storage {
 
 //static
@@ -25,6 +25,7 @@ PartManager* PartManager::instance() {
 }
 
 PartsMap MemPartManager::parts(HostAddr hostAddr) {
+    UNUSED(hostAddr);
     return partsMap_;
 }
 
@@ -38,5 +39,5 @@ PartMeta MemPartManager::partMeta(GraphSpaceID spaceId, PartitionID partId) {
 
 
 }  // namespace storage
-}  // namespace vesoft
+}  // namespace nebula
 
