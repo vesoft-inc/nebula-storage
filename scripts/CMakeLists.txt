@@ -1,6 +1,5 @@
 install(
     FILES
-        nebula-graphd.service
         nebula-storaged.service
         nebula-metad.service
         nebula.service
@@ -18,7 +17,6 @@ install(
         utils.sh
         meta.hosts
         storage.hosts
-        graph.hosts
     PERMISSIONS
         OWNER_WRITE OWNER_READ
         GROUP_READ
