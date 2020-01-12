@@ -2,7 +2,6 @@
 # Thus, they are installed as read-only, even for the owner.
 install(
     FILES
-        nebula-graphd.conf.default
         nebula-storaged.conf.default
         nebula-metad.conf.default
     PERMISSIONS

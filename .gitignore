@@ -28,6 +28,7 @@ Testing/
 target/
 cluster.id
 pids/
+modules/
 
 # IDE
 .idea/
