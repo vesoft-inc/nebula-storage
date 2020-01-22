@@ -2,7 +2,6 @@ nebula_add_library(
     schema_obj OBJECT
     SchemaManager.cpp
     ServerBasedSchemaManager.cpp
-    NebulaSchemaProvider.cpp
 )
 
 nebula_add_library(
@@ -64,16 +63,6 @@ nebula_add_library(
     MetaHttpIngestHandler.cpp
     MetaHttpDownloadHandler.cpp
     MetaHttpStatusHandler.cpp
-)
-
-nebula_add_library(
-    meta_client OBJECT
-    client/MetaClient.cpp
-)
-
-nebula_add_library(
-    gflags_man_obj OBJECT
-    GflagsManager.cpp
 )
 
 nebula_add_library(

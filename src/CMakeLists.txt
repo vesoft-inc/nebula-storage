@@ -1,4 +1,3 @@
-nebula_add_subdirectory(client)
 nebula_add_subdirectory(daemons)
 nebula_add_subdirectory(dataman)
 nebula_add_subdirectory(kvstore)

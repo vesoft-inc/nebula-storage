@@ -7,21 +7,11 @@
 #include "base/Base.h"
 #include <gtest/gtest.h>
 #include "fs/TempDir.h"
-#include "meta/ClusterIdMan.h"
+#include "meta/KVBasedClusterIdMan.h"
 #include "meta/test/TestUtils.h"
 
 namespace nebula {
 namespace meta {
-
-TEST(ClusterIDManTest, FileTest) {
-    fs::TempDir rootPath("/tmp/ClusterIDManTest.XXXXXX");
-    auto clusterId = ClusterIdMan::create("127.0.0.1:44500");
-    CHECK_NE(0, clusterId);
-    auto file = folly::stringPrintf("%s/cluster.id", rootPath.path());
-    CHECK(ClusterIdMan::persistInFile(clusterId, file));
-    auto ret = ClusterIdMan::getClusterIdFromFile(file);
-    CHECK_EQ(clusterId, ret);
-}
 
 TEST(ClusterIDManTest, KVTest) {
     fs::TempDir rootPath("/tmp/ClusterIDManTest.XXXXXX");

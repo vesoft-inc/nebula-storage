@@ -447,9 +447,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        cluster_id_man_test
+        kv_based_cluster_id_man_test
     SOURCES
-        ClusterIdManTest.cpp
+        KVBasedClusterIdManTest.cpp
     OBJECTS
         $<TARGET_OBJECTS:kvstore_obj>
         $<TARGET_OBJECTS:meta_client>
