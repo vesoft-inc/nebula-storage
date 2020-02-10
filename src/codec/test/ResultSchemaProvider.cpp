@@ -5,14 +5,14 @@
  */
 
 #include "base/Base.h"
-#include "dataman/ResultSchemaProvider.h"
+#include "codec/test/ResultSchemaProvider.h"
 
 namespace nebula {
 
 using folly::hash::SpookyHashV2;
-using cpp2::ColumnDef;
-using cpp2::ValueType;
-using cpp2::Schema;
+using meta::cpp2::ColumnDef;
+using meta::cpp2::PropertyType;
+using meta::cpp2::Schema;
 
 /***********************************
  *
@@ -23,13 +23,13 @@ ResultSchemaProvider::ResultSchemaField::ResultSchemaField(const ColumnDef* col)
     : column_(col) {}
 
 
-const char* ResultSchemaProvider::ResultSchemaField::getName() const {
+const char* ResultSchemaProvider::ResultSchemaField::name() const {
     DCHECK(!!column_);
     return column_->get_name().c_str();
 }
 
 
-const ValueType& ResultSchemaProvider::ResultSchemaField::getType() const {
+const PropertyType ResultSchemaProvider::ResultSchemaField::type() const {
     DCHECK(!!column_);
     return column_->get_type();
 }
@@ -45,7 +45,7 @@ bool ResultSchemaProvider::ResultSchemaField::hasDefault() const {
 }
 
 
-std::string ResultSchemaProvider::ResultSchemaField::getDefaultValue() const {
+const Value& ResultSchemaProvider::ResultSchemaField::defaultValue() const {
     LOG(FATAL) << "Not Supported";
 }
 
@@ -59,7 +59,8 @@ ResultSchemaProvider::ResultSchemaProvider(Schema schema)
         : columns_(std::move(schema.get_columns())) {
     for (int64_t i = 0; i < static_cast<int64_t>(columns_.size()); i++) {
         const std::string& name = columns_[i].get_name();
-        nameIndex_.emplace(std::make_pair(SpookyHashV2::Hash64(name.data(), name.size(), 0), i));
+        nameIndex_.emplace(
+            std::make_pair(SpookyHashV2::Hash64(name.data(), name.size(), 0), i));
     }
 }
 
@@ -87,26 +88,26 @@ const char* ResultSchemaProvider::getFieldName(int64_t index) const {
 }
 
 
-const ValueType& ResultSchemaProvider::getFieldType(int64_t index) const {
+const PropertyType ResultSchemaProvider::getFieldType(int64_t index) const {
     if (index < 0 || index >= static_cast<int64_t>(columns_.size())) {
-        return CommonConstants::kInvalidValueType();
+        return PropertyType::UNKNOWN;
     }
 
     return columns_[index].get_type();
 }
 
 
-const ValueType& ResultSchemaProvider::getFieldType(const folly::StringPiece name) const {
+const PropertyType ResultSchemaProvider::getFieldType(const folly::StringPiece name) const {
     auto index = getFieldIndex(name);
     if (index < 0) {
-        return CommonConstants::kInvalidValueType();
+        return PropertyType::UNKNOWN;
     }
     return columns_[index].get_type();
 }
 
 
-std::shared_ptr<const meta::SchemaProviderIf::Field> ResultSchemaProvider::field(
-        int64_t index) const {
+std::shared_ptr<const meta::SchemaProviderIf::Field>
+ResultSchemaProvider::field(int64_t index) const {
     if (index < 0 || index >= static_cast<int64_t>(columns_.size())) {
         return std::shared_ptr<ResultSchemaField>();
     }
@@ -114,8 +115,8 @@ std::shared_ptr<const meta::SchemaProviderIf::Field> ResultSchemaProvider::field
 }
 
 
-std::shared_ptr<const meta::SchemaProviderIf::Field> ResultSchemaProvider::field(
-        const folly::StringPiece name) const {
+std::shared_ptr<const meta::SchemaProviderIf::Field>
+ResultSchemaProvider::field(const folly::StringPiece name) const {
     auto index = getFieldIndex(name);
     if (index < 0) {
         return std::shared_ptr<ResultSchemaField>();

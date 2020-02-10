@@ -134,10 +134,12 @@ endif()
 if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
     SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc-private/nebula-common.git")
 endif()
+message(STATUS "NEBULA_COMMON_REPO_URL: " ${NEBULA_COMMON_REPO_URL})
 
 if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
     SET(NEBULA_COMMON_REPO_TAG "HEAD")
 endif()
+message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
 SET(NEBULA_COMMON_PACKAGE "nebula-common")
 
@@ -154,6 +156,7 @@ add_dependent_project(
 find_package(${NEBULA_COMMON_PACKAGE} REQUIRED)
 message(STATUS ">>>>> The nebula-common repo has been configured successfully <<<<<")
 message(STATUS "")
+include_directories(AFTER modules/common/src)
 
 # third-party
 if(NOT ${NEBULA_THIRDPARTY_ROOT} STREQUAL "")
@@ -189,7 +192,30 @@ message(STATUS "CMAKE_INCLUDE_PATH: " ${INCLUDE_PATH_STR})
 message(STATUS "CMAKE_LIBRARY_PATH: " ${LIBRARY_PATH_STR})
 message(STATUS "CMAKE_PROGRAM_PATH: " ${PROGRAM_PATH_STR})
 
+find_package(Bzip2 REQUIRED)
+find_package(DoubleConversion REQUIRED)
+find_package(Fbthrift REQUIRED)
+find_package(Folly REQUIRED)
+find_package(Gflags REQUIRED)
+find_package(Glog REQUIRED)
+find_package(Googletest REQUIRED)
+find_package(Jemalloc REQUIRED)
+find_package(Libevent REQUIRED)
+find_package(Mstch REQUIRED)
+find_package(Proxygen REQUIRED)
+find_package(Snappy REQUIRED)
+find_package(Wangle REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(Zstd REQUIRED)
+find_package(Boost REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Krb5 REQUIRED gssapi)
+find_package(GPERF 2.8 REQUIRED)
+find_package(Libunwind REQUIRED)
+find_package(LibLZMA MODULE)
+
 find_package(Rocksdb REQUIRED)
+find_package(nebula-common REQUIRED)
 
 add_compile_options(-Wall)
 add_compile_options(-Werror)
@@ -316,8 +342,6 @@ macro(nebula_add_library name type)
 endmacro()
 
 include_directories(AFTER ${NEBULA_HOME}/src)
-include_directories(AFTER modules/common/src)
-include_directories(AFTER modules/common/src/interface)
 include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src/kvstore/plugins)
 include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src/kvstore/plugins/hbase)
@@ -385,11 +409,11 @@ macro(nebula_link_libraries target)
         double-conversion
         resolv
         s2
+        ${COMPRESSION_LIBRARIES}
+        ${JEMALLOC_LIB}
         ${OPENSSL_SSL_LIBRARY}
         ${OPENSSL_CRYPTO_LIBRARY}
         ${KRB5_LIBRARIES}
-        ${COMPRESSION_LIBRARIES}
-        ${JEMALLOC_LIB}
         ${LIBUNWIND_LIBRARIES}
         dl
         ${GETTIME_LIB}
@@ -404,7 +428,7 @@ function(nebula_add_subdirectory dir_name)
     add_subdirectory(${dir_name})
 endfunction()
 
-#add_subdirectory(src)
+add_subdirectory(src)
 add_subdirectory(conf)
 add_subdirectory(scripts)
 

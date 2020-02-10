@@ -4,29 +4,12 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef DATAMAN_DATACOMMON_H_
-#define DATAMAN_DATACOMMON_H_
+#ifndef CODEC_COMMON_H_
+#define CODEC_COMMON_H_
 
 #include "base/Base.h"
 
 namespace nebula {
-
-enum class ResultType {
-    SUCCEEDED = 0,
-    E_NAME_NOT_FOUND = -1,
-    E_INDEX_OUT_OF_RANGE = -2,
-    E_INCOMPATIBLE_TYPE = -3,
-    E_VALUE_OUT_OF_RANGE = -4,
-    E_DATA_INVALID = -5,
-};
-
-
-using FieldValue = boost::variant<bool, int64_t, float, double, std::string>;
-#define VALUE_TYPE_BOOL 0
-#define VALUE_TYPE_INT 1
-#define VALUE_TYPE_FLOAT 2
-#define VALUE_TYPE_DOUBLE 3
-#define VALUE_TYPE_STRING 4
 
 template<typename IntType>
 typename std::enable_if<
@@ -48,5 +31,5 @@ inline bool strToBool(folly::StringPiece str) {
 }
 
 }  // namespace nebula
-#endif  // DATAMAN_DATACOMMON_H_
+#endif  // CODEC_COMMON_H_
 

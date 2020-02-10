@@ -6,27 +6,26 @@
 
 #include "base/Base.h"
 #include <gtest/gtest.h>
-#include "dataman/RowReader.h"
-#include "dataman/SchemaWriter.h"
+#include "datatypes/Value.h"
+#include "codec/RowReaderV1.h"
+#include "codec/test/SchemaWriter.h"
 
 namespace nebula {
 
-TEST(RowReader, headerInfo) {
+TEST(RowReaderV1, headerInfo) {
     // Simplest row, nothing in it
     char data1[] = {0x00};
     auto schema1 = std::make_shared<SchemaWriter>();
-    auto reader1 = RowReader::getRowReader(
-        folly::StringPiece(data1, sizeof(data1)),
-        schema1);
+    auto reader1 = std::unique_ptr<RowReaderV1>(
+        new RowReaderV1(folly::StringPiece(data1, sizeof(data1)), schema1));
     EXPECT_EQ(0, reader1->schemaVer());
     EXPECT_EQ(sizeof(data1), reader1->headerLen_);
 
     // With schema version
     char data2[] = {0x40, 0x01, static_cast<char>(0xFF)};
     auto schema2 = std::make_shared<SchemaWriter>(0x00FF01);
-    auto reader2 = RowReader::getRowReader(
-        folly::StringPiece(data2, sizeof(data2)),
-        schema2);
+    auto reader2 = std::unique_ptr<RowReaderV1>(
+        new RowReaderV1(folly::StringPiece(data2, sizeof(data2)), schema2));
     EXPECT_EQ(0x0000FF01, reader2->schemaVer());
     EXPECT_EQ(sizeof(data2), reader2->headerLen_);
 
@@ -34,16 +33,15 @@ TEST(RowReader, headerInfo) {
     auto schema3 = std::make_shared<SchemaWriter>(0x00FFFF01);
     for (int i = 0; i < 33; i++) {
         schema3->appendCol(folly::stringPrintf("Column%02d", i),
-                           cpp2::SupportedType::INT);
+                           meta::cpp2::PropertyType::INT64);
     }
 
     // With schema version and offsets
     char data3[] = {0x60, 0x01, static_cast<char>(0xFF),
                     static_cast<char>(0xFF), 0x40,
                     static_cast<char>(0xF0)};
-    auto reader3 = RowReader::getRowReader(
-        folly::StringPiece(data3, sizeof(data3)),
-        schema3);
+    auto reader3 = std::unique_ptr<RowReaderV1>(
+        new RowReaderV1(folly::StringPiece(data3, sizeof(data3)), schema3));
     EXPECT_EQ(0x00FFFF01, reader3->schemaVer());
     EXPECT_EQ(sizeof(data3), reader3->headerLen_);
     ASSERT_EQ(3, reader3->blockOffsets_.size());
@@ -55,13 +53,12 @@ TEST(RowReader, headerInfo) {
     auto schema4 = std::make_shared<SchemaWriter>();
     for (int i = 0; i < 33; i++) {
         schema4->appendCol(folly::stringPrintf("Column%02d", i),
-                           cpp2::SupportedType::INT);
+                           meta::cpp2::PropertyType::INT64);
     }
 
     char data4[] = {0x01, static_cast<char>(0xFF), 0x40, 0x08, static_cast<char>(0xF0)};
-    auto reader4 = RowReader::getRowReader(
-        folly::StringPiece(data4, sizeof(data4)),
-        schema4);
+    auto reader4 = std::unique_ptr<RowReaderV1>(
+        new RowReaderV1(folly::StringPiece(data4, sizeof(data4)), schema4));
     EXPECT_EQ(0, reader4->schemaVer());
     EXPECT_EQ(sizeof(data4), reader4->headerLen_);
     ASSERT_EQ(3, reader4->blockOffsets_.size());
@@ -71,37 +68,37 @@ TEST(RowReader, headerInfo) {
 }
 
 
-TEST(RowReader, encodedData) {
+TEST(RowReaderV1, encodedData) {
     const char* colName1 = "int_col1";
     const std::string colName2("int_col2");
     std::string colName3("vid_col");
 
     auto schema = std::make_shared<SchemaWriter>();
     // Col 0: bool_col1 -- BOOL
-    schema->appendCol("bool_col1", cpp2::SupportedType::BOOL);
+    schema->appendCol("bool_col1", meta::cpp2::PropertyType::BOOL);
     // Col 1: str_col1 -- STRING
     schema->appendCol(folly::stringPrintf("str_col1"),
-                      cpp2::SupportedType::STRING);
+                      meta::cpp2::PropertyType::STRING);
     // Col 2: int_col1 -- INT
-    schema->appendCol(colName1, cpp2::SupportedType::INT);
+    schema->appendCol(colName1, meta::cpp2::PropertyType::INT64);
     // Col 3: int_col2 -- INT
-    schema->appendCol(colName2, cpp2::SupportedType::INT);
+    schema->appendCol(colName2, meta::cpp2::PropertyType::INT64);
     // Col 4: vid_col -- VID
     schema->appendCol(folly::StringPiece(colName3),
-                      cpp2::SupportedType::VID);
+                      meta::cpp2::PropertyType::VID);
     // Col 5: str_col2 -- STRING
-    schema->appendCol("str_col2", cpp2::SupportedType::STRING);
+    schema->appendCol("str_col2", meta::cpp2::PropertyType::STRING);
     // Col 6: bool_col2 -- BOOL
     schema->appendCol(std::string("bool_col2"),
-                      cpp2::SupportedType::BOOL);
+                      meta::cpp2::PropertyType::BOOL);
     // Col 7: float_col -- FLOAT
     schema->appendCol(std::string("float_col"),
-                      cpp2::SupportedType::FLOAT);
+                      meta::cpp2::PropertyType::FLOAT);
     // Col 8: double_col -- DOUBLE
     schema->appendCol(std::string("double_col"),
-                      cpp2::SupportedType::DOUBLE);
+                      meta::cpp2::PropertyType::DOUBLE);
     // Col 9: timestamp_col -- TIMESTAMP
-    schema->appendCol("timestamp_col", cpp2::SupportedType::TIMESTAMP);
+    schema->appendCol("timestamp_col", meta::cpp2::PropertyType::TIMESTAMP);
 
     std::string encoded;
     // Single byte header (Schema version is 0, no offset)
@@ -153,7 +150,7 @@ TEST(RowReader, encodedData) {
     /**************************
      * Now let's read it
      *************************/
-    auto reader = RowReader::getRowReader(encoded, schema);
+    auto reader = std::unique_ptr<RowReaderV1>(new RowReaderV1(encoded, schema));
 
     // Header info
     EXPECT_EQ(0, reader->schemaVer());
@@ -161,118 +158,101 @@ TEST(RowReader, encodedData) {
     EXPECT_EQ(0, reader->blockOffsets_[0].first);
     EXPECT_EQ(1, reader->headerLen_);
 
-    bool bVal;
-    int32_t i32Val;
-    int64_t i64Val;
-    uint64_t u64Val;
-    folly::StringPiece sVal;
-    float fVal;
-    double dVal;
+    Value val;
 
     // Col 0
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getBool(0, bVal));
-    EXPECT_TRUE(bVal);
-    bVal = false;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getBool("bool_col1", bVal));
-    EXPECT_TRUE(bVal);
+    val = reader->getValueByIndex(0);
+    EXPECT_EQ(Value::Type::BOOL, val.type());
+    EXPECT_TRUE(val.getBool());
+    val = reader->getValueByName("bool_col1");
+    EXPECT_EQ(Value::Type::BOOL, val.type());
+    EXPECT_TRUE(val.getBool());
 
     // Col 1
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getString(1, sVal));
-    EXPECT_EQ(str1, sVal.toString());
-    sVal.clear();
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getString("str_col1", sVal));
-    EXPECT_EQ(str1, sVal.toString());
+    val = reader->getValueByIndex(1);
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(str1, val.getStr());
+    val = reader->getValueByName("str_col1");
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(str1, val.getStr());
 
     // Col 2
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt(2, i32Val));
-    EXPECT_EQ(100, i32Val);
-    i32Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt("int_col1", i32Val));
-    EXPECT_EQ(100, i32Val);
+    val = reader->getValueByIndex(2);
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(100, val.getInt());
+    val = reader->getValueByName("int_col1");
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(100, val.getInt());
 
     // Col 3
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt(3, i32Val));
-    EXPECT_EQ(0xFFFFFFFF, i32Val);
-    i32Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt(3, i64Val));
-    EXPECT_EQ(0xFFFFFFFFFFFFFFFFL, i64Val);
-    i64Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt("int_col2", u64Val));
-    EXPECT_EQ(0xFFFFFFFFFFFFFFFFL, u64Val);
+    val = reader->getValueByIndex(3);
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(0xFFFFFFFFFFFFFFFFL, val.getInt());
+    val = reader->getValueByName("int_col2");
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(0xFFFFFFFFFFFFFFFFL, val.getInt());
 
     // Col 4
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getVid(4, i64Val));
-    EXPECT_EQ(0x8877665544332211L, i64Val);
-    i64Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getVid("vid_col", i64Val));
-    EXPECT_EQ(0x8877665544332211L, i64Val);
+    val = reader->getValueByIndex(4);
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(sizeof(int64_t), val.getStr().size());
+    int64_t vid = 0;
+    memcpy(reinterpret_cast<void*>(&vid), val.getStr().data(), sizeof(int64_t));
+    EXPECT_EQ(0x8877665544332211L, vid);
+    val = reader->getValueByName("vid_col");
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(sizeof(int64_t), val.getStr().size());
+    vid = 0;
+    memcpy(reinterpret_cast<void*>(&vid), val.getStr().data(), sizeof(int64_t));
+    EXPECT_EQ(0x8877665544332211L, vid);
 
     // Col 5
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getString(5, sVal));
-    EXPECT_EQ(str2, sVal.toString());
-    sVal.clear();
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getString("str_col2", sVal));
-    EXPECT_EQ(str2, sVal.toString());
+    val = reader->getValueByIndex(5);
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(str2, val.getStr());
+    val = reader->getValueByName("str_col2");
+    EXPECT_EQ(Value::Type::STRING, val.type());
+    EXPECT_EQ(str2, val.getStr());
 
     // Col 6
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getBool(6, bVal));
-    EXPECT_FALSE(bVal);
-    bVal = true;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getBool("bool_col2", bVal));
-    EXPECT_FALSE(bVal);
+    val = reader->getValueByIndex(6);
+    EXPECT_EQ(Value::Type::BOOL, val.type());
+    EXPECT_FALSE(val.getBool());
+    val = reader->getValueByName("bool_col2");
+    EXPECT_EQ(Value::Type::BOOL, val.type());
+    EXPECT_FALSE(val.getBool());
 
     // Col 7
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getFloat(7, fVal));
-    EXPECT_FLOAT_EQ(pi, fVal);
-    fVal = 0.0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getFloat("float_col", fVal));
-    EXPECT_FLOAT_EQ(pi, fVal);
+    val = reader->getValueByIndex(7);
+    EXPECT_EQ(Value::Type::FLOAT, val.type());
+    EXPECT_DOUBLE_EQ(pi, val.getFloat());
+    val = reader->getValueByName("float_col");
+    EXPECT_EQ(Value::Type::FLOAT, val.type());
+    EXPECT_DOUBLE_EQ(pi, val.getFloat());
 
     // Col 8
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getDouble(8, dVal));
-    EXPECT_DOUBLE_EQ(e, dVal);
-    dVal = 0.0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getDouble("double_col", dVal));
-    EXPECT_DOUBLE_EQ(e, dVal);
+    val = reader->getValueByIndex(8);
+    EXPECT_EQ(Value::Type::FLOAT, val.type());
+    EXPECT_DOUBLE_EQ(e, val.getFloat());
+    val = reader->getValueByName("double_col");
+    EXPECT_EQ(Value::Type::FLOAT, val.type());
+    EXPECT_DOUBLE_EQ(e, val.getFloat());
 
     // Col 9
-    i64Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt(9, i64Val));
-    EXPECT_EQ(1551331827, i64Val);
-    i64Val = 0;
-    EXPECT_EQ(ResultType::SUCCEEDED,
-              reader->getInt("timestamp_col", i64Val));
-    EXPECT_EQ(1551331827, i64Val);
+    val = reader->getValueByIndex(9);
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(1551331827, val.getInt());
+    val = reader->getValueByName("timestamp_col");
+    EXPECT_EQ(Value::Type::INT, val.type());
+    EXPECT_EQ(1551331827, val.getInt());
 
     // Col 10 -- non-existing column
-    EXPECT_EQ(ResultType::E_INDEX_OUT_OF_RANGE,
-              reader->getBool(10, bVal));
-    EXPECT_EQ(ResultType::E_NAME_NOT_FOUND,
-              reader->getBool("bool_col3", bVal));
+    val = reader->getValueByIndex(10);
+    EXPECT_EQ(Value::Type::NULLVALUE, val.type());
 }
 
 
-TEST(RowReader, iterator) {
+TEST(RowReaderV1, iterator) {
     std::string encoded;
     encoded.append(1, 0);
     encoded.append(1, 16);
@@ -283,23 +263,22 @@ TEST(RowReader, iterator) {
     auto schema = std::make_shared<SchemaWriter>();
     for (int i = 0; i < 64; i++) {
         schema->appendCol(folly::stringPrintf("Col%02d", i),
-                          cpp2::SupportedType::INT);
+                          meta::cpp2::PropertyType::INT64);
         encoded.append(1, i + 1);
     }
 
-    auto reader = RowReader::getRowReader(encoded, schema);
+    auto reader = std::unique_ptr<RowReaderV1>(new RowReaderV1(encoded, schema));
     auto it = reader->begin();
-    int32_t v1;
-    int32_t v2;
-    for (int i = 0; i < 64; i++) {
-        EXPECT_EQ(ResultType::SUCCEEDED, reader->getInt(i, v1));
-        EXPECT_EQ(ResultType::SUCCEEDED, it->getInt(v2));
-        EXPECT_EQ(v1, v2);
+    int32_t index = 0;
+    while (it != reader->end()) {
+        Value v = reader->getValueByIndex(index);
+        EXPECT_EQ(Value::Type::INT, v.type());
+        EXPECT_EQ(v, it->value());
         ++it;
+        ++index;
     }
 
-    EXPECT_FALSE((bool)it);
-    EXPECT_EQ(it, reader->end());
+    EXPECT_EQ(64, index);
 }
 
 }  // namespace nebula
