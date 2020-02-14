@@ -13,6 +13,9 @@
 #   NEBULA_OTHER_ROOT              -- Specify the root directory for user build
 #                                  -- Split with ":", exp: DIR:DIR
 #
+#   NEBULA_COMMON_REPO_URL         -- Git URL for the nebula-common repo
+#   NEBULA_COMMON_REPO_TAG         -- Tag/branch of the nebula-common repo
+#
 #   ENABLE_JEMALLOC                -- Link jemalloc into all executables
 #   ENABLE_NATIVE                  -- Build native client
 #   ENABLE_TESTING                 -- Build unit test
@@ -128,16 +131,24 @@ if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
     SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
 endif()
 
+if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
+    SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc-private/nebula-common.git")
+endif()
+
+if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
+    SET(NEBULA_COMMON_REPO_TAG "HEAD")
+endif()
+
 # Submodules
 include(ExternalProject)
 ExternalProject_Add(
     common
     PREFIX modules
     SOURCE_DIR modules/common
-    GIT_REPOSITORY git@github.com:vesoft-inc-private/nebula-common.git
+    GIT_REPOSITORY ${NEBULA_COMMON_REPO_URL}
     GIT_SHALLOW true
     GIT_PROGRESS true
-    GIT_TAG HEAD
+    GIT_TAG ${NEBULA_COMMON_REPO_TAG}
     CMAKE_ARGS
         -DNEBULA_THIRDPARTY_ROOT=${NEBULA_THIRDPARTY_ROOT}
         -DNEBULA_OTHER_ROOT=${NEBULA_OTHER_ROOT}
@@ -400,19 +411,20 @@ endfunction()
 add_subdirectory(conf)
 add_subdirectory(scripts)
 
-set(NEBULA_CLEAN_ALL_DEPS clean-hbase)
+#set(NEBULA_CLEAN_ALL_DEPS clean-hbase)
 
 add_custom_target(
     clean-build
     COMMAND ${CMAKE_MAKE_PROGRAM} clean
     COMMAND "find" "." "-name" "Testing" "|" "xargs" "rm" "-fr"
-    DEPENDS clean-interface clean-pch clean-hbase
+    DEPENDS ${NEBULA_CLEAN_ALL_DEPS}
 )
 
 add_custom_target(
     clean-all
     COMMAND ${CMAKE_MAKE_PROGRAM} clean
     COMMAND "find" "." "-name" "Testing" "|" "xargs" "rm" "-fr"
+    COMMAND "rm" "-fr" "modules/*"
     DEPENDS ${NEBULA_CLEAN_ALL_DEPS}
 )
 
@@ -422,6 +434,8 @@ add_custom_target(
     COMMAND "find" "." "-name" "CMakeCache.txt" "|" "xargs" "rm" "-f"
     COMMAND "find" "." "-name" "cmake_install.cmake" "|" "xargs" "rm" "-f"
     COMMAND "find" "." "-name" "CTestTestfile.cmake" "|" "xargs" "rm" "-f"
+    COMMAND "find" "." "-name" "CPackConfig.cmake" "|" "xargs" "rm" "-f"
+    COMMAND "find" "." "-name" "CPackSourceConfig.cmake" "|" "xargs" "rm" "-f"
     COMMAND "find" "." "-name" "Makefile" "|" "xargs" "rm" "-f"
     DEPENDS clean-all
 )
