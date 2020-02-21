@@ -13,33 +13,45 @@
 namespace nebula {
 
 class ResultSchemaProvider : public meta::SchemaProviderIf {
-    using ColumnDefs = std::vector<meta::cpp2::ColumnDef>;
-
 public:
     class ResultSchemaField : public meta::SchemaProviderIf::Field {
     public:
-        explicit ResultSchemaField(const meta::cpp2::ColumnDef* col = nullptr);
+        explicit ResultSchemaField(std::string name,
+                                   meta::cpp2::PropertyType type,
+                                   int16_t size,
+                                   bool nullable,
+                                   int32_t offset,
+                                   Value defaultValue = Value());
 
         const char* name() const override;
         const meta::cpp2::PropertyType type() const override;
-        bool isValid() const override;
+        bool nullable() const override;
         bool hasDefault() const override;
         const Value& defaultValue() const override;
+        size_t size() const override;
+        size_t offset() const override;
 
     private:
-        const meta::cpp2::ColumnDef* column_;
+        std::string name_;
+        meta::cpp2::PropertyType type_;
+        int16_t size_;
+        bool nullable_;
+        int32_t offset_;
+        Value defaultValue_;
     };
 
 
 public:
-    explicit ResultSchemaProvider(meta::cpp2::Schema);
+//    explicit ResultSchemaProvider(meta::cpp2::Schema);
     virtual ~ResultSchemaProvider() = default;
 
     SchemaVer getVersion() const noexcept override {
         return schemaVer_;
     }
 
-    size_t getNumFields() const noexcept override;
+    ssize_t getNumFields() const noexcept override;
+
+    size_t size() const noexcept override;
 
     int64_t getFieldIndex(const folly::StringPiece name) const override;
     const char* getFieldName(int64_t index) const override;
@@ -48,16 +60,14 @@ public:
     const meta::cpp2::PropertyType getFieldType(const folly::StringPiece name)
         const override;
 
-    std::shared_ptr<const meta::SchemaProviderIf::Field>
-    field(int64_t index) const override;
-
-    std::shared_ptr<const meta::SchemaProviderIf::Field>
-    field(const folly::StringPiece name) const override;
+    const meta::SchemaProviderIf::Field* field(int64_t index) const override;
+    const meta::SchemaProviderIf::Field* field(const folly::StringPiece name)
+        const override;
 
 protected:
     SchemaVer schemaVer_{0};
 
-    ColumnDefs columns_;
+    std::vector<ResultSchemaField> columns_;
     // Map of Hash64(field_name) -> array index
     std::unordered_map<uint64_t, int64_t> nameIndex_;
 

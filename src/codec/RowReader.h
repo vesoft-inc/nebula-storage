@@ -67,23 +67,23 @@ public:
         meta::SchemaManager* schemaMan,
         GraphSpaceID space,
         TagID tag,
-        folly::StringPiece row);
+        std::string row);
     static std::unique_ptr<RowReader> getEdgePropReader(
         meta::SchemaManager* schemaMan,
         GraphSpaceID space,
         EdgeType edge,
-        folly::StringPiece row);
+        std::string row);
 */
     static std::unique_ptr<RowReader> getRowReader(
-        std::shared_ptr<const meta::SchemaProviderIf> schema,
-        folly::StringPiece row);
+        const meta::SchemaProviderIf* schema,
+        std::string row);
 
     virtual ~RowReader() = default;
 
     virtual Value getValueByName(const std::string& prop) const noexcept = 0;
     virtual Value getValueByIndex(const int64_t index) const noexcept = 0;
 
-    const Value& getDefaultValue(const std::string& prop);
+    virtual int32_t readerVer() const noexcept = 0;
 
     Iterator begin() const noexcept {
         return Iterator(this, 0);
@@ -101,21 +101,26 @@ public:
         return schema_->getNumFields();
     }
 
-    std::shared_ptr<const meta::SchemaProviderIf> getSchema() const {
+    const meta::SchemaProviderIf* getSchema() const {
         return schema_;
     }
 
-protected:
-    std::shared_ptr<const meta::SchemaProviderIf> schema_;
-    folly::StringPiece data_;
+    const std::string& getData() const {
+        return data_;
+    }
 
-    explicit RowReader(std::shared_ptr<const meta::SchemaProviderIf> schema,
-                       folly::StringPiece row)
+protected:
+    const meta::SchemaProviderIf* schema_;
+    std::string data_;
+
+    explicit RowReader(const meta::SchemaProviderIf* schema, std::string row)
         : schema_(schema)
-        , data_(row)
+        , data_(std::move(row))
         , endIter_(this, schema_->getNumFields()) {}
 
-    static SchemaVer getSchemaVer(folly::StringPiece row);
+    static void getVersions(const std::string& row,
+                            SchemaVer& schemaVer,
+                            int32_t& readerVer);
 
 private:
     const Iterator endIter_;

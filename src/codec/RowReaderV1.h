@@ -24,12 +24,17 @@ class RowReaderV1 : public RowReader {
     FRIEND_TEST(RowReaderV1, iterator);
 
 public:
+    RowReaderV1(const meta::SchemaProviderIf* schema,
+                std::string row);
+
+    ~RowReaderV1() = default;
+
     Value getValueByName(const std::string& prop) const noexcept override;
     Value getValueByIndex(const int64_t index) const noexcept override;
 
-protected:
-    RowReaderV1(folly::StringPiece row,
-                std::shared_ptr<const meta::SchemaProviderIf> schema);
+    int32_t readerVer() const noexcept override {
+        return 1;
+    }
 
 private:
     int32_t headerLen_ = 0;

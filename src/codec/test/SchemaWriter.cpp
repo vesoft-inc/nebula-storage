@@ -11,8 +11,9 @@ namespace nebula {
 
 using meta::cpp2::Schema;
 using meta::cpp2::PropertyType;
-using meta::cpp2::ColumnDef;
+//using meta::cpp2::ColumnDef;
 
+/*
 Schema SchemaWriter::moveSchema() noexcept {
     Schema schema;
     schema.set_columns(std::move(columns_));
@@ -20,19 +21,76 @@ Schema SchemaWriter::moveSchema() noexcept {
     nameIndex_.clear();
     return schema;
 }
-
+*/
 
 SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
-                                      PropertyType type) noexcept {
+                                      PropertyType type,
+                                      int32_t fixedStrLen,
+                                      bool nullable,
+                                      Value defaultValue) noexcept {
     using folly::hash::SpookyHashV2;
     uint64_t hash = SpookyHashV2::Hash64(name.data(), name.size(), 0);
     DCHECK(nameIndex_.find(hash) == nameIndex_.end());
 
-    ColumnDef col;
-    col.set_name(name.toString());
-    col.set_type(type);
+    int16_t size = 0;
+    int32_t offset = 0;
+    if (columns_.size() > 0) {
+        auto& prevCol = columns_.back();
+        offset = prevCol.offset() + prevCol.size();
+    } else {
+        offset = 0;
+    }
+    switch (type) {
+        case PropertyType::BOOL:
+            size = sizeof(bool);
+            break;
+        case PropertyType::INT8:
+            size = sizeof(int8_t);
+            break;
+        case PropertyType::INT16:
+            size = sizeof(int16_t);
+            break;
+        case PropertyType::INT32:
+            size = sizeof(int32_t);
+            break;
+        case PropertyType::INT64:
+            size = sizeof(int64_t);
+            break;
+        case PropertyType::VID:
+            size = sizeof(int64_t);
+            break;
+        case PropertyType::FLOAT:
+            size = sizeof(float);
+            break;
+        case PropertyType::DOUBLE:
+            size = sizeof(double);
+            break;
+        case PropertyType::STRING:
+            size = 2 * sizeof(int32_t);
+            break;
+        case PropertyType::FIXED_STRING:
+            CHECK_GT(fixedStrLen, 0) << "Fixed string length has to be greater than 0";
+            size = fixedStrLen;
+            break;
+        case PropertyType::TIMESTAMP:
+            size = sizeof(Timestamp);
+            break;
+        case PropertyType::DATE:
+            size = sizeof(int16_t) + 2 * sizeof(int8_t);
+            break;
+        case PropertyType::DATETIME:
+            size = sizeof(int16_t) + 5 * sizeof(int8_t) + 2 * sizeof(int32_t);
+            break;
+        default:
+            LOG(FATAL) << "Unknown column type";
+    }
 
-    columns_.emplace_back(std::move(col));
+    columns_.emplace_back(name.toString(),
+                          type,
+                          size,
+                          nullable,
+                          offset,
+                          std::move(defaultValue));
     nameIndex_.emplace(std::make_pair(hash, columns_.size() - 1));
 
     return *this;
