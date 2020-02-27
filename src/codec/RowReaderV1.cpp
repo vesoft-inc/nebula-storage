@@ -1,4 +1,4 @@
-/* Copyright (c) 2018 vesoft inc. All rights reserved.
+/* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -34,8 +34,7 @@ RowReaderV1::RowReaderV1(folly::StringPiece row,
         data_.reset(row.begin() + headerLen_, row.size() - headerLen_);
     } else {
         // Invalid data
-        // TODO We need a better error handler here
-        LOG(FATAL) << "Invalid row data!";
+        LOG(FATAL) << "Invalid row data: " << toHexStr(row);
     }
 }
 
@@ -50,7 +49,7 @@ bool RowReaderV1::processHeader(folly::StringPiece row) {
 
     // The last three bits indicate the number of bytes for offsets
     // The first three bits indicate the number of bytes for the
-    // schena version. If the number is zero, no schema version
+    // schema version. If the number is zero, no schema version
     // presents
     numBytesForOffset_ = (*it & 0x07) + 1;
     int32_t verBytes = *(it++) >> 5;
@@ -64,7 +63,7 @@ bool RowReaderV1::processHeader(folly::StringPiece row) {
     uint32_t numOffsets = (numFields >> 4);
     if (numBytesForOffset_ * numOffsets + verBytes + 1 > row.size()) {
         // Data is too short
-        LOG(ERROR) << "Row data is too short";
+        LOG(ERROR) << "Row data is too short: " << toHexStr(row);
         return false;
     }
     offsets_.resize(numFields + 1, -1);
@@ -187,26 +186,8 @@ int64_t RowReaderV1::skipToField(int64_t index) const noexcept {
  *
  ***********************************************************/
 Value RowReaderV1::getValueByName(const std::string& prop) const noexcept {
-    auto vType = getSchema()->getFieldType(prop);
     int64_t index = getSchema()->getFieldIndex(prop);
-    switch (vType) {
-        case meta::cpp2::PropertyType::BOOL:
-            return getBool(index);
-        case meta::cpp2::PropertyType::INT64:
-        case meta::cpp2::PropertyType::TIMESTAMP:
-            return getInt(index);
-        case meta::cpp2::PropertyType::VID:
-            return getVid(index);
-        case meta::cpp2::PropertyType::FLOAT:
-            return getFloat(index);
-        case meta::cpp2::PropertyType::DOUBLE:
-            return getDouble(index);
-        case meta::cpp2::PropertyType::STRING:
-            return getString(index);
-        default:
-            LOG(ERROR) << "Unknown type: " << static_cast<int32_t>(vType);
-            return NullType::BAD_TYPE;
-    }
+    return getValueByIndex(index);
 }
 
 
@@ -247,8 +228,7 @@ Value RowReaderV1::getBool(int64_t index) const noexcept {
             offset++;
             break;
         }
-        case meta::cpp2::PropertyType::INT64:
-        case meta::cpp2::PropertyType::TIMESTAMP: {
+        case meta::cpp2::PropertyType::INT64: {
             int64_t intV;
             int32_t numBytes = readInteger(offset, intV);
             if (numBytes > 0) {
@@ -325,7 +305,12 @@ Value RowReaderV1::getFloat(int64_t index) const noexcept {
             if (numBytes < 0) {
                 v.setNull(NullType::BAD_DATA);
             } else {
-                v.setFloat(d);
+                if (d < std::numeric_limits<float>::min() ||
+                    d > std::numeric_limits<float>::max()) {
+                    v.setNull(NullType::OVERFLOW);
+                } else {
+                    v.setFloat(d);
+                }
                 offset += numBytes;
             }
             break;

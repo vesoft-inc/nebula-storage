@@ -132,7 +132,7 @@ SchemaVer RowReader::getSchemaVer(folly::StringPiece row) {
     if (verBytes > 0) {
         if (verBytes + 1 > row.size()) {
             // Data is too short
-            LOG(ERROR) << "Row data is too short";
+            LOG(ERROR) << "Row data is too short: " << toHexStr(row);
             return 0;
         }
         // Schema Version is stored in Little Endian
