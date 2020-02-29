@@ -45,7 +45,7 @@ void prepareSchema(SchemaWriter* schema, size_t numRepeats) {
 void writeDataV1(SchemaWriter* schema, int32_t iters) {
     for (int32_t i = 0; i < iters; i++) {
         RowWriterV1 writer(schema);
-        for (ssize_t j = 0; j < schema->getNumFields() / 6; j++) {
+        for (size_t j = 0; j < schema->getNumFields() / 6; j++) {
             writer << true << j << 1551331827 << pi << e << str;
         }
         std::string encoded = writer.encode();
@@ -58,7 +58,7 @@ void writeDataV2(SchemaWriter* schema, int32_t iters) {
     for (int32_t i = 0; i < iters; i++) {
         RowWriterV2 writer(schema);
         size_t idx = 0;
-        for (ssize_t j = 0; j < schema->getNumFields() / 6; j++) {
+        for (size_t j = 0; j < schema->getNumFields() / 6; j++) {
             writer.set(idx++, true);
             writer.set(idx++, j);
             writer.set(idx++, 1551331827);

@@ -17,34 +17,47 @@ RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema)
         , outOfSpaceStr_(false) {
     CHECK(!!schema_);
 
-    // Reserve 8 bytes for the header and 2MB for variant length strings
+    // Reserve 8 bytes for the header and twice the data length
     buf_.reserve(2 * schema_->size() + 8);
 
     char header = 0;
 
     // Header and schema version
+    //
+    // The maximum number of bytes for the header and the schema version is 8
+    //
+    // The first byte is the header (os signature), it has the fourth-bit (from
+    // the right side) set to one (0x08), and the right three bits indicate
+    // the number of bytes used for the schema version.
+    //
+    // If all three bits are zero, the schema version is zero. If the number
+    // of schema version bytes is one, the maximum schema version that can be
+    // represented is 255 (0xFF). If the number of schema version is two, the
+    // maximum schema version could be 65535 (0xFFFF), and so on.
+    //
+    // The maximum schema version we support is 0x00FFFFFFFFFFFFFF (7 bytes)
     int64_t ver = schema_->getVersion();
     if (ver > 0) {
         if (ver <= 0x00FF) {
-            header = 0x09;
+            header = 0x09;  // 0x08 | 0x01, one byte for the schema version
             headerLen_ = 2;
         } else if (ver < 0x00FFFF) {
-            header = 0x0A;
+            header = 0x0A;  // 0x08 | 0x02, two bytes for the schema version
             headerLen_ = 3;
         } else if (ver < 0x00FFFFFF) {
-            header = 0x0B;
+            header = 0x0B;  // 0x08 | 0x03, three bytes for the schema version
             headerLen_ = 4;
         } else if (ver < 0x00FFFFFFFF) {
-            header = 0x0C;
+            header = 0x0C;  // 0x08 | 0x04, four bytes for the schema version
             headerLen_ = 5;
         } else if (ver < 0x00FFFFFFFFFF) {
-            header = 0x0D;
+            header = 0x0D;  // 0x08 | 0x05, five bytes for the schema version
             headerLen_ = 6;
         } else if (ver < 0x00FFFFFFFFFFFF) {
-            header = 0x0E;
+            header = 0x0E;  // 0x08 | 0x06, six bytes for the schema version
             headerLen_ = 7;
         } else if (ver < 0x00FFFFFFFFFFFFFF) {
-            header = 0x0F;
+            header = 0x0F;  // 0x08 | 0x07, severn bytes for the schema version
             headerLen_ = 8;
         } else {
             LOG(FATAL) << "Schema version too big";
@@ -175,7 +188,7 @@ bool RowWriterV2::checkNullBit(ssize_t index) const noexcept {
 
 WriteResult RowWriterV2::setNull(ssize_t index) noexcept {
     CHECK(!finished_) << "You have called finish()";
-    if (index < 0 || index >= schema_->getNumFields()) {
+    if (index < 0 || static_cast<size_t>(index) >= schema_->getNumFields()) {
         return WriteResult::UNKNOWN_FIELD;
     }
 
@@ -680,7 +693,7 @@ WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
 
 
 WriteResult RowWriterV2::checkUnsetFields() noexcept {
-    for (ssize_t i = 0; i < schema_->getNumFields(); i++) {
+    for (size_t i = 0; i < schema_->getNumFields(); i++) {
         if (!isSet_[i]) {
             auto field = schema_->field(i);
             if (!field->nullable() && !field->hasDefault()) {
@@ -739,7 +752,7 @@ std::string RowWriterV2::processOutOfSpace() noexcept {
     temp.append(buf_.data(), headerLen_ + numNullBytes_ + schema_->size());
 
     // Now let's process all strings
-    for (ssize_t i = 0;  i < schema_->getNumFields(); i++) {
+    for (size_t i = 0;  i < schema_->getNumFields(); i++) {
         auto field = schema_->field(i);
         if (field->type() != meta::cpp2::PropertyType::STRING) {
             continue;

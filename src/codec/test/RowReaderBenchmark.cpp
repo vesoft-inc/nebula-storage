@@ -108,7 +108,7 @@ void sequentialRead(SchemaWriter* schema, const std::string& encoded, size_t ite
     DCHECK_EQ(reader->readerVer(), ((encoded[0] & 0x18) >> 3) + 1);
 
     for (size_t i = 0; i < iters; i++) {
-        for (ssize_t j = 0; j < schema->getNumFields(); j++) {
+        for (size_t j = 0; j < schema->getNumFields(); j++) {
             auto v = reader->getValueByIndex(j);
             folly::doNotOptimizeAway(v);
         }
@@ -140,7 +140,7 @@ void sequentialTest(SchemaWriter* schema,
     auto reader2 = RowReader::getRowReader(schema, encodedV2);
     DCHECK_EQ(reader2->readerVer(), ((encodedV2[0] & 0x18) >> 3) + 1);
 
-    for (ssize_t i = 0; i < schema->getNumFields(); i++) {
+    for (size_t i = 0; i < schema->getNumFields(); i++) {
         auto v1 = reader1->getValueByIndex(i);
         auto v2 = reader2->getValueByIndex(i);
         EXPECT_EQ(v1, v2);

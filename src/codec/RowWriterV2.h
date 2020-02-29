@@ -23,6 +23,64 @@ enum class WriteResult {
 };
 
 
+/********************************************************************************
+
+  Encoder version 2
+
+  This is the second version of encoder. It is not compatible with the first
+  version. The purpose of this new version is to improve the read performance
+
+  The first byte of the encoded string indicates which version of the encoder
+  used to encode the properties. Here is the explanation of the header byte
+
+  Version 1:
+                 v v v 0 0 b b b
+    In version 1, the middle two bits are always zeros. The left three bits
+    indicats the number of bytes used for the schema version, while the right
+    three bits indicates the number of bytes used for the block offsets
+
+  Version 2:
+                 0 0 0 0 1 v v v
+    In version 2, the left three bits are reserved. THe middle two bits
+    indicate the encoder version, and the right three bits indicate the number
+    of bytes used for the schema version
+
+  The biggest change from version 1 to version 2 is every property now has a
+  fixed length. As long as you know the property type, you know how many bytes
+  the property occupies. In other words, given the sequence number of the
+  property, you get the start point of the property in O(1) time.
+
+  The types supported by the encoder version 2 are:
+        BOOL            (1 byte)
+        INT8            (1 byte)
+        INT16           (2 bytes)
+        INT32           (4 bytes)
+        INT64           (8 bytes)
+        FLOAT           (4 bytes)
+        DOUBLE          (8 bytes)
+        STRING          (8 bytes) *
+        FIXED_STRING    (Length defined in the schema)
+        TIMESTAMP       (8 bytes)
+        DATE            (4 bytes)
+        DATETIME        (15 bytes)
+
+  All except STRING typed properties are stored in-place. The STRING property
+  stored the offset of the string content in the first 4 bytes and the length
+  of the string in the last 4 bytes. The string content is appended to the end
+  of the encoded string
+
+  The encoder version 2 also supports the NULL value for all types. It uses
+  one bit flag to indicate whether a proeprty is NULL. So one byte can
+  represent NULL values for 8 properties. The total number of bytes needed for
+  the NULL flags is ((number_of_props - 1) >> 3) + 1
+
+  Here is the overall byte sequence for the version 2 encoding
+
+    <header> <schema version> <NULL flags> <all properties> <string content>
+       |             |             |              |
+     1 byte     0 - 7 bytes     1+ bytes       N bytes
+
+********************************************************************************/
 class RowWriterV2 {
 public:
     explicit RowWriterV2(const meta::SchemaProviderIf* schema);
@@ -58,9 +116,9 @@ public:
 
     // Data write
     template<typename T>
-    WriteResult set(ssize_t index, T&& v) noexcept {
+    WriteResult set(size_t index, T&& v) noexcept {
         CHECK(!finished_) << "You have called finish()";
-        if (index < 0 || index >= schema_->getNumFields()) {
+        if (index >= schema_->getNumFields()) {
             return WriteResult::UNKNOWN_FIELD;
         }
         return write(index, std::forward<T>(v));
@@ -72,7 +130,7 @@ public:
         CHECK(!finished_) << "You have called finish()";
         int64_t index = schema_->getFieldIndex(name);
         if (index >= 0) {
-            return write(index, std::forward<T>(v));
+            return write(static_cast<size_t>(index), std::forward<T>(v));
         } else {
             return WriteResult::UNKNOWN_FIELD;
         }

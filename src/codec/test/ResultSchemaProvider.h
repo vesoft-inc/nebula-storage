@@ -49,7 +49,7 @@ public:
         return schemaVer_;
     }
 
-    ssize_t getNumFields() const noexcept override;
+    size_t getNumFields() const noexcept override;
 
     size_t size() const noexcept override;
 

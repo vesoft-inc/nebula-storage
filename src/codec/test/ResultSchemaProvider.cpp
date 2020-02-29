@@ -73,7 +73,7 @@ size_t ResultSchemaProvider::ResultSchemaField::offset() const {
  * ResultSchemaProvider
  *
  **********************************/
-ssize_t ResultSchemaProvider::getNumFields() const noexcept {
+size_t ResultSchemaProvider::getNumFields() const noexcept {
     return columns_.size();
 }
 
