@@ -9,7 +9,7 @@
 
 #include "base/Base.h"
 #include "meta/GflagsManager.h"
-#include "meta/client/MetaClient.h"
+#include "clients/meta/MetaClient.h"
 
 namespace nebula {
 namespace meta {

@@ -9,7 +9,8 @@
 
 #include <gtest/gtest_prod.h>
 #include "base/Base.h"
-#include "meta/client/MetaClient.h"
+#include "clients/meta/MetaClient.h"
+#include "meta/Common.h"
 
 namespace nebula {
 namespace kvstore {
@@ -39,12 +40,12 @@ public:
     /**
      * return PartsMap for host
      * */
-    virtual PartsMap parts(const HostAddr& host) = 0;
+    virtual meta::PartsMap parts(const HostAddr& host) = 0;
 
     /**
-     * return PartMeta for <spaceId, partId>
+     * return PartHosts for <spaceId, partId>
      * */
-    virtual StatusOr<PartMeta> partMeta(GraphSpaceID spaceId, PartitionID partId) = 0;
+    virtual StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     /**
      * Check current part exist or not on host.
@@ -85,19 +86,19 @@ public:
 
     ~MemPartManager() = default;
 
-    PartsMap parts(const HostAddr& host) override;
+    meta::PartsMap parts(const HostAddr& host) override;
 
-    StatusOr<PartMeta> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
+    StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
 
     void addPart(GraphSpaceID spaceId, PartitionID partId, std::vector<HostAddr> peers = {}) {
         bool noSpace = partsMap_.find(spaceId) == partsMap_.end();
         auto& p = partsMap_[spaceId];
         bool noPart = p.find(partId) == p.end();
-        p[partId] = PartMeta();
+        p[partId] = meta::PartHosts();
         auto& pm = p[partId];
         pm.spaceId_ = spaceId;
         pm.partId_  = partId;
-        pm.peers_ = std::move(peers);
+        pm.hosts_ = std::move(peers);
         if (noSpace && handler_) {
             handler_->addSpace(spaceId);
         }
@@ -127,12 +128,12 @@ public:
         return partsMap_.find(spaceId) != partsMap_.end();
     }
 
-    PartsMap& partsMap() {
+    meta::PartsMap& partsMap() {
         return partsMap_;
     }
 
 private:
-    PartsMap partsMap_;
+    meta::PartsMap partsMap_;
 };
 
 
@@ -142,9 +143,9 @@ public:
 
      ~MetaServerBasedPartManager();
 
-     PartsMap parts(const HostAddr& host) override;
+     meta::PartsMap parts(const HostAddr& host) override;
 
-     StatusOr<PartMeta> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
+     StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
 
      bool partExist(const HostAddr& host, GraphSpaceID spaceId, PartitionID partId) override;
 
@@ -161,11 +162,11 @@ public:
                                const std::unordered_map<std::string, std::string>& options)
                                override;
 
-     void onPartAdded(const PartMeta& partMeta) override;
+     void onPartAdded(const meta::PartHosts& partMeta) override;
 
      void onPartRemoved(GraphSpaceID spaceId, PartitionID partId) override;
 
-     void onPartUpdated(const PartMeta& partMeta) override;
+     void onPartUpdated(const meta::PartHosts& partMeta) override;
 
      HostAddr getLocalHost() {
         return localHost_;

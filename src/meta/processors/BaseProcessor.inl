@@ -130,8 +130,8 @@ StatusOr<std::vector<std::string>> BaseProcessor<RESP>::doScan(const std::string
 
 
 template<typename RESP>
-StatusOr<std::vector<nebula::cpp2::HostAddr>> BaseProcessor<RESP>::allHosts() {
-    std::vector<nebula::cpp2::HostAddr> hosts;
+StatusOr<std::vector<nebula::HostAddr>> BaseProcessor<RESP>::allHosts() {
+    std::vector<nebula::HostAddr> hosts;
     const auto& prefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
@@ -140,7 +140,7 @@ StatusOr<std::vector<nebula::cpp2::HostAddr>> BaseProcessor<RESP>::allHosts() {
     }
 
     while (iter->valid()) {
-        nebula::cpp2::HostAddr h;
+        nebula::HostAddr h;
         auto hostAddrPiece = iter->key().subpiece(prefix.size());
         memcpy(&h, hostAddrPiece.data(), hostAddrPiece.size());
         hosts.emplace_back(std::move(h));
@@ -253,7 +253,7 @@ StatusOr<EdgeType> BaseProcessor<RESP>::getEdgeType(GraphSpaceID spaceId,
 }
 
 template<typename RESP>
-StatusOr<std::unordered_map<std::string, nebula::cpp2::ValueType>>
+StatusOr<std::unordered_map<std::string, cpp2::PropertyType>>
 BaseProcessor<RESP>::getLatestTagFields(GraphSpaceID spaceId,
                                         const std::string& name) {
     auto result = getTagId(spaceId, name);
@@ -271,7 +271,7 @@ BaseProcessor<RESP>::getLatestTagFields(GraphSpaceID spaceId,
 
     auto iter = ret.value().get();
     auto latestSchema = MetaServiceUtils::parseSchema(iter->val());
-    std::unordered_map<std::string, nebula::cpp2::ValueType> propertyNames;
+    std::unordered_map<std::string, cpp2::PropertyType> propertyNames;
     for (auto &column : latestSchema.get_columns()) {
         propertyNames.emplace(std::move(column.get_name()),
                               std::move(column.get_type()));
@@ -280,7 +280,7 @@ BaseProcessor<RESP>::getLatestTagFields(GraphSpaceID spaceId,
 }
 
 template<typename RESP>
-StatusOr<std::unordered_map<std::string, nebula::cpp2::ValueType>>
+StatusOr<std::unordered_map<std::string, cpp2::PropertyType>>
 BaseProcessor<RESP>::getLatestEdgeFields(GraphSpaceID spaceId,
                                          const std::string& name) {
     auto result = getEdgeType(spaceId, name);
@@ -299,7 +299,7 @@ BaseProcessor<RESP>::getLatestEdgeFields(GraphSpaceID spaceId,
 
     auto iter = ret.value().get();
     auto latestSchema = MetaServiceUtils::parseSchema(iter->val());
-    std::unordered_map<std::string, nebula::cpp2::ValueType> propertyNames;
+    std::unordered_map<std::string, cpp2::PropertyType> propertyNames;
     for (auto &column : latestSchema.get_columns()) {
         propertyNames.emplace(std::move(column.get_name()),
                               std::move(column.get_type()));

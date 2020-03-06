@@ -8,7 +8,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/synchronization/Baton.h>
 #include "meta/processors/admin/Balancer.h"
-#include "interface/gen-cpp2/StorageService.h"
+#include "interface/gen-cpp2/StorageAdminService.h"
 #include "fs/TempDir.h"
 #include "test/ServerContext.h"
 #include "meta/test/TestUtils.h"
@@ -20,8 +20,8 @@
         auto f = pro.getFuture(); \
         storage::cpp2::AdminExecResp resp; \
         storage::cpp2::ResponseCommon result; \
-        std::vector<storage::cpp2::ResultCode> partRetCode; \
-        result.set_failed_codes(partRetCode); \
+        std::vector<storage::cpp2::PartitionResult> partRetCode; \
+        result.set_failed_parts(partRetCode); \
         resp.set_result(result); \
         pro.setValue(std::move(resp)); \
         return f; \
@@ -34,12 +34,12 @@
         auto f = pro.getFuture(); \
         storage::cpp2::AdminExecResp resp; \
         storage::cpp2::ResponseCommon result; \
-        std::vector<storage::cpp2::ResultCode> partRetCode; \
-        storage::cpp2::ResultCode thriftRet; \
+        std::vector<storage::cpp2::PartitionResult> partRetCode; \
+        storage::cpp2::PartitionResult thriftRet; \
         thriftRet.set_code(storage::cpp2::ErrorCode::E_LEADER_CHANGED); \
         thriftRet.set_leader(leader); \
         partRetCode.emplace_back(std::move(thriftRet)); \
-        result.set_failed_codes(partRetCode); \
+        result.set_failed_parts(partRetCode); \
         resp.set_result(result); \
         pro.setValue(std::move(resp)); \
         return f; \
@@ -50,7 +50,7 @@ DECLARE_int32(max_retry_times_admin_op);
 namespace nebula {
 namespace meta {
 
-class TestStorageService : public storage::cpp2::StorageServiceSvIf {
+class TestStorageService : public storage::cpp2::StorageAdminServiceSvAsyncIf {
 public:
     folly::Future<storage::cpp2::AdminExecResp>
     future_transLeader(const storage::cpp2::TransLeaderReq& req) override {
@@ -86,8 +86,8 @@ public:
 class TestStorageServiceRetry : public TestStorageService {
 public:
     TestStorageServiceRetry(IPv4 ip, Port port) {
-        leader_.set_ip(ip);
-        leader_.set_port(port);
+        leader_.ip = ip;
+        leader_.port = port;
     }
 
     folly::Future<storage::cpp2::AdminExecResp>
@@ -106,7 +106,7 @@ public:
     }
 
 private:
-    nebula::cpp2::HostAddr leader_;
+    nebula::HostAddr leader_;
 };
 
 TEST(AdminClientTest, SimpleTest) {
@@ -168,21 +168,15 @@ TEST(AdminClientTest, RetryTest) {
     std::unique_ptr<kvstore::KVStore> kv(TestUtils::initKV(rootPath.path()));
     {
         LOG(INFO) << "Write some part information!";
-        std::vector<nebula::cpp2::HostAddr> thriftPeers;
+        std::vector<nebula::HostAddr> thriftPeers;
         // The first peer is one broken host.
-        thriftPeers.emplace_back();
-        thriftPeers.back().set_ip(0);
-        thriftPeers.back().set_port(0);
+        thriftPeers.emplace_back(HostAddr(0,0));
 
         // The second one is not leader.
-        thriftPeers.emplace_back();
-        thriftPeers.back().set_ip(localIp);
-        thriftPeers.back().set_port(sc2->port_);
+        thriftPeers.emplace_back(HostAddr(localIp, sc2->port_);
 
         // The third one is healthy.
-        thriftPeers.emplace_back();
-        thriftPeers.back().set_ip(localIp);
-        thriftPeers.back().set_port(sc1->port_);
+        thriftPeers.emplace_back(HostAddr(localIp, sc1->port_);
 
         std::vector<kvstore::KV> data;
         data.emplace_back(MetaServiceUtils::partKey(0, 1),

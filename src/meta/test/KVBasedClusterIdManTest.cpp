@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include "fs/TempDir.h"
 #include "meta/KVBasedClusterIdMan.h"
+#include "meta/ClusterIdManBase.h"
 #include "meta/test/TestUtils.h"
 
 namespace nebula {
@@ -16,7 +17,7 @@ namespace meta {
 TEST(ClusterIDManTest, KVTest) {
     fs::TempDir rootPath("/tmp/ClusterIDManTest.XXXXXX");
     auto kv = TestUtils::initKV(rootPath.path());
-    auto clusterId = ClusterIdMan::create("127.0.0.1:44500");
+    auto clusterId = ClusterIdManBase::create("127.0.0.1:44500");
     CHECK_NE(0, clusterId);
     CHECK(ClusterIdMan::persistInKV(kv.get(), "clusterId", clusterId));
     auto ret = ClusterIdMan::getClusterIdFromKV(kv.get(), "clusterId");

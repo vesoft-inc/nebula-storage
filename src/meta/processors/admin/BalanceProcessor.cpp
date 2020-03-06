@@ -73,7 +73,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         hostDel.reserve(req.get_host_del()->size());
         std::transform(req.get_host_del()->begin(), req.get_host_del()->end(),
                        std::back_inserter(hostDel),
-                       [] (const auto& h) { return HostAddr(h.get_ip(), h.get_port()); });
+                       [] (const auto& h) { return HostAddr(h.ip, h.port); });
     }
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {

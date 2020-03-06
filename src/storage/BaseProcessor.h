@@ -87,7 +87,7 @@ protected:
             cpp2::ResultCode thriftRet;
             thriftRet.set_code(code);
             thriftRet.set_part_id(partId);
-            thriftRet.set_leader(toThriftHost(leader));
+            thriftRet.set_leader(std::move(leader));
             codes_.emplace_back(std::move(thriftRet));
         }
     }
@@ -112,13 +112,6 @@ protected:
                        << ", partId: " << partId << ", ResultCode: " << error(addrRet);
             this->pushResultCode(to(error(addrRet)), partId);
         }
-    }
-
-    nebula::cpp2::HostAddr toThriftHost(const HostAddr& host) {
-        nebula::cpp2::HostAddr tHost;
-        tHost.set_ip(host.first);
-        tHost.set_port(host.second);
-        return tHost;
     }
 
 private:

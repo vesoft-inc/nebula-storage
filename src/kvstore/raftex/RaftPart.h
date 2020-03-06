@@ -14,7 +14,7 @@
 #include "gen-cpp2/raftex_types.h"
 #include "time/Duration.h"
 #include "thread/GenericThreadPool.h"
-#include "base/LogIterator.h"
+#include "common/LogIterator.h"
 #include "kvstore/raftex/SnapshotManager.h"
 
 namespace folly {

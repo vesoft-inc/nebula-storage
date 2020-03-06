@@ -17,7 +17,7 @@ DECLARE_bool(hosts_whitelist_enabled);
 namespace nebula {
 namespace meta {
 
-using nebula::cpp2::SupportedType;
+using cpp2::PropertyType;
 using apache::thrift::FragileConstructor::FRAGILE;
 
 TEST(HBProcessorTest, HBTest) {
@@ -27,9 +27,7 @@ TEST(HBProcessorTest, HBTest) {
     {
         for (auto i = 0; i < 5; i++) {
             cpp2::HBReq req;
-            nebula::cpp2::HostAddr thriftHost;
-            thriftHost.set_ip(i);
-            thriftHost.set_port(i);
+            nebula::HostAddr thriftHost(i, i);
             req.set_host(std::move(thriftHost));
             req.set_cluster_id(kClusterId);
             auto* processor = HBProcessor::instance(kv.get(), kClusterId);
@@ -45,9 +43,9 @@ TEST(HBProcessorTest, HBTest) {
 
         LOG(INFO) << "Test for invalid host!";
         cpp2::HBReq req;
-        nebula::cpp2::HostAddr thriftHost;
-        thriftHost.set_ip(11);
-        thriftHost.set_port(11);
+        nebula::HostAddr thriftHost;
+        thriftHost.ip = 11;
+        thriftHost.port = 11;
         req.set_host(std::move(thriftHost));
         req.set_cluster_id(1);
         auto* processor = HBProcessor::instance(kv.get());

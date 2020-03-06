@@ -9,7 +9,6 @@
 
 #include "base/Base.h"
 #include "base/ConcurrentLRUCache.h"
-#include "filter/Expressions.h"
 
 namespace nebula {
 namespace storage {

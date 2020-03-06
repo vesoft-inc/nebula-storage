@@ -44,13 +44,13 @@ public:
 
     static std::string partKey(GraphSpaceID spaceId, PartitionID partId);
 
-    static std::string partVal(const std::vector<nebula::cpp2::HostAddr>& hosts);
+    static std::string partVal(const std::vector<nebula::HostAddr>& hosts);
 
     static const std::string& partPrefix();
 
     static std::string partPrefix(GraphSpaceID spaceId);
 
-    static std::vector<nebula::cpp2::HostAddr> parsePartVal(folly::StringPiece val);
+    static std::vector<nebula::HostAddr> parsePartVal(folly::StringPiece val);
 
     static std::string hostKey(IPv4 ip, Port port);
 
@@ -60,7 +60,7 @@ public:
 
     static const std::string& hostPrefix();
 
-    static nebula::cpp2::HostAddr parseHostKey(folly::StringPiece key);
+    static nebula::HostAddr parseHostKey(folly::StringPiece key);
 
     static std::string schemaEdgePrefix(GraphSpaceID spaceId, EdgeType edgeType);
 
@@ -68,13 +68,13 @@ public:
 
     static std::string schemaEdgeKey(GraphSpaceID spaceId, EdgeType edgeType, SchemaVer version);
 
-    static std::string schemaEdgeVal(const std::string& name, const nebula::cpp2::Schema& schema);
+    static std::string schemaEdgeVal(const std::string& name, const cpp2::Schema& schema);
 
     static SchemaVer parseEdgeVersion(folly::StringPiece key);
 
     static std::string schemaTagKey(GraphSpaceID spaceId, TagID tagId, SchemaVer version);
 
-    static std::string schemaTagVal(const std::string& name, const nebula::cpp2::Schema& schema);
+    static std::string schemaTagVal(const std::string& name, const cpp2::Schema& schema);
 
     static SchemaVer parseTagVersion(folly::StringPiece key);
 
@@ -82,13 +82,13 @@ public:
 
     static std::string schemaTagsPrefix(GraphSpaceID spaceId);
 
-    static nebula::cpp2::Schema parseSchema(folly::StringPiece rawData);
+    static cpp2::Schema parseSchema(folly::StringPiece rawData);
 
     // assign tag index's key
     static std::string tagIndexKey(GraphSpaceID spaceId, TagIndexID indexID);
 
     static std::string tagIndexVal(const std::string& name,
-                                   const nebula::meta::cpp2::IndexFields& fields);
+                                   const cpp2::IndexFields& fields);
 
     static std::string tagIndexPrefix(GraphSpaceID spaceId);
 
@@ -96,7 +96,7 @@ public:
     static std::string edgeIndexKey(GraphSpaceID spaceId, EdgeIndexID indexID);
 
     static std::string edgeIndexVal(const std::string& name,
-                                    const nebula::meta::cpp2::IndexFields& fields);
+                                    const cpp2::IndexFields& fields);
 
     static std::string edgeIndexPrefix(GraphSpaceID spaceId);
 
@@ -116,14 +116,14 @@ public:
 
     static std::string assembleSegmentKey(const std::string& segment, const std::string& key);
 
-    static cpp2::ErrorCode alterColumnDefs(std::vector<nebula::cpp2::ColumnDef>& cols,
-                                           nebula::cpp2::SchemaProp&  prop,
-                                           const nebula::cpp2::ColumnDef col,
+    static cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+                                           cpp2::SchemaProp&  prop,
+                                           const cpp2::ColumnDef col,
                                            const cpp2::AlterSchemaOp op);
 
-    static cpp2::ErrorCode alterSchemaProp(std::vector<nebula::cpp2::ColumnDef>& cols,
-                                           nebula::cpp2::SchemaProp&  schemaProp,
-                                           nebula::cpp2::SchemaProp alterSchemaProp);
+    static cpp2::ErrorCode alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+                                           cpp2::SchemaProp&  schemaProp,
+                                           cpp2::SchemaProp alterSchemaProp);
 
     static std::string indexUserKey(const std::string& account);
 

@@ -124,20 +124,21 @@ if (GIT_INFO_SHA)
 endif()
 
 # To include customized FindXXX.cmake modules
-set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" "${NEBULA_HOME}/modules/common/cmake" ${CMAKE_MODULE_PATH})
 
-# When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/nebula/third-party
+# When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/vesoft/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
-    SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
+    SET(NEBULA_THIRDPARTY_ROOT "/opt/vesoft/third-party")
 endif()
 
+# Submodules
 if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
     SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc-private/nebula-common.git")
 endif()
 message(STATUS "NEBULA_COMMON_REPO_URL: " ${NEBULA_COMMON_REPO_URL})
 
 if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
-    SET(NEBULA_COMMON_REPO_TAG "HEAD")
+    SET(NEBULA_COMMON_REPO_TAG "master")
 endif()
 message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
@@ -216,6 +217,10 @@ find_package(LibLZMA MODULE)
 
 find_package(Rocksdb REQUIRED)
 find_package(nebula-common REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Krb5 REQUIRED gssapi)
+find_package(LibLZMA MODULE)
+find_package(Libunwind REQUIRED)
 
 add_compile_options(-Wall)
 add_compile_options(-Werror)
@@ -367,7 +372,7 @@ set(THRIFT_LIBRARIES
 set(ROCKSDB_LIBRARIES ${Rocksdb_LIBRARY})
 
 # All compression libraries
-set(COMPRESSION_LIBRARIES bz2 snappy zstd z)
+set(COMPRESSION_LIBRARIES bz2 snappy zstd z lz4)
 if (LIBLZMA_FOUND)
     include_directories(SYSTEM ${LIBLZMA_INCLUDE_DIRS})
     list(APPEND COMPRESSION_LIBRARIES ${LIBLZMA_LIBRARIES})
@@ -415,6 +420,7 @@ macro(nebula_link_libraries target)
         ${OPENSSL_CRYPTO_LIBRARY}
         ${KRB5_LIBRARIES}
         ${LIBUNWIND_LIBRARIES}
+        keyutils
         dl
         ${GETTIME_LIB}
         -pthread

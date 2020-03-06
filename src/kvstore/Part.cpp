@@ -6,7 +6,7 @@
 
 #include "kvstore/Part.h"
 #include "kvstore/LogEncoder.h"
-#include "base/NebulaKeyUtils.h"
+#include "common/NebulaKeyUtils.h"
 
 DEFINE_int32(cluster_id, 0, "A unique id for each cluster");
 

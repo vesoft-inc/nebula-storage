@@ -44,7 +44,7 @@ folly::Future<Status> AdminClient::transLeader(GraphSpaceID spaceId,
             }
         }
     }
-    req.set_new_leader(toThriftHost(target));
+    req.set_new_leader(std::move(target));
     return getResponse(leader, std::move(req), [] (auto client, auto request) {
                return client->future_transLeader(request);
            }, [] (auto&& resp) -> Status {
@@ -95,7 +95,7 @@ folly::Future<Status> AdminClient::addLearner(GraphSpaceID spaceId,
     storage::cpp2::AddLearnerReq req;
     req.set_space_id(spaceId);
     req.set_part_id(partId);
-    req.set_learner(toThriftHost(learner));
+    req.set_learner(learner);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
         return ret.status();
@@ -117,7 +117,7 @@ folly::Future<Status> AdminClient::waitingForCatchUpData(GraphSpaceID spaceId,
     storage::cpp2::CatchUpDataReq req;
     req.set_space_id(spaceId);
     req.set_part_id(partId);
-    req.set_target(toThriftHost(target));
+    req.set_target(target);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
         return ret.status();
@@ -141,7 +141,7 @@ folly::Future<Status> AdminClient::memberChange(GraphSpaceID spaceId,
     req.set_space_id(spaceId);
     req.set_part_id(partId);
     req.set_add(added);
-    req.set_peer(toThriftHost(peer));
+    req.set_peer(peer);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
         return ret.status();
@@ -195,12 +195,6 @@ folly::Future<Status> AdminClient::updateMeta(GraphSpaceID spaceId,
         return Status::Error("dst has been existed in peers");
     }
     peers.emplace_back(dst);
-    std::vector<nebula::cpp2::HostAddr> thriftPeers;
-    thriftPeers.resize(peers.size());
-    std::transform(peers.begin(), peers.end(), thriftPeers.begin(), [this](const auto& h) {
-        return toThriftHost(h);
-    });
-
     auto partRet = kv_->part(kDefaultSpaceId, kDefaultPartId);
     CHECK(ok(partRet));
     auto part = nebula::value(partRet);
@@ -209,7 +203,7 @@ folly::Future<Status> AdminClient::updateMeta(GraphSpaceID spaceId,
     auto f = pro.getFuture();
     std::vector<kvstore::KV> data;
     data.emplace_back(MetaServiceUtils::partKey(spaceId, partId),
-                      MetaServiceUtils::partVal(thriftPeers));
+                      MetaServiceUtils::partVal(peers));
     part->asyncMultiPut(std::move(data), [] (kvstore::ResultCode) {});
     part->sync([this, p = std::move(pro)] (kvstore::ResultCode code) mutable {
         // To avoid dead lock, we call future callback in ioThreadPool_
@@ -257,12 +251,7 @@ folly::Future<Status> AdminClient::checkPeers(GraphSpaceID spaceId, PartitionID 
         return ret.status();
     }
     auto peers = std::move(ret).value();
-    std::vector<nebula::cpp2::HostAddr> thriftPeers;
-    thriftPeers.resize(peers.size());
-    std::transform(peers.begin(), peers.end(), thriftPeers.begin(), [this](const auto& h) {
-        return toThriftHost(h);
-    });
-    req.set_peers(std::move(thriftPeers));
+    req.set_peers(peers);
     folly::Promise<Status> pro;
     auto fut = pro.getFuture();
     std::vector<folly::Future<Status>> futures;
@@ -325,13 +314,13 @@ folly::Future<Status> AdminClient::getResponse(
                     return;
                 }
                 auto&& result = std::move(t).value().get_result();
-                if (result.get_failed_codes().empty()) {
-                    storage::cpp2::ResultCode resultCode;
+                if (result.get_failed_parts().empty()) {
+                    storage::cpp2::PartitionResult resultCode;
                     resultCode.set_code(storage::cpp2::ErrorCode::SUCCEEDED);
                     resultCode.set_part_id(partId);
                     p.setValue(respGen(resultCode));
                 } else {
-                    auto resp = result.get_failed_codes().front();
+                    auto resp = result.get_failed_parts().front();
                     p.setValue(respGen(std::move(resp)));
                 }
             });
@@ -380,18 +369,18 @@ void AdminClient::getResponse(
                 return;
             }
             auto&& result = std::move(t).value().get_result();
-            if (result.get_failed_codes().empty()) {
+            if (result.get_failed_parts().empty()) {
                 p.setValue(Status::OK());
                 return;
             }
-            auto resp = result.get_failed_codes().front();
+            auto resp = result.get_failed_parts().front();
             switch (resp.get_code()) {
                 case storage::cpp2::ErrorCode::E_LEADER_CHANGED: {
                     if (retry < retryLimit) {
                         HostAddr leader(0, 0);
                         if (resp.get_leader() != nullptr) {
-                            leader = HostAddr(resp.get_leader()->get_ip(),
-                                              resp.get_leader()->get_port());
+                            leader = HostAddr(resp.get_leader()->ip,
+                                              resp.get_leader()->port);
                         }
                         if (leader == HostAddr(0, 0)) {
                             usleep(1000 * 50);
@@ -465,13 +454,6 @@ void AdminClient::getResponse(
     });  // via
 }
 
-nebula::cpp2::HostAddr AdminClient::toThriftHost(const HostAddr& addr) {
-    nebula::cpp2::HostAddr thriftAddr;
-    thriftAddr.set_ip(addr.first);
-    thriftAddr.set_port(addr.second);
-    return thriftAddr;
-}
-
 StatusOr<std::vector<HostAddr>> AdminClient::getPeers(GraphSpaceID spaceId, PartitionID partId) {
     CHECK_NOTNULL(kv_);
     auto partKey = MetaServiceUtils::partKey(spaceId, partId);
@@ -479,13 +461,7 @@ StatusOr<std::vector<HostAddr>> AdminClient::getPeers(GraphSpaceID spaceId, Part
     auto code = kv_->get(kDefaultSpaceId, kDefaultPartId, partKey, &value);
     switch (code) {
         case kvstore::ResultCode::SUCCEEDED: {
-            auto partHosts = MetaServiceUtils::parsePartVal(value);
-            std::vector<HostAddr> hosts;
-            hosts.resize(partHosts.size());
-            std::transform(partHosts.begin(), partHosts.end(), hosts.begin(), [](const auto& h) {
-                return HostAddr(h.get_ip(), h.get_port());
-            });
-            return hosts;
+            return MetaServiceUtils::parsePartVal(value);
         }
         case kvstore::ResultCode::ERR_KEY_NOT_FOUND:
             return Status::Error("Key Not Found");
@@ -497,16 +473,15 @@ StatusOr<std::vector<HostAddr>> AdminClient::getPeers(GraphSpaceID spaceId, Part
 }
 
 void AdminClient::getLeaderDist(const HostAddr& host,
-                                folly::Promise<StatusOr<storage::cpp2::GetLeaderResp>>&& pro,
+                                folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>>&& pro,
                                 int32_t retry,
                                 int32_t retryLimit) {
     auto* evb = ioThreadPool_->getEventBase();
     folly::via(evb, [evb, host, pro = std::move(pro), retry, retryLimit, this] () mutable {
-        storage::cpp2::GetLeaderReq req;
         auto client = clientsMan_->client(host, evb);
-        client->future_getLeaderPart(std::move(req)).via(evb)
+        client->future_getLeaderParts().via(evb)
             .then([pro = std::move(pro), host, retry, retryLimit, this]
-                       (folly::Try<storage::cpp2::GetLeaderResp>&& t) mutable {
+                       (folly::Try<storage::cpp2::GetLeaderPartsResp>&& t) mutable {
             if (t.hasException()) {
                 LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
                                                   t.exception().what().c_str());
@@ -533,16 +508,16 @@ folly::Future<Status> AdminClient::getLeaderDist(HostLeaderMap* result) {
     auto future = promise.getFuture();
     auto allHosts = ActiveHostsMan::getActiveHosts(kv_);
 
-    std::vector<folly::Future<StatusOr<storage::cpp2::GetLeaderResp>>> hostFutures;
+    std::vector<folly::Future<StatusOr<storage::cpp2::GetLeaderPartsResp>>> hostFutures;
     for (const auto& h : allHosts) {
-        folly::Promise<StatusOr<storage::cpp2::GetLeaderResp>> pro;
+        folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>> pro;
         auto fut = pro.getFuture();
         getLeaderDist(h, std::move(pro), 0, 3);
         hostFutures.emplace_back(std::move(fut));
     }
 
     folly::collectAll(std::move(hostFutures)).thenValue([p = std::move(promise), result, allHosts]
-            (std::vector<folly::Try<StatusOr<storage::cpp2::GetLeaderResp>>>&& tries) mutable {
+            (std::vector<folly::Try<StatusOr<storage::cpp2::GetLeaderPartsResp>>>&& tries) mutable {
         size_t idx = 0;
         for (auto& t : tries) {
             if (t.hasException()) {

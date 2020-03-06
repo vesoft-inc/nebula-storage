@@ -69,7 +69,7 @@ std::string MetaServiceUtils::partKey(GraphSpaceID spaceId, PartitionID partId) 
     return key;
 }
 
-std::string MetaServiceUtils::partVal(const std::vector<nebula::cpp2::HostAddr>& hosts) {
+std::string MetaServiceUtils::partVal(const std::vector<nebula::HostAddr>& hosts) {
     std::string val;
     val.reserve(128);
     for (auto& h : hosts) {
@@ -87,8 +87,8 @@ std::string MetaServiceUtils::partPrefix(GraphSpaceID spaceId) {
     return prefix;
 }
 
-std::vector<nebula::cpp2::HostAddr> MetaServiceUtils::parsePartVal(folly::StringPiece val) {
-    std::vector<nebula::cpp2::HostAddr> hosts;
+std::vector<nebula::HostAddr> MetaServiceUtils::parsePartVal(folly::StringPiece val) {
+    std::vector<nebula::HostAddr> hosts;
     static const size_t unitSize = sizeof(int32_t) * 2;
     auto hostsNum = val.size() / unitSize;
     hosts.reserve(hostsNum);
@@ -96,9 +96,9 @@ std::vector<nebula::cpp2::HostAddr> MetaServiceUtils::parsePartVal(folly::String
             << ", host size:" << unitSize
             << ", host num:" << hostsNum;
     for (decltype(hostsNum) i = 0; i < hostsNum; i++) {
-        nebula::cpp2::HostAddr h;
-        h.set_ip(*reinterpret_cast<const int32_t*>(val.data() + i * unitSize));
-        h.set_port(*reinterpret_cast<const int32_t*>(val.data() + i * unitSize + sizeof(int32_t)));
+        nebula::HostAddr h;
+        h.ip = *reinterpret_cast<const int32_t*>(val.data() + i * unitSize);
+        h.port = *reinterpret_cast<const int32_t*>(val.data() + i * unitSize + sizeof(int32_t));
         hosts.emplace_back(std::move(h));
     }
     return hosts;
@@ -125,8 +125,8 @@ const std::string& MetaServiceUtils::hostPrefix() {
     return kHostsTable;
 }
 
-nebula::cpp2::HostAddr MetaServiceUtils::parseHostKey(folly::StringPiece key) {
-    nebula::cpp2::HostAddr host;
+nebula::HostAddr MetaServiceUtils::parseHostKey(folly::StringPiece key) {
+    nebula::HostAddr host;
     memcpy(&host, key.data() + kHostsTable.size(), sizeof(host));
     return host;
 }
@@ -162,7 +162,7 @@ std::string MetaServiceUtils::schemaEdgeKey(GraphSpaceID spaceId,
 }
 
 std::string MetaServiceUtils::schemaEdgeVal(const std::string& name,
-                                            const nebula::cpp2::Schema& schema) {
+                                            const cpp2::Schema& schema) {
     auto len = name.size();
     std::string val, sval;
     apache::thrift::CompactSerializer::serialize(schema, &sval);
@@ -191,7 +191,7 @@ std::string MetaServiceUtils::schemaTagKey(GraphSpaceID spaceId, TagID tagId, Sc
 }
 
 std::string MetaServiceUtils::schemaTagVal(const std::string& name,
-                                           const nebula::cpp2::Schema& schema) {
+                                           const cpp2::Schema& schema) {
     int32_t len = name.size();
     std::string val, sval;
     apache::thrift::CompactSerializer::serialize(schema, &sval);
@@ -225,8 +225,8 @@ std::string MetaServiceUtils::schemaTagsPrefix(GraphSpaceID spaceId) {
     return key;
 }
 
-nebula::cpp2::Schema MetaServiceUtils::parseSchema(folly::StringPiece rawData) {
-    nebula::cpp2::Schema schema;
+cpp2::Schema MetaServiceUtils::parseSchema(folly::StringPiece rawData) {
+    cpp2::Schema schema;
     int32_t offset = sizeof(int32_t) + *reinterpret_cast<const int32_t *>(rawData.begin());
     auto schval = rawData.subpiece(offset, rawData.size() - offset);
     apache::thrift::CompactSerializer::deserialize(schval, schema);
@@ -243,7 +243,7 @@ std::string MetaServiceUtils::tagIndexKey(GraphSpaceID spaceID, TagIndexID index
 }
 
 std::string MetaServiceUtils::tagIndexVal(const std::string& name,
-                                          const nebula::meta::cpp2::IndexFields& fields) {
+                                          const cpp2::IndexFields& fields) {
     std::string key;
     key.reserve(128);
 
@@ -274,7 +274,7 @@ std::string MetaServiceUtils::edgeIndexKey(GraphSpaceID spaceID, EdgeIndexID ind
 }
 
 std::string MetaServiceUtils::edgeIndexVal(const std::string& name,
-                                           const nebula::meta::cpp2::IndexFields& fields) {
+                                           const cpp2::IndexFields& fields) {
     std::string key;
     key.reserve(128);
 
@@ -374,9 +374,9 @@ std::string MetaServiceUtils::assembleSegmentKey(const std::string& segment,
     return segmentKey;
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<nebula::cpp2::ColumnDef>& cols,
-                                                  nebula::cpp2::SchemaProp&  prop,
-                                                  const nebula::cpp2::ColumnDef col,
+cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+                                                  cpp2::SchemaProp&  prop,
+                                                  const cpp2::ColumnDef col,
                                                   const cpp2::AlterSchemaOp op) {
     switch (op) {
         case cpp2::AlterSchemaOp::ADD:
@@ -420,9 +420,9 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<nebula::cpp2::Colu
     }
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<nebula::cpp2::ColumnDef>& cols,
-                                                  nebula::cpp2::SchemaProp& schemaProp,
-                                                  nebula::cpp2::SchemaProp alterSchemaProp) {
+cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+                                                  cpp2::SchemaProp& schemaProp,
+                                                  cpp2::SchemaProp alterSchemaProp) {
     if (alterSchemaProp.__isset.ttl_duration) {
         // Graph check  <=0 to = 0
         schemaProp.set_ttl_duration(*alterSchemaProp.get_ttl_duration());
@@ -433,8 +433,11 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<nebula::cpp2::Colu
         for (auto& col : cols) {
             if (col.get_name() == ttlCol) {
                 // Only integer and timestamp columns can be used as ttl_col
-                if (col.type.type != nebula::cpp2::SupportedType::INT &&
-                    col.type.type != nebula::cpp2::SupportedType::TIMESTAMP) {
+                if (col.type != cpp2::PropertyType::INT8 &&
+                    col.type != cpp2::PropertyType::INT16 &&
+                    col.type != cpp2::PropertyType::INT32 &&
+                    col.type != cpp2::PropertyType::INT64 &&
+                    col.type != cpp2::PropertyType::TIMESTAMP) {
                     LOG(WARNING) << "TTL column type illegal";
                     return cpp2::ErrorCode::E_UNSUPPORTED;
                 }

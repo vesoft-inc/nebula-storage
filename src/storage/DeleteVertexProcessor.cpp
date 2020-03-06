@@ -49,7 +49,7 @@ void DeleteVertexProcessor::process(const cpp2::DeleteVertexRequest& req) {
         thriftResult.set_code(to(code));
         thriftResult.set_part_id(partId);
         if (code == kvstore::ResultCode::ERR_LEADER_CHANGED) {
-            nebula::cpp2::HostAddr leader;
+            nebula::HostAddr leader;
             auto addrRet = kvstore_->partLeader(spaceId, partId);
             CHECK(ok(addrRet));
             auto addr = value(std::move(addrRet));

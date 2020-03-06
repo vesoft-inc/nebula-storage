@@ -19,7 +19,7 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
                                                    const HostInfo& info) {
     CHECK_NOTNULL(kv);
     std::vector<kvstore::KV> data;
-    data.emplace_back(MetaServiceUtils::hostKey(hostAddr.first, hostAddr.second),
+    data.emplace_back(MetaServiceUtils::hostKey(hostAddr.ip, hostAddr.port),
                       HostInfo::encode(info));
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     folly::Baton<true, std::atomic> baton;

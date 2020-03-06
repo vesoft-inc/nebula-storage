@@ -64,46 +64,50 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
             auto name = column.get_name();
             auto value = column.get_default_value();
             std::string defaultValue;
-            switch (column.get_type().get_type()) {
-                case nebula::cpp2::SupportedType::BOOL:
-                    if (value->getType() != nebula::cpp2::Value::Type::bool_value) {
+            switch (column.get_type()){
+                case cpp2::PropertyType::BOOL:
+                    if (value->type() != nebula::Value::Type::BOOL) {
                         LOG(ERROR) << "Create Tag Failed: " << name
                                    << " type mismatch";
                         resp_.set_code(cpp2::ErrorCode::E_CONFLICT);
                         onFinished();
                         return;
                     }
-                    defaultValue = folly::to<std::string>(value->get_bool_value());
+                    defaultValue = folly::to<std::string>(value->getBool());
                     break;
-                case nebula::cpp2::SupportedType::INT:
-                    if (value->getType() != nebula::cpp2::Value::Type::int_value) {
+                case cpp2::PropertyType::INT8:
+                case cpp2::PropertyType::INT16:
+                case cpp2::PropertyType::INT32:
+                case cpp2::PropertyType::INT64:
+                    if (value->type() != nebula::Value::Type::INT) {
                         LOG(ERROR) << "Create Tag Failed: " << name
                                    << " type mismatch";
                         resp_.set_code(cpp2::ErrorCode::E_CONFLICT);
                         onFinished();
                         return;
                     }
-                    defaultValue = folly::to<std::string>(value->get_int_value());
+                    defaultValue = folly::to<std::string>(value->getInt());
                     break;
-                case nebula::cpp2::SupportedType::DOUBLE:
-                    if (value->getType() != nebula::cpp2::Value::Type::double_value) {
+                case cpp2::PropertyType::FLOAT:
+                case cpp2::PropertyType::DOUBLE:
+                    if (value->type() != nebula::Value::Type::FLOAT) {
                         LOG(ERROR) << "Create Tag Failed: " << name
                                    << " type mismatch";
                         resp_.set_code(cpp2::ErrorCode::E_CONFLICT);
                         onFinished();
                         return;
                     }
-                    defaultValue = folly::to<std::string>(value->get_double_value());
+                    defaultValue = folly::to<std::string>(value->getFloat());
                     break;
-                case nebula::cpp2::SupportedType::STRING:
-                    if (value->getType() != nebula::cpp2::Value::Type::string_value) {
+                case cpp2::PropertyType::STRING:
+                    if (value->type() != nebula::Value::Type::STRING) {
                         LOG(ERROR) << "Create Tag Failed: " << name
                                    << " type mismatch";
                         resp_.set_code(cpp2::ErrorCode::E_CONFLICT);
                         onFinished();
                         return;
                     }
-                    defaultValue = folly::to<std::string>(value->get_string_value());
+                    defaultValue = folly::to<std::string>(value->getStr());
                     break;
                 default:
                     LOG(ERROR) << "Unsupported type";

@@ -9,7 +9,7 @@
 
 #include <gtest/gtest_prod.h>
 #include "base/Base.h"
-#include "interface/gen-cpp2/StorageService.h"
+#include "interface/gen-cpp2/StorageAdminService.h"
 #include "kvstore/KVStore.h"
 #include "meta/SchemaManager.h"
 #include "stats/StatsManager.h"

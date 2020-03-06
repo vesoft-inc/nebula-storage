@@ -8,6 +8,8 @@
 #define COMMON_BASE_NEBULAKEYUTILS_H_
 
 #include "base/Base.h"
+#include "interface/gen-cpp2/meta_types.h"
+#include "meta/Common.h"
 
 namespace nebula {
 
@@ -132,17 +134,17 @@ public:
         return static_cast<uint32_t>(NebulaSystemKeyType::kSystemPart) == type;
     }
 
-    static VertexID getSrcId(const folly::StringPiece& rawKey) {
-        CHECK_EQ(rawKey.size(), kEdgeLen);
-        return readInt<VertexID>(rawKey.data() + sizeof(PartitionID), sizeof(VertexID));
-    }
+//    static VertexID getSrcId(const folly::StringPiece& rawKey) {
+//        CHECK_EQ(rawKey.size(), kEdgeLen);
+//        return readInt<VertexID>(rawKey.data() + sizeof(PartitionID), sizeof(VertexID));
+//    }
 
-    static VertexID getDstId(const folly::StringPiece& rawKey) {
-        CHECK_EQ(rawKey.size(), kEdgeLen);
-        auto offset = sizeof(PartitionID) + sizeof(VertexID) +
-                      sizeof(EdgeType) + sizeof(EdgeRanking);
-        return readInt<VertexID>(rawKey.data() + offset, sizeof(VertexID));
-    }
+//    static VertexID getDstId(const folly::StringPiece& rawKey) {
+//        CHECK_EQ(rawKey.size(), kEdgeLen);
+//        auto offset = sizeof(PartitionID) + sizeof(VertexID) +
+//                      sizeof(EdgeType) + sizeof(EdgeRanking);
+//        return readInt<VertexID>(rawKey.data() + offset, sizeof(VertexID));
+//    }
 
     static EdgeType getEdgeType(const folly::StringPiece& rawKey) {
         CHECK_EQ(rawKey.size(), kEdgeLen);

@@ -15,7 +15,7 @@
 #include "time/Duration.h"
 #include "kvstore/KVStore.h"
 #include "meta/MetaServiceUtils.h"
-#include "meta/common/MetaCommon.h"
+#include "meta/Common.h"
 #include "network/NetworkUtils.h"
 #include "meta/processors/Common.h"
 #include "stats/Stats.h"
@@ -24,7 +24,7 @@ namespace nebula {
 namespace meta {
 
 using nebula::network::NetworkUtils;
-using FieldType = std::pair<std::string, nebula::cpp2::ValueType>;
+using FieldType = std::pair<std::string, cpp2::PropertyType>;
 
 #define CHECK_SPACE_ID_AND_RETURN(spaceID) \
     if (spaceExist(spaceID) == Status::SpaceNotFound()) { \
@@ -44,7 +44,7 @@ using FieldType = std::pair<std::string, nebula::cpp2::ValueType>;
  * Check segment is consist of numbers and letters and should not empty.
  * */
 #define CHECK_SEGMENT(segment) \
-    if (!MetaCommon::checkSegment(segment)) { \
+    if (!checkSegment(segment)) { \
         resp_.set_code(cpp2::ErrorCode::E_STORE_SEGMENT_ILLEGAL); \
         onFinished(); \
         return; \
@@ -131,13 +131,6 @@ protected:
         return thriftID;
     }
 
-    nebula::cpp2::HostAddr toThriftHost(const HostAddr& host) {
-        nebula::cpp2::HostAddr tHost;
-        tHost.set_ip(host.first);
-        tHost.set_port(host.second);
-        return tHost;
-    }
-
     /**
      * General put function.
      * */
@@ -179,7 +172,7 @@ protected:
     /**
      * Get all hosts
      * */
-    StatusOr<std::vector<nebula::cpp2::HostAddr>> allHosts();
+    StatusOr<std::vector<nebula::HostAddr>> allHosts();
 
     /**
      * Get one auto-increment Id.
@@ -214,7 +207,7 @@ protected:
     /**
      * Fetch the latest version tag's fields.
      */
-    StatusOr<std::unordered_map<std::string, nebula::cpp2::ValueType>>
+    StatusOr<std::unordered_map<std::string, cpp2::PropertyType>>
     getLatestTagFields(GraphSpaceID spaceId, const std::string& name);
 
     /**
@@ -225,7 +218,7 @@ protected:
     /**
      * Fetch the latest version edge's fields.
      */
-    StatusOr<std::unordered_map<std::string, nebula::cpp2::ValueType>>
+    StatusOr<std::unordered_map<std::string, cpp2::PropertyType>>
     getLatestEdgeFields(GraphSpaceID spaceId, const std::string& name);
 
     StatusOr<TagIndexID> getTagIndexID(GraphSpaceID spaceId, const std::string& indexName);

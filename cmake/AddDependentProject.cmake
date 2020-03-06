@@ -18,8 +18,12 @@ else()
     message(STATUS "Cloning from the repo \"" ${repo} "\"")
     execute_process(
         COMMAND
+<<<<<<< HEAD
             ${GIT_EXECUTABLE} clone --depth 1 --progress --branch ${tag} ${repo} ${name}
         WORKING_DIRECTORY ${base}
+=======
+            ${GIT_EXECUTABLE} clone --depth 1 --progress --branch ${tag} ${repo} ${base}/${name}
+>>>>>>> build meta
         RESULT_VARIABLE clone_result
     )
 endif()
@@ -69,3 +73,7 @@ add_custom_target(
 )
 
 endmacro()
+<<<<<<< HEAD
+=======
+
+>>>>>>> build meta

@@ -5,7 +5,7 @@
  */
 
 #include "meta/processors/configMan/SetConfigProcessor.h"
-#include "base/Configuration.h"
+#include "conf/Configuration.h"
 
 namespace nebula {
 namespace meta {
@@ -149,7 +149,7 @@ cpp2::ErrorCode SetConfigProcessor::setNestedConfig(const cpp2::ConfigModule& mo
         return cpp2::ErrorCode::E_CONFIG_IMMUTABLE;
     }
 
-    Configuration conf;
+    nebula::conf::Configuration conf;
     auto confRet = conf.parseFromString(item.get_value());
     CHECK(confRet.ok());
 

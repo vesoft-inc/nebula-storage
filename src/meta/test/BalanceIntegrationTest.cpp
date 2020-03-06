@@ -11,7 +11,7 @@
 #include "meta/test/TestUtils.h"
 #include "storage/test/TestUtils.h"
 #include "fs/TempDir.h"
-#include "storage/client/StorageClient.h"
+#include "clients/storage/GeneralStorageClient.h"
 #include "storage/test/TestUtils.h"
 #include "dataman/RowWriter.h"
 
@@ -90,14 +90,14 @@ TEST(BalanceIntegrationTest, BalanceTest) {
     ASSERT_TRUE(ret.ok());
     auto spaceId = ret.value();
 
-    std::vector<nebula::cpp2::ColumnDef> columns;
+    std::vector<cpp2::ColumnDef> columns;
     nebula::cpp2::ValueType vt;
-    vt.set_type(SupportedType::STRING);
+    vt.set_type(PropertyType::STRING);
     columns.emplace_back();
     columns.back().set_name("c");
     columns.back().set_type(vt);
 
-    nebula::cpp2::Schema schema;
+    cpp2::Schema schema;
     schema.set_columns(std::move(columns));
     auto tagRet = mClient->createTagSchema(spaceId, "tag", std::move(schema)).get();
     ASSERT_TRUE(tagRet.ok());

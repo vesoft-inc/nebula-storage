@@ -49,7 +49,7 @@ TEST(NebulaStoreTest, SimpleTest) {
     // 2 => {0, 1, 2, 3, 4, 5}
     for (auto spaceId = 1; spaceId <=2; spaceId++) {
         for (auto partId = 0; partId < 6; partId++) {
-            partMan->partsMap_[spaceId][partId] = PartMeta();
+            partMan->partsMap_[spaceId][partId] = meta::PartHosts();
         }
     }
 
@@ -259,10 +259,10 @@ TEST(NebulaStoreTest, ThreeCopiesTest) {
         auto sIoThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
         auto partMan = std::make_unique<MemPartManager>();
         for (auto partId = 0; partId < 3; partId++) {
-            PartMeta pm;
+            meta::PartHosts pm;
             pm.spaceId_ = 0;
             pm.partId_ = partId;
-            pm.peers_ = peers;
+            pm.hosts_ = peers;
             partMan->partsMap_[0][partId] = std::move(pm);
         }
         std::vector<std::string> paths;
@@ -401,10 +401,10 @@ TEST(NebulaStoreTest, TransLeaderTest) {
         auto sIoThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
         auto partMan = std::make_unique<MemPartManager>();
         for (auto partId = 0; partId < 3; partId++) {
-            PartMeta pm;
+            meta::PartHosts pm;
             pm.spaceId_ = 0;
             pm.partId_ = partId;
-            pm.peers_ = peers;
+            pm.hosts_ = peers;
             partMan->partsMap_[0][partId] = std::move(pm);
         }
         std::vector<std::string> paths;
@@ -472,7 +472,7 @@ TEST(NebulaStoreTest, TransLeaderTest) {
         PartitionID partId = i;
         auto targetAddr = NebulaStore::getRaftAddr(peers[0]);
         folly::Baton<true, std::atomic> baton;
-        LOG(INFO) << "try to trans leader to " << targetAddr.second;
+        LOG(INFO) << "try to trans leader to " << targetAddr.port;
 
         auto leaderRet = stores[0]->partLeader(spaceId, partId);
         CHECK(ok(leaderRet));
@@ -533,7 +533,7 @@ TEST(NebulaStoreTest, CheckpointTest) {
     // 2 => {0, 1, 2, 3, 4, 5}
     for (auto spaceId = 1; spaceId <=2; spaceId++) {
         for (auto partId = 0; partId < 6; partId++) {
-            partMan->partsMap_[spaceId][partId] = PartMeta();
+            partMan->partsMap_[spaceId][partId] = meta::PartHosts();
         }
     }
 
@@ -611,10 +611,10 @@ TEST(NebulaStoreTest, ThreeCopiesCheckpointTest) {
         auto sIoThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
         auto partMan = std::make_unique<MemPartManager>();
         for (auto partId = 0; partId < 3; partId++) {
-            PartMeta pm;
+            meta::PartHosts pm;
             pm.spaceId_ = 0;
             pm.partId_ = partId;
-            pm.peers_ = peers;
+            pm.hosts_ = peers;
             partMan->partsMap_[0][partId] = std::move(pm);
         }
         std::vector<std::string> paths;
@@ -834,7 +834,7 @@ TEST(NebulaStoreTest, AtomicOpBatchTest) {
     auto partMan = std::make_unique<MemPartManager>();
     auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
     // space id : 1 , part id : 0
-    partMan->partsMap_[1][0] = PartMeta();
+    partMan->partsMap_[1][0] = meta::PartHosts();
 
     VLOG(1) << "Total space num is " << partMan->partsMap_.size()
             << ", total local partitions num is "

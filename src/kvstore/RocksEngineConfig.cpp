@@ -11,7 +11,7 @@
 #include "rocksdb/convenience.h"
 #include "rocksdb/utilities/options_util.h"
 #include "rocksdb/slice_transform.h"
-#include "base/Configuration.h"
+#include "conf/Configuration.h"
 
 // [WAL]
 DEFINE_bool(rocksdb_disable_wal,
@@ -91,7 +91,7 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts) {
 }
 
 bool loadOptionsMap(std::unordered_map<std::string, std::string> &map, const std::string& gflags) {
-    Configuration conf;
+    nebula::conf::Configuration conf;
     auto status = conf.parseFromString(gflags);
     if (!status.ok()) {
         return false;

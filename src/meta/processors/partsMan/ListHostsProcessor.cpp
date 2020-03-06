@@ -50,7 +50,7 @@ StatusOr<std::vector<cpp2::HostItem>> ListHostsProcessor::allHostsWithStatus(
     std::vector<std::string> removeHostsKey;
     while (iter->valid()) {
         cpp2::HostItem item;
-        nebula::cpp2::HostAddr host;
+        nebula::HostAddr host;
         auto hostAddrPiece = iter->key().subpiece(hostPrefix.size());
         memcpy(&host, hostAddrPiece.data(), hostAddrPiece.size());
         item.set_hostAddr(host);
@@ -113,7 +113,7 @@ StatusOr<std::vector<cpp2::HostItem>> ListHostsProcessor::allHostsWithStatus(
     }
 
     for (const auto& hostEntry : allParts) {
-        auto hostAddr = toThriftHost(hostEntry.first);
+        auto hostAddr = hostEntry.first;
         auto it = std::find_if(hostItems.begin(), hostItems.end(), [&](const auto& item) {
             return item.get_hostAddr() == hostAddr;
         });
@@ -155,7 +155,7 @@ void ListHostsProcessor::getLeaderDist(
         return;
     }
     for (auto& hostEntry : hostLeaderMap) {
-        auto hostAddr = toThriftHost(hostEntry.first);
+        auto hostAddr = hostEntry.first;
         auto it = std::find_if(hostItems.begin(), hostItems.end(), [&](const auto& item) {
             return item.get_hostAddr() == hostAddr;
         });

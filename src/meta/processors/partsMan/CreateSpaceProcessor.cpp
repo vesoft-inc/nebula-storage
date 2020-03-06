@@ -87,17 +87,17 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
 }
 
 
-std::vector<nebula::cpp2::HostAddr>
+std::vector<nebula::HostAddr>
 CreateSpaceProcessor::pickHosts(PartitionID partId,
                                 const std::vector<HostAddr>& hosts,
                                 int32_t replicaFactor) {
     if (hosts.empty()) {
-        return std::vector<nebula::cpp2::HostAddr>();
+        return std::vector<nebula::HostAddr>();
     }
     auto startIndex = partId;
-    std::vector<nebula::cpp2::HostAddr> pickedHosts;
+    std::vector<nebula::HostAddr> pickedHosts;
     for (decltype(replicaFactor) i = 0; i < replicaFactor; i++) {
-        pickedHosts.emplace_back(toThriftHost(hosts[startIndex++ % hosts.size()]));
+        pickedHosts.emplace_back(hosts[startIndex++ % hosts.size()]);
     }
     return pickedHosts;
 }
