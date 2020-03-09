@@ -126,9 +126,9 @@ endif()
 # To include customized FindXXX.cmake modules
 set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" ${CMAKE_MODULE_PATH})
 
-# When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/nebula/third-party
+# When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/vesoft/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
-    SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
+    SET(NEBULA_THIRDPARTY_ROOT "/opt/vesoft/third-party")
 endif()
 
 if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
@@ -136,7 +136,7 @@ if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
 endif()
 
 if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
-    SET(NEBULA_COMMON_REPO_TAG "HEAD")
+    SET(NEBULA_COMMON_REPO_TAG "master")
 endif()
 
 SET(NEBULA_COMMON_PACKAGE "nebula-common")
@@ -331,8 +331,7 @@ set(THRIFT_LIBRARIES
     thrift
     thriftprotocol
     async
-    esrotocol
-    -dependency
+    protocol
     tranport
     concurrency
     security
