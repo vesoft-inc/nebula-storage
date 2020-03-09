@@ -169,7 +169,7 @@ public:
     }
 
     static cpp2::ColumnDef columnDefWithDefault(int32_t index,
-                                                        cpp2::PropertyType type) {
+                                                cpp2::PropertyType type) {
         cpp2::ColumnDef column;
         column.set_name(folly::stringPrintf("col_%d", index));
         column.set_type(type);
@@ -178,6 +178,9 @@ public:
             case cpp2::PropertyType::BOOL:
                 defaultValue.setBool(true);
                 break;
+            case cpp2::PropertyType::INT8:
+            case cpp2::PropertyType::INT16:
+            case cpp2::PropertyType::INT32:
             case cpp2::PropertyType::INT64:
                 defaultValue.setInt(1);
                 break;

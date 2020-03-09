@@ -68,13 +68,6 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
-    std::vector<HostAddr> hostDel;
-    if (req.get_host_del() != nullptr) {
-        hostDel.reserve(req.get_host_del()->size());
-        std::transform(req.get_host_del()->begin(), req.get_host_del()->end(),
-                       std::back_inserter(hostDel),
-                       [] (const auto& h) { return HostAddr(h.ip, h.port); });
-    }
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {
         LOG(ERROR) << "There is no active hosts";
@@ -82,6 +75,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
+    auto hostDel = *req.get_host_del();
     auto ret = Balancer::instance(kvstore_)->balance(std::move(hostDel));
     if (!ok(ret)) {
         resp_.set_code(error(ret));
