@@ -5,14 +5,13 @@
  */
 
 #include "base/Base.h"
-#include "dataman/SchemaWriter.h"
+#include "codec/test/SchemaWriter.h"
 
 namespace nebula {
 
-using cpp2::Schema;
-using cpp2::ValueType;
-using cpp2::SupportedType;
-using cpp2::ColumnDef;
+using meta::cpp2::Schema;
+using meta::cpp2::PropertyType;
+using meta::cpp2::ColumnDef;
 
 Schema SchemaWriter::moveSchema() noexcept {
     Schema schema;
@@ -24,23 +23,14 @@ Schema SchemaWriter::moveSchema() noexcept {
 
 
 SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
-                                      SupportedType type) noexcept {
-    ValueType vt;
-    vt.set_type(type);
-
-    return appendCol(name, std::move(vt));
-}
-
-
-SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
-                                      ValueType&& type) noexcept {
+                                      PropertyType type) noexcept {
     using folly::hash::SpookyHashV2;
     uint64_t hash = SpookyHashV2::Hash64(name.data(), name.size(), 0);
     DCHECK(nameIndex_.find(hash) == nameIndex_.end());
 
     ColumnDef col;
     col.set_name(name.toString());
-    col.set_type(std::move(type));
+    col.set_type(type);
 
     columns_.emplace_back(std::move(col));
     nameIndex_.emplace(std::make_pair(hash, columns_.size() - 1));

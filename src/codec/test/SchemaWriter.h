@@ -4,11 +4,11 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef DATAMAN_SCHEMAWRITER_H_
-#define DATAMAN_SCHEMAWRITER_H_
+#ifndef CODEC_TEST_SCHEMAWRITER_H_
+#define CODEC_TEST_SCHEMAWRITER_H_
 
 #include "base/Base.h"
-#include "dataman/ResultSchemaProvider.h"
+#include "codec/test/ResultSchemaProvider.h"
 
 namespace nebula {
 
@@ -17,17 +17,14 @@ public:
     explicit SchemaWriter(SchemaVer ver = 0) : ResultSchemaProvider(ver) {}
 
     // Move the schema out of the writer
-    cpp2::Schema moveSchema() noexcept;
+    meta::cpp2::Schema moveSchema() noexcept;
 
     SchemaWriter& appendCol(folly::StringPiece name,
-                            cpp2::SupportedType type) noexcept;
-
-    SchemaWriter& appendCol(folly::StringPiece name,
-                            cpp2::ValueType&& type)noexcept;
+                            meta::cpp2::PropertyType type) noexcept;
 
 private:
 };
 
 }  // namespace nebula
-#endif  // DATAMAN_SCHEMAWRITER_H_
+#endif  // CODEC_TEST_SCHEMAWRITER_H_
 
