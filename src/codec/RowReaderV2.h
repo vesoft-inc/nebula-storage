@@ -26,7 +26,7 @@ class RowReaderV2 : public RowReader {
 
 public:
     RowReaderV2(const meta::SchemaProviderIf* schema,
-                std::string row);
+                folly::StringPiece row);
 
     virtual ~RowReaderV2() = default;
 

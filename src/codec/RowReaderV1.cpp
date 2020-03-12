@@ -24,13 +24,14 @@ namespace nebula {
  * class RowReaderV1
  *
  ********************************************/
-RowReaderV1::RowReaderV1(const meta::SchemaProviderIf* schema, std::string row)
+RowReaderV1::RowReaderV1(const meta::SchemaProviderIf* schema,
+                         folly::StringPiece row)
         : RowReader(schema, std::move(row)) {
     CHECK(!!schema_) << "A schema must be provided";
 
     if (processHeader(data_)) {
         // data_.begin() points to the first field
-        data_ = data_.substr(headerLen_);
+        data_ = data_.subpiece(headerLen_);
     } else {
         // Invalid data
         LOG(FATAL) << "Invalid row data: " << toHexStr(row);

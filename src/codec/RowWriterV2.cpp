@@ -245,7 +245,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
         case meta::cpp2::PropertyType::INT8: {
-            if (v > 127 || v < -127) {
+            if (v > 127 || v < static_cast<int8_t>(0x80)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int8_t iv = v;
@@ -253,7 +253,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT16: {
-            if (v > 0x7FFF || v < -0x7FFF) {
+            if (v > 0x7FFF || v < static_cast<int16_t>(0x8000)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int16_t iv = v;
@@ -261,7 +261,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT32: {
-            if (v > 0x7FFFFFFF || v < -0x7FFFFFFF) {
+            if (v > 0x7FFFFFFF || v < static_cast<int32_t>(0x80000000)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int32_t iv = v;
@@ -269,7 +269,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT64: {
-            if (v > 0x7FFFFFFFFFFFFFFFL || v < -0x7FFFFFFFFFFFFFFFL) {
+            if (v > 0x7FFFFFFFFFFFFFFFL || v < static_cast<int64_t>(0x8000000000000000L)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int64_t iv = v;
@@ -299,7 +299,7 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
         case meta::cpp2::PropertyType::INT8: {
-            if (v > 127 || v < -127) {
+            if (v > 127 || v < static_cast<int8_t>(0x80)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int8_t iv = v;
@@ -307,7 +307,7 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT16: {
-            if (v > 0x7FFF || v < -0x7FFF) {
+            if (v > 0x7FFF || v < static_cast<int16_t>(0x8000)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int16_t iv = v;
@@ -315,7 +315,7 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT32: {
-            if (v > 0x7FFFFFFF || v < -0x7FFFFFFF) {
+            if (v > 0x7FFFFFFF || v < static_cast<int32_t>(0x80000000)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int32_t iv = v;
@@ -323,7 +323,7 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT64: {
-            if (v > 0x7FFFFFFFFFFFFFFFL || v < -0x7FFFFFFFFFFFFFFFL) {
+            if (v > 0x7FFFFFFFFFFFFFFFL || v < static_cast<int64_t>(0x8000000000000000L)) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int64_t iv = v;

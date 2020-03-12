@@ -355,9 +355,8 @@ set(THRIFT_LIBRARIES
     thrift
     thriftprotocol
     async
-    esrotocol
-    -dependency
-    tranport
+    protocol
+    transport
     concurrency
     security
     thriftfrozen2

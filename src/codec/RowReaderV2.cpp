@@ -9,7 +9,8 @@
 
 namespace nebula {
 
-RowReaderV2::RowReaderV2(const meta::SchemaProviderIf* schema, std::string row)
+RowReaderV2::RowReaderV2(const meta::SchemaProviderIf* schema,
+                         folly::StringPiece row)
         : RowReader(schema, std::move(row))
         , headerLen_(0)
         , numNullBytes_(0) {

@@ -110,7 +110,7 @@ std::unique_ptr<RowReader> RowReader::getEdgePropReader(
 // static
 std::unique_ptr<RowReader> RowReader::getRowReader(
         const meta::SchemaProviderIf* schema,
-        std::string row) {
+        folly::StringPiece row) {
     SchemaVer schemaVer;
     int32_t readerVer;
     getVersions(row, schemaVer, readerVer);
@@ -125,7 +125,7 @@ std::unique_ptr<RowReader> RowReader::getRowReader(
 
 
 // static
-void RowReader::getVersions(const std::string& row,
+void RowReader::getVersions(const folly::StringPiece& row,
                             SchemaVer& schemaVer,
                             int32_t& readerVer) {
     size_t index = 0;
@@ -157,8 +157,7 @@ void RowReader::getVersions(const std::string& row,
     if (verBytes > 0) {
         if (verBytes + 1 > row.size()) {
             // Data is too short
-            LOG(ERROR) << "Row data is too short: " << toHexStr(row);
-            return 0;
+            LOG(FATAL) << "Row data is too short: " << toHexStr(row);
         }
         // Schema Version is stored in Little Endian
         memcpy(reinterpret_cast<void*>(&schemaVer), &row[index], verBytes);

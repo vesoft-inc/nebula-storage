@@ -78,7 +78,7 @@ enum class WriteResult {
 
     <header> <schema version> <NULL flags> <all properties> <string content>
        |             |             |              |
-     1 byte     0 - 7 bytes     1+ bytes       N bytes
+     1 byte     0 - 7 bytes     0+ bytes       N bytes
 
 ********************************************************************************/
 class RowWriterV2 {

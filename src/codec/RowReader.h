@@ -76,7 +76,7 @@ public:
 */
     static std::unique_ptr<RowReader> getRowReader(
         const meta::SchemaProviderIf* schema,
-        std::string row);
+        folly::StringPiece row);
 
     virtual ~RowReader() = default;
 
@@ -105,20 +105,20 @@ public:
         return schema_;
     }
 
-    const std::string& getData() const {
-        return data_;
+    const std::string getData() const {
+        return data_.toString();
     }
 
 protected:
     const meta::SchemaProviderIf* schema_;
-    std::string data_;
+    folly::StringPiece data_;
 
-    explicit RowReader(const meta::SchemaProviderIf* schema, std::string row)
+    explicit RowReader(const meta::SchemaProviderIf* schema, folly::StringPiece row)
         : schema_(schema)
-        , data_(std::move(row))
+        , data_(row)
         , endIter_(this, schema_->getNumFields()) {}
 
-    static void getVersions(const std::string& row,
+    static void getVersions(const folly::StringPiece& row,
                             SchemaVer& schemaVer,
                             int32_t& readerVer);
 
