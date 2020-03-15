@@ -136,8 +136,10 @@ public:
         }
     }
 
-    WriteResult setNull(ssize_t index) noexcept;
+    WriteResult setValue(ssize_t index, const Value& val) noexcept;
+    WriteResult setValue(folly::StringPiece name, const Value& val) noexcept;
 
+    WriteResult setNull(ssize_t index) noexcept;
     WriteResult setNull(folly::StringPiece name) noexcept;
 
 private:

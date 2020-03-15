@@ -21,6 +21,8 @@ const std::string fixed = "Nebula Graph";
 const Timestamp now = 1582183355;
 const Date date = {2020, 2, 20};
 const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600};
+const Value sVal("Hello world!");
+const Value iVal(64);
 
 TEST(RowWriterV2, NoDefaultValue) {
     SchemaWriter schema(12 /*Schema version*/);
@@ -39,15 +41,18 @@ TEST(RowWriterV2, NoDefaultValue) {
     schema.appendCol("Col13", PropertyType::INT64, 0, true);
     schema.appendCol("Col14", PropertyType::INT32, 0, true);
 
+ASSERT_EQ(Value::Type::STRING, sVal.type());
+ASSERT_EQ(Value::Type::INT, iVal.type());
+
     RowWriterV2 writer1(&schema);
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(0, true));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(1, 8));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(2, 16));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(3, 32));
-    EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(4, 64));
+    EXPECT_EQ(WriteResult::SUCCEEDED, writer1.setValue(4, iVal));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(5, pi));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(6, e));
-    EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(7, str));
+    EXPECT_EQ(WriteResult::SUCCEEDED, writer1.setValue(7, sVal));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(8, fixed));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(9, now));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer1.set(10, date));
@@ -61,10 +66,10 @@ TEST(RowWriterV2, NoDefaultValue) {
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col02", 8));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col03", 16));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col04", 32));
-    EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col05", 64));
+    EXPECT_EQ(WriteResult::SUCCEEDED, writer2.setValue("Col05", iVal));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col06", pi));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col07", e));
-    EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col08", str));
+    EXPECT_EQ(WriteResult::SUCCEEDED, writer2.setValue("Col08", sVal));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col09", fixed));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col10", now));
     EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col11", date));
@@ -111,7 +116,7 @@ TEST(RowWriterV2, NoDefaultValue) {
     v1 = reader1->getValueByName("Col05");
     v2 = reader2->getValueByIndex(4);
     EXPECT_EQ(Value::Type::INT, v1.type());
-    EXPECT_EQ(64, v1.getInt());
+    EXPECT_EQ(iVal.getInt(), v1.getInt());
     EXPECT_EQ(v1, v2);
 
     // Col06
@@ -132,7 +137,7 @@ TEST(RowWriterV2, NoDefaultValue) {
     v1 = reader1->getValueByName("Col08");
     v2 = reader2->getValueByIndex(7);
     EXPECT_EQ(Value::Type::STRING, v1.type());
-    EXPECT_EQ(str, v1.getStr());
+    EXPECT_EQ(sVal.getStr(), v1.getStr());
     EXPECT_EQ(v1, v2);
 
     // Col09

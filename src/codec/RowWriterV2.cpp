@@ -186,6 +186,41 @@ bool RowWriterV2::checkNullBit(ssize_t index) const noexcept {
 }
 
 
+WriteResult RowWriterV2::setValue(ssize_t index, const Value& val) noexcept {
+    CHECK(!finished_) << "You have called finish()";
+    if (index < 0 || static_cast<size_t>(index) >= schema_->getNumFields()) {
+        return WriteResult::UNKNOWN_FIELD;
+    }
+
+    switch (val.type()) {
+        case Value::Type::NULLVALUE:
+            return setNull(index);
+        case Value::Type::BOOL:
+            return write(index, val.getBool());
+        case Value::Type::INT:
+            return write(index, val.getInt());
+        case Value::Type::FLOAT:
+            return write(index, val.getFloat());
+        case Value::Type::STRING:
+            return write(index, val.getStr());
+        case Value::Type::DATE:
+            return write(index, val.getDate());
+        case Value::Type::DATETIME:
+            return write(index, val.getDateTime());
+        default:
+LOG(ERROR) << "Unsupported value type";
+            return WriteResult::TYPE_MISMATCH;
+    }
+}
+
+
+WriteResult RowWriterV2::setValue(folly::StringPiece name, const Value& val) noexcept {
+    CHECK(!finished_) << "You have called finish()";
+    int64_t index = schema_->getFieldIndex(name);
+    return setValue(index, val);
+}
+
+
 WriteResult RowWriterV2::setNull(ssize_t index) noexcept {
     CHECK(!finished_) << "You have called finish()";
     if (index < 0 || static_cast<size_t>(index) >= schema_->getNumFields()) {
@@ -232,6 +267,7 @@ WriteResult RowWriterV2::write(ssize_t index, bool v) noexcept {
             buf_[offset + 0] = v ? 0x01 : 0;
             break;
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -286,6 +322,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -340,6 +377,7 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -391,6 +429,7 @@ WriteResult RowWriterV2::write(ssize_t index, int8_t v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -445,6 +484,7 @@ WriteResult RowWriterV2::write(ssize_t index, int16_t v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -504,6 +544,7 @@ WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -566,6 +607,7 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -626,6 +668,7 @@ WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
             break;
         }
         default:
+LOG(ERROR) << "Property type is not STRING";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -652,6 +695,7 @@ WriteResult RowWriterV2::write(ssize_t index, const Date& v) noexcept {
                    3 * sizeof(int8_t) + 2 * sizeof(int32_t));
             break;
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
@@ -684,6 +728,7 @@ WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
                    sizeof(int32_t));
             break;
         default:
+LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
     clearNullBit(index);
