@@ -3,7 +3,9 @@
 install(
     FILES
         nebula-storaged.conf.default
+        nebula-storaged.conf.production
         nebula-metad.conf.default
+        nebula-metad.conf.production
     PERMISSIONS
         OWNER_READ
         GROUP_READ
