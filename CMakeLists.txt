@@ -124,7 +124,7 @@ if (GIT_INFO_SHA)
 endif()
 
 # To include customized FindXXX.cmake modules
-set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" "${NEBULA_HOME}/modules/common/cmake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" ${CMAKE_MODULE_PATH})
 
 # When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/vesoft/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
@@ -217,10 +217,6 @@ find_package(LibLZMA MODULE)
 
 find_package(Rocksdb REQUIRED)
 find_package(nebula-common REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(Krb5 REQUIRED gssapi)
-find_package(LibLZMA MODULE)
-find_package(Libunwind REQUIRED)
 
 add_compile_options(-Wall)
 add_compile_options(-Werror)
