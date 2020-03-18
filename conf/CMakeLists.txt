@@ -4,6 +4,18 @@ install(
     FILES
         nebula-storaged.conf.default
         nebula-storaged.conf.production
+    PERMISSIONS
+        OWNER_READ
+        GROUP_READ
+        WORLD_READ
+    DESTINATION
+        etc
+    COMPONENT
+        storage
+)
+
+install(
+    FILES
         nebula-metad.conf.default
         nebula-metad.conf.production
     PERMISSIONS
@@ -12,4 +24,6 @@ install(
         WORLD_READ
     DESTINATION
         etc
+    COMPONENT
+        meta
 )
