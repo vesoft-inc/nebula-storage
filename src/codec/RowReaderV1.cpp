@@ -10,11 +10,11 @@
 
 #define RR_GET_OFFSET()                                             \
     if (index >= static_cast<int64_t>(schema_->getNumFields())) {   \
-        return NullType::BAD_DATA;                                   \
+        return NullType::BAD_DATA;                                  \
     }                                                               \
     int64_t offset = skipToField(index);                            \
     if (offset < 0) {                                               \
-        return NullType::BAD_DATA;                                   \
+        return NullType::BAD_DATA;                                  \
     }
 
 namespace nebula {
@@ -24,17 +24,25 @@ namespace nebula {
  * class RowReaderV1
  *
  ********************************************/
-RowReaderV1::RowReaderV1(const meta::SchemaProviderIf* schema,
-                         folly::StringPiece row)
-        : RowReader(schema, std::move(row)) {
-    CHECK(!!schema_) << "A schema must be provided";
+bool RowReaderV1::resetImpl(meta::SchemaProviderIf const* schema,
+                            folly::StringPiece row) noexcept {
+    DCHECK(!!schema_) << "A schema must be provided";
+
+    RowReader::resetImpl(schema, row);
+
+    headerLen_ = 0;
+    numBytesForOffset_ = 0;
+    blockOffsets_.clear();
+    offsets_.clear();
 
     if (processHeader(data_)) {
         // data_.begin() points to the first field
         data_ = data_.subpiece(headerLen_);
+        return true;
     } else {
         // Invalid data
-        LOG(FATAL) << "Invalid row data: " << toHexStr(row);
+        LOG(ERROR) << "Invalid row data: " << toHexStr(row);
+        return false;
     }
 }
 

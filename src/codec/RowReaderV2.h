@@ -14,20 +14,17 @@
 
 namespace nebula {
 
+class RowReaderWrapper;
+
 /**
  * This class decodes the data from version 2.0
  */
 class RowReaderV2 : public RowReader {
-    friend class RowReader;
+    friend class RowReaderWrapper;
 
-    FRIEND_TEST(RowReaderV2, headerInfo);
     FRIEND_TEST(RowReaderV2, encodedData);
-    FRIEND_TEST(RowReaderV2, iterator);
 
 public:
-    RowReaderV2(const meta::SchemaProviderIf* schema,
-                folly::StringPiece row);
-
     virtual ~RowReaderV2() = default;
 
     Value getValueByName(const std::string& prop) const noexcept override;
@@ -37,11 +34,26 @@ public:
         return 2;
     }
 
+    size_t headerLen() const noexcept override {
+        return headerLen_;
+    }
+
+    bool reset(meta::SchemaProviderIf const*, folly::StringPiece) noexcept override {
+        LOG(FATAL) << "Not implemented";
+    }
+
+protected:
+    bool resetImpl(meta::SchemaProviderIf const* schema, folly::StringPiece row)
+        noexcept override;
+
 private:
     size_t headerLen_;
     size_t numNullBytes_;
 
-    bool isNull(size_t index) const;
+    RowReaderV2() = default;
+
+    // Check whether the flag at the given position is set or not
+    bool isNull(size_t pos) const;
 };
 
 }  // namespace nebula

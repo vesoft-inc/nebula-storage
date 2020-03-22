@@ -21,6 +21,7 @@ public:
                                    int16_t size,
                                    bool nullable,
                                    int32_t offset,
+                                   size_t nullFlagPos,
                                    Value defaultValue = Value());
 
         const char* name() const override;
@@ -30,6 +31,7 @@ public:
         const Value& defaultValue() const override;
         size_t size() const override;
         size_t offset() const override;
+        size_t nullFlagPos() const override;
 
     private:
         std::string name_;
@@ -37,12 +39,12 @@ public:
         int16_t size_;
         bool nullable_;
         int32_t offset_;
+        size_t nullFlagPos_;
         Value defaultValue_;
     };
 
 
 public:
-//    explicit ResultSchemaProvider(meta::cpp2::Schema);
     virtual ~ResultSchemaProvider() = default;
 
     SchemaVer getVersion() const noexcept override {
@@ -50,6 +52,8 @@ public:
     }
 
     size_t getNumFields() const noexcept override;
+
+    size_t getNumNullableFields() const noexcept override;
 
     size_t size() const noexcept override;
 
@@ -70,6 +74,7 @@ protected:
     std::vector<ResultSchemaField> columns_;
     // Map of Hash64(field_name) -> array index
     std::unordered_map<uint64_t, int64_t> nameIndex_;
+    size_t numNullableFields_{0};
 
     // Default constructor, only used by SchemaWriter
     explicit ResultSchemaProvider(SchemaVer ver = 0) : schemaVer_(ver) {}

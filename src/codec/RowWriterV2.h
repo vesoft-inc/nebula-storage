@@ -70,9 +70,11 @@ enum class WriteResult {
   of the encoded string
 
   The encoder version 2 also supports the NULL value for all types. It uses
-  one bit flag to indicate whether a proeprty is NULL. So one byte can
-  represent NULL values for 8 properties. The total number of bytes needed for
-  the NULL flags is ((number_of_props - 1) >> 3) + 1
+  one bit flag to indicate whether a property is NULL if the property is
+  nullable. So one byte can represent NULL values for 8 nullable properties.
+  The total number of bytes needed for the NULL flags is
+
+  ((number_of_nullable_props - 1) >> 3) + 1
 
   Here is the overall byte sequence for the version 2 encoding
 
@@ -164,10 +166,11 @@ private:
 
     void processV2EncodedStr() noexcept;
 
-    void setNullBit(ssize_t index) noexcept;
-    void clearNullBit(ssize_t index) noexcept;
-    // Return true if the field is NULL; otherwise, return false
-    bool checkNullBit(ssize_t index) const noexcept;
+    void setNullBit(ssize_t pos) noexcept;
+    void clearNullBit(ssize_t pos) noexcept;
+    // Return true if the flag at the given position is NULL;
+    // otherwise, return false
+    bool checkNullBit(ssize_t pos) const noexcept;
 
     WriteResult write(ssize_t index, bool v) noexcept;
     WriteResult write(ssize_t index, float v) noexcept;

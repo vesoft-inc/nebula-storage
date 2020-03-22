@@ -24,12 +24,14 @@ ResultSchemaProvider::ResultSchemaField::ResultSchemaField(
         int16_t size,
         bool nullable,
         int32_t offset,
+        size_t nullFlagPos,
         Value defaultValue)
     : name_(std::move(name))
     , type_(type)
     , size_(size)
     , nullable_(nullable)
     , offset_(offset)
+    , nullFlagPos_(nullFlagPos)
     , defaultValue_(std::move(defaultValue)) {}
 
 
@@ -68,6 +70,11 @@ size_t ResultSchemaProvider::ResultSchemaField::offset() const {
 }
 
 
+size_t ResultSchemaProvider::ResultSchemaField::nullFlagPos() const {
+    return nullFlagPos_;
+}
+
+
 /***********************************
  *
  * ResultSchemaProvider
@@ -75,6 +82,11 @@ size_t ResultSchemaProvider::ResultSchemaField::offset() const {
  **********************************/
 size_t ResultSchemaProvider::getNumFields() const noexcept {
     return columns_.size();
+}
+
+
+size_t ResultSchemaProvider::getNumNullableFields() const noexcept {
+    return numNullableFields_;
 }
 
 

@@ -56,8 +56,15 @@ public:
         Cell cell_;
         size_t index_;
 
-        Iterator(const RowReader* reader, size_t index = 0)
+        explicit Iterator(const RowReader* reader)
+            : reader_(reader), cell_(this) {}
+
+        Iterator(const RowReader* reader, size_t index)
             : reader_(reader), cell_(this), index_(index) {}
+
+        void reset(size_t index = 0) {
+            index_ = index;
+        }
     };
 
 
@@ -74,8 +81,9 @@ public:
         EdgeType edge,
         std::string row);
 */
+
     static std::unique_ptr<RowReader> getRowReader(
-        const meta::SchemaProviderIf* schema,
+        meta::SchemaProviderIf const* schema,
         folly::StringPiece row);
 
     virtual ~RowReader() = default;
@@ -85,45 +93,47 @@ public:
 
     virtual int32_t readerVer() const noexcept = 0;
 
-    Iterator begin() const noexcept {
+    // Return the number of bytes used for the header info
+    virtual size_t headerLen() const noexcept = 0;
+
+    virtual bool reset(meta::SchemaProviderIf const* schema,
+                       folly::StringPiece row) noexcept = 0;
+
+    virtual Iterator begin() const noexcept {
         return Iterator(this, 0);
     }
 
-    const Iterator& end() const noexcept {
+    virtual const Iterator& end() const noexcept {
         return endIter_;
     }
 
-    SchemaVer schemaVer() const noexcept {
+    virtual SchemaVer schemaVer() const noexcept {
         return schema_->getVersion();
     }
 
-    size_t numFields() const noexcept {
+    virtual size_t numFields() const noexcept {
         return schema_->getNumFields();
     }
 
-    const meta::SchemaProviderIf* getSchema() const {
+    virtual const meta::SchemaProviderIf* getSchema() const {
         return schema_;
     }
 
-    const std::string getData() const {
+    virtual const std::string getData() const {
         return data_.toString();
     }
 
 protected:
-    const meta::SchemaProviderIf* schema_;
+    meta::SchemaProviderIf const* schema_;
     folly::StringPiece data_;
 
-    explicit RowReader(const meta::SchemaProviderIf* schema, folly::StringPiece row)
-        : schema_(schema)
-        , data_(row)
-        , endIter_(this, schema_->getNumFields()) {}
+    RowReader() : endIter_(this) {}
 
-    static void getVersions(const folly::StringPiece& row,
-                            SchemaVer& schemaVer,
-                            int32_t& readerVer);
+    virtual bool resetImpl(meta::SchemaProviderIf const* schema,
+                           folly::StringPiece row) noexcept;
 
 private:
-    const Iterator endIter_;
+    Iterator endIter_;
 };
 
 }  // namespace nebula

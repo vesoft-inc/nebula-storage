@@ -6,8 +6,7 @@
 
 #include "base/Base.h"
 #include "codec/RowReader.h"
-#include "codec/RowReaderV1.h"
-#include "codec/RowReaderV2.h"
+#include "codec/RowReaderWrapper.h"
 
 namespace nebula {
 
@@ -111,59 +110,26 @@ std::unique_ptr<RowReader> RowReader::getEdgePropReader(
 std::unique_ptr<RowReader> RowReader::getRowReader(
         const meta::SchemaProviderIf* schema,
         folly::StringPiece row) {
-    SchemaVer schemaVer;
-    int32_t readerVer;
-    getVersions(row, schemaVer, readerVer);
-    CHECK_EQ(schemaVer, schema->getVersion());
-
-    if (readerVer == 1) {
-        return std::make_unique<RowReaderV1>(schema, std::move(row));
+    auto reader = std::make_unique<RowReaderWrapper>();
+    if (reader->reset(schema, row)) {
+        return reader;
     } else {
-        return std::make_unique<RowReaderV2>(schema, std::move(row));
+        LOG(ERROR) << "Failed to initiate the reader, most likely the data"
+                      "is corrupted. The data is ["
+                   << toHexStr(row)
+                   << "]";
+        return std::unique_ptr<RowReader>();
     }
 }
 
 
-// static
-void RowReader::getVersions(const folly::StringPiece& row,
-                            SchemaVer& schemaVer,
-                            int32_t& readerVer) {
-    size_t index = 0;
-    if (row.empty()) {
-        LOG(WARNING) << "Row data is empty, so there is no version info";
-        schemaVer = 0;
-        readerVer = 2;
-        return;
-    }
+bool RowReader::resetImpl(meta::SchemaProviderIf const* schema,
+                          folly::StringPiece row) noexcept {
+    schema_ = schema;
+    data_ = row;
 
-    readerVer = ((row[index] & 0x18) >> 3) + 1;
-
-    size_t verBytes = 0;
-    if (readerVer == 1) {
-        // The first three bits indicate the number of bytes for the
-        // schema version. If the number is zero, no schema version
-        // presents
-        verBytes = row[index++] >> 5;
-    } else if (readerVer == 2) {
-        // The last three bits indicate the number of bytes for the
-        // schema version. If the number is zero, no schema version
-        // presents
-        verBytes = row[index++] & 0x07;
-    } else {
-        LOG(FATAL) << "Invalid reader version";
-    }
-
-    schemaVer = 0;
-    if (verBytes > 0) {
-        if (verBytes + 1 > row.size()) {
-            // Data is too short
-            LOG(FATAL) << "Row data is too short: " << toHexStr(row);
-        }
-        // Schema Version is stored in Little Endian
-        memcpy(reinterpret_cast<void*>(&schemaVer), &row[index], verBytes);
-    }
-
-    return;
+    endIter_.reset(schema_->getNumFields());
+    return true;
 }
 
 }  // namespace nebula

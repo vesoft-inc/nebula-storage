@@ -7,7 +7,7 @@
 #include "base/Base.h"
 #include <gtest/gtest.h>
 #include "datatypes/Value.h"
-#include "codec/RowReaderV1.h"
+#include "codec/RowReaderWrapper.h"
 #include "codec/test/SchemaWriter.h"
 
 namespace nebula {
@@ -16,22 +16,18 @@ TEST(RowReaderV1, headerInfo) {
     // Simplest row, nothing in it
     char data1[] = {0x00};
     SchemaWriter schema1;
-    auto reader1 = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(
-            RowReader::getRowReader(&schema1, std::string(data1, sizeof(data1)))
-                .release()));
-    EXPECT_EQ(0, reader1->schemaVer());
-    EXPECT_EQ(sizeof(data1), reader1->headerLen_);
+    auto reader = RowReader::getRowReader(&schema1,
+                                          folly::StringPiece(data1, sizeof(data1)));
+    ASSERT_TRUE(!!reader);
+    EXPECT_EQ(0, reader->schemaVer());
+    EXPECT_EQ(sizeof(data1), reader->headerLen());
 
     // With schema version
     char data2[] = {0x40, 0x01, static_cast<char>(0xFF)};
     SchemaWriter schema2(0x00FF01);
-    auto reader2 = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(
-            RowReader::getRowReader(&schema2, std::string(data2, sizeof(data2)))
-                .release()));
-    EXPECT_EQ(0x0000FF01, reader2->schemaVer());
-    EXPECT_EQ(sizeof(data2), reader2->headerLen_);
+    ASSERT_TRUE(reader->reset(&schema2, folly::StringPiece(data2, sizeof(data2))));
+    EXPECT_EQ(0x0000FF01, reader->schemaVer());
+    EXPECT_EQ(sizeof(data2), reader->headerLen());
 
     // Insert 33 fields into schema, so we will get 2 offsets
     SchemaWriter schema3(0x00FFFF01);
@@ -44,16 +40,16 @@ TEST(RowReaderV1, headerInfo) {
     char data3[] = {0x60, 0x01, static_cast<char>(0xFF),
                     static_cast<char>(0xFF), 0x40,
                     static_cast<char>(0xF0)};
-    auto reader3 = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(
-            RowReader::getRowReader(&schema3, std::string(data3, sizeof(data3)))
-                .release()));
-    EXPECT_EQ(0x00FFFF01, reader3->schemaVer());
-    EXPECT_EQ(sizeof(data3), reader3->headerLen_);
-    ASSERT_EQ(3, reader3->blockOffsets_.size());
-    EXPECT_EQ(0x0000, reader3->blockOffsets_[0].first);
-    EXPECT_EQ(0x0040, reader3->blockOffsets_[1].first);
-    EXPECT_EQ(0x00F0, reader3->blockOffsets_[2].first);
+    ASSERT_TRUE(reader->reset(&schema3, folly::StringPiece(data3, sizeof(data3))));
+    EXPECT_EQ(0x00FFFF01, reader->schemaVer());
+    EXPECT_EQ(sizeof(data3), reader->headerLen());
+
+    RowReaderWrapper* r = dynamic_cast<RowReaderWrapper*>(reader.get());
+    ASSERT_EQ(&(r->readerV1_), r->currReader_);
+    ASSERT_EQ(3, r->readerV1_.blockOffsets_.size());
+    EXPECT_EQ(0x0000, r->readerV1_.blockOffsets_[0].first);
+    EXPECT_EQ(0x0040, r->readerV1_.blockOffsets_[1].first);
+    EXPECT_EQ(0x00F0, r->readerV1_.blockOffsets_[2].first);
 
     // No schema version, with offsets
     SchemaWriter schema4;
@@ -63,16 +59,15 @@ TEST(RowReaderV1, headerInfo) {
     }
 
     char data4[] = {0x01, static_cast<char>(0xFF), 0x40, 0x08, static_cast<char>(0xF0)};
-    auto reader4 = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(
-            RowReader::getRowReader(&schema4, std::string(data4, sizeof(data4)))
-                .release()));
-    EXPECT_EQ(0, reader4->schemaVer());
-    EXPECT_EQ(sizeof(data4), reader4->headerLen_);
-    ASSERT_EQ(3, reader4->blockOffsets_.size());
-    EXPECT_EQ(0x000000, reader4->blockOffsets_[0].first);
-    EXPECT_EQ(0x0040FF, reader4->blockOffsets_[1].first);
-    EXPECT_EQ(0x00F008, reader4->blockOffsets_[2].first);
+    ASSERT_TRUE(reader->reset(&schema4, folly::StringPiece(data4, sizeof(data4))));
+    EXPECT_EQ(0, reader->schemaVer());
+    EXPECT_EQ(sizeof(data4), reader->headerLen());
+
+    ASSERT_EQ(&(r->readerV1_), r->currReader_);
+    ASSERT_EQ(3, r->readerV1_.blockOffsets_.size());
+    EXPECT_EQ(0x000000, r->readerV1_.blockOffsets_[0].first);
+    EXPECT_EQ(0x0040FF, r->readerV1_.blockOffsets_[1].first);
+    EXPECT_EQ(0x00F008, r->readerV1_.blockOffsets_[2].first);
 }
 
 
@@ -158,14 +153,16 @@ TEST(RowReaderV1, encodedData) {
     /**************************
      * Now let's read it
      *************************/
-    auto reader = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(RowReader::getRowReader(&schema, encoded).release()));
+    auto reader = RowReader::getRowReader(&schema, encoded);
 
     // Header info
+    RowReaderWrapper* r = dynamic_cast<RowReaderWrapper*>(reader.get());
+    ASSERT_EQ(&(r->readerV1_), r->currReader_);
     EXPECT_EQ(0, reader->schemaVer());
-    EXPECT_EQ(1, reader->blockOffsets_.size());
-    EXPECT_EQ(0, reader->blockOffsets_[0].first);
-    EXPECT_EQ(1, reader->headerLen_);
+    EXPECT_EQ(1, reader->headerLen());
+    ASSERT_EQ(&(r->readerV1_), r->currReader_);
+    EXPECT_EQ(1, r->readerV1_.blockOffsets_.size());
+    EXPECT_EQ(0, r->readerV1_.blockOffsets_[0].first);
 
     Value val;
 
@@ -276,8 +273,7 @@ TEST(RowReaderV1, iterator) {
         encoded.append(1, i + 1);
     }
 
-    auto reader = std::unique_ptr<RowReaderV1>(
-        dynamic_cast<RowReaderV1*>(RowReader::getRowReader(&schema, encoded).release()));
+    auto reader = RowReader::getRowReader(&schema, encoded);
     auto it = reader->begin();
     int32_t index = 0;
     while (it != reader->end()) {

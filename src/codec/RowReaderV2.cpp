@@ -9,12 +9,11 @@
 
 namespace nebula {
 
-RowReaderV2::RowReaderV2(const meta::SchemaProviderIf* schema,
-                         folly::StringPiece row)
-        : RowReader(schema, std::move(row))
-        , headerLen_(0)
-        , numNullBytes_(0) {
+bool RowReaderV2::resetImpl(meta::SchemaProviderIf const* schema,
+                            folly::StringPiece row) noexcept {
     DCHECK(!!schema_);
+
+    RowReader::resetImpl(schema, row);
 
     size_t numVerBytes = data_[0] & 0x07;
     headerLen_ = numVerBytes + 1;
@@ -29,18 +28,22 @@ RowReaderV2::RowReaderV2(const meta::SchemaProviderIf* schema,
 #endif
 
     // Null flags
-    size_t numFields = schema_->getNumFields();
-    if (numFields > 0) {
-        numNullBytes_ = ((numFields - 1) >> 3) + 1;
+    size_t numNullables = schema_->getNumNullableFields();
+    if (numNullables > 0) {
+        numNullBytes_ = ((numNullables - 1) >> 3) + 1;
+    } else {
+        numNullBytes_ = 0;
     }
+
+    return true;
 }
 
 
-bool RowReaderV2::isNull(size_t index) const {
+bool RowReaderV2::isNull(size_t pos) const {
     static const uint8_t bits[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
-    size_t offset = headerLen_ + (index >> 3);
-    int8_t flag = data_[offset] & bits[index & 0x0000000000000007L];
+    size_t offset = headerLen_ + (pos >> 3);
+    int8_t flag = data_[offset] & bits[pos & 0x0000000000000007L];
     return flag != 0;
 }
 
@@ -56,12 +59,12 @@ Value RowReaderV2::getValueByIndex(const int64_t index) const noexcept {
         return Value(NullType::UNKNOWN_PROP);
     }
 
-    if (isNull(index)) {
-        return NullType::__NULL__;
-    }
-
     auto field = schema_->field(index);
     size_t offset = headerLen_ + numNullBytes_ + field->offset();
+
+    if (field->nullable() && isNull(field->nullFlagPos())) {
+        return NullType::__NULL__;
+    }
 
     switch (field->type()) {
         case meta::cpp2::PropertyType::BOOL: {

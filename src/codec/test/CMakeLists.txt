@@ -7,8 +7,6 @@ nebula_add_library(
 set(CODEC_TEST_LIBS
     $<TARGET_OBJECTS:codec_obj>
     $<TARGET_OBJECTS:codec_test_obj>
-    $<TARGET_OBJECTS:common_meta_thrift_obj>
-    $<TARGET_OBJECTS:common_common_thrift_obj>
     $<TARGET_OBJECTS:common_datatypes_obj>
     $<TARGET_OBJECTS:common_thrift_obj>
     $<TARGET_OBJECTS:common_base_obj>

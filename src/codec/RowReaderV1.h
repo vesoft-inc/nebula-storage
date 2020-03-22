@@ -13,20 +13,18 @@
 
 namespace nebula {
 
+class RowReaderWrapper;
+
 /**
  * This class decodes the data from version 1.0
  */
 class RowReaderV1 : public RowReader {
-    friend class RowReader;
+    friend class RowReaderWrapper;
 
     FRIEND_TEST(RowReaderV1, headerInfo);
     FRIEND_TEST(RowReaderV1, encodedData);
-    FRIEND_TEST(RowReaderV1, iterator);
 
 public:
-    RowReaderV1(const meta::SchemaProviderIf* schema,
-                folly::StringPiece row);
-
     ~RowReaderV1() = default;
 
     Value getValueByName(const std::string& prop) const noexcept override;
@@ -35,6 +33,18 @@ public:
     int32_t readerVer() const noexcept override {
         return 1;
     }
+
+    size_t headerLen() const noexcept override {
+        return headerLen_;
+    }
+
+    bool reset(meta::SchemaProviderIf const*, folly::StringPiece) noexcept override {
+        LOG(FATAL) << "Not implemented";
+    }
+
+protected:
+    bool resetImpl(meta::SchemaProviderIf const* schema, folly::StringPiece row)
+        noexcept override;
 
 private:
     int32_t headerLen_ = 0;
@@ -46,6 +56,8 @@ private:
     mutable std::vector<int64_t> offsets_;
 
 private:
+    RowReaderV1() = default;
+
     // Process the row header infomation
     // Returns false when the row data is invalid
     bool processHeader(folly::StringPiece row);

@@ -17,8 +17,8 @@ RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema)
         , outOfSpaceStr_(false) {
     CHECK(!!schema_);
 
-    // Reserve 8 bytes for the header and twice the data length
-    buf_.reserve(2 * schema_->size() + 8);
+    // Reserve space for the header, the data, and the string values
+    buf_.reserve(schema_->size() + schema_->getNumFields() / 8 + 8 + 1024);
 
     char header = 0;
 
@@ -71,16 +71,16 @@ RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema)
     }
 
     // Null flags
-    size_t numFields = schema_->getNumFields();
-    if (numFields > 0) {
-        numNullBytes_ = ((numFields - 1) >> 3) + 1;
+    size_t numNullables = schema_->getNumNullableFields();
+    if (numNullables > 0) {
+        numNullBytes_ = ((numNullables - 1) >> 3) + 1;
     }
 
     // Reserve the space for the data, including the Null bits
     // All variant length string will be appended to the end
     buf_.resize(headerLen_ + numNullBytes_ + schema_->size(), '\0');
 
-    isSet_.resize(numFields, false);
+    isSet_.resize(schema_->getNumFields(), false);
 }
 
 
@@ -149,39 +149,39 @@ void RowWriterV2::processV2EncodedStr() noexcept {
     headerLen_ = verBytes + 1;
 
     // Null flags
-    size_t numFields = schema_->getNumFields();
-    if (numFields > 0) {
-        numNullBytes_ = ((numFields - 1) >> 3) + 1;
+    size_t numNullables = schema_->getNumNullableFields();
+    if (numNullables > 0) {
+        numNullBytes_ = ((numNullables - 1) >> 3) + 1;
     } else {
         numNullBytes_ = 0;
     }
 
     approxStrLen_ = buf_.size() - headerLen_ - numNullBytes_ - schema_->size();
-    isSet_.resize(numFields, true);
+    isSet_.resize(schema_->getNumFields(), true);
 }
 
 
-void RowWriterV2::setNullBit(ssize_t index) noexcept {
+void RowWriterV2::setNullBit(ssize_t pos) noexcept {
     static const uint8_t orBits[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
-    size_t offset = headerLen_ + (index >> 3);
-    buf_[offset] = buf_[offset] | orBits[index & 0x0000000000000007L];
+    size_t offset = headerLen_ + (pos >> 3);
+    buf_[offset] = buf_[offset] | orBits[pos & 0x0000000000000007L];
 }
 
 
-void RowWriterV2::clearNullBit(ssize_t index) noexcept {
+void RowWriterV2::clearNullBit(ssize_t pos) noexcept {
     static const uint8_t andBits[] = {0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE};
 
-    size_t offset = headerLen_ + (index >> 3);
-    buf_[offset] = buf_[offset] & andBits[index & 0x0000000000000007L];
+    size_t offset = headerLen_ + (pos >> 3);
+    buf_[offset] = buf_[offset] & andBits[pos & 0x0000000000000007L];
 }
 
 
-bool RowWriterV2::checkNullBit(ssize_t index) const noexcept {
+bool RowWriterV2::checkNullBit(ssize_t pos) const noexcept {
     static const uint8_t bits[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
-    size_t offset = headerLen_ + (index >> 3);
-    int8_t flag = buf_[offset] & bits[index & 0x0000000000000007L];
+    size_t offset = headerLen_ + (pos >> 3);
+    int8_t flag = buf_[offset] & bits[pos & 0x0000000000000007L];
     return flag != 0;
 }
 
@@ -208,7 +208,6 @@ WriteResult RowWriterV2::setValue(ssize_t index, const Value& val) noexcept {
         case Value::Type::DATETIME:
             return write(index, val.getDateTime());
         default:
-LOG(ERROR) << "Unsupported value type";
             return WriteResult::TYPE_MISMATCH;
     }
 }
@@ -233,7 +232,7 @@ WriteResult RowWriterV2::setNull(ssize_t index) noexcept {
         return WriteResult::NOT_NULLABLE;
     }
 
-    setNullBit(index);
+    setNullBit(field->nullFlagPos());
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -267,10 +266,11 @@ WriteResult RowWriterV2::write(ssize_t index, bool v) noexcept {
             buf_[offset + 0] = v ? 0x01 : 0;
             break;
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -322,10 +322,11 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -377,10 +378,11 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -429,10 +431,11 @@ WriteResult RowWriterV2::write(ssize_t index, int8_t v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -484,10 +487,11 @@ WriteResult RowWriterV2::write(ssize_t index, int16_t v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -544,10 +548,11 @@ WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -607,10 +612,11 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -668,10 +674,11 @@ WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
             break;
         }
         default:
-LOG(ERROR) << "Property type is not STRING";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -695,10 +702,11 @@ WriteResult RowWriterV2::write(ssize_t index, const Date& v) noexcept {
                    3 * sizeof(int8_t) + 2 * sizeof(int32_t));
             break;
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -728,10 +736,11 @@ WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
                    sizeof(int32_t));
             break;
         default:
-LOG(ERROR) << "Unsupported property type";
             return WriteResult::TYPE_MISMATCH;
     }
-    clearNullBit(index);
+    if (field->nullable()) {
+        clearNullBit(field->nullFlagPos());
+    }
     isSet_[index] = true;
     return WriteResult::SUCCEEDED;
 }
@@ -751,7 +760,7 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
                 const auto& defVal = field->defaultValue();
                 switch (defVal.type()) {
                     case Value::Type::NULLVALUE:
-                        setNullBit(i);
+                        setNullBit(field->nullFlagPos());
                         break;
                     case Value::Type::BOOL:
                         r = write(i, defVal.getBool());
@@ -776,7 +785,7 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
                 }
             } else {
                 // Set NULL
-                setNullBit(i);
+                setNullBit(field->nullFlagPos());
             }
 
             if (r != WriteResult::SUCCEEDED) {
@@ -808,7 +817,7 @@ std::string RowWriterV2::processOutOfSpace() noexcept {
         int32_t newOffset = temp.size();
         int32_t strLen;
 
-        if (checkNullBit(i)) {
+        if (field->nullable() && checkNullBit(field->nullFlagPos())) {
             // Null string
             newOffset = strLen = 0;
         } else {

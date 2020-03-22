@@ -21,10 +21,10 @@ using nebula::meta::cpp2::PropertyType;
 SchemaWriter schemaShort;
 SchemaWriter schemaLong;
 
-std::string dataShortV1;	    // NOLINT
-std::string dataShortV2;	    // NOLINT
-std::string dataLongV1;      // NOLINT
-std::string dataLongV2;      // NOLINT
+std::string dataShortV1;    // NOLINT
+std::string dataShortV2;    // NOLINT
+std::string dataLongV1;     // NOLINT
+std::string dataLongV2;     // NOLINT
 
 std::vector<size_t> shortRandom;
 std::vector<size_t> longRandom;
@@ -258,17 +258,17 @@ Benchmarked in WSL 1.0 running on i9-9880H
 ============================================================================
 RowReaderBenchmark.cpp                          relative  time/iter  iters/s
 ============================================================================
-seq_read_short_v1                                            1.09us  921.04K
-seq_read_short_v2                                179.38%   605.26ns    1.65M
+seq_read_short_v1                                            1.14us  878.08K
+seq_read_short_v2                                184.82%   616.19ns    1.62M
 ----------------------------------------------------------------------------
-seq_read_long_v1                                            13.56us   73.73K
-seq_read_long_v2                                 190.35%     7.12us  140.36K
+seq_read_long_v1                                            15.10us   66.23K
+seq_read_long_v2                                 189.05%     7.99us  125.20K
 ----------------------------------------------------------------------------
-random_read_short_v1                                         1.06us  942.75K
-random_read_short_v2                             161.88%   655.26ns    1.53M
+random_read_short_v1                                         1.26us  794.68K
+random_read_short_v2                             180.33%   697.83ns    1.43M
 ----------------------------------------------------------------------------
-random_read_long_v1                                         13.59us   73.60K
-random_read_long_v2                              168.92%     8.04us  124.32K
+random_read_long_v1                                         15.81us   63.24K
+random_read_long_v2                              194.92%     8.11us  123.27K
 ============================================================================
 */
 

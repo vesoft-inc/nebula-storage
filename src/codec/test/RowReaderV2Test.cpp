@@ -7,7 +7,7 @@
 #include "base/Base.h"
 #include <gtest/gtest.h>
 #include "datatypes/Value.h"
-#include "codec/RowReaderV2.h"
+#include "codec/RowReaderWrapper.h"
 #include "codec/test/SchemaWriter.h"
 
 namespace nebula {
@@ -18,22 +18,18 @@ TEST(RowReaderV2, headerInfo) {
     // Simplest row, nothing in it
     char data1[] = {0x08};
     SchemaWriter schema1;
-    auto reader1 = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(
-            RowReader::getRowReader(&schema1, std::string(data1, sizeof(data1)))
-                .release()));
-    EXPECT_EQ(0, reader1->schemaVer());
-    EXPECT_EQ(sizeof(data1), reader1->headerLen_);
+    auto reader = RowReader::getRowReader(&schema1,
+                                          folly::StringPiece(data1, sizeof(data1)));
+    ASSERT_TRUE(!!reader);
+    EXPECT_EQ(0, reader->schemaVer());
+    EXPECT_EQ(sizeof(data1), reader->headerLen());
 
     // With schema version
     char data2[] = {0x0A, 0x01, static_cast<char>(0xFF)};
     SchemaWriter schema2(0x00FF01);
-    auto reader2 = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(
-            RowReader::getRowReader(&schema2, std::string(data2, sizeof(data2)))
-                .release()));
-    EXPECT_EQ(0x0000FF01, reader2->schemaVer());
-    EXPECT_EQ(sizeof(data2), reader2->headerLen_);
+    ASSERT_TRUE(reader->reset(&schema2, folly::StringPiece(data2, sizeof(data2))));
+    EXPECT_EQ(0x0000FF01, reader->schemaVer());
+    EXPECT_EQ(sizeof(data2), reader->headerLen());
 
     // Insert 33 fields into schema, so we will get 2 offsets
     SchemaWriter schema3(0x00FFFF01);
@@ -43,12 +39,9 @@ TEST(RowReaderV2, headerInfo) {
 
     // With schema version and offsets
     char data3[] = {0x0B, 0x01, static_cast<char>(0xFF), static_cast<char>(0xFF)};
-    auto reader3 = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(
-            RowReader::getRowReader(&schema3, std::string(data3, sizeof(data3)))
-                .release()));
-    EXPECT_EQ(0x00FFFF01, reader3->schemaVer());
-    EXPECT_EQ(sizeof(data3), reader3->headerLen_);
+    ASSERT_TRUE(reader->reset(&schema3, folly::StringPiece(data3, sizeof(data3))));
+    EXPECT_EQ(0x00FFFF01, reader->schemaVer());
+    EXPECT_EQ(sizeof(data3), reader->headerLen());
 
     // No schema version, with offsets
     SchemaWriter schema4;
@@ -57,12 +50,9 @@ TEST(RowReaderV2, headerInfo) {
     }
 
     char data4[] = {0x08};
-    auto reader4 = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(
-            RowReader::getRowReader(&schema4, std::string(data4, sizeof(data4)))
-                .release()));
-    EXPECT_EQ(0, reader4->schemaVer());
-    EXPECT_EQ(sizeof(data4), reader4->headerLen_);
+    ASSERT_TRUE(reader->reset(&schema4, folly::StringPiece(data4, sizeof(data4))));
+    EXPECT_EQ(0, reader->schemaVer());
+    EXPECT_EQ(sizeof(data4), reader->headerLen());
 }
 
 
@@ -96,8 +86,8 @@ TEST(RowReaderV2, encodedData) {
     std::string encoded;
     // Single byte header (Schema version is 0, no offset)
     encoded.append(1, 0x08);
-    // NULL flags
-    encoded.append(2, 0);
+    // There is no nullable fields, so no need to reserve the space for
+    // the NULL flag
 
     const char* str1 = "Hello World!";
     const char* str2 = "Welcome to the future!";
@@ -120,7 +110,7 @@ TEST(RowReaderV2, encodedData) {
            .append(1, 0x55).append(1, 0x66).append(1, 0x77).append(1, 0x88);
 
     // Col 5
-    int32_t offset = 3 + schema.size();  // Header, null flags, and data
+    int32_t offset = 1 + schema.size();  // Header and data (no NULL flag)
     int32_t len = strlen(str2);
     encoded.append(reinterpret_cast<char*>(&offset), sizeof(int32_t));
     encoded.append(reinterpret_cast<char*>(&len), sizeof(int32_t));
@@ -170,13 +160,15 @@ TEST(RowReaderV2, encodedData) {
     /**************************
      * Now let's read it
      *************************/
-    auto reader = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(RowReader::getRowReader(&schema, encoded).release()));
+    auto reader = RowReader::getRowReader(&schema, encoded);
 
     // Header info
+    RowReaderWrapper* r = dynamic_cast<RowReaderWrapper*>(reader.get());
+    ASSERT_EQ(&(r->readerV2_), r->currReader_);
     EXPECT_EQ(0, reader->schemaVer());
-    EXPECT_EQ(1, reader->headerLen_);
-    EXPECT_EQ(2, reader->numNullBytes_);
+    EXPECT_EQ(1, reader->headerLen());
+    // There is no nullable fields, so no space reserved for the NULL flag
+    EXPECT_EQ(0, r->readerV2_.numNullBytes_);
 
     Value val;
 
@@ -305,8 +297,8 @@ TEST(RowReaderV2, iterator) {
     std::string encoded;
     // Header
     encoded.append(1, 0x08);
-    // Null flags
-    encoded.append(8, 0);
+    // There is no nullable field, so no need to reserve space for
+    // the Null flags
 
     SchemaWriter schema;
     for (int i = 0; i < 64; i++) {
@@ -316,8 +308,7 @@ TEST(RowReaderV2, iterator) {
         encoded.append(7, 0);
     }
 
-    auto reader = std::unique_ptr<RowReaderV2>(
-        dynamic_cast<RowReaderV2*>(RowReader::getRowReader(&schema, encoded).release()));
+    auto reader = RowReader::getRowReader(&schema, encoded);
     auto it = reader->begin();
     int32_t index = 0;
     while (it != reader->end()) {

@@ -11,17 +11,7 @@ namespace nebula {
 
 using meta::cpp2::Schema;
 using meta::cpp2::PropertyType;
-//using meta::cpp2::ColumnDef;
 
-/*
-Schema SchemaWriter::moveSchema() noexcept {
-    Schema schema;
-    schema.set_columns(std::move(columns_));
-
-    nameIndex_.clear();
-    return schema;
-}
-*/
 
 SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
                                       PropertyType type,
@@ -32,7 +22,6 @@ SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
     uint64_t hash = SpookyHashV2::Hash64(name.data(), name.size(), 0);
     DCHECK(nameIndex_.find(hash) == nameIndex_.end());
 
-    int16_t size = 0;
     int32_t offset = 0;
     if (columns_.size() > 0) {
         auto& prevCol = columns_.back();
@@ -40,6 +29,8 @@ SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
     } else {
         offset = 0;
     }
+
+    int16_t size = 0;
     switch (type) {
         case PropertyType::BOOL:
             size = sizeof(bool);
@@ -85,11 +76,17 @@ SchemaWriter& SchemaWriter::appendCol(folly::StringPiece name,
             LOG(FATAL) << "Unknown column type";
     }
 
+    size_t nullFlagPos = 0;
+    if (nullable) {
+        nullFlagPos = numNullableFields_++;
+    }
+
     columns_.emplace_back(name.toString(),
                           type,
                           size,
                           nullable,
                           offset,
+                          nullFlagPos,
                           std::move(defaultValue));
     nameIndex_.emplace(std::make_pair(hash, columns_.size() - 1));
 
