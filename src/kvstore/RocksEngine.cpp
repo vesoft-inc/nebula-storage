@@ -7,6 +7,7 @@
 #include "common/base/Base.h"
 #include "common/fs/FileUtils.h"
 #include <folly/String.h>
+#include <rocksdb/convenience.h>
 #include "kvstore/RocksEngine.h"
 #include "kvstore/KVStore.h"
 #include "kvstore/RocksEngineConfig.h"
@@ -106,6 +107,13 @@ RocksEngine::RocksEngine(GraphSpaceID spaceId,
     LOG(INFO) << "open rocksdb on " << path;
 }
 
+void RocksEngine::stop() {
+    if (db_) {
+        // Because we trigger compaction in WebService, we need to stop all background work
+        // before we stop HttpServer.
+        rocksdb::CancelAllBackgroundWork(db_.get(), true);
+    }
+}
 
 std::unique_ptr<WriteBatch> RocksEngine::startBatchWrite() {
     return std::make_unique<RocksWriteBatch>();

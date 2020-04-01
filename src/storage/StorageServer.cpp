@@ -218,6 +218,10 @@ void StorageServer::stop() {
     }
     stopped_ = true;
 
+    if (kvstore_) {
+        kvstore_->stop();
+    }
+
     webSvc_.reset();
 
     if (taskMgr_) {

@@ -88,7 +88,6 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
 
     properties.set_vid_size(vidSize);
 
-    VLOG(3) << "Create space " << spaceName << ", id " << spaceId;
     if ((int32_t)hosts.size() < replicaFactor) {
         LOG(ERROR) << "Not enough hosts existed for replica "
                    << replicaFactor << ", hosts num " << hosts.size();
@@ -110,6 +109,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_id(to(spaceId, EntryType::SPACE));
     doSyncPutAndUpdate(std::move(data));
+    LOG(INFO) << "Create space " << spaceName << ", id " << spaceId;
 }
 
 
