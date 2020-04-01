@@ -8,12 +8,14 @@ macro(add_dependent_project base name repo tag)
 
 # Clone or update the repo
 if(EXISTS ${base}/${name}/.git)
-    message(STATUS "Updating from the repo \"" ${repo} "\"")
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} pull --depth=1
-        WORKING_DIRECTORY ${base}/${name}
-        RESULT_VARIABLE clone_result
-    )
+    message(STATUS "Updating from the repo \"" ${repo} "\", update option ${ENABLE_UPDATE}")
+    if (ENABLE_UPDATE)
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} pull --depth=1
+            WORKING_DIRECTORY ${base}/${name}
+            RESULT_VARIABLE clone_result
+        )
+    endif()
 else()
     message(STATUS "Cloning from the repo \"" ${repo} "\"")
     execute_process(
