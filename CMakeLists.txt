@@ -270,20 +270,6 @@ if(ENABLE_FUZZ_TEST)
     endif()
 endif()
 
-# All thrift libraries
-set(THRIFT_LIBRARIES
-    thriftcpp2
-    thrift
-    thriftprotocol
-    async
-    protocol
-    transport
-    concurrency
-    security
-    thriftfrozen2
-    thrift-core
-)
-
 macro(nebula_add_executable)
     cmake_parse_arguments(
         nebula_exec                 # prefix
@@ -364,6 +350,20 @@ include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src/kvstore/plugins/hbase)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L ${NEBULA_THIRDPARTY_ROOT}/lib")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L ${NEBULA_THIRDPARTY_ROOT}/lib64")
 
+# All thrift libraries
+set(THRIFT_LIBRARIES
+    thriftcpp2
+    thrift
+    thriftprotocol
+    async
+    protocol
+    transport
+    concurrency
+    security
+    thriftfrozen2
+    thrift-core
+)
+
 set(ROCKSDB_LIBRARIES ${Rocksdb_LIBRARY})
 
 # All compression libraries
@@ -412,6 +412,7 @@ macro(nebula_link_libraries target)
         event
         double-conversion
         resolv
+        s2
         ${COMPRESSION_LIBRARIES}
         ${JEMALLOC_LIB}
         ${OPENSSL_SSL_LIBRARY}
