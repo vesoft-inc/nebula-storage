@@ -212,6 +212,7 @@ find_package(OpenSSL REQUIRED)
 find_package(Krb5 REQUIRED gssapi)
 find_package(GPERF 2.8 REQUIRED)
 find_package(Libunwind REQUIRED)
+find_package(LZ4 MODULE)
 find_package(LibLZMA MODULE)
 
 find_package(Rocksdb REQUIRED)
@@ -268,6 +269,20 @@ if(ENABLE_FUZZ_TEST)
         MESSAGE(FATAL_ERROR "The compiler does not support fuzz testing")
     endif()
 endif()
+
+# All thrift libraries
+set(THRIFT_LIBRARIES
+    thriftcpp2
+    thrift
+    thriftprotocol
+    async
+    protocol
+    transport
+    concurrency
+    security
+    thriftfrozen2
+    thrift-core
+)
 
 macro(nebula_add_executable)
     cmake_parse_arguments(
@@ -349,21 +364,6 @@ include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src/kvstore/plugins/hbase)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L ${NEBULA_THIRDPARTY_ROOT}/lib")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L ${NEBULA_THIRDPARTY_ROOT}/lib64")
 
-# All thrift libraries
-set(THRIFT_LIBRARIES
-    thriftcpp2
-    thrift
-    thriftprotocol
-    async
-    esrotocol
-    -dependency
-    tranport
-    concurrency
-    security
-    thriftfrozen2
-    thrift-core
-)
-
 set(ROCKSDB_LIBRARIES ${Rocksdb_LIBRARY})
 
 # All compression libraries
@@ -371,6 +371,10 @@ set(COMPRESSION_LIBRARIES bz2 snappy zstd z)
 if (LIBLZMA_FOUND)
     include_directories(SYSTEM ${LIBLZMA_INCLUDE_DIRS})
     list(APPEND COMPRESSION_LIBRARIES ${LIBLZMA_LIBRARIES})
+endif()
+if (LZ4_FOUND)
+    include_directories(SYSTEM ${LZ4_INCLUDE_DIR})
+    list(APPEND COMPRESSION_LIBRARIES ${LZ4_LIBRARY})
 endif()
 
 if (NOT ENABLE_JEMALLOC OR ENABLE_ASAN)
@@ -408,7 +412,6 @@ macro(nebula_link_libraries target)
         event
         double-conversion
         resolv
-        s2
         ${COMPRESSION_LIBRARIES}
         ${JEMALLOC_LIB}
         ${OPENSSL_SSL_LIBRARY}
