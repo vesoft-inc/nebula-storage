@@ -10,7 +10,7 @@
 #include "base/Base.h"
 #include "kvstore/KVStore.h"
 #include "meta/MetaServiceUtils.h"
-#include "common/encryption/MD5Utils.h"
+#include "encryption/MD5Utils.h"
 
 namespace nebula {
 namespace meta {

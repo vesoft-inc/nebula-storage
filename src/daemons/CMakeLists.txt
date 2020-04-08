@@ -1,47 +1,34 @@
-nebula_add_executable(
-    NAME
-        nebula-graphd
-    SOURCES
-        GraphDaemon.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:filter_obj>
-        $<TARGET_OBJECTS:graph_obj>
-        $<TARGET_OBJECTS:http_client_obj>
-        $<TARGET_OBJECTS:parser_obj>
-        $<TARGET_OBJECTS:network_obj>
-        $<TARGET_OBJECTS:process_obj>
-        $<TARGET_OBJECTS:graph_thrift_obj>
-        $<TARGET_OBJECTS:storage_client>
-        $<TARGET_OBJECTS:storage_thrift_obj>
-        $<TARGET_OBJECTS:meta_client>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:time_obj>
-        $<TARGET_OBJECTS:meta_thrift_obj>
-        $<TARGET_OBJECTS:common_thrift_obj>
-        $<TARGET_OBJECTS:thrift_obj>
-        $<TARGET_OBJECTS:schema_obj>
-        $<TARGET_OBJECTS:index_obj>
-        $<TARGET_OBJECTS:ws_obj>
-        $<TARGET_OBJECTS:ws_common_obj>
-        $<TARGET_OBJECTS:dataman_obj>
-        $<TARGET_OBJECTS:meta_gflags_man_obj>
-        $<TARGET_OBJECTS:gflags_man_obj>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:charset_obj>
-        $<TARGET_OBJECTS:thread_obj>
-        $<TARGET_OBJECTS:fs_obj>
-        $<TARGET_OBJECTS:base_obj>
-        $<TARGET_OBJECTS:concurrent_obj>
-        $<TARGET_OBJECTS:encryption_obj>
-        $<TARGET_OBJECTS:session_obj>
-        $<TARGET_OBJECTS:permission_obj>
-    LIBRARIES
-        proxygenhttpserver
-        proxygenlib
-        ${THRIFT_LIBRARIES}
-        wangle
-)
+set(common_deps
+    $<TARGET_OBJECTS:kvstore_obj>
+    $<TARGET_OBJECTS:raftex_obj>
+    $<TARGET_OBJECTS:wal_obj>
+    $<TARGET_OBJECTS:keyutils_obj>
+    $<TARGET_OBJECTS:codec_obj>
+    $<TARGET_OBJECTS:common_meta_obj>
+    $<TARGET_OBJECTS:common_meta_client_obj>
+    $<TARGET_OBJECTS:common_file_based_cluster_id_man_obj>
+    $<TARGET_OBJECTS:common_ws_common_obj>
+    $<TARGET_OBJECTS:common_http_client_obj>
+    $<TARGET_OBJECTS:common_raftex_thrift_obj>
+    $<TARGET_OBJECTS:common_storage_thrift_obj>
+    $<TARGET_OBJECTS:common_meta_thrift_obj>
+    $<TARGET_OBJECTS:common_common_thrift_obj>
+    $<TARGET_OBJECTS:common_thrift_obj>
+    $<TARGET_OBJECTS:common_ws_obj>
+    $<TARGET_OBJECTS:common_ws_common_obj>
+    $<TARGET_OBJECTS:common_hdfs_helper_obj>
+    $<TARGET_OBJECTS:common_process_obj>
+    $<TARGET_OBJECTS:common_stats_obj>
+    $<TARGET_OBJECTS:common_encryption_obj>
+    $<TARGET_OBJECTS:common_fs_obj>
+    $<TARGET_OBJECTS:common_time_obj>
+    $<TARGET_OBJECTS:common_network_obj>
+    $<TARGET_OBJECTS:common_thread_obj>
+    $<TARGET_OBJECTS:common_conf_obj>
+    $<TARGET_OBJECTS:common_datatypes_obj>
+    $<TARGET_OBJECTS:common_base_obj>
 
+)
 
 nebula_add_executable(
     NAME
@@ -51,41 +38,14 @@ nebula_add_executable(
     OBJECTS
         $<TARGET_OBJECTS:filter_obj>
         $<TARGET_OBJECTS:storage_server>
-        $<TARGET_OBJECTS:storage_service_handler>
+        $<TARGET_OBJECTS:storage_admin_service_handler>
         $<TARGET_OBJECTS:storage_http_handler>
-        $<TARGET_OBJECTS:kvstore_obj>
-        $<TARGET_OBJECTS:raftex_obj>
-        $<TARGET_OBJECTS:raftex_thrift_obj>
-        $<TARGET_OBJECTS:wal_obj>
-        $<TARGET_OBJECTS:dataman_obj>
-        $<TARGET_OBJECTS:schema_obj>
-        $<TARGET_OBJECTS:index_obj>
-        $<TARGET_OBJECTS:hdfs_helper_obj>
-        $<TARGET_OBJECTS:storage_thrift_obj>
-        $<TARGET_OBJECTS:http_client_obj>
-        $<TARGET_OBJECTS:storage_client>
-        $<TARGET_OBJECTS:meta_client>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:time_obj>
-        $<TARGET_OBJECTS:meta_thrift_obj>
-        $<TARGET_OBJECTS:common_thrift_obj>
-        $<TARGET_OBJECTS:thrift_obj>
-        $<TARGET_OBJECTS:meta_gflags_man_obj>
-        $<TARGET_OBJECTS:gflags_man_obj>
-        $<TARGET_OBJECTS:network_obj>
-        $<TARGET_OBJECTS:process_obj>
-        $<TARGET_OBJECTS:ws_obj>
-        $<TARGET_OBJECTS:ws_common_obj>
-        $<TARGET_OBJECTS:thread_obj>
-        $<TARGET_OBJECTS:fs_obj>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:base_obj>
+        ${common_deps}
     LIBRARIES
         proxygenhttpserver
         proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        wangle
 )
 
 
@@ -97,58 +57,22 @@ nebula_add_executable(
     OBJECTS
         $<TARGET_OBJECTS:meta_service_handler>
         $<TARGET_OBJECTS:meta_http_handler>
-        $<TARGET_OBJECTS:kvstore_obj>
-        $<TARGET_OBJECTS:schema_obj>
-        $<TARGET_OBJECTS:index_obj>
-        $<TARGET_OBJECTS:wal_obj>
-        $<TARGET_OBJECTS:hdfs_helper_obj>
-        $<TARGET_OBJECTS:http_client_obj>
-        $<TARGET_OBJECTS:storage_client>
-        $<TARGET_OBJECTS:storage_thrift_obj>
-        $<TARGET_OBJECTS:meta_client>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:time_obj>
-        $<TARGET_OBJECTS:meta_thrift_obj>
-        $<TARGET_OBJECTS:raftex_obj>
-        $<TARGET_OBJECTS:raftex_thrift_obj>
-        $<TARGET_OBJECTS:common_thrift_obj>
-        $<TARGET_OBJECTS:thrift_obj>
-        $<TARGET_OBJECTS:process_obj>
-        $<TARGET_OBJECTS:ws_obj>
-        $<TARGET_OBJECTS:ws_common_obj>
-        $<TARGET_OBJECTS:gflags_man_obj>
-        $<TARGET_OBJECTS:network_obj>
-        $<TARGET_OBJECTS:thread_obj>
-        $<TARGET_OBJECTS:stats_obj>
-        $<TARGET_OBJECTS:charset_obj>
-        $<TARGET_OBJECTS:fs_obj>
-        $<TARGET_OBJECTS:base_obj>
-        $<TARGET_OBJECTS:encryption_obj>
+        ${common_deps}
     LIBRARIES
         proxygenhttpserver
         proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        wangle
 )
 
-install(
-    TARGETS
-        nebula-graphd
-    DESTINATION
-        bin
-    COMPONENT
-        graph
-)
-
-install(
-    TARGETS
-        nebula-storaged
-    DESTINATION
-        bin
-    COMPONENT
-        storage
-)
+#install(
+#    TARGETS
+#        nebula-storaged
+#    DESTINATION
+#        bin
+#    COMPONENT
+#        storage
+#)
 
 install(
     TARGETS

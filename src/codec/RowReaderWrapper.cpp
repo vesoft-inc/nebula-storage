@@ -11,9 +11,7 @@ namespace nebula {
 bool RowReaderWrapper::reset(meta::SchemaProviderIf const* schema,
                              folly::StringPiece row,
                              int32_t readerVer) noexcept {
-    if (schema == nullptr) {
-        return false;
-    }
+    CHECK_NOTNULL(schema);
     if (readerVer == 1) {
         readerV1_.resetImpl(schema, row);
         currReader_ = &readerV1_;

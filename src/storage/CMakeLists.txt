@@ -24,6 +24,8 @@ nebula_add_library(
 nebula_add_library(
     storage_server OBJECT
     StorageServer.cpp
+    StorageFlags.cpp
+    CommonUtils.cpp
 )
 
 # nebula_add_subdirectory(test)

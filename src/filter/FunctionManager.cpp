@@ -7,7 +7,6 @@
 #include "base/Base.h"
 #include "filter/FunctionManager.h"
 #include "time/WallClock.h"
-#include "filter/geo/GeoFilter.h"
 
 namespace nebula {
 
@@ -486,20 +485,7 @@ FunctionManager::FunctionManager() {
             }
         };
     }
-    {
-        auto &attr = functions_["near"];
-        attr.minArity_ = 2;
-        attr.maxArity_ = 2;
-        attr.body_ = [] (const auto &args) {
-            auto result = geo::GeoFilter::near(args);
-            if (!result.ok()) {
-                return std::string("");
-            } else {
-                return std::move(result).value();
-            }
-        };
-    }
-    {
+        {
         auto &attr = functions_["cos_similarity"];
         attr.minArity_ = 2;
         attr.maxArity_ = INT64_MAX;

@@ -74,23 +74,15 @@ std::unique_ptr<RowReader> RowReader::getTagPropReader(
         GraphSpaceID space,
         TagID tag,
         folly::StringPiece row) {
-    if (schemaMan == nullptr) {
-        LOG(ERROR) << "schemaMan should not be nullptr!";
-        return nullptr;
+    auto reader = std::make_unique<RowReaderWrapper>();
+    if (reader->resetTagPropReader(schemaMan, space, tag, row)) {
+        return reader;
     }
-    SchemaVer schemaVer;
-    int32_t readerVer;
-    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
-    if (schemaVer >= 0) {
-        auto schema = schemaMan->getTagSchema(space, tag, schemaVer);
-        if (schema == nullptr) {
-            return nullptr;
-        }
-        return getRowReader(schema.get(), row, readerVer);
-    } else {
-        LOG(WARNING) << "Invalid schema version in the row data!";
-        return nullptr;
-    }
+    LOG(ERROR) << "Failed to initiate the reader, most likely the data"
+                      "is corrupted. The data is ["
+                   << toHexStr(row)
+                   << "]";
+    return std::unique_ptr<RowReader>();
 }
 
 
@@ -100,31 +92,28 @@ std::unique_ptr<RowReader> RowReader::getEdgePropReader(
         GraphSpaceID space,
         EdgeType edge,
         folly::StringPiece row) {
-    if (schemaMan == nullptr) {
-        LOG(ERROR) << "schemaMan should not be nullptr!";
-        return nullptr;
+    auto reader = std::make_unique<RowReaderWrapper>();
+    if (reader->resetEdgePropReader(schemaMan, space, edge, row)) {
+        return reader;
     }
-    SchemaVer schemaVer;
-    int32_t readerVer;
-    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
-    if (schemaVer >= 0) {
-        auto schema = schemaMan->getEdgeSchema(space, edge, schemaVer);
-        if (schema == nullptr) {
-            return nullptr;
-        }
-        return getRowReader(schema.get(), row, readerVer);
-    } else {
-        LOG(WARNING) << "Invalid schema version in the row data!";
-        return nullptr;
-    }
+    LOG(ERROR) << "Failed to initiate the reader, most likely the data"
+                      "is corrupted. The data is ["
+                   << toHexStr(row)
+                   << "]";
+    return std::unique_ptr<RowReader>();
 }
 
 // static
 std::unique_ptr<RowReader> RowReader::getRowReader(
         const meta::SchemaProviderIf* schema,
-        folly::StringPiece row,
-        int32_t readerVer) {
+        folly::StringPiece row) {
     auto reader = std::make_unique<RowReaderWrapper>();
+    SchemaVer schemaVer;
+    int32_t readerVer;
+    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
+    if (schemaVer != schema->getVersion()) {
+        return std::unique_ptr<RowReader>();
+    }
     if (reader->reset(schema, row, readerVer)) {
         return reader;
     } else {
@@ -136,6 +125,67 @@ std::unique_ptr<RowReader> RowReader::getRowReader(
     }
 }
 
+bool RowReader::resetTagPropReader(
+        meta::SchemaManager* schemaMan,
+        GraphSpaceID space,
+        TagID tag,
+        folly::StringPiece row) {
+    if (schemaMan == nullptr) {
+        LOG(ERROR) << "schemaMan should not be nullptr!";
+        return false;
+    }
+    SchemaVer schemaVer;
+    int32_t readerVer;
+    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
+    if (schemaVer >= 0) {
+        auto schema = schemaMan->getTagSchema(space, tag, schemaVer);
+        if (schema == nullptr) {
+            return false;
+        }
+        return reset(schema.get(), row, readerVer);
+    } else {
+        LOG(WARNING) << "Invalid schema version in the row data!";
+        return false;
+    }
+}
+
+bool RowReader::resetEdgePropReader(
+            meta::SchemaManager* schemaMan,
+            GraphSpaceID space,
+            EdgeType edge,
+            folly::StringPiece row) {
+    if (schemaMan == nullptr) {
+        LOG(ERROR) << "schemaMan should not be nullptr!";
+        return false;
+    }
+    SchemaVer schemaVer;
+    int32_t readerVer;
+    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
+    if (schemaVer >= 0) {
+        auto schema = schemaMan->getEdgeSchema(space, edge, schemaVer);
+        if (schema == nullptr) {
+            return false;
+        }
+        return reset(schema.get(), row, readerVer);
+    } else {
+        LOG(WARNING) << "Invalid schema version in the row data!";
+        return false;
+    }
+}
+
+bool RowReader::reset(meta::SchemaProviderIf const* schema,
+                      folly::StringPiece row) noexcept {
+    if (schema == nullptr) {
+        return false;
+    }
+    SchemaVer schemaVer;
+    int32_t readerVer;
+    RowReaderWrapper::getVersions(row, schemaVer, readerVer);
+    if (schemaVer != schema->getVersion()) {
+        return false;
+    }
+    return reset(schema, row, readerVer);
+}
 
 bool RowReader::resetImpl(meta::SchemaProviderIf const* schema,
                           folly::StringPiece row) noexcept {

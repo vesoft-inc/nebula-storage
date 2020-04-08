@@ -11,6 +11,7 @@
 #include "storage/http/StorageHttpDownloadHandler.h"
 #include "storage/http/StorageHttpIngestHandler.h"
 #include "storage/http/StorageHttpAdminHandler.h"
+#include "storage/BaseProcessor.h"
 #include "kvstore/PartManager.h"
 #include "webservice/Router.h"
 #include "webservice/WebService.h"
@@ -137,8 +138,13 @@ bool StorageServer::start() {
         return false;
     }
 
+    StorageEnv env;
+    env.kvstore_ = kvstore_.get();
+    env.indexMan_ = indexMan_.get();
+    env.schemaMan_ = schemaMan_.get();
+
     // TODO
-    auto handler = std::make_shared<StorageAdminServiceHandler>(nullptr);
+    auto handler = std::make_shared<StorageAdminServiceHandler>(&env);
     try {
         LOG(INFO) << "The storage deamon start on " << localHost_;
         tfServer_ = std::make_unique<apache::thrift::ThriftServer>();
