@@ -4,7 +4,7 @@
 # attached with Common Clause Condition 1.0, found in the LICENSES directory.
 #
 # This is the output of clang-format-7.0 --style=google --dump-config,
-# except for changes metioned below.
+# except for changes mentioned below.
 # We have locked the version of clang-format in order to avoid inconsistencies
 # in the format caused by developers using different clang-format versions.
 ---
