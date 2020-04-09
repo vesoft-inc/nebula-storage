@@ -6,7 +6,7 @@
 
 ########## logging ##########
 # The directory to host logging files, which must already exists
---log_dir=/home/heng.chen/logs
+--log_dir=logs
 # Log level, 0, 1, 2, 3 for INFO, WARNING, ERROR, FATAL respectively
 --minloglevel=0
 # Verbose log level, 1, 2, 3, 4, the higher of the level, the more verbose of the logging
@@ -30,7 +30,7 @@
 
 ########## storage ##########
 # Root data path, here should be only single path for metad
---data_path=/home/heng.chen/data/meta
+--data_path=data/meta
 
 ########## Misc #########
 # The default number of parts when a space is created
