@@ -104,6 +104,7 @@ void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
 
 void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
+    totalParts_ = 6;
     kvstore::KVOptions options;
     if (metaClient_ != nullptr) {
         LOG(INFO) << "Pull meta information from meta server";
@@ -157,8 +158,11 @@ MockCluster::memSchemaMan() {
     // When tagId is 2, use teams data
     schemaMan->addTagSchema(1, 2, MockData::mockTeamTagSchema());
 
+    // Edge has two type: serve and teammate
     // When edgeType is 101, use serve data
-    schemaMan->addEdgeSchema(1, 101, MockData::mockEdgeSchema());
+    schemaMan->addEdgeSchema(1, 101, MockData::mockServeSchema());
+    // When edgeType is 102, use teammate data
+    schemaMan->addEdgeSchema(1, 102, MockData::mockTeammateSchema());
     return schemaMan;
 }
 

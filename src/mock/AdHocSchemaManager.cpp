@@ -151,8 +151,17 @@ StatusOr<TagID> AdHocSchemaManager::toTagID(GraphSpaceID space, folly::StringPie
     return -1;
 }
 
-StatusOr<EdgeType>
-AdHocSchemaManager::toEdgeType(GraphSpaceID space, folly::StringPiece typeName) {
+StatusOr<std::string> AdHocSchemaManager::toTagName(GraphSpaceID space, TagID tagId) {
+    UNUSED(space);
+    try {
+        return folly::to<std::string>(tagId);
+    } catch (const std::exception& e) {
+        LOG(FATAL) << e.what();
+    }
+    return "";
+}
+
+StatusOr<EdgeType> AdHocSchemaManager::toEdgeType(GraphSpaceID space, folly::StringPiece typeName) {
     UNUSED(space);
     try {
         return folly::to<EdgeType>(typeName);

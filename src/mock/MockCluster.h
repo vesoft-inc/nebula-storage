@@ -64,6 +64,10 @@ public:
 
     static IPv4 localIP();
 
+    int32_t getTotalParts() {
+        return totalParts_;
+    }
+
 public:
     std::unique_ptr<RpcServer>                      metaServer_{nullptr};
     std::unique_ptr<meta::MetaClient>               metaClient_{nullptr};
@@ -77,6 +81,7 @@ public:
     std::unique_ptr<meta::SchemaManager>            schemaMan_;
     std::unique_ptr<meta::IndexManager>             indexMan_;
     nebula::ClusterID                               clusterId_ = 10;
+    int32_t                                         totalParts_;
 };
 
 }  // namespace mock

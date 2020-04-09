@@ -8,6 +8,7 @@
 #define STORAGE_COMMON_H_
 
 #include "base/Base.h"
+#include "base/ConcurrentLRUCache.h"
 #include "meta/SchemaProviderIf.h"
 #include "codec/RowReader.h"
 #include "base/ConcurrentLRUCache.h"

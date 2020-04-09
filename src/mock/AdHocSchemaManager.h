@@ -52,10 +52,7 @@ public:
 
     StatusOr<TagID> toTagID(GraphSpaceID space, folly::StringPiece tagName) override;
 
-    StatusOr<std::string> toTagName(GraphSpaceID, TagID) override {
-        LOG(FATAL) << "Unimplemented";
-        return Status::Error("Unimplemented");
-    }
+    StatusOr<std::string> toTagName(GraphSpaceID, TagID tagId) override;
 
     StatusOr<EdgeType> toEdgeType(GraphSpaceID space, folly::StringPiece typeName) override;
 
@@ -76,16 +73,18 @@ public:
 
 protected:
     folly::RWSpinLock tagLock_;
+
     std::unordered_map<std::pair<GraphSpaceID, TagID>,
-                       // version -> schema
-                       std::map<SchemaVer, std::shared_ptr<const meta::NebulaSchemaProvider>>>
-        tagSchemas_;
+        // version -> schema
+        std::map<SchemaVer,
+                 std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>> tagSchemas_;
 
     folly::RWSpinLock edgeLock_;
+
     std::unordered_map<std::pair<GraphSpaceID, EdgeType>,
-                       // version -> schema
-                       std::map<SchemaVer, std::shared_ptr<const meta::NebulaSchemaProvider>>>
-        edgeSchemas_;
+        // version -> schema
+        std::map<SchemaVer,
+                 std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>> edgeSchemas_;
 
     folly::RWSpinLock spaceLock_;
     std::set<GraphSpaceID> spaces_;

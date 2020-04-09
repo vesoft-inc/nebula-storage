@@ -54,8 +54,16 @@ struct Serve {
     int                 teamCareer_;
     int                 teamGames_;
     double              teamAvgScore_;
-    bool                starting_{false};
-    int                 champions_{0};;
+    std::string         type_;
+    int                 champions_{0};
+};
+
+struct Teammate {
+    std::string         player1_;
+    std::string         player2_;
+    std::string         teamName_;
+    int                 startYear_;
+    int                 endYear_;
 };
 
 class MockData {
@@ -67,7 +75,9 @@ public:
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockTeamTagSchema();
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockEdgeSchema();
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeSchema();
+
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateSchema();
 
     /*
      * Mock data
@@ -78,6 +88,26 @@ public:
     static std::vector<EdgeData> mockEdges();
 
     static std::vector<VertexID> mockVerticeIds();
+
+    // generate player -> list<Serve> according to players_;
+    static std::unordered_map<std::string, std::vector<Serve>> playerServes() {
+        std::unordered_map<std::string, std::vector<Serve>> result;
+        for (const auto& serve : serves_) {
+            result[serve.playerName_].emplace_back(serve);
+        }
+        return result;
+    }
+
+    // generate team -> list<Serve> according to serves_;
+    static std::unordered_map<std::string, std::vector<Serve>> teamServes() {
+        std::unordered_map<std::string, std::vector<Serve>> result;
+        for (const auto& serve : serves_) {
+            result[serve.teamName_].emplace_back(serve);
+        }
+        return result;
+    }
+
+    static nebula::storage::cpp2::AddVerticesRequest mockAddVertices(int32_t parts = 6);
 
     // Only has EdgeKey data, not props
     static std::vector<EdgeData> mockEdgeKeys();
@@ -109,12 +139,19 @@ public:
     static nebula::storage::cpp2::AddEdgesRequest
     mockAddEdgesSpecifiedOrderReq(int32_t parts = 6);
 
-private:
     static std::vector<std::string> teams_;
 
     static std::vector<Player> players_;
 
-    static std::vector<Serve> serve_;
+    static std::vector<Serve> serves_;
+
+    static std::vector<Teammate> teammates_;
+
+    // player name -> list<Serve>
+    static std::unordered_map<std::string, std::vector<Serve>> playerServes_;
+
+    // team name -> list<Serve>
+    static std::unordered_map<std::string, std::vector<Serve>> teamServes_;
 };
 
 }  // namespace mock
