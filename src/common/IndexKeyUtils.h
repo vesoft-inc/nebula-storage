@@ -13,40 +13,58 @@
 #include "interface/gen-cpp2/meta_types.h"
 #include "common/Types.h"
 
-
 namespace nebula {
-
-using VariantType = boost::variant<int64_t, double, bool, std::string>;
-
-using OptVariantType = StatusOr<VariantType>;
 
 using IndexValues = std::vector<std::pair<nebula::meta::cpp2::PropertyType, std::string>>;
 
 /**
- * This class supply some utils for transition between Vertex/Edge and key in kvstore.
+ * This class supply some utils for index in kvstore.
  * */
 class IndexKeyUtils final {
 public:
     ~IndexKeyUtils() = default;
 
-    static std::string encodeVariant(const VariantType& v)  {
-        switch (v.which()) {
-            case VAR_INT64:
-                return encodeInt64(boost::get<int64_t>(v));
-            case VAR_DOUBLE:
-                return encodeDouble(boost::get<double>(v));
-            case VAR_BOOL: {
-                auto val = boost::get<bool>(v);
+    static std::string encodeValue(const Value& v)  {
+        switch (v.type()) {
+            case Value::Type::INT :
+                return encodeInt64(v.getInt());
+            case Value::Type::FLOAT :
+                return encodeDouble(v.getFloat());
+            case Value::Type::BOOL: {
+                auto val = v.getBool();
                 std::string raw;
                 raw.reserve(sizeof(bool));
                 raw.append(reinterpret_cast<const char*>(&val), sizeof(bool));
                 return raw;
             }
-            case VAR_STR:
-                return boost::get<std::string>(v);
-            default:
-                std::string errMsg = folly::stringPrintf("Unknown VariantType: %d", v.which());
-                LOG(ERROR) << errMsg;
+            case Value::Type::STRING :
+                return v.getStr();
+            case Value::Type::DATE : {
+                std::string buf;
+                memcpy(&buf[0], reinterpret_cast<const void*>(&v.getDate().year), sizeof(int16_t));
+                buf[sizeof(int16_t)] = v.getDate().month;
+                buf[sizeof(int16_t) + sizeof(int8_t)] = v.getDate().day;
+                return buf;
+            }
+            case Value::Type::DATETIME : {
+                std::string buf;
+                memcpy(&buf[0], reinterpret_cast<const void*>(&v.getDateTime().year),
+                       sizeof(int16_t));
+                buf[sizeof(int16_t)] = v.getDateTime().month;
+                buf[sizeof(int16_t) + sizeof(int8_t)] = v.getDateTime().day;
+                buf[sizeof(int16_t) + 2 * sizeof(int8_t)] = v.getDateTime().hour;
+                buf[sizeof(int16_t) + 3 * sizeof(int8_t)] = v.getDateTime().minute;
+                buf[sizeof(int16_t) + 4 * sizeof(int8_t)] = v.getDateTime().sec;
+                memcpy(&buf[sizeof(int16_t) + 5 * sizeof(int8_t)],
+                       reinterpret_cast<const void*>(&v.getDateTime().microsec),
+                       sizeof(int32_t));
+                memcpy(&buf[sizeof(int16_t) + 5 * sizeof(int8_t) + sizeof(int32_t)],
+                       reinterpret_cast<const void*>(&v.getDateTime().timezone),
+                       sizeof(int32_t));
+                return buf;
+            }
+            default :
+                LOG(ERROR) << "Unsupported default value type";
         }
         return "";
     }
@@ -118,26 +136,69 @@ public:
         return val;
     }
 
-    static OptVariantType decodeVariant(const folly::StringPiece& raw,
-                                        nebula::meta::cpp2::PropertyType type) {
+    static StatusOr<Value> decodeValue(const folly::StringPiece& raw,
+                                       nebula::meta::cpp2::PropertyType type) {
+        Value v;
         switch (type) {
             case nebula::meta::cpp2::PropertyType::BOOL : {
-                return *reinterpret_cast<const bool*>(raw.data());
+                v.setBool(*reinterpret_cast<const bool*>(raw.data()));
+                break;
             }
             case nebula::meta::cpp2::PropertyType::INT64 :
             case nebula::meta::cpp2::PropertyType::TIMESTAMP : {
-                return decodeInt64(raw);
+                v.setInt(decodeInt64(raw));
+                break;
             }
             case nebula::meta::cpp2::PropertyType::DOUBLE :
             case nebula::meta::cpp2::PropertyType::FLOAT : {
-                return decodeDouble(raw);
+                v.setFloat(decodeDouble(raw));
+                break;
             }
             case nebula::meta::cpp2::PropertyType::STRING : {
-                return raw.str();
+                v.setStr(raw.str());
+                break;
+            }
+            case nebula::meta::cpp2::PropertyType::DATE: {
+                Date dt;
+                memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
+                memcpy(reinterpret_cast<void*>(&dt.month),
+                       &raw[sizeof(int16_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.day),
+                       &raw[sizeof(int16_t) + sizeof(int8_t)],
+                       sizeof(int8_t));
+                return std::move(dt);
+            }
+            case nebula::meta::cpp2::PropertyType::DATETIME: {
+                DateTime dt;
+                memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
+                memcpy(reinterpret_cast<void*>(&dt.month),
+                       &raw[sizeof(int16_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.day),
+                       &raw[sizeof(int16_t) + sizeof(int8_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.hour),
+                       &raw[sizeof(int16_t) + 2 * sizeof(int8_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.minute),
+                       &raw[sizeof(int16_t) + 3 * sizeof(int8_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.sec),
+                       &raw[sizeof(int16_t) + 4 * sizeof(int8_t)],
+                       sizeof(int8_t));
+                memcpy(reinterpret_cast<void*>(&dt.microsec),
+                       &raw[sizeof(int16_t) + 5 * sizeof(int8_t)],
+                       sizeof(int32_t));
+                memcpy(reinterpret_cast<void*>(&dt.timezone),
+                       &raw[sizeof(int16_t) + 5 * sizeof(int8_t) + sizeof(int32_t)],
+                       sizeof(int32_t));
+                return std::move(dt);
             }
             default:
-                return OptVariantType(Status::Error("Unknown type"));
+                return Status::Error("Unknown value type");
         }
+        return std::move(v);
     }
 
     static VertexIntID getIndexVertexIntID(const folly::StringPiece& rawKey) {
@@ -164,6 +225,22 @@ public:
         auto offset = rawKey.size() - sizeof(VertexIntID) - sizeof(EdgeRanking);
         return readInt<EdgeRanking>(rawKey.data() + offset, sizeof(EdgeRanking));
     }
+
+    
+
+    /**
+     * Generate vertex|edge index key for kv store
+     **/
+    static void indexRaw(const IndexValues &values, std::string& raw);
+
+    static std::string vertexIndexKey(PartitionID partId, IndexID indexId, VertexID vId,
+                                      const IndexValues& values);
+
+    static std::string edgeIndexKey(PartitionID partId, IndexID indexId,
+                                    VertexID srcId, EdgeRanking rank,
+                                    VertexID dstId, const IndexValues& values);
+
+    static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
 private:
     IndexKeyUtils() = delete;
