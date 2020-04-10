@@ -15,16 +15,10 @@ if(EXISTS ${base}/${name}/.git)
         RESULT_VARIABLE clone_result
     )
 else()
-    if(NOT EXISTS ${base})
-        execute_process(
-            COMMAND mkdir -p ${base}
-        )
-    endif()
     message(STATUS "Cloning from the repo \"" ${repo} "\"")
     execute_process(
         COMMAND
-            ${GIT_EXECUTABLE} clone --depth 1 --progress --branch ${tag} ${repo} ${name}
-        WORKING_DIRECTORY ${base}
+            ${GIT_EXECUTABLE} clone --depth 1 --progress --branch ${tag} ${repo} ${base}/${name}
         RESULT_VARIABLE clone_result
     )
 endif()
