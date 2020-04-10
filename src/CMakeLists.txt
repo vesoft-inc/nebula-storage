@@ -1,5 +1,4 @@
 nebula_add_subdirectory(common)
-nebula_add_subdirectory(filter)
 nebula_add_subdirectory(codec)
 nebula_add_subdirectory(kvstore)
 nebula_add_subdirectory(meta)
