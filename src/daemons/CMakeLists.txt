@@ -39,6 +39,7 @@ nebula_add_executable(
         $<TARGET_OBJECTS:storage_server>
         $<TARGET_OBJECTS:storage_admin_service_handler>
         $<TARGET_OBJECTS:storage_http_handler>
+        $<TARGET_OBJECTS:storage_common_obj>
         ${common_deps}
     LIBRARIES
         proxygenhttpserver
