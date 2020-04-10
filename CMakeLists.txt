@@ -33,6 +33,7 @@ option(ENABLE_ASAN "Whether to turn AddressSanitizer ON or OFF" OFF)
 option(ENABLE_TESTING "Whether to turn unit test ON or OFF" ON)
 option(ENABLE_UBSAN "Whether to turn Undefined Behavior Sanitizer ON or OFF" OFF)
 option(ENABLE_FUZZ_TEST "Whether to turn Fuzz Test ON or OFF" OFF)
+option(ENABLE_UPDATE "Whether to update common" OFF)
 
 message(STATUS "ENABLE_ASAN: ${ENABLE_ASAN}")
 message(STATUS "ENABLE_TESTING: ${ENABLE_TESTING}")
@@ -194,15 +195,19 @@ message(STATUS "CMAKE_PROGRAM_PATH: " ${PROGRAM_PATH_STR})
 
 find_package(Bzip2 REQUIRED)
 find_package(DoubleConversion REQUIRED)
+find_package(Fatal REQUIRED)
 find_package(Fbthrift REQUIRED)
 find_package(Folly REQUIRED)
 find_package(Gflags REQUIRED)
 find_package(Glog REQUIRED)
 find_package(Googletest REQUIRED)
-find_package(Jemalloc REQUIRED)
+if(ENABLE_JEMALLOC)
+    find_package(Jemalloc REQUIRED)
+endif()
 find_package(Libevent REQUIRED)
 find_package(Mstch REQUIRED)
 find_package(Proxygen REQUIRED)
+find_package(Rocksdb REQUIRED)
 find_package(Snappy REQUIRED)
 find_package(Wangle REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -214,14 +219,18 @@ find_package(GPERF 2.8 REQUIRED)
 find_package(Libunwind REQUIRED)
 find_package(LZ4 MODULE)
 find_package(LibLZMA MODULE)
+if(NOT ENABLE_ASAN AND NOT ENABLE_NATIVE)
+    find_package(PCHSupport)
+    add_compile_options(-Winvalid-pch)
+endif()
 
-find_package(Rocksdb REQUIRED)
 find_package(nebula-common REQUIRED)
 
 add_compile_options(-Wall)
 add_compile_options(-Werror)
 add_compile_options(-Wunused-parameter)
 add_compile_options(-Wshadow)
+add_compile_options(-Wno-invalid-pch)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # This requries GCC 5.1+
@@ -330,12 +339,6 @@ endmacro()
 # including the precompiled header, a.k.a Base.h.gch, and thrift headers.
 macro(nebula_add_library name type)
     add_library(${name} ${type} ${ARGN})
-    if (PCHSupport_FOUND)
-        add_dependencies(
-            ${name}
-            base_obj_gch
-        )
-    endif()
     add_dependencies(
         ${name}
         common_project
@@ -362,6 +365,7 @@ set(THRIFT_LIBRARIES
     security
     thriftfrozen2
     thrift-core
+    wangle
 )
 
 set(ROCKSDB_LIBRARIES ${Rocksdb_LIBRARY})
@@ -411,16 +415,18 @@ macro(nebula_link_libraries target)
         boost_system
         event
         double-conversion
-        resolv
         s2
-        ${COMPRESSION_LIBRARIES}
-        ${JEMALLOC_LIB}
         ${OPENSSL_SSL_LIBRARY}
         ${OPENSSL_CRYPTO_LIBRARY}
         ${KRB5_LIBRARIES}
+        ${COMPRESSION_LIBRARIES}
+        ${JEMALLOC_LIB}
         ${LIBUNWIND_LIBRARIES}
+        keyutils
+        resolv
         dl
         ${GETTIME_LIB}
+        ${libatomic_link_flags}
         -pthread
     )
 endmacro(nebula_link_libraries)
