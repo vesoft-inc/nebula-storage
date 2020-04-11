@@ -11,8 +11,9 @@
 #include <vector>
 #include <folly/Range.h>
 #include <gtest/gtest_prod.h>
-#include "meta/processors/jobMan/JobStatus.h"
 #include "common/interface/gen-cpp2/meta_types.h"
+#include "meta/processors/jobMan/JobStatus.h"
+#include "meta/processors/admin/AdminClient.h"
 #include "kvstore/KVStore.h"
 
 namespace nebula {

@@ -25,7 +25,6 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         }
         onFinished();
     };
-
     TaskContext ctx(req, store, cb);
     auto task = AdminTaskFactory::createAdminTask(std::move(ctx));
     if (task) {
