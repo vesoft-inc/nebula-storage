@@ -8,69 +8,91 @@
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
 #include "storage/query/QueryBaseProcessor.h"
-#include "dataman/RowReader.h"
-#include "dataman/RowUpdater.h"
 
 namespace nebula {
 namespace storage {
 
-struct KeyUpdaterPair {
-    std::pair<std::string, std::string> kv;
-    std::unique_ptr<RowUpdater> updater;
-};
+using OptValue = StatusOr<Value>;
 
 class UpdateVertexProcessor
     : public QueryBaseProcessor<cpp2::UpdateVertexRequest, cpp2::UpdateResponse> {
 public:
-    static UpdateVertexProcessor* instance(kvstore::KVStore* kvstore,
-                                           meta::SchemaManager* schemaMan,
-                                           meta::IndexManager* indexMan,
+    static UpdateVertexProcessor* instance(StorageEnv* env,
                                            stats::Stats* stats,
                                            VertexCache* cache = nullptr) {
-        return new UpdateVertexProcessor(kvstore, schemaMan, indexMan, stats, cache);
+        return new UpdateVertexProcessor(env, stats, cache);
     }
 
-    void process(const cpp2::UpdateVertexRequest& req);
+    void process(const cpp2::UpdateVertexRequest& req) override;
 
 private:
-    explicit UpdateVertexProcessor(kvstore::KVStore* kvstore,
-                                   meta::SchemaManager* schemaMan,
-                                   meta::IndexManager* indexMan,
-                                   stats::Stats* stats,
-                                   VertexCache* cache)
+    UpdateVertexProcessor(StorageEnv* env, stats::Stats* stats, VertexCache* cache)
         : QueryBaseProcessor<cpp2::UpdateVertexRequest,
-                             cpp2::UpdateResponse>(kvstore, schemaMan, stats, nullptr, cache)
-        , indexMan_(indexMan) {}
+                             cpp2::UpdateResponse>(env, stats, cache) {}
 
-    kvstore::ResultCode processVertex(PartitionID, VertexID) override {
-        LOG(FATAL) << "Unimplement!";
-        return kvstore::ResultCode::SUCCEEDED;
-    }
+    void onProcessFinished() override;
 
-    void onProcessFinished(int32_t retNum) override;
+    cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req) override;
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req);
+    kvstore::ResultCode processTagProps(const PartitionID partId,
+                                        const VertexID vId,
+                                        const TagID tagId,
+                                        const std::vector<PropContext>& props);
 
-    kvstore::ResultCode collectVertexProps(
-                            const PartitionID partId,
-                            const VertexID vId,
-                            const TagID tagId,
-                            const std::vector<PropContext>& props);
+    kvstore::ResultCode collectTagPropIfValid(folly::StringPiece key,
+                                              folly::StringPiece value,
+                                              const PartitionID partId,
+                                              const VertexID vId,
+                                              const TagID tagId,
+                                              const std::vector<PropContext>& props);
 
-    FilterResult checkFilter(const PartitionID partId, const VertexID vId);
+    kvstore::ResultCode collectTagProps(folly::StringPiece key,
+                                        folly::StringPiece value,
+                                        const TagID tagId,
+                                        const std::vector<PropContext>& props);
+
+    kvstore::ResultCode insertTagProps(const PartitionID partId,
+                                       const VertexID vId,
+                                       const TagID tagId,
+                                       const std::vector<PropContext>& props);
+
+    StatusOr<bool> isInsert(const std::string& tagName);
+
+    cpp2::ErrorCode checkFilter(const PartitionID partId, const VertexID vId);
 
     std::string updateAndWriteBack(const PartitionID partId, const VertexID vId);
 
+    cpp2::ErrorCode buildTagSchema();
+
 private:
     bool                                                            insertable_{false};
-    std::vector<storage::cpp2::UpdateItem>                          updateItems_;
-    std::vector<std::unique_ptr<Expression>>                        returnColumnsExp_;
+    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
+
+    // TODO return props expression
+    std::vector<std::unique_ptr<Expression>>                        returnPropsExp_;
+
     std::set<TagID>                                                 updateTagIds_;
-    std::unordered_map<std::pair<TagID, std::string>, VariantType>  tagFilters_;
-    std::unordered_map<TagID, std::unique_ptr<KeyUpdaterPair>>      tagUpdaters_;
-    meta::IndexManager*                                             indexMan_{nullptr};
-    std::vector<std::shared_ptr<nebula::cpp2::IndexItem>>           indexes_;
-    std::atomic<FilterResult>                                  filterResult_{FilterResult::E_ERROR};
+
+    // <tagID, prop_name>-> prop_value because only updae one vertex
+    std::unordered_map<std::pair<TagID, std::string>, Value>        tagFilters_;
+
+    // tagID-> insert
+    std::unordered_map<TagID, bool>                                 tagPropInsert_;
+
+    // tagID, key, RowWriterV2(schema, old value)
+    std::unordered_map<TagID, std::pair<std::string, std::unique_ptr<RowWriterV2>>>
+                                                                    tagUpdaters_;
+
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
+
+    std::atomic<cpp2::ErrorCode>                    filterResult_{cpp2::ErrorCode::SUCCEEDED};
+
+    // TODO  add
+    std::unique_ptr<ExpressionContext>                              expCtx_;
+    // TODO Condition expression
+    std::unique_ptr<Expression>                                     exp_;
+
+    bool                                                            insert_{false};
 };
 
 }  // namespace storage

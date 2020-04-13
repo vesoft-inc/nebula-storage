@@ -108,6 +108,34 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
+        update_vertex_test
+    SOURCES
+        UpdateVertexTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        update_edge_test
+    SOURCES
+        UpdateEdgeTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
         simple_dag_test
     SOURCES
         StorageDAGTest.cpp
@@ -135,20 +163,6 @@ nebula_add_test(
         gtest
 )
 
-#nebula_add_test(
-#    NAME
-#        storage_service_handler_test
-#    SOURCES
-#        StorageServiceHandlerTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
 nebula_add_test(
     NAME
         get_neighbors_test
@@ -319,35 +333,6 @@ nebula_add_executable(
 #        gtest
 #)
 #
-#
-#nebula_add_test(
-#    NAME
-#        update_vertex_test
-#    SOURCES
-#        UpdateVertexTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        update_edge_test
-#    SOURCES
-#        UpdateEdgeTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
 #
 #nebula_add_test(
 #    NAME

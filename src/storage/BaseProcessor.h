@@ -79,6 +79,15 @@ protected:
 
     void handleAsync(GraphSpaceID spaceId, PartitionID partId, kvstore::ResultCode code);
 
+    cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId) {
+        auto len = this->env_->schemaMan_->getSpaceVidLen(spaceId);
+        if (!len.ok()) {
+            return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        }
+        spaceVidLen_ = len.value();
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
     StatusOr<std::string> encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);

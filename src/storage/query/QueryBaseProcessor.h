@@ -49,6 +49,7 @@ public:
     cpp2::StatType statType_;
 };
 
+
 const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKey_ = {
     {"_src", PropContext::PropInKeyType::SRC},
     {"_type", PropContext::PropInKeyType::TYPE},
@@ -125,3 +126,4 @@ protected:
 #include "storage/query/QueryBaseProcessor.inl"
 
 #endif  // STORAGE_QUERY_QUERYBASEPROCESSOR_H_
+

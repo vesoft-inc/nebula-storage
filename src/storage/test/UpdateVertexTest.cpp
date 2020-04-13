@@ -5,15 +5,15 @@
  */
 
 #include "base/Base.h"
-#include "base/NebulaKeyUtils.h"
+#include "common/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include <limits>
 #include "fs/TempDir.h"
 #include "storage/test/TestUtils.h"
 #include "storage/mutate/UpdateVertexProcessor.h"
-#include "dataman/RowSetReader.h"
-#include "dataman/RowReader.h"
+#include "mock/MockCluster.h"
+#include "mock/MockData.h"
 
 namespace nebula {
 namespace storage {
