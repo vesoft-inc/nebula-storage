@@ -7,4 +7,4 @@ add_library(
     IndexKeyUtils.cpp
 )
 
-
+nebula_add_subdirectory(test)
