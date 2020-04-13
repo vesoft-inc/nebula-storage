@@ -9,13 +9,12 @@
 
 #include "base/Base.h"
 #include "base/StatusOr.h"
-#include "thrift/ThriftTypes.h"
 #include "interface/gen-cpp2/meta_types.h"
 #include "common/Types.h"
 
 namespace nebula {
 
-using IndexValues = std::vector<std::pair<nebula::meta::cpp2::PropertyType, std::string>>;
+using IndexValues = std::vector<std::pair<Value::Type, std::string>>;
 
 /**
  * This class supply some utils for index in kvstore.
@@ -41,26 +40,24 @@ public:
                 return v.getStr();
             case Value::Type::DATE : {
                 std::string buf;
-                memcpy(&buf[0], reinterpret_cast<const void*>(&v.getDate().year), sizeof(int16_t));
-                buf[sizeof(int16_t)] = v.getDate().month;
-                buf[sizeof(int16_t) + sizeof(int8_t)] = v.getDate().day;
+                buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
+                buf.append(reinterpret_cast<const char*>(&v.getDate().year), sizeof(int16_t))
+                   .append(reinterpret_cast<const char*>(&v.getDate().month), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&v.getDate().day), sizeof(int8_t));
                 return buf;
             }
             case Value::Type::DATETIME : {
                 std::string buf;
-                memcpy(&buf[0], reinterpret_cast<const void*>(&v.getDateTime().year),
-                       sizeof(int16_t));
-                buf[sizeof(int16_t)] = v.getDateTime().month;
-                buf[sizeof(int16_t) + sizeof(int8_t)] = v.getDateTime().day;
-                buf[sizeof(int16_t) + 2 * sizeof(int8_t)] = v.getDateTime().hour;
-                buf[sizeof(int16_t) + 3 * sizeof(int8_t)] = v.getDateTime().minute;
-                buf[sizeof(int16_t) + 4 * sizeof(int8_t)] = v.getDateTime().sec;
-                memcpy(&buf[sizeof(int16_t) + 5 * sizeof(int8_t)],
-                       reinterpret_cast<const void*>(&v.getDateTime().microsec),
-                       sizeof(int32_t));
-                memcpy(&buf[sizeof(int16_t) + 5 * sizeof(int8_t) + sizeof(int32_t)],
-                       reinterpret_cast<const void*>(&v.getDateTime().timezone),
-                       sizeof(int32_t));
+                buf.reserve(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5);
+                auto dt = v.getDateTime();
+                buf.append(reinterpret_cast<const char*>(&dt.year), sizeof(int16_t))
+                   .append(reinterpret_cast<const char*>(&dt.month), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&dt.day), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&dt.hour), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&dt.minute), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&dt.sec), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&dt.microsec), sizeof(int32_t))
+                   .append(reinterpret_cast<const char*>(&dt.timezone), sizeof(int32_t));
                 return buf;
             }
             default :
@@ -136,30 +133,27 @@ public:
         return val;
     }
 
-    static StatusOr<Value> decodeValue(const folly::StringPiece& raw,
-                                       nebula::meta::cpp2::PropertyType type) {
+    static StatusOr<Value> decodeValue(const folly::StringPiece& raw, Value::Type type) {
         Value v;
         switch (type) {
-            case nebula::meta::cpp2::PropertyType::BOOL : {
-                v.setBool(*reinterpret_cast<const bool*>(raw.data()));
-                break;
-            }
-            case nebula::meta::cpp2::PropertyType::INT64 :
-            case nebula::meta::cpp2::PropertyType::TIMESTAMP : {
+            case Value::Type::INT : {
                 v.setInt(decodeInt64(raw));
                 break;
             }
-            case nebula::meta::cpp2::PropertyType::DOUBLE :
-            case nebula::meta::cpp2::PropertyType::FLOAT : {
+            case Value::Type::FLOAT : {
                 v.setFloat(decodeDouble(raw));
                 break;
             }
-            case nebula::meta::cpp2::PropertyType::STRING : {
+            case Value::Type::BOOL : {
+                v.setBool(*reinterpret_cast<const bool*>(raw.data()));
+                break;
+            }
+            case Value::Type::STRING : {
                 v.setStr(raw.str());
                 break;
             }
-            case nebula::meta::cpp2::PropertyType::DATE: {
-                Date dt;
+            case Value::Type::DATE: {
+                nebula::Date dt;
                 memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
                 memcpy(reinterpret_cast<void*>(&dt.month),
                        &raw[sizeof(int16_t)],
@@ -167,10 +161,11 @@ public:
                 memcpy(reinterpret_cast<void*>(&dt.day),
                        &raw[sizeof(int16_t) + sizeof(int8_t)],
                        sizeof(int8_t));
-                return std::move(dt);
+                v.setDate(dt);
+                break;
             }
-            case nebula::meta::cpp2::PropertyType::DATETIME: {
-                DateTime dt;
+            case Value::Type::DATETIME: {
+                nebula::DateTime dt;
                 memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
                 memcpy(reinterpret_cast<void*>(&dt.month),
                        &raw[sizeof(int16_t)],
@@ -193,52 +188,63 @@ public:
                 memcpy(reinterpret_cast<void*>(&dt.timezone),
                        &raw[sizeof(int16_t) + 5 * sizeof(int8_t) + sizeof(int32_t)],
                        sizeof(int32_t));
-                return std::move(dt);
+                v.setDateTime(dt);
+                break;
             }
             default:
                 return Status::Error("Unknown value type");
         }
-        return std::move(v);
+        return v;
     }
 
-    static VertexIntID getIndexVertexIntID(const folly::StringPiece& rawKey) {
-        CHECK_GE(rawKey.size(), kVertexIndexLen);
-        auto offset = rawKey.size() - sizeof(VertexIntID);
-        return *reinterpret_cast<const VertexIntID*>(rawKey.data() + offset);
+    static VertexIDSlice getIndexVertexID(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_GE(rawKey.size(), kVertexIndexLen + vIdLen);
+        auto offset = rawKey.size() - vIdLen;
+        return rawKey.subpiece(offset, vIdLen);
      }
 
-    static VertexIntID getIndexSrcId(const folly::StringPiece& rawKey) {
-        CHECK_GE(rawKey.size(), kEdgeIndexLen);
-        auto offset = rawKey.size() -
-                      sizeof(VertexIntID) * 2 - sizeof(EdgeRanking);
-        return readInt<VertexIntID>(rawKey.data() + offset, sizeof(VertexIntID));
+    static VertexIDSlice getIndexSrcId(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_GE(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - (vIdLen << 1) - sizeof(EdgeRanking);
+        return rawKey.subpiece(offset, vIdLen);
     }
 
-    static VertexIntID getIndexDstId(const folly::StringPiece& rawKey) {
-        CHECK_GE(rawKey.size(), kEdgeIndexLen);
-        auto offset = rawKey.size() - sizeof(VertexIntID);
-        return readInt<VertexIntID>(rawKey.data() + offset, sizeof(VertexIntID));
+    static VertexIDSlice getIndexDstId(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_GE(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - vIdLen;
+        return rawKey.subpiece(offset, vIdLen);
     }
 
-    static EdgeRanking getIndexRank(const folly::StringPiece& rawKey) {
-        CHECK_GE(rawKey.size(), kEdgeIndexLen);
-        auto offset = rawKey.size() - sizeof(VertexIntID) - sizeof(EdgeRanking);
+    static EdgeRanking getIndexRank(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_GE(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - vIdLen - sizeof(EdgeRanking);
         return readInt<EdgeRanking>(rawKey.data() + offset, sizeof(EdgeRanking));
     }
 
-    
+    static bool isIndexKey(const folly::StringPiece& key) {
+        constexpr int32_t len = static_cast<int32_t>(sizeof(NebulaKeyType));
+        auto type = readInt<int32_t>(key.data(), len) & kTypeMask;
+        return static_cast<uint32_t>(NebulaKeyType::kIndex) == type;
+    }
+
+    static IndexID getIndexId(const folly::StringPiece& rawKey) {
+        auto offset = sizeof(PartitionID);
+        return readInt<IndexID>(rawKey.data() + offset, sizeof(IndexID));
+    }
 
     /**
      * Generate vertex|edge index key for kv store
      **/
     static void indexRaw(const IndexValues &values, std::string& raw);
 
-    static std::string vertexIndexKey(PartitionID partId, IndexID indexId, VertexID vId,
+    static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
+                                      IndexID indexId, VertexID vId,
                                       const IndexValues& values);
 
-    static std::string edgeIndexKey(PartitionID partId, IndexID indexId,
-                                    VertexID srcId, EdgeRanking rank,
-                                    VertexID dstId, const IndexValues& values);
+    static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
+                                    IndexID indexId, VertexID srcId,
+                                    EdgeRanking rank, VertexID dstId,
+                                    const IndexValues& values);
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
