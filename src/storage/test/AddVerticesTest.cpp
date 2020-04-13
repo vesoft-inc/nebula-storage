@@ -5,35 +5,62 @@
  */
 
 #include "base/Base.h"
-#include "base/NebulaKeyUtils.h"
+#include "common/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include "fs/TempDir.h"
-#include "storage/test/TestUtils.h"
 #include "storage/mutate/AddVerticesProcessor.h"
+#include "mock/MockCluster.h"
+#include "interface/gen-cpp2/storage_types.h"
+#include "interface/gen-cpp2/common_types.h"
 
 namespace nebula {
 namespace storage {
 
 TEST(AddVerticesTest, SimpleTest) {
     fs::TempDir rootPath("/tmp/AddVerticesTest.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv = TestUtils::initKV(rootPath.path());
-    auto schemaMan = TestUtils::mockSchemaMan();
-    auto indexMan = TestUtils::mockIndexMan();
-    auto* processor = AddVerticesProcessor::instance(kv.get(),
-                                                     schemaMan.get(),
-                                                     indexMan.get(),
+    mock::MockCluster cluster;
+    cluster.startStorage({0, 0}, rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+
+    auto* processor = AddVerticesProcessor::instance(env,
                                                      nullptr);
 
     LOG(INFO) << "Build AddVerticesRequest...";
     cpp2::AddVerticesRequest req;
-    req.space_id = 0;
+    req.space_id = 1;
     req.overwritable = true;
-    // partId => List<Vertex>
-    // Vertex => {Id, List<VertexProp>}
-    // VertexProp => {tagId, tags}
-    for (PartitionID partId = 0; partId < 3; partId++) {
-        auto vertices = TestUtils::setupVertices(partId, partId * 10, 10 * (partId + 1));
+
+    // partId => List<NeWVertex>
+    // NewVertex => {Id, List<NewTag>}
+    // NewTag => {tagId, PropDataByRow, optional list<binary> }
+    // PropDataByRow => {list<common.Value>}
+    for (PartitionID partId = 1; partId < 4; partId++) {
+        std::vector<cpp2::NewVertex> vertices;
+
+        for (auto vid = partId * 10; vid < (partId + 1) * 10; vid++) {
+            cpp2::NewVertex  newV;
+            newV.set_id(folly::to<std::string>(vid));
+            std::vector<cpp2::NewTag> nt;
+
+            for (auto tid = 3001; tid < 3006; tid++) {
+                cpp2::NewTag newT;
+                newT.set_tag_id(tid);
+
+                cpp2::PropDataByRow  row;
+                std::vector<nebula::Value> vs;
+                for (auto i = 0; i < 5; i++) {
+                    nebula::Value v;
+                    v.setInt(i);
+                    vs.push_back(v);
+                }
+                row.set_props(vs);
+                newT.set_props(std::move(row));
+                nt.push_back(std::move(newT));
+            }
+            newV.set_tags(std::move(nt));
+            vertices.push_back(std::move(newV));
+        }
         req.parts.emplace(partId, std::move(vertices));
     }
 
@@ -41,21 +68,36 @@ TEST(AddVerticesTest, SimpleTest) {
     auto fut = processor->getFuture();
     processor->process(req);
     auto resp = std::move(fut).get();
-    EXPECT_EQ(0, resp.result.failed_codes.size());
+    EXPECT_EQ(0, resp.result.failed_parts.size());
 
     LOG(INFO) << "Check data in kv store...";
-    for (PartitionID partId = 0; partId < 3; partId++) {
-        for (VertexID vertexId = 10 * partId; vertexId < 10 * (partId + 1); vertexId++) {
-            auto prefix = NebulaKeyUtils::vertexPrefix(partId, vertexId);
+    auto ret = env->schemaMan_->getSpaceVidLen(1);
+    auto spaceVidLen = ret.value();
+
+    for (PartitionID partId = 1; partId < 4; partId++) {
+        for (auto vid = partId * 10; vid < 10 * (partId + 1); vid++) {
+            auto tagId = 3002;
+            auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen,
+                                                       partId,
+                                                       folly::to<std::string>(vid),
+                                                       tagId);
             std::unique_ptr<kvstore::KVIterator> iter;
-            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, kv->prefix(0, partId, prefix, &iter));
-            TagID tagId = 0;
+            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, env->kvstore_->prefix(1, partId, prefix, &iter));
+            auto schema = env->schemaMan_->getTagSchema(1, tagId);
+            EXPECT_TRUE(schema != NULL);
+
+            auto count = 0;
             while (iter->valid()) {
-                EXPECT_EQ(TestUtils::encodeValue(partId, vertexId, tagId), iter->val());
-                tagId++;
+                auto reader = RowReader::getRowReader(schema.get(), iter->val());
+                for (auto i = 0; i < 5; i++) {
+                    Value val = reader->getValueByIndex(i);
+                    EXPECT_EQ(Value::Type::INT, val.type());
+                    EXPECT_EQ(i, val.getInt());
+                }
+                count++;
                 iter->next();
             }
-            EXPECT_EQ(10, tagId);
+            EXPECT_EQ(1, count);
         }
     }
 }

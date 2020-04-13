@@ -9,19 +9,29 @@
 
 #include "base/Base.h"
 #include "interface/gen-cpp2/GraphStorageService.h"
+#include "stats/Stats.h"
 
 namespace nebula {
 namespace storage {
 
 class StorageEnv;
+
 class GraphStorageServiceHandler final : public cpp2::GraphStorageServiceSvIf {
 public:
-    explicit GraphStorageServiceHandler(StorageEnv* env) : env_(env) {
+    GraphStorageServiceHandler(StorageEnv* env) : env_(env) {
     }
 
+    folly::Future<cpp2::ExecResponse>
+    future_addVertices(const cpp2::AddVerticesRequest& req) override;
+
+//    folly::Future<cpp2::ExecResponse>
+//    future_addEdges(const cpp2::AddEdgesRequest& req) override;
 
 private:
     StorageEnv*             env_{nullptr};
+    // VertexCache             vertexCache_;
+    stats::Stats            addVertexQpsStat_;
+    stats::Stats            addEdgeQpsStat_;
 };
 
 }  // namespace storage

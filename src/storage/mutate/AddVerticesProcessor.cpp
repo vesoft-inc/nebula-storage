@@ -5,10 +5,11 @@
  */
 
 #include "storage/mutate/AddVerticesProcessor.h"
-#include "base/NebulaKeyUtils.h"
+#include "common/NebulaKeyUtils.h"
 #include <algorithm>
 #include <limits>
 #include "time/WallClock.h"
+#include "codec/RowWriterV2.h"
 
 DECLARE_bool(enable_vertex_cache);
 
@@ -20,53 +21,117 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
         std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
     // Switch version to big-endian, make sure the key is in ordered.
     version = folly::Endian::big(version);
-
-    const auto& partVertices = req.get_parts();
     spaceId_ = req.get_space_id();
-    callingNum_ = partVertices.size();
-    auto iRet = indexMan_->getTagIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
-    }
+    const auto& partVertices = req.get_parts();
 
-    CHECK_NOTNULL(kvstore_);
-    if (indexes_.empty()) {
+    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
+    if (!ret.ok()) {
+        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
+                   << ret.status().toString();
+        cpp2::PartitionResult thriftRet;
+        thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
+        onFinished();
+        return;
+    }
+    auto spaceVidLen = ret.value();
+
+    callingNum_ = partVertices.size();
+    // auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
+    // if (iRet.ok()) {
+    //     indexes_ = std::move(iRet).value();
+    // }
+
+    CHECK_NOTNULL(env_->kvstore_);
+    // if (indexes_.empty()) {
         std::for_each(partVertices.begin(), partVertices.end(), [&](auto& pv) {
             auto partId = pv.first;
             const auto& vertices = pv.second;
+
             std::vector<kvstore::KV> data;
             std::for_each(vertices.begin(), vertices.end(), [&](auto& v) {
                 const auto& tags = v.get_tags();
                 std::for_each(tags.begin(), tags.end(), [&](auto& tag) {
+                    auto tagId = tag.get_tag_id();
                     VLOG(3) << "PartitionID: " << partId << ", VertexID: " << v.get_id()
                             << ", TagID: " << tag.get_tag_id() << ", TagVersion: " << version;
-                    auto key = NebulaKeyUtils::vertexKey(partId, v.get_id(),
-                                                         tag.get_tag_id(), version);
-                    data.emplace_back(std::move(key), std::move(tag.get_props()));
-                    if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                        vertexCache_->evict(std::make_pair(v.get_id(), tag.get_tag_id()), partId);
-                        VLOG(3) << "Evict cache for vId " << v.get_id()
-                                << ", tagId " << tag.get_tag_id();
+
+                    auto key = NebulaKeyUtils::vertexKey(spaceVidLen, partId, v.get_id(),
+                                                         tagId, version);
+                    auto propDataByRow = tag.get_props().get_props();
+                    auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
+                    if (!schema) {
+                        LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";
+                        cpp2::PartitionResult thriftRet;
+                        thriftRet.set_code(cpp2::ErrorCode::E_TAG_NOT_FOUND);
+                        onFinished();
+                        return;
                     }
+
+                    CHECK_LE(propDataByRow.size(), schema->getNumFields());
+                    RowWriterV2 wt(schema.get());
+                    if (tag.get_names() && !tag.get_names()->empty()) {
+                        auto colNames = *tag.get_names();
+                        CHECK_EQ(propDataByRow.size(), colNames.size());
+                        for (size_t i = 0; i < colNames.size(); i++) {
+                            auto r = wt.setValue(colNames[i], propDataByRow[i]);
+                            if (r != WriteResult::SUCCEEDED) {
+                                LOG(ERROR) << "Add vertex faild";
+                                cpp2::PartitionResult thriftRet;
+                                thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                                onFinished();
+                                return;
+                            }
+                        }
+                    } else {
+                        for (size_t i = 0; i < propDataByRow.size(); i++) {
+                            auto r = wt.setValue(i, propDataByRow[i]);
+                            if (r != WriteResult::SUCCEEDED) {
+                                LOG(ERROR) << "Add vertex faild";
+                                cpp2::PartitionResult thriftRet;
+                                thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                                onFinished();
+                                return;
+                            }
+                        }
+                    }
+                    auto retWt = wt.finish();
+                    if (retWt != WriteResult::SUCCEEDED) {
+                        LOG(ERROR) << "Add vertex faild";
+                        cpp2::PartitionResult thriftRet;
+                        thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                        onFinished();
+                        return;
+                    }
+
+                    std::string encode = std::move(wt).moveEncodedStr();
+                    data.emplace_back(std::move(key), std::move(encode));
+
+                    //if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
+                    //    vertexCache_->evict(std::make_pair(v.get_id(), tagId), partId);
+                    //    VLOG(3) << "Evict cache for vId " << v.get_id()
+                    //            << ", tagId " << tagId;
+                    //}
                 });
             });
             doPut(spaceId_, partId, std::move(data));
         });
-    } else {
-        std::for_each(partVertices.begin(), partVertices.end(), [&](auto &pv) {
-            auto partId = pv.first;
-            auto atomic = [version, partId, vertices = std::move(pv.second), this]()
-                          -> folly::Optional<std::string> {
-                return addVertices(version, partId, vertices);
-            };
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code);
-            };
-            this->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        });
-    }
+
+    // } else {
+    //    std::for_each(partVertices.begin(), partVertices.end(), [&](auto &pv) {
+    //         auto partId = pv.first;
+    //        auto atomic = [version, partId, vertices = std::move(pv.second), this]()
+    //                      -> folly::Optional<std::string> {
+    //            return addVertices(version, partId, vertices);
+    //        };
+    //        auto callback = [partId, this](kvstore::ResultCode code) {
+    //            handleAsync(spaceId_, partId, code);
+    //        };
+    //        this->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+    //    });
+    //}
 }
 
+#if 0
 std::string AddVerticesProcessor::addVertices(int64_t version, PartitionID partId,
                                               const std::vector<cpp2::Vertex>& vertices) {
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
@@ -173,6 +238,7 @@ std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                           index->get_index_id(),
                                           vId, values);
 }
+#endif
 
 }  // namespace storage
 }  // namespace nebula
