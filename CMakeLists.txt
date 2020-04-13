@@ -231,6 +231,7 @@ add_compile_options(-Werror)
 add_compile_options(-Wunused-parameter)
 add_compile_options(-Wshadow)
 add_compile_options(-Wno-invalid-pch)
+add_compile_options(-Wno-strict-aliasing)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # This requries GCC 5.1+
