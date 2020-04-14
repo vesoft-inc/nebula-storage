@@ -21,7 +21,6 @@ else
     CHECK_FILES=$(find $@ -not \( -path src/CMakeFiles -prune \) \
                           -not \( -path src/interface/gen-cpp2 -prune \) \
                           -name "*.[h]" -o -name "*.cpp" -o -name '*.inl' \
-                          | grep -v 'GraphScanner.*' | grep -v 'GraphParser.*' \
                           | grep -v 'com_vesoft_client_NativeClient.h' \
                           | grep -v 'com_vesoft_nebula_NebulaCodec.h')
 fi
