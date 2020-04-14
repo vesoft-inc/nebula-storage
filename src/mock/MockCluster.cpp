@@ -42,7 +42,6 @@ std::unique_ptr<kvstore::MemPartManager>
 MockCluster::memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& parts) {
     auto memPartMan = std::make_unique<kvstore::MemPartManager>();
     // GraphSpaceID =>  {PartitionIDs}
-    // 0 => {0, 1, 2, 3, 4, 5}
     auto& partsMap = memPartMan->partsMap();
     for (auto partId : parts) {
         partsMap[spaceId][partId] = meta::PartHosts();
@@ -103,7 +102,6 @@ void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
 }
 
 void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
-    storageServer_ = std::make_unique<RpcServer>();
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     kvstore::KVOptions options;
     if (metaClient_ != nullptr) {
@@ -134,9 +132,16 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
     storageEnv_->indexMan_ = indexMan_.get();
     storageEnv_->schemaMan_ = schemaMan_.get();
     storageEnv_->kvstore_ = storageKV_.get();
-    auto handler = std::make_shared<storage::StorageAdminServiceHandler>(storageEnv_.get());
-    storageServer_->start("storage", addr.port, handler);
-    LOG(INFO) << "The storage daemon started on port " << storageServer_->port_;
+
+    storageAdminServer_ = std::make_unique<RpcServer>();
+    auto handler1 = std::make_shared<storage::StorageAdminServiceHandler>(storageEnv_.get());
+    storageAdminServer_->start("admin-storage", addr.port, handler1);
+    LOG(INFO) << "The admin storage daemon started on port " << storageAdminServer_->port_;
+
+    graphStorageServer_ = std::make_unique<RpcServer>();
+    auto handler2 = std::make_shared<storage::GraphStorageServiceHandler>(storageEnv_.get());
+    graphStorageServer_->start("graph-storage", addr.port + 10, handler2);
+    LOG(INFO) << "The graph storage daemon started on port " << graphStorageServer_->port_;
 }
 
 std::unique_ptr<meta::SchemaManager>

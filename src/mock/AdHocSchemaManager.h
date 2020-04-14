@@ -4,8 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef MOC_ADHOCSCHEMAMANAGER_H_
-#define MOC_ADHOCSCHEMAMANAGER_H_
+#ifndef MOCK_ADHOCSCHEMAMANAGER_H_
+#define MOCK_ADHOCSCHEMAMANAGER_H_
 
 #include <folly/RWSpinLock.h>
 #include "meta/SchemaProviderIf.h"
@@ -88,4 +88,4 @@ protected:
 
 }  // namespace mock
 }  // namespace nebula
-#endif  // MOC_ADHOCSCHEMAMANAGER_H_
+#endif  // MOCK_ADHOCSCHEMAMANAGER_H_

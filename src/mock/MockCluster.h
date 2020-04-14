@@ -67,7 +67,8 @@ public:
     std::unique_ptr<meta::MetaClient>               metaClient_{nullptr};
     std::unique_ptr<kvstore::NebulaStore>           metaKV_{nullptr};
 
-    std::unique_ptr<RpcServer>                      storageServer_{nullptr};
+    std::unique_ptr<RpcServer>                      storageAdminServer_{nullptr};
+    std::unique_ptr<RpcServer>                      graphStorageServer_{nullptr};
     std::unique_ptr<kvstore::NebulaStore>           storageKV_{nullptr};
     std::unique_ptr<storage::StorageEnv>            storageEnv_{nullptr};
 
