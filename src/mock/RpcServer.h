@@ -50,6 +50,6 @@ struct RpcServer {
 };
 
 
-}   // namespace test
+}   // namespace mock
 }   // namespace nebula
 #endif  // MOCK_RPCSERVER_H_
