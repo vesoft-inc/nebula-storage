@@ -10,6 +10,7 @@
 #include "thrift/ThriftTypes.h"
 #include "common/LogIterator.h"
 #include <gtest/gtest_prod.h>
+#include <folly/CachelinePadded.h>
 
 namespace nebula {
 namespace wal {
@@ -49,7 +50,7 @@ struct Node {
         }
         size_ += rec.size();
         auto pos = pos_.load(std::memory_order_acquire);
-        records_[pos] = std::move(rec);
+        (*records_)[pos] = std::move(rec);
         pos_.fetch_add(1, std::memory_order_release);
         return true;
     }
@@ -59,7 +60,7 @@ struct Node {
         auto pos = pos_.load(std::memory_order_acquire);
         CHECK_LE(index, pos);
         CHECK(index != kMaxLength);
-        return &records_[index];
+        return &(*records_)[index];
     }
 
     LogID lastLogId() const {
@@ -74,23 +75,23 @@ struct Node {
     /******* readers maybe access the fields below ******************/
 
     // We should ensure the records appended happens-before pos_ increment.
-    std::array<Record, kMaxLength>    records_;
+    folly::CachelinePadded<std::array<Record, kMaxLength>>    records_;
     // current valid position for the next record.
     std::atomic<int32_t>              pos_{0};
-    // The filed only be accessed when the refs count donw to zero
+    // The field only be accessed when the refs count down to zero
     std::atomic<bool>                 markDeleted_{false};
-    // We should ensure the records appened happens-before the prev inited.
+    // We should ensure the records appended happens-before the prev inited.
     std::atomic<Node*>                prev_{nullptr};
 };
 
 /**
- * Wait-free log buffer for single writer, multi readers
+ * A wait-free log buffer for single writer, multi readers
  * When deleting the extra node, to avoid read the dangling one,
  * we just mark it to be deleted, and delete it when no readers using it.
  *
  * For write, most of time, it is o(1)
  * For seek, it is o(n), n is the number of nodes inside current list, but in most
- * cases, the seeking log is in the head Node, so it equals O(1)
+ * cases, the seeking log is in the head node, so it equals o(1)
  * */
 class AtomicLogBuffer : public std::enable_shared_from_this<AtomicLogBuffer> {
 public:
@@ -225,6 +226,10 @@ public:
         }
     }
 
+    void push(LogID logId, TermID termId, ClusterID clusterId, std::string&& msg) {
+        push(logId, Record(clusterId, termId, std::move(msg)));
+    }
+
     void push(LogID logId, Record&& record) {
         auto* head = head_.load(std::memory_order_relaxed);
         auto recSize = record.size();
@@ -234,37 +239,34 @@ public:
             auto* newNode = new Node();
             newNode->firstLogId_ = logId;
             newNode->next_ = head;
-            size_ += recSize;
             newNode->push_back(std::move(record));
             if (head != nullptr) {
                 head->prev_.store(newNode, std::memory_order_release);
             } else {
-                // It is the first log.
+                // It is the first Node in current list.
                 firstLogId_.store(logId, std::memory_order_relaxed);
+                tail_.store(newNode, std::memory_order_relaxed);
             }
+            size_ += recSize;
             head_.store(newNode, std::memory_order_relaxed);
             return;
         }
         if (size_ + recSize > capacity_ && head != nullptr) {
-            auto* p = head->next_;
-            int32_t sumSize = head->size_;
-            int32_t firstLogIdInPrevNode = head->firstLogId_;
-            while (p != nullptr) {
-                if (sumSize + p->size_ > capacity_) {
-                    bool expected = false;
-                    if (p->markDeleted_.compare_exchange_strong(expected, true)) {
-                        VLOG(3) << "Mark node " << p->firstLogId_ << " to be deleted!";
-                        size_ -= p->size_;
-                        dirtyNodes_++;
-                        firstLogId_.store(firstLogIdInPrevNode, std::memory_order_relaxed);
-                    } else {
-                        // The rest nodes has been mark deleted.
-                        break;
-                    }
+            auto* tail = tail_.load(std::memory_order_relaxed);
+            if (tail != head) {
+                // We have more than one nodes in current list.
+                // So we mark the tail to be deleted.
+                bool expected = false;
+                VLOG(3) << "Mark node " << tail->firstLogId_ << " to be deleted!";
+                if (!tail->markDeleted_.compare_exchange_strong(expected, true)) {
+                    LOG(FATAL) << "The tail has been marked to be deleted?";
                 }
-                sumSize += p->size_;
-                firstLogIdInPrevNode = p->firstLogId_;
-                p = p->next_;
+                size_.fetch_sub(tail->size_, std::memory_order_relaxed);
+                firstLogId_.store(tail->firstLogId_, std::memory_order_relaxed);
+                // All operations above SHOULD NOT be reordered.
+                tail_.store(tail->prev_, std::memory_order_release);
+                // dirtyNodes_ changes SHOUlD after the tail move.
+                dirtyNodes_.fetch_add(1,  std::memory_order_release);
             }
         }
         size_ += recSize;
@@ -325,7 +327,12 @@ private:
         if (p == nullptr) {
             return nullptr;
         }
-        while (p != nullptr && !p->markDeleted_) {
+        auto* tail = tail_.load(std::memory_order_relaxed);
+        CHECK_NOTNULL(tail);
+        // The scan range is [head, tail]
+        // And we should ensure the nodes inside the range SHOULD NOT be deleted.
+        // We could ensure the tail during gc is older than current one.
+        while (p != tail->next_ && !p->markDeleted_) {
             VLOG(3) << "current node firstLogId = " << p->firstLogId_
                     << ", the seeking logId = " << logId;
             if (logId >= p->firstLogId_) {
@@ -333,45 +340,60 @@ private:
             }
             p = p->next_;
         }
+        if (p == nullptr) {
+            return nullptr;
+        }
         return p->markDeleted_ ? nullptr : p;
     }
 
     int32_t addRef() {
-        return refs_.fetch_add(1, std::memory_order_consume);
+        return refs_.fetch_add(1, std::memory_order_relaxed);
     }
 
     void releaseRef() {
-        auto readers = refs_.fetch_add(-1, std::memory_order_consume);
+
+        // All operations following SHOULD NOT reordered before tail.load()
+        // so we could ensure the tail used in GC is older than new coming readers.
+        auto* tail = tail_.load(std::memory_order_acquire);
+        auto readers = refs_.fetch_sub(1, std::memory_order_relaxed);
         VLOG(3) << "Release ref, readers = " << readers;
+        if (readers > 1) {
+            return;
+        }
+        // In this position, maybe there are some new readers coming in
+        // So we should load tail before refs count down to ensure the tail current thread
+        // got is older than the new readers see.
+
+        CHECK_EQ(1, readers);
+
+        auto dirtyNodes = dirtyNodes_.load(std::memory_order_relaxed);
         bool gcRunning = false;
-        if (readers == 1
-                && dirtyNodes_ > dirtyNodesLimit_) {
+
+        if (dirtyNodes > dirtyNodesLimit_) {
             if (gcOnGoing_.compare_exchange_strong(gcRunning, true)) {
-                VLOG(3) << "GC begins!";
+                VLOG(1) << "GC begins!";
                 // It means no readers on the deleted nodes.
-                auto* prev = head_.load(std::memory_order_relaxed);
-                auto* curr = prev;
+                // Cut-off the list.
+                CHECK_NOTNULL(tail);
+                auto* dirtyHead = tail->next_;
+                tail->next_ = nullptr;
+
+                // Now we begin to delete the nodes.
+                auto* curr = dirtyHead;
                 while (curr != nullptr) {
-                    if (curr->markDeleted_.load(std::memory_order_relaxed)) {
-                        VLOG(3) << "Delete node " << curr->firstLogId_;
-                        auto* del = curr;
-                        prev->next_ = curr->next_;
-                        curr = curr->next_;
-                        if (curr != nullptr) {
-                            curr->prev_ = prev;
-                        }
-                        delete del;
-                        dirtyNodes_--;
-                        CHECK_GE(dirtyNodes_, 0);
-                    } else {
-                        prev = curr;
-                        curr = curr->next_;
-                    }
+                    CHECK(curr->markDeleted_.load(std::memory_order_relaxed));
+                    VLOG(1) << "Delete node " << curr->firstLogId_;
+                    auto* del = curr;
+                    curr = curr->next_;
+                    delete del;
+                    dirtyNodes_--;
+                    CHECK_GE(dirtyNodes_, 0);
                 }
+
                 gcOnGoing_.store(false);
-                VLOG(3) << "GC finished!";
+                VLOG(1) << "GC finished!";
             } else {
-                VLOG(3) << "Current list is in gc now!";
+                VLOG(1) << "Current list is in gc now!";
             }
         }
     }
@@ -379,6 +401,10 @@ private:
 
 private:
     std::atomic<Node*>           head_{nullptr};
+    // The tail is the last valid Node in current list
+    // After tail_, all nodes should be marked deleted.
+    std::atomic<Node*>           tail_{nullptr};
+
     std::atomic_int              refs_{0};
     // current size for the buffer.
     std::atomic_int              size_{0};

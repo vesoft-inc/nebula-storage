@@ -11,12 +11,14 @@
 
 DEFINE_bool(only_seek, false, "Only seek in read test");
 
-#define TEST_WRTIE 1
-#define TEST_READ  1
+#define TEST_WRTIE       1
+#define TEST_READ        1
+#define TEST_RW_MIXED    1
 
 using nebula::wal::AtomicLogBuffer;
 using nebula::wal::Record;
 using nebula::wal::InMemoryBufferList;
+using nebula::LogID;
 
 void prepareData(std::shared_ptr<InMemoryBufferList> inMemoryLogBuffer,
                  int32_t len,
@@ -44,7 +46,7 @@ void runInMemoryLogBufferWriteTest(size_t iters, int32_t len) {
     BENCHMARK_SUSPEND {
         recs.reserve(iters);
         for (size_t i = 0; i < iters; i++) {
-            recs.emplace_back(std::string(len, 'A'));
+            recs.emplace_back(len, 'A');
         }
         inMemoryLogBuffer = InMemoryBufferList::instance();
     }
@@ -53,6 +55,7 @@ void runInMemoryLogBufferWriteTest(size_t iters, int32_t len) {
     }
     BENCHMARK_SUSPEND {
         recs.clear();
+        inMemoryLogBuffer.reset();
     }
 }
 
@@ -71,6 +74,26 @@ void runAtomicLogBufferWriteTest(size_t iters, int32_t len) {
     }
     BENCHMARK_SUSPEND {
         recs.clear();
+        logBuffer.reset();
+    }
+}
+
+void runAtomicLogBufferWriteTestPush2(size_t iters, int32_t len) {
+    std::shared_ptr<AtomicLogBuffer> logBuffer;
+    std::vector<std::string> recs;
+    BENCHMARK_SUSPEND {
+        recs.reserve(iters);
+        for (size_t i = 0; i < iters; i++) {
+            recs.emplace_back(len, 'A');
+        }
+        logBuffer = AtomicLogBuffer::instance();
+    }
+    for (size_t i = 0; i < iters; i++) {
+        logBuffer->push(i, 0, 0, std::move(recs[i]));
+    }
+    BENCHMARK_SUSPEND {
+        recs.clear();
+        logBuffer.reset();
     }
 }
 
@@ -84,6 +107,10 @@ BENCHMARK_RELATIVE(AtomicLogBufferWriteShort, iters) {
     runAtomicLogBufferWriteTest(iters, 16);
 }
 
+BENCHMARK_RELATIVE(AtomicLogBufferWritePush2Short, iters) {
+    runAtomicLogBufferWriteTestPush2(iters, 16);
+}
+
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK(InMemoryLogBufferWriteMiddle, iters) {
@@ -94,6 +121,9 @@ BENCHMARK_RELATIVE(AtomicLogBufferWriteMiddle, iters) {
     runAtomicLogBufferWriteTest(iters, 128);
 }
 
+BENCHMARK_RELATIVE(AtomicLogBufferWritePush2Middle, iters) {
+    runAtomicLogBufferWriteTestPush2(iters, 128);
+}
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK(InMemoryLogBufferWriteLong, iters) {
@@ -104,6 +134,9 @@ BENCHMARK_RELATIVE(AtomicLogBufferWriteLong, iters) {
     runAtomicLogBufferWriteTest(iters, 1024);
 }
 
+BENCHMARK_RELATIVE(AtomicLogBufferWritePush2Long, iters) {
+    runAtomicLogBufferWriteTestPush2(iters, 1024);
+}
 BENCHMARK_DRAW_LINE();
 
 BENCHMARK(InMemoryLogBufferWriteVeryLong, iters) {
@@ -114,6 +147,9 @@ BENCHMARK_RELATIVE(AtomicLogBufferWriteVeryLong, iters) {
     runAtomicLogBufferWriteTest(iters, 4096);
 }
 
+BENCHMARK_RELATIVE(AtomicLogBufferWritePush2VeryLong, iters) {
+    runAtomicLogBufferWriteTestPush2(iters, 4096);
+}
 BENCHMARK_DRAW_LINE();
 
 #endif
@@ -137,6 +173,9 @@ void runInMemoryLogBufferReadLatestN(int32_t total,
             }
         }
     }
+    BENCHMARK_SUSPEND {
+        inMemoryLogBuffer.reset();
+    }
 }
 
 void runAtomicLogBufferReadLatestN(int32_t total,
@@ -157,6 +196,9 @@ void runAtomicLogBufferReadLatestN(int32_t total,
                 folly::doNotOptimizeAway(log);
             }
         }
+    }
+    BENCHMARK_SUSPEND {
+        logBuffer.reset();
     }
 }
 
@@ -216,6 +258,166 @@ BENCHMARK_DRAW_LINE();
 #endif
 
 
+#if TEST_RW_MIXED
+/**
+ *  Read write mix test
+ *
+ * */
+template<class LogBufferPtr>
+std::vector<std::unique_ptr<std::thread>>
+runSingleWriterMultiReadersInBackground(LogBufferPtr logBuffer,
+                                        bool startWriter,
+                                        int32_t readersNum,
+                                        std::atomic<LogID>& writePoint,
+                                        std::atomic<bool>& stop) {
+    std::vector<std::unique_ptr<std::thread>> threads;
+    if (startWriter) {
+        auto writer = std::make_unique<std::thread>([logBuffer, &writePoint, &stop] {
+            LogID logId = 1000; // start from 1000
+            while (!stop) {
+                logBuffer->push(logId, 0, 0, folly::stringPrintf("str_%ld", logId));
+                writePoint.store(logId, std::memory_order_release);
+                logId++;
+                // The background writer tps about 10K
+                usleep(100);
+            }
+        });
+        threads.emplace_back(std::move(writer));
+    }
+
+    for (int i = 0; i < readersNum; i++) {
+        threads.emplace_back(
+                std::make_unique<std::thread>([i, logBuffer, &writePoint, &stop] {
+                    while (!stop) {
+                        auto wp = writePoint.load(std::memory_order_acquire);
+                        auto start = wp - 32;
+                        auto end = wp;
+                        auto iter = logBuffer->iterator(start, end);
+                        if (!iter->valid()) {
+                            continue;
+                        }
+                        for (; iter->valid(); ++(*iter)) {
+                            auto logId = iter->logId();
+                            auto log = iter->logMsg();
+                            folly::doNotOptimizeAway(logId);
+                            folly::doNotOptimizeAway(log);
+                        }
+                        // The background reader qps about 10K
+                        usleep(100);
+                    }
+                })
+        );
+    }
+    return threads;
+}
+
+template<class LogBufferPtr>
+void runRWMixedTestRead(LogBufferPtr logBuffer) {
+    std::atomic<LogID> writePoint{1000};
+    std::atomic<bool>  stop{false};
+    std::vector<std::unique_ptr<std::thread>> threads;
+    BENCHMARK_SUSPEND {
+        threads = runSingleWriterMultiReadersInBackground(logBuffer, true, 1, writePoint, stop);
+        // wait for all threads started.
+        usleep(10);
+    }
+    auto start = writePoint - 32;
+    auto end = writePoint - 1;
+    int32_t loopTimes = 1000000;
+    while (loopTimes-- > 0) {
+        auto iter = logBuffer->iterator(start, end);
+        for (;iter->valid(); ++(*iter)) {
+            auto log = iter->logMsg();
+            folly::doNotOptimizeAway(log);
+        }
+    }
+
+    BENCHMARK_SUSPEND {
+        stop = true;
+        for (auto& t : threads) {
+            t->join();
+        }
+    }
+}
+
+BENCHMARK(InMemoryListBufferRWMixedReadTest) {
+    std::shared_ptr<InMemoryBufferList> logBuffer;
+    BENCHMARK_SUSPEND {
+        logBuffer = InMemoryBufferList::instance();
+        prepareData(logBuffer, 1024, 1000);
+    }
+    runRWMixedTestRead(logBuffer);
+    BENCHMARK_SUSPEND {
+        logBuffer.reset();
+    }
+}
+
+BENCHMARK_RELATIVE(AtomicLogBufferRWMixedReadTest) {
+    std::shared_ptr<AtomicLogBuffer> logBuffer;
+    BENCHMARK_SUSPEND {
+        logBuffer = AtomicLogBuffer::instance();
+        prepareData(logBuffer, 1024, 1000);
+    }
+    runRWMixedTestRead(logBuffer);
+    BENCHMARK_SUSPEND {
+        logBuffer.reset();
+    }
+}
+
+BENCHMARK_DRAW_LINE();
+
+template<class LogBufferPtr>
+void runRWMixedTestWrite(LogBufferPtr logBuffer) {
+    std::atomic<bool>  stop{false};
+    std::vector<std::unique_ptr<std::thread>> threads;
+    BENCHMARK_SUSPEND {
+        std::atomic<LogID> writePoint{1000};
+        threads = runSingleWriterMultiReadersInBackground(logBuffer, false, 1, writePoint, stop);
+        // wait for all threads started.
+        usleep(10);
+    }
+    LogID logId = 1000;
+    int32_t loopTimes = 1024 * 1024;
+    while (loopTimes-- > 0) {
+        logBuffer->push(logId, 0, 0, std::string(1024, 'A'));
+        logId++;
+    }
+    BENCHMARK_SUSPEND {
+        stop = true;
+        for (auto& t : threads) {
+            t->join();
+        }
+    }
+}
+
+BENCHMARK(InMemoryListBufferRWMixedWriteTest) {
+    std::shared_ptr<InMemoryBufferList> logBuffer;
+    BENCHMARK_SUSPEND {
+        logBuffer = InMemoryBufferList::instance();
+        // Make sure the buffer has been full.
+        prepareData(logBuffer, 1024, 1000 * 10);
+    }
+    runRWMixedTestWrite(logBuffer);
+    BENCHMARK_SUSPEND {
+        logBuffer.reset();
+    }
+}
+
+BENCHMARK_RELATIVE(AtomicLogBufferRWMixedWriteTest) {
+    std::shared_ptr<AtomicLogBuffer> logBuffer;
+    BENCHMARK_SUSPEND {
+        logBuffer = AtomicLogBuffer::instance();
+        // Make sure the buffer has been full.
+        prepareData(logBuffer, 1024, 1000 * 10);
+    }
+    runRWMixedTestWrite(logBuffer);
+    BENCHMARK_SUSPEND {
+        logBuffer.reset();
+    }
+}
+
+#endif
+
 /*************************
  * End of benchmarks
  ************************/
@@ -233,37 +435,41 @@ Intel(R) Xeon(R) CPU E5-2690 v2 @ 3.00GHz
 ============================================================================
 LogBufferBenchmark.cpprelative                            time/iter  iters/s
 ============================================================================
-InMemoryLogBufferWriteShort                                 97.70ns   10.23M
-AtomicLogBufferWriteShort                        246.98%    39.56ns   25.28M
+InMemoryLogBufferWriteShort                                 98.04ns   10.20M
+AtomicLogBufferWriteShort                        356.89%    27.47ns   36.40M
+AtomicLogBufferWritePush2Short                   309.25%    31.70ns   31.54M
 ----------------------------------------------------------------------------
-InMemoryLogBufferWriteMiddle                                98.69ns   10.13M
-AtomicLogBufferWriteMiddle                       213.39%    46.25ns   21.62M
+InMemoryLogBufferWriteMiddle                                97.39ns   10.27M
+AtomicLogBufferWriteMiddle                       354.47%    27.48ns   36.40M
+AtomicLogBufferWritePush2Middle                  306.73%    31.75ns   31.49M
 ----------------------------------------------------------------------------
-InMemoryLogBufferWriteLong                                 106.45ns    9.39M
-AtomicLogBufferWriteLong                         222.10%    47.93ns   20.86M
+InMemoryLogBufferWriteLong                                  97.32ns   10.27M
+AtomicLogBufferWriteLong                         350.59%    27.76ns   36.02M
+AtomicLogBufferWritePush2Long                    305.71%    31.84ns   31.41M
 ----------------------------------------------------------------------------
-InMemoryLogBufferWriteVeryLong                             122.01ns    8.20M
-AtomicLogBufferWriteVeryLong                     242.53%    50.31ns   19.88M
+InMemoryLogBufferWriteVeryLong                              97.43ns   10.26M
+AtomicLogBufferWriteVeryLong                     342.62%    28.44ns   35.17M
+AtomicLogBufferWritePush2VeryLong                302.24%    32.24ns   31.02M
 ----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest8                               374.97ms     2.67
+AtomicLogBufferReadLatest8                       290.72%   128.98ms     7.75
+----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest32                              873.47ms     1.14
+AtomicLogBufferReadLatest32                      273.17%   319.75ms     3.13
+----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest128                                2.87s  348.32m
+AtomicLogBufferReadLatest128                     267.61%      1.07s  932.14m
+----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest1024                              21.54s   46.43m
+AtomicLogBufferReadLatest1024                    264.77%      8.14s  122.92m
+----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest6000                             2.02min    8.27m
+AtomicLogBufferReadLatest6000                    281.61%     42.94s   23.29m
+----------------------------------------------------------------------------
+InMemoryListBufferRWMixedReadTest                          801.97ms     1.25
+AtomicLogBufferRWMixedReadTest                   262.12%   305.96ms     3.27
+----------------------------------------------------------------------------
+InMemoryListBufferRWMixedWriteTest                         422.98ms     2.36
+AtomicLogBufferRWMixedWriteTest                  241.31%   175.28ms     5.71
 ============================================================================
-
--O2 kMaxLenght=64 read test, repeat 'seek and scan' 1M times each iteration.
-----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest8                               427.37ms     2.34
-AtomicLogBufferReadLatest8                       362.10%   118.03ms     8.47
-----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest32                                 1.11s  902.66m
-AtomicLogBufferReadLatest32                      390.31%   283.84ms     3.52
-----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest128                                3.79s  263.85m
-AtomicLogBufferReadLatest128                     414.49%   914.40ms     1.09
-----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest1024                              27.93s   35.80m
-AtomicLogBufferReadLatest1024                    472.45%      5.91s  169.16m
-----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest6000                             2.56min    6.52m
-AtomicLogBufferReadLatest6000                    419.61%     36.57s   27.34m
-----------------------------------------------------------------------------
-============================================================================
-
 */

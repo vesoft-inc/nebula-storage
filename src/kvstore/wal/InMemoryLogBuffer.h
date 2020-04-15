@@ -22,6 +22,7 @@ public:
         : firstLogId_(firstLogId)
         , idStr_(idStr) {
         VLOG(1) << idStr_ << "InMemoryLogBuffer ctor, firstLogId " << firstLogId_;
+        logs_.reserve(1024);
     }
 
     ~InMemoryLogBuffer() {

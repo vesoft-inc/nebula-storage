@@ -27,6 +27,7 @@ void checkIterator(std::shared_ptr<AtomicLogBuffer> logBuffer,
 }
 
 TEST(AtomicLogBufferTest, ReadWriteTest) {
+    LOG(INFO) << "@@@ " << sizeof(Record) << ", " << sizeof(std::string);
     auto logBuffer = AtomicLogBuffer::instance();
     for (LogID logId = 0; logId < 1000L; logId++) {
         logBuffer->push(logId, Record(0, 0, folly::stringPrintf("str_%ld", logId)));
@@ -36,6 +37,18 @@ TEST(AtomicLogBufferTest, ReadWriteTest) {
     checkIterator(logBuffer, 200, 800, 801);
     {
         LogID from = 1200;
+        auto iter = logBuffer->iterator(from, 1800);
+        CHECK(!iter->valid());
+    }
+}
+
+TEST(AtomicLogBufferTest, OverflowTest) {
+    auto logBuffer = AtomicLogBuffer::instance(128);
+    for (LogID logId = 0; logId < 1000L; logId++) {
+        logBuffer->push(logId, Record(0, 0, folly::stringPrintf("str_%ld", logId)));
+    }
+    {
+        LogID from = 100;
         auto iter = logBuffer->iterator(from, 1800);
         CHECK(!iter->valid());
     }
@@ -98,7 +111,6 @@ TEST(AtomicLogBufferTest, SingleWriterMultiReadersTest) {
         r.join();
     }
 }
-
 
 }  // namespace wal
 }  // namespace nebula
