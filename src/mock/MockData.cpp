@@ -345,6 +345,12 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema() {
         prop.set_ttl_duration(FLAGS_mock_ttl_duration);
         schema->setProp(prop);
     }
+    for (int32_t i = 5; i < 10; i++) {
+        meta::cpp2::ColumnDef column;
+        column.name = folly::stringPrintf("col_%d", i);
+        column.type = meta::cpp2::PropertyType::STRING;
+        schema->addField(column.name, std::move(column.type));
+    }
     return schema;
 }
 
@@ -413,6 +419,12 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockEdgeSchema() {
         prop.set_ttl_col("endYear");
         prop.set_ttl_duration(FLAGS_mock_ttl_duration);
         schema->setProp(prop);
+    }
+    for (int32_t i = 5; i < 10; i++) {
+        meta::cpp2::ColumnDef column;
+        column.name = folly::stringPrintf("col_%d", i);
+        column.type = meta::cpp2::PropertyType::STRING;
+        schema->addField(column.name, std::move(column.type));
     }
     return schema;
 }

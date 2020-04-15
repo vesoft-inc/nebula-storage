@@ -77,7 +77,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                             if (r != WriteResult::SUCCEEDED) {
                                 LOG(ERROR) << "Add vertex faild";
                                 cpp2::PartitionResult thriftRet;
-                                thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                                thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
                                 onFinished();
                                 return;
                             }
@@ -88,7 +88,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                             if (r != WriteResult::SUCCEEDED) {
                                 LOG(ERROR) << "Add vertex faild";
                                 cpp2::PartitionResult thriftRet;
-                                thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                                thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
                                 onFinished();
                                 return;
                             }
@@ -98,7 +98,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                     if (retWt != WriteResult::SUCCEEDED) {
                         LOG(ERROR) << "Add vertex faild";
                         cpp2::PartitionResult thriftRet;
-                        thriftRet.set_code(cpp2::ErrorCode::E_CONSENSUS_ERROR);
+                        thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
                         onFinished();
                         return;
                     }

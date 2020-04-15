@@ -18,7 +18,8 @@ class StorageEnv;
 
 class GraphStorageServiceHandler final : public cpp2::GraphStorageServiceSvIf {
 public:
-    GraphStorageServiceHandler(StorageEnv* env) : env_(env) {
+    explicit GraphStorageServiceHandler(StorageEnv* env)
+        : env_(env) {
     }
 
     folly::Future<cpp2::ExecResponse>

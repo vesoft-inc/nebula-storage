@@ -23,8 +23,7 @@ TEST(AddVerticesTest, SimpleTest) {
     cluster.startStorage({0, 0}, rootPath.path());
     auto* env = cluster.storageEnv_.get();
 
-    auto* processor = AddVerticesProcessor::instance(env,
-                                                     nullptr);
+    auto* processor = AddVerticesProcessor::instance(env, nullptr);
 
     LOG(INFO) << "Build AddVerticesRequest...";
     cpp2::AddVerticesRequest req;
@@ -54,6 +53,12 @@ TEST(AddVerticesTest, SimpleTest) {
                     v.setInt(i);
                     vs.push_back(v);
                 }
+                for (auto i = 5; i < 10; i++) {
+                    nebula::Value v;
+                    v.setStr(folly::to<std::string>(i));
+                    vs.push_back(v);
+                }
+
                 row.set_props(vs);
                 newT.set_props(std::move(row));
                 nt.push_back(std::move(newT));
@@ -93,6 +98,11 @@ TEST(AddVerticesTest, SimpleTest) {
                     Value val = reader->getValueByIndex(i);
                     EXPECT_EQ(Value::Type::INT, val.type());
                     EXPECT_EQ(i, val.getInt());
+                }
+                for (auto i = 5; i < 10; i++) {
+                    Value val = reader->getValueByIndex(i);
+                    EXPECT_EQ(Value::Type::STRING, val.type());
+                    EXPECT_EQ(folly::to<std::string>(i), val.getStr());
                 }
                 count++;
                 iter->next();
