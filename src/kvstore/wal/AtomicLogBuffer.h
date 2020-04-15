@@ -193,6 +193,9 @@ public:
         return std::shared_ptr<AtomicLogBuffer>(new AtomicLogBuffer(capacity));
     }
 
+    /**
+     * Users should ensure there are no readers when releasing it.
+     * */
     ~AtomicLogBuffer() {
         auto refs = refs_.load(std::memory_order_acquire);
         CHECK(refs == 0);
@@ -238,6 +241,7 @@ public:
                     if (p->markDeleted_.compare_exchange_strong(expected, true)) {
                         VLOG(3) << "Mark node " << p->firstLogId_ << " to be deleted!";
                         size_ -= p->size_;
+                        dirtyNodes_++;
                         firstLogId_.store(firstLogIdInPrevNode, std::memory_order_relaxed);
                     } else {
                         // The rest nodes has been mark deleted.
@@ -259,7 +263,9 @@ public:
 
     LogID lastLogId() const {
         auto* p = head_.load(std::memory_order_relaxed);
-        CHECK_NOTNULL(p);
+        if (p == nullptr) {
+            return 0;
+        }
         return p->lastLogId();
     }
 
@@ -323,24 +329,35 @@ private:
     void releaseRef() {
         auto readers = refs_.fetch_add(-1, std::memory_order_consume);
         VLOG(3) << "Release ref, readers = " << readers;
-        if (readers == 1) {
-            // It means no readers on the deleted nodes.
-            auto* prev = head_.load(std::memory_order_relaxed);
-            auto* curr = prev;
-            while (curr != nullptr) {
-                if (curr->markDeleted_.load(std::memory_order_relaxed)) {
-                    VLOG(3) << "Delete node " << curr->firstLogId_;
-                    auto* del = curr;
-                    prev->next_ = curr->next_;
-                    curr = curr->next_;
-                    if (curr != nullptr) {
-                        curr->prev_ = prev;
+        bool gcRunning = false;
+        if (readers == 1
+                && dirtyNodes_ > dirtyNodesLimit_) {
+            if (gcOnGoing_.compare_exchange_strong(gcRunning, true)) {
+                VLOG(3) << "GC begins!";
+                // It means no readers on the deleted nodes.
+                auto* prev = head_.load(std::memory_order_relaxed);
+                auto* curr = prev;
+                while (curr != nullptr) {
+                    if (curr->markDeleted_.load(std::memory_order_relaxed)) {
+                        VLOG(3) << "Delete node " << curr->firstLogId_;
+                        auto* del = curr;
+                        prev->next_ = curr->next_;
+                        curr = curr->next_;
+                        if (curr != nullptr) {
+                            curr->prev_ = prev;
+                        }
+                        delete del;
+                        dirtyNodes_--;
+                        CHECK_GE(dirtyNodes_, 0);
+                    } else {
+                        prev = curr;
+                        curr = curr->next_;
                     }
-                    delete del;
-                } else {
-                    prev = curr;
-                    curr = curr->next_;
                 }
+                gcOnGoing_.store(false);
+                VLOG(3) << "GC finished!";
+            } else {
+                VLOG(3) << "Current list is in gc now!";
             }
         }
     }
@@ -354,6 +371,9 @@ private:
     std::atomic<LogID>           firstLogId_{0};
     // The max size limit.
     int32_t                      capacity_{8 * 1024 * 1024};
+    std::atomic<bool>            gcOnGoing_{false};
+    std::atomic<int32_t>         dirtyNodes_{0};
+    int32_t                      dirtyNodesLimit_{5};
 };
 
 }  // namespace wal
