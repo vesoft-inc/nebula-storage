@@ -72,45 +72,27 @@ TEST(InMemoryLogBuffer, Simple) {
         b.size());
 }
 
+void checkIterator(std::shared_ptr<InMemoryBufferList> buffers,
+                   LogID from,
+                   LogID to,
+                   LogID expectedEnd) {
+    auto iter = buffers->iterator(from, to);
+    for (;iter->valid(); ++(*iter)) {
+        auto log = iter->logMsg();
+        ASSERT_EQ(folly::stringPrintf("str_%ld", from), log);
+        from++;
+    }
+    EXPECT_EQ(from, expectedEnd);
+}
+
 TEST(InMemoryLogBufferList, RWTest) {
     auto buffers = InMemoryBufferList::instance();
     for (size_t i = 0; i < 1000; i++) {
         buffers->push(i, 0, 0, folly::stringPrintf("str_%ld", i));
     }
-
-    {
-        LogID from = 200;
-        auto iter = buffers->iterator(from, 1000);
-        while (iter->valid()) {
-            auto log = iter->log();
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), log);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(from, 1000);
-    }
-    {
-        LogID from = 200;
-        auto iter = buffers->iterator(from, 1200);
-        while (iter->valid()) {
-            auto log = iter->log();
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), log);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(from, 1000);
-    }
-    {
-        LogID from = 200;
-        auto iter = buffers->iterator(from, 800);
-        while (iter->valid()) {
-            auto log = iter->log();
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), log);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(from, 801);
-    }
+    checkIterator(buffers, 200, 1000, 1000);
+    checkIterator(buffers, 200, 1200, 1000);
+    checkIterator(buffers, 200, 800, 801);
     {
         LogID from = 1300;
         auto iter = buffers->iterator(from, 1600);

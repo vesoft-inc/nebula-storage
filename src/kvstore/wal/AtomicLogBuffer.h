@@ -8,6 +8,7 @@
 #define WAL_ATOMICLOGBUFFER_H_
 
 #include "thrift/ThriftTypes.h"
+#include "common/LogIterator.h"
 #include <gtest/gtest_prod.h>
 
 namespace nebula {
@@ -97,7 +98,7 @@ public:
      * The iterator once created, it could just see the snapshot of current list.
      * In other words, the new records inserted during scanning are invisible.
      * */
-    class Iterator {
+    class Iterator : public LogIterator{
         friend class AtomicLogBuffer;
         FRIEND_TEST(AtomicLogBufferTest, SingleWriterMultiReadersTest);
     public:
@@ -105,17 +106,13 @@ public:
             logBuffer_->releaseRef();
         }
 
-        bool valid() {
-            return valid_;
-        }
-
-        void next() {
+        LogIterator& operator++() override {
             currIndex_++;
             currLogId_++;
             if (currLogId_ > end_) {
                 valid_ = false;
                 currRec_ = nullptr;
-                return;
+                return *this;
             }
             // Operations after load SHOULD NOT reorder before it.
             auto pos = currNode_->pos_.load(std::memory_order_acquire);
@@ -127,7 +124,7 @@ public:
                 if (currNode_ == nullptr) {
                     valid_ = false;
                     currRec_ = nullptr;
-                    return;
+                    return *this;
                 } else {
                     currIndex_ = 0;
                 }
@@ -135,19 +132,28 @@ public:
             DCHECK_NOTNULL(currNode_);
             DCHECK_LT(currIndex_, kMaxLength);
             currRec_ = currNode_->rec(currIndex_);
+            return *this;
         }
 
-        const Record* record() const {
-            if (!valid_) {
-                return nullptr;
-            }
-            DCHECK_NOTNULL(currRec_);
-            return currRec_;
+        bool valid() const override {
+            return valid_;
         }
 
-        LogID logId() const {
+        LogID logId() const override {
             DCHECK(valid_);
             return currLogId_;
+        }
+
+        TermID logTerm() const override {
+            return record()->termId_;
+        }
+
+        ClusterID logSource() const override {
+            return record()->clusterId_;
+        }
+
+        folly::StringPiece logMsg() const override {
+            return record()->msg_;
         }
 
     private:
@@ -158,6 +164,14 @@ public:
             logBuffer_->addRef();
             end_ = std::min(end, logBuffer->lastLogId());
             seek(currLogId_);
+        }
+
+        const Record* record() const {
+            if (!valid_) {
+                return nullptr;
+            }
+            DCHECK_NOTNULL(currRec_);
+            return currRec_;
         }
 
         void seek(LogID logId) {

@@ -131,8 +131,9 @@ void runInMemoryLogBufferReadLatestN(int32_t total,
     while (loopTimes-- > 0) {
         auto iter = inMemoryLogBuffer->iterator(start, end);
         if (!FLAGS_only_seek) {
-            while (iter->valid()) {
-                iter->next();
+            for (;iter->valid(); ++(*iter)) {
+                auto log = iter->logMsg();
+                folly::doNotOptimizeAway(log);
             }
         }
     }
@@ -151,8 +152,9 @@ void runAtomicLogBufferReadLatestN(int32_t total,
     while (loopTimes-- > 0) {
         auto iter = logBuffer->iterator(start, end);
         if (!FLAGS_only_seek) {
-            while (iter->valid()) {
-                iter->next();
+            for (;iter->valid(); ++(*iter)) {
+                auto log = iter->logMsg();
+                folly::doNotOptimizeAway(log);
             }
         }
     }
@@ -246,23 +248,21 @@ AtomicLogBufferWriteVeryLong                     242.53%    50.31ns   19.88M
 ============================================================================
 
 -O2 kMaxLenght=64 read test, repeat 'seek and scan' 1M times each iteration.
-============================================================================
-LogBufferBenchmark.cpprelative                            time/iter  iters/s
-============================================================================
-InMemoryLogBufferReadLatest8                               204.24ms     4.90
-AtomicLogBufferReadLatest8                       194.67%   104.92ms     9.53
 ----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest32                              251.08ms     3.98
-AtomicLogBufferReadLatest32                      133.05%   188.71ms     5.30
+InMemoryLogBufferReadLatest8                               427.37ms     2.34
+AtomicLogBufferReadLatest8                       362.10%   118.03ms     8.47
 ----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest128                             444.78ms     2.25
-AtomicLogBufferReadLatest128                      82.70%   537.83ms     1.86
+InMemoryLogBufferReadLatest32                                 1.11s  902.66m
+AtomicLogBufferReadLatest32                      390.31%   283.84ms     3.52
 ----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest1024                               2.26s  442.87m
-AtomicLogBufferReadLatest1024                     59.84%      3.77s  265.00m
+InMemoryLogBufferReadLatest128                                3.79s  263.85m
+AtomicLogBufferReadLatest128                     414.49%   914.40ms     1.09
 ----------------------------------------------------------------------------
-InMemoryLogBufferReadLatest6000                              12.41s   80.60m
-AtomicLogBufferReadLatest6000                     56.23%     22.06s   45.32m
+InMemoryLogBufferReadLatest1024                              27.93s   35.80m
+AtomicLogBufferReadLatest1024                    472.45%      5.91s  169.16m
+----------------------------------------------------------------------------
+InMemoryLogBufferReadLatest6000                             2.56min    6.52m
+AtomicLogBufferReadLatest6000                    419.61%     36.57s   27.34m
 ----------------------------------------------------------------------------
 ============================================================================
 

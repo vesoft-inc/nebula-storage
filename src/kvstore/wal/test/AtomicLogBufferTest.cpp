@@ -12,47 +12,28 @@
 namespace nebula {
 namespace wal {
 
+
+void checkIterator(std::shared_ptr<AtomicLogBuffer> logBuffer,
+                   LogID from,
+                   LogID to,
+                   LogID expected) {
+    auto iter = logBuffer->iterator(from, to);
+    for (; iter->valid(); ++(*iter)) {
+        auto log = iter->logMsg();
+        ASSERT_EQ(folly::stringPrintf("str_%ld", from), log);
+        from++;
+    }
+    EXPECT_EQ(expected, from);
+}
+
 TEST(AtomicLogBufferTest, ReadWriteTest) {
     auto logBuffer = AtomicLogBuffer::instance();
     for (LogID logId = 0; logId < 1000L; logId++) {
         logBuffer->push(logId, Record(0, 0, folly::stringPrintf("str_%ld", logId)));
     }
-    {
-        LogID from = 200;
-        auto iter = logBuffer->iterator(from, 1000);
-        while (iter->valid()) {
-            auto* rec = iter->record();
-            CHECK_NOTNULL(rec);
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), rec->msg_);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(1000, from);
-    }
-    {
-        LogID from = 200;
-        auto iter = logBuffer->iterator(from, 1500);
-        while (iter->valid()) {
-            auto* rec = iter->record();
-            CHECK_NOTNULL(rec);
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), rec->msg_);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(1000, from);
-    }
-    {
-        LogID from = 200;
-        auto iter = logBuffer->iterator(from, 800);
-        while (iter->valid()) {
-            auto* rec = iter->record();
-            CHECK_NOTNULL(rec);
-            ASSERT_EQ(folly::stringPrintf("str_%ld", from), rec->msg_);
-            iter->next();
-            from++;
-        }
-        EXPECT_EQ(801, from);
-    }
+    checkIterator(logBuffer, 200, 1000, 1000);
+    checkIterator(logBuffer, 200, 1500, 1000);
+    checkIterator(logBuffer, 200, 800, 801);
     {
         LogID from = 1200;
         auto iter = logBuffer->iterator(from, 1800);
@@ -90,7 +71,7 @@ TEST(AtomicLogBufferTest, SingleWriterMultiReadersTest) {
                 }
                 validSeek++;
                 size_t num = start;
-                while (iter->valid()) {
+                for (; iter->valid(); ++(*iter)) {
                     const auto* rec = iter->record();
                     auto logId = iter->logId();
                     auto* node = iter->currNode();
@@ -105,7 +86,6 @@ TEST(AtomicLogBufferTest, SingleWriterMultiReadersTest) {
                         << ", head lastLodId " << logBuffer->lastLogId();
                     EXPECT_EQ(expected, rec->msg_) << "expected size " << expected.size()
                                                    << ", actual size " << rec->msg_.size();
-                    iter->next();
                     num++;
                 }
             }

@@ -5,6 +5,7 @@
  */
 
 #include "base/Base.h"
+#include "common/LogIterator.h"
 #include "kvstore/wal/InMemoryLogBuffer.h"
 
 namespace nebula {
@@ -12,7 +13,7 @@ namespace wal {
 
 class InMemoryBufferList : public std::enable_shared_from_this<InMemoryBufferList> {
 public:
-    class Iterator {
+    class Iterator : public LogIterator {
         friend class InMemoryBufferList;
     public:
         Iterator(std::shared_ptr<InMemoryBufferList> imBufferList, LogID start, LogID end)
@@ -47,20 +48,15 @@ public:
             }
         }
 
-        bool valid() const {
+        bool valid() const override {
             return valid_;
         }
 
-        folly::StringPiece log() {
-            CHECK(valid_);
-            return buffers_.front()->getLog(currIdx_);
-        }
-
-        void next() {
+        LogIterator& operator++() override {
             ++currId_;
             if (currId_ > end_) {
                 valid_ = false;
-                return;
+                return *this;
             }
             if (currId_ >= nextFirstId_) {
                 // Roll over to next buffer
@@ -81,6 +77,27 @@ public:
             } else {
                 ++currIdx_;
             }
+            return *this;
+        }
+
+        LogID logId() const override {
+            CHECK(valid_);
+            return currId_;
+        }
+
+        TermID logTerm() const override {
+            CHECK(valid_);
+            return buffers_.front()->getTerm(currIdx_);
+        }
+
+        ClusterID logSource() const override {
+            CHECK(valid_);
+            return buffers_.front()->getCluster(currIdx_);
+        }
+
+        folly::StringPiece logMsg() const override {
+            CHECK(valid_);
+            return buffers_.front()->getLog(currIdx_);
         }
 
     private:
