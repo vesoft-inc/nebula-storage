@@ -38,7 +38,7 @@ nebula_add_test(
         gtest
 )
 
-nebula_add_test(
+nebula_add_executable(
     NAME
         log_bufferr_bm
     SOURCES
@@ -49,4 +49,19 @@ nebula_add_test(
     LIBRARIES
         follybenchmark
         boost_regex
+)
+
+nebula_add_test(
+    NAME
+        wal_file_iter_test
+    SOURCES
+        WalFileIterTest.cpp
+    OBJECTS
+        $<TARGET_OBJECTS:wal_obj>
+        $<TARGET_OBJECTS:common_base_obj>
+        $<TARGET_OBJECTS:common_thread_obj>
+        $<TARGET_OBJECTS:common_fs_obj>
+        $<TARGET_OBJECTS:common_time_obj>
+    LIBRARIES
+        gtest
 )
