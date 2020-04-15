@@ -4,6 +4,9 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "stats/Stats.h"
+#include "storage/mutate/AddVerticesProcessor.h"
+#include "storage/mutate/AddEdgesProcessor.h"
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/mutate/AddVerticesProcessor.h"
 #include "storage/mutate/AddEdgesProcessor.h"

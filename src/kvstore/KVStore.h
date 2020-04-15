@@ -23,9 +23,6 @@ namespace nebula {
 namespace kvstore {
 
 struct KVOptions {
-    // HBase thrift server address.
-    HostAddr hbaseServer_;
-
     // SchemaManager instance, help the hbasestore to encode/decode data.
     std::unique_ptr<meta::SchemaManager> schemaMan_{nullptr};
 
@@ -143,6 +140,11 @@ public:
                              KVCallback cb) = 0;
 
     virtual void asyncMultiRemove(GraphSpaceID spaceId,
+                                  PartitionID partId,
+                                  std::vector<std::string> keys,
+                                  KVCallback cb) = 0;
+
+    virtual void asyncSingleRemove(GraphSpaceID spaceId,
                                   PartitionID partId,
                                   std::vector<std::string> keys,
                                   KVCallback cb) = 0;

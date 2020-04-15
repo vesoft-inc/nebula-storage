@@ -4,13 +4,16 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/mutate/AddVerticesProcessor.h"
-#include "common/NebulaKeyUtils.h"
+
 #include <algorithm>
 #include <limits>
 #include "time/WallClock.h"
 #include "codec/RowWriterV2.h"
+#include "common/NebulaKeyUtils.h"
+#include "common/OperationKeyUtils.h"
 #include "storage/StorageFlags.h"
+#include "storage/index/IndexUtils.h"
+#include "storage/mutate/AddVerticesProcessor.h"
 
 DECLARE_bool(enable_vertex_cache);
 
@@ -18,6 +21,7 @@ namespace nebula {
 namespace storage {
 
 void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
+    CHECK_NOTNULL(env_->kvstore_);
     auto version =
         std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
     // Switch version to big-endian, make sure the key is in ordered.
@@ -113,7 +117,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
-            this->env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         }
     }
 }
@@ -158,7 +162,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     val = std::move(obsIdx).value();
                 }
                 if (!val.empty()) {
-                    auto reader = RowReader::getTagPropReader(this->env_->schemaMan_,
+                    auto reader = RowReader::getTagPropReader(env_->schemaMan_,
                                                               spaceId_,
                                                               tagId,
                                                               val);
@@ -168,14 +172,19 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
-                        batchHolder->remove(std::move(oi));
+                        if (env_->rebuildIndexID_ != index->get_index_id()) {
+                            batchHolder->remove(std::move(oi));
+                        } else {
+                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                        }
                     }
                 }
                 /*
                  * step 2 , Insert new vertex index
                  */
                 if (nReader == nullptr) {
-                    nReader = RowReader::getTagPropReader(this->env_->schemaMan_,
+                    nReader = RowReader::getTagPropReader(env_->schemaMan_,
                                                           spaceId_,
                                                           tagId,
                                                           v.second);
@@ -186,7 +195,13 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
-                    batchHolder->put(std::move(ni), "");
+                    if (env_->rebuildIndexID_ != index->get_index_id()) {
+                        batchHolder->put(std::move(ni), "");
+                    } else {
+                        // LOG(INFO) << "Modify Op Key " << ni;
+                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
+                        batchHolder->put(std::move(modifyOpKey), "");
+                    }
                 }
             }
         }
@@ -204,10 +219,10 @@ folly::Optional<std::string>
 AddVerticesProcessor::findObsoleteIndex(PartitionID partId, VertexID vId, TagID tagId) {
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = this->env_->kvstore_->prefix(this->spaceId_, partId, prefix, &iter);
+    auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
-                   << ", spaceId " << this->spaceId_;
+                   << ", spaceId " << spaceId_;
         return folly::none;
     }
     if (iter && iter->valid()) {
@@ -221,10 +236,11 @@ std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                            RowReader* reader,
                                            std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
     std::vector<Value::Type> colsType;
-    auto values = collectIndexValues(reader, index->get_fields(), colsType);
+    auto values = IndexUtils::collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }
+
     return IndexKeyUtils::vertexIndexKey(spaceVidLen_, partId,
                                          index->get_index_id(),
                                          vId, values.value(),

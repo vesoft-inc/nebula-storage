@@ -2,6 +2,7 @@ nebula_add_library(
     storage_common_obj OBJECT
     StorageFlags.cpp
     CommonUtils.cpp
+    index/IndexUtils.cpp
 )
 
 nebula_add_library(
@@ -10,8 +11,6 @@ nebula_add_library(
     admin/CreateCheckpointProcessor.cpp
     admin/DropCheckpointProcessor.cpp
     admin/SendBlockSignProcessor.cpp
-    # admin/RebuildTagIndexProcessor.cpp
-    # admin/RebuildEdgeIndexProcessor.cpp
     admin/AdminTaskProcessor.cpp
     admin/StopAdminTaskProcessor.cpp
     admin/AdminTaskManager.cpp
@@ -19,6 +18,9 @@ nebula_add_library(
     admin/CompactTask.cpp
     admin/FlushTask.cpp
     admin/TaskUtils.cpp
+    admin/RebuildIndexTask.cpp
+    admin/RebuildTagIndexTask.cpp
+    admin/RebuildEdgeIndexTask.cpp
 )
 
 nebula_add_library(

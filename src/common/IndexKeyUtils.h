@@ -9,7 +9,6 @@
 
 #include "base/Base.h"
 #include "base/StatusOr.h"
-#include "interface/gen-cpp2/meta_types.h"
 #include "common/Types.h"
 
 namespace nebula {

@@ -5,7 +5,6 @@
  */
 
 #include "base/Base.h"
-#include "common/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include "fs/TempDir.h"
@@ -186,7 +185,7 @@ TEST(IndexTest, SimpleEdgesTest) {
 
         LOG(INFO) << "Check insert index...";
         for (auto partId = 1; partId <= 6; partId++) {
-            auto prefix = IndexKeyUtils::indexPrefix(partId, 101);
+            auto prefix = IndexKeyUtils::indexPrefix(partId, 12);
             auto retNum = verifyResultNum(1, partId, prefix, env->kvstore_);
             EXPECT_EQ(1, retNum);
         }
@@ -249,7 +248,7 @@ TEST(IndexTest, VerticesValueTest) {
     // Mock a index for nullable column and default column.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, indexId, tagId, mock::MockData::mockTypicaIndexColumns());
+        indexMan->addTagIndex(spaceId, tagId, indexId, mock::MockData::mockTypicaIndexColumns());
     }
     // verify insert
     {
@@ -378,7 +377,7 @@ TEST(IndexTest, AlterTagIndexTest) {
     // Mock a index for nullable column and default column.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, indexId1, tagId,
+        indexMan->addTagIndex(spaceId, tagId, indexId1,
                               mock::MockData::mockGeneralTagIndexColumns());
     }
     // verify insert
@@ -434,7 +433,7 @@ TEST(IndexTest, AlterTagIndexTest) {
     // create new index with newly added columns.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, indexId2, tagId,
+        indexMan->addTagIndex(spaceId, tagId, indexId2,
                               mock::MockData::mockSimpleTagIndexColumns());
     }
     // verify insert
@@ -496,6 +495,7 @@ TEST(IndexTest, AlterTagIndexTest) {
             EXPECT_EQ(1, retNum);
         }
     }
+}
 }  // namespace storage
 }  // namespace nebula
 

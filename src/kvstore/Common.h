@@ -36,6 +36,8 @@ enum ResultCode {
     ERR_RESULT_OVERFLOW     = -16,
     ERR_RESULT_EXPIRED      = -17,
     ERR_RESULT_FILTERED     = -18,
+    E_BUILD_INDEX_FAILED    = -19,
+    E_INVALID_OPERATION     = -20,
     ERR_USER_CANCELLED      = -98,
     ERR_PARTIAL_RESULT      = -99,
     ERR_UNKNOWN             = -100,

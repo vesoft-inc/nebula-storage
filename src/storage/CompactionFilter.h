@@ -10,6 +10,7 @@
 #include "base/Base.h"
 #include "common/NebulaKeyUtils.h"
 #include "common/IndexKeyUtils.h"
+#include "common/OperationKeyUtils.h"
 #include "codec/RowReader.h"
 #include "meta/NebulaSchemaProvider.h"
 #include "kvstore/CompactionFilter.h"
@@ -57,6 +58,8 @@ public:
                 VLOG(3) << "Index invalid for the key " << key;
                 return true;
             }
+        } else if (OperationKeyUtils::isOperationKey(key)) {
+            return true;
         } else {
             VLOG(3) << "Skip the system key inside, key " << key;
         }

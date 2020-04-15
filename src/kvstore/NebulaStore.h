@@ -168,6 +168,11 @@ public:
                           std::vector<std::string> keys,
                           KVCallback cb) override;
 
+    void asyncSingleRemove(GraphSpaceID spaceId,
+                           PartitionID partId,
+                           std::vector<std::string> keys,
+                           KVCallback cb) override;
+
     void asyncRemoveRange(GraphSpaceID spaceId,
                           PartitionID partId,
                           const std::string& start,

@@ -17,7 +17,6 @@
 #include "kvstore/NebulaStore.h"
 #include "storage/admin/AdminTask.h"
 
-
 namespace nebula {
 namespace storage {
 
@@ -48,6 +47,8 @@ public:
     bool init();
 
     void shutdown();
+
+    bool isFinished(int jobID, int taskID);
 
 private:
     void schedule();

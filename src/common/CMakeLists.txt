@@ -5,6 +5,7 @@ add_library(
     keyutils_obj OBJECT
     NebulaKeyUtils.cpp
     IndexKeyUtils.cpp
+    OperationKeyUtils.cpp
 )
 
 nebula_add_subdirectory(test)

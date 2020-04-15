@@ -4,9 +4,11 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/mutate/DeleteVerticesProcessor.h"
 #include "common/NebulaKeyUtils.h"
+#include "common/OperationKeyUtils.h"
 #include "storage/StorageFlags.h"
+#include "storage/index/IndexUtils.h"
+#include "storage/mutate/DeleteVerticesProcessor.h"
 
 namespace nebula {
 namespace storage {
@@ -59,8 +61,8 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 if (retRes != kvstore::ResultCode::SUCCEEDED) {
                     VLOG(3) << "Error! ret = " << static_cast<int32_t>(retRes)
                             << ", spaceID " << spaceId_;
-                    this->handleErrorCode(retRes, spaceId_, partId);
-                    this->onFinished();
+                    handleErrorCode(retRes, spaceId_, partId);
+                    onFinished();
                     return;
                 }
                 while (iter->valid()) {
@@ -92,7 +94,7 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
                 handleAsync(spaceId_, partId, code);
             };
-            this->env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         });
     }
 }
@@ -105,7 +107,7 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
     for (auto& vertex : vertices) {
         auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vertex);
         std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = this->env_->kvstore_->prefix(this->spaceId_, partId, prefix, &iter);
+        auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             VLOG(3) << "Error! ret = " << static_cast<int32_t>(ret)
                     << ", spaceId " << spaceId_;
@@ -143,7 +145,7 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                     auto indexId = index->get_index_id();
                     if (index->get_schema_id().get_tag_id() == tagId) {
                         if (reader == nullptr) {
-                            reader = RowReader::getTagPropReader(this->env_->schemaMan_,
+                            reader = RowReader::getTagPropReader(env_->schemaMan_,
                                                                  spaceId_,
                                                                  tagId,
                                                                  iter->val());
@@ -153,17 +155,23 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                             }
                         }
                         std::vector<Value::Type> colsType;
-                        const auto& cols = index->get_fields();
-                        auto values = collectIndexValues(reader.get(), cols, colsType);
-                        if (!values.ok()) {
+                        auto valuesRet = IndexUtils::collectIndexValues(reader.get(),
+                                                                        index->get_fields(),
+                                                                        colsType);
+                        if (!valuesRet.ok()) {
                             continue;
                         }
                         auto indexKey = IndexKeyUtils::vertexIndexKey(spaceVidLen_, partId,
                                                                       indexId,
                                                                       vertex,
-                                                                      values.value(),
+                                                                      valuesRet.value(),
                                                                       colsType);
-                        batchHolder->remove(std::move(indexKey));
+                        if (env_->rebuildIndexID_ != index->get_index_id()) {
+                            batchHolder->remove(std::move(indexKey));
+                        } else {
+                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                            batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
+                        }
                     }
                 }
                 latestVVId = tagId;

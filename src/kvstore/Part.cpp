@@ -91,6 +91,15 @@ void Part::asyncRemove(folly::StringPiece key, KVCallback cb) {
 }
 
 
+void Part::asyncSingleRemove(const std::vector<std::string>& keys, KVCallback cb) {
+    std::string log = encodeMultiValues(OP_SINGLE_REMOVE, keys);
+
+    appendAsync(FLAGS_cluster_id, std::move(log))
+        .thenValue([this, callback = std::move(cb)] (AppendLogResult res) mutable {
+            callback(this->toResultCode(res));
+        });
+}
+
 void Part::asyncMultiRemove(const std::vector<std::string>& keys, KVCallback cb) {
     std::string log = encodeMultiValues(OP_MULTI_REMOVE, keys);
 
@@ -99,7 +108,6 @@ void Part::asyncMultiRemove(const std::vector<std::string>& keys, KVCallback cb)
             callback(this->toResultCode(res));
         });
 }
-
 
 void Part::asyncRemoveRange(folly::StringPiece start,
                             folly::StringPiece end,

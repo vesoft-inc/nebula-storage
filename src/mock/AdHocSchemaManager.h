@@ -67,7 +67,6 @@ public:
 
     StatusOr<std::vector<std::string>> getAllEdge(GraphSpaceID) override {
         LOG(FATAL) << "Unimplemented";
-        return Status::Error("Unimplemented");
     }
 
     StatusOr<int32_t> getSpaceVidLen(GraphSpaceID space) override;

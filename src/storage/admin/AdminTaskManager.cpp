@@ -14,17 +14,15 @@ DEFINE_uint32(max_concurrent_subtasks, 10, "The sub tasks could be invoked simul
 namespace nebula {
 namespace storage {
 
-using ResultCode = nebula::kvstore::ResultCode;
-using TaskHandle = std::pair<int, int>;     // jobid + taskid
-
 bool AdminTaskManager::init() {
     LOG(INFO) << "max concurrenct subtasks: " << FLAGS_max_concurrent_subtasks;
     pool_ = std::make_unique<ThreadPool>(FLAGS_max_concurrent_subtasks);
-
     bgThread_ = std::make_unique<thread::GenericWorker>();
-    CHECK(bgThread_->start());
-    bgThread_->addTask(&AdminTaskManager::schedule, this);
+    if (!bgThread_->start()) {
+        return false;
+    }
 
+    bgThread_->addTask(&AdminTaskManager::schedule, this);
     shutdown_ = false;
     LOG(INFO) << "exit AdminTaskManager::init()";
     return true;
@@ -32,9 +30,6 @@ bool AdminTaskManager::init() {
 
 void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
     TaskHandle handle = std::make_pair(task->getJobId(), task->getTaskId());
-    LOG(INFO) << folly::stringPrintf("try enqueue task(%d, %d), con req=%zu",
-                                     task->getJobId(), task->getTaskId(),
-                                     task->getConcurrentReq());
     tasks_.insert(handle, task);
     taskQueue_.add(handle);
     LOG(INFO) << folly::stringPrintf("enqueue task(%d, %d), con req=%zu",
@@ -123,14 +118,16 @@ void AdminTaskManager::schedule() {
         }
 
         auto subTasks = nebula::value(errOrSubTasks);
+        auto size = subTasks.size();
+        task->subTaskStatus_ = new folly::ConcurrentHashMap<int32_t, cpp2::ErrorCode>(size);
         for (auto& subtask : subTasks) {
             task->subtasks_.add(subtask);
         }
 
         auto subTaskConcurrency = std::min(task->getConcurrentReq(),
                                            static_cast<size_t>(FLAGS_max_concurrent_subtasks));
-        subTaskConcurrency = std::min(subTaskConcurrency, subTasks.size());
-        task->unFinishedSubTask_ = subTasks.size();
+        subTaskConcurrency = std::min(subTaskConcurrency, size);
+        task->unFinishedSubTask_ = size;
 
         FLOG_INFO("run task(%d, %d), %zu subtasks in %zu thread",
                   handle.first, handle.second,
@@ -158,16 +155,26 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
         }
 
         if (0 == --task->unFinishedSubTask_) {
-            FLOG_INFO("task(%d, %d) finished", task->getJobId(),
-                                                task->getTaskId());
+            FLOG_INFO("task(%d, %d) finished", task->getJobId(), task->getTaskId());
             task->finish();
             tasks_.erase(handle);
         } else {
+            LOG(INFO) << "Run Task!";
             pool_->add(std::bind(&AdminTaskManager::runSubTask, this, handle));
         }
     } else {
         FLOG_INFO("task(%d, %d) runSubTask() exit", handle.first, handle.second);
     }
+}
+
+bool AdminTaskManager::isFinished(int jobID, int taskID) {
+    auto tasks = tasks_.find(std::make_pair(jobID, taskID))->second;
+    for (size_t i = 0; i < tasks->subTaskStatus_->size(); i++) {
+        if (tasks->subTaskStatus_->find(i)->second == cpp2::ErrorCode::SUCCEEDED) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }  // namespace storage

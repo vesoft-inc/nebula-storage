@@ -56,6 +56,8 @@ public:
 
     static std::string kvKey(PartitionID partId, const folly::StringPiece& name);
 
+    static std::string prefix(PartitionID partId);
+    
     /**
      * Prefix for vertex
      * */

@@ -7,8 +7,9 @@
 #ifndef STORAGE_GRAPHSTORAGESERVICEHANDLER_H_
 #define STORAGE_GRAPHSTORAGESERVICEHANDLER_H_
 
+#include "CommonUtils.h"
 #include "base/Base.h"
-#include <folly/executors/IOThreadPoolExecutor.h>
+#include "storage/StorageFlags.h"
 #include "interface/gen-cpp2/GraphStorageService.h"
 #include "stats/Stats.h"
 #include "storage/CommonUtils.h"

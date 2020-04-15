@@ -7,12 +7,14 @@
 #ifndef STORAGE_ADMIN_ADMINTASK_H_
 #define STORAGE_ADMIN_ADMINTASK_H_
 
-#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include "storage/admin/TaskUtils.h"
+#include "storage/BaseProcessor.h"
 #include "interface/gen-cpp2/storage_types.h"
 #include "kvstore/Common.h"
 #include "kvstore/NebulaStore.h"
 #include "thrift/ThriftTypes.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 
 namespace nebula {
 namespace storage {
@@ -20,19 +22,28 @@ namespace storage {
 class AdminSubTask {
 public:
     AdminSubTask() = default;
-    explicit AdminSubTask(std::function<cpp2::ErrorCode()> f) : run_(f) {}
-    explicit AdminSubTask(std::function<kvstore::ResultCode()> f) {
+
+    AdminSubTask(std::function<cpp2::ErrorCode()> f, int32_t subTaskID)
+    : run_(f), subTaskID_(subTaskID) {}
+
+    AdminSubTask(std::function<kvstore::ResultCode()> f, int32_t subTaskID) {
         run_ = [f = f]() {
             return toStorageErr(f());
         };
+        subTaskID_ = subTaskID;
     }
 
     cpp2::ErrorCode invoke() {
         return run_();
     }
 
+    int32_t getSubTaskID() {
+        return subTaskID_;
+    }
+
 private:
     std::function<cpp2::ErrorCode()> run_;
+    int32_t                          subTaskID_;
 };
 
 enum class TaskPriority : int8_t {
@@ -46,20 +57,22 @@ struct TaskContext {
 
     TaskContext() = default;
     TaskContext(const cpp2::AddAdminTaskRequest& req,
-                kvstore::KVStore* store,
                 CallBack cb)
             : cmd_(req.get_cmd())
             , jobId_(req.get_job_id())
             , taskId_(req.get_task_id())
             , spaceId_(req.get_para().get_space_id())
-            , store_(store)
+            , parts_(req.get_para().parts)
+            , parameters_(req.get_para())
             , onFinish_(cb) {}
+
     nebula::meta::cpp2::AdminCmd    cmd_;
     int32_t                         jobId_{-1};
     int32_t                         taskId_{-1};
-    int32_t                         spaceId_{-1};
+    GraphSpaceID                    spaceId_{-1};
+    std::vector<PartitionID>        parts_;
+    nebula::storage::cpp2::TaskPara parameters_;
     TaskPriority                    pri_{TaskPriority::MID};
-    kvstore::KVStore*               store_{nullptr};
     CallBack                        onFinish_;
     size_t                          concurrentReq_{INT_MAX};
 };
@@ -70,8 +83,12 @@ class AdminTask {
 
 public:
     AdminTask() = default;
-    explicit AdminTask(TaskContext&& ctx) : ctx_(ctx) {}
+
+    explicit AdminTask(StorageEnv* env, TaskContext&& ctx)
+    : env_(env), ctx_(ctx) {}
+
     virtual ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() = 0;
+
     virtual ~AdminTask() {}
 
     virtual void setCallback(TCallBack cb) {
@@ -125,18 +142,25 @@ public:
         rc_.compare_exchange_strong(suc, cpp2::ErrorCode::E_USER_CANCEL);
     }
 
+    kvstore::ResultCode saveJobStatus(GraphSpaceID spaceId,
+                                      PartitionID partId,
+                                      std::vector<kvstore::KV> data);
+
 public:
-    std::atomic<size_t>         unFinishedSubTask_;
-    SubTaskQueue                subtasks_;
+    std::atomic<size_t>                                     unFinishedSubTask_;
+    SubTaskQueue                                            subtasks_;
+    folly::ConcurrentHashMap<int32_t, cpp2::ErrorCode>*         subTaskStatus_;
 
 protected:
+    StorageEnv*                     env_;
     TaskContext                     ctx_;
     std::atomic<cpp2::ErrorCode>    rc_{cpp2::ErrorCode::SUCCEEDED};
 };
 
 class AdminTaskFactory {
 public:
-    static std::shared_ptr<AdminTask> createAdminTask(TaskContext&& ctx);
+    static std::shared_ptr<AdminTask> createAdminTask(StorageEnv* env,
+                                                      TaskContext&& ctx);
 };
 
 }  // namespace storage

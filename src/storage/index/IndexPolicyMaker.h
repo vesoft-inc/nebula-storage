@@ -6,6 +6,7 @@
 
 #ifndef STORAGE_INDEXPOLICYMAKER_H
 #define STORAGE_INDEXPOLICYMAKER_H
+
 #include "base/Base.h"
 #include "meta/SchemaManager.h"
 #include "meta/IndexManager.h"

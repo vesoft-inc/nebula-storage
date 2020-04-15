@@ -9,6 +9,7 @@
 
 #include "base/Base.h"
 #include "interface/gen-cpp2/common_types.h"
+#include "interface/gen-cpp2/meta_types.h"
 #include "interface/gen-cpp2/storage_types.h"
 #include "meta/NebulaSchemaProvider.h"
 
@@ -75,9 +76,15 @@ public:
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockTeamTagSchema(SchemaVer ver = 0);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeEdgeSchema(SchemaVer ver = 0);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateEdgeSchema(SchemaVer ver = 0);
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockPlayerTagIndex();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockServeEdgeIndex();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockTeammateEdgeIndex();
 
     static std::vector<nebula::meta::cpp2::ColumnDef> mockGeneralTagIndexColumns();
 
@@ -98,10 +105,15 @@ public:
      */
     // Construct data in the order of schema
     // generate player and team tag
-    static std::vector<VertexData> mockVertices();
+    static std::vector<VertexData> mockVertices(bool upper = false);
+
+    static std::vector<std::pair<PartitionID, std::string>>
+    mockPlayerIndexKeys(bool upper = false);
 
     // generate serve edge
-    static std::vector<EdgeData> mockEdges();
+    static std::vector<EdgeData> mockEdges(bool upper = false);
+
+    static std::vector<std::pair<PartitionID, std::string>> mockServeIndexKeys();
 
     // generate serve and teammate edge
     static std::vector<EdgeData> mockMultiEdges();
@@ -145,10 +157,10 @@ public:
      * Mock request
      */
     static nebula::storage::cpp2::AddVerticesRequest
-    mockAddVerticesReq(int32_t parts = 6);
+    mockAddVerticesReq(bool upper = false, int32_t parts = 6);
 
     static nebula::storage::cpp2::AddEdgesRequest
-    mockAddEdgesReq(int32_t parts = 6);
+    mockAddEdgesReq(bool upper = false, int32_t parts = 6);
 
     static nebula::storage::cpp2::DeleteVerticesRequest
     mockDeleteVerticesReq(int32_t parts = 6);
@@ -177,6 +189,21 @@ public:
     static std::unordered_map<std::string, std::vector<Serve>> teamServes_;
 
     static EdgeData getReverseEdge(const EdgeData& edge);
+
+    static StatusOr<PartitionID> partId(const VertexID id, int32_t numParts = 6) {
+        // If the length of the id is 8, we will treat it as int64_t to be compatible
+        // with the version 1.0
+        uint64_t vid = 0;
+        if (id.size() == 8) {
+            memcpy(static_cast<void*>(&vid), id.data(), 8);
+        } else {
+            vid = folly::hash::fnv64_buf(id.data(), id.size());
+        }
+
+        PartitionID pId = vid % numParts + 1;
+        CHECK_GT(pId, 0U);
+        return pId;
+    }
 };
 
 }  // namespace mock

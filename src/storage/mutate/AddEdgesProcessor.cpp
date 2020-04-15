@@ -4,12 +4,14 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/mutate/AddEdgesProcessor.h"
-#include "common/NebulaKeyUtils.h"
 #include <algorithm>
 #include <limits>
 #include "time/WallClock.h"
 #include "codec/RowWriterV2.h"
+#include "common/NebulaKeyUtils.h"
+#include "common/OperationKeyUtils.h"
+#include "storage/index/IndexUtils.h"
+#include "storage/mutate/AddEdgesProcessor.h"
 
 namespace nebula {
 namespace storage {
@@ -105,7 +107,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
-            this->env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         }
     }
 }
@@ -150,7 +152,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     val = std::move(obsIdx).value();
                 }
                 if (!val.empty()) {
-                    auto reader = RowReader::getEdgePropReader(this->env_->schemaMan_,
+                    auto reader = RowReader::getEdgePropReader(env_->schemaMan_,
                                                                spaceId_,
                                                                edgeType,
                                                                val);
@@ -160,14 +162,19 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     }
                     auto oi = indexKey(partId, reader.get(), e.first, index);
                     if (!oi.empty()) {
-                        batchHolder->remove(std::move(oi));
+                        if (env_->rebuildIndexID_ != index->get_index_id()) {
+                            batchHolder->remove(std::move(oi));
+                        } else {
+                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                        }
                     }
                 }
                 /*
                  * step 2 , Insert new edge index
                  */
                 if (nReader == nullptr) {
-                    nReader = RowReader::getEdgePropReader(this->env_->schemaMan_,
+                    nReader = RowReader::getEdgePropReader(env_->schemaMan_,
                                                            spaceId_,
                                                            edgeType,
                                                            e.second);
@@ -178,7 +185,13 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                 }
                 auto ni = indexKey(partId, nReader.get(), e.first, index);
                 if (!ni.empty()) {
-                    batchHolder->put(std::move(ni), "");
+                    if (env_->rebuildIndexID_ != index->get_index_id()) {
+                        batchHolder->put(std::move(ni), "");
+                    } else {
+                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId,
+                                                                                 std::move(ni));
+                        batchHolder->put(std::move(modifyOpKey), "");
+                    }
                 }
             }
         }
@@ -202,10 +215,10 @@ AddEdgesProcessor::findObsoleteIndex(PartitionID partId, const folly::StringPiec
                                              NebulaKeyUtils::getRank(spaceVidLen_, rawKey),
                                              NebulaKeyUtils::getDstId(spaceVidLen_, rawKey).str());
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = this->env_->kvstore_->prefix(this->spaceId_, partId, prefix, &iter);
+    auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
-                   << ", spaceId " << this->spaceId_;
+                   << ", spaceId " << spaceId_;
         return folly::none;
     }
     if (iter && iter->valid()) {
@@ -219,7 +232,7 @@ std::string AddEdgesProcessor::indexKey(PartitionID partId,
                                         const folly::StringPiece& rawKey,
                                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
     std::vector<Value::Type> colsType;
-    auto values = collectIndexValues(reader, index->get_fields(), colsType);
+    auto values = IndexUtils::collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }

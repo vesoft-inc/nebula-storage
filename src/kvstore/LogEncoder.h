@@ -23,12 +23,14 @@ enum LogType : char {
     OP_ADD_PEER       = 0x09,
     OP_REMOVE_PEER    = 0x10,
     OP_BATCH_WRITE    = 0x11,
+    OP_SINGLE_REMOVE  = 0x12,
 };
 
 enum BatchLogType : char {
-    OP_BATCH_PUT            = 0x1,
-    OP_BATCH_REMOVE         = 0x2,
-    OP_BATCH_REMOVE_RANGE   = 0x3,
+    OP_BATCH_PUT                   = 0x1,
+    OP_BATCH_REMOVE                = 0x2,
+    OP_BATCH_REMOVE_RANGE          = 0x3,
+    OP_BATCH_SINGLE_REMOVE         = 0x4,
 };
 
 std::string encodeKV(const folly::StringPiece& key,
@@ -72,6 +74,13 @@ public:
 
     void remove(std::string&& key) {
         auto op = std::make_tuple(BatchLogType::OP_BATCH_REMOVE,
+                                  std::forward<std::string>(key),
+                                  "");
+        batch_.emplace_back(std::move(op));
+    }
+
+    void singleRemove(std::string&& key) {
+        auto op = std::make_tuple(BatchLogType::OP_BATCH_SINGLE_REMOVE,
                                   std::forward<std::string>(key),
                                   "");
         batch_.emplace_back(std::move(op));

@@ -6,11 +6,11 @@
 
 #ifndef STORAGE_ADMIN_ADMINTASKPROCESSOR_H_
 #define STORAGE_ADMIN_ADMINTASKPROCESSOR_H_
+
 #include "base/Base.h"
 #include "kvstore/NebulaStore.h"
 #include "storage/BaseProcessor.h"
 #include "storage/StorageFlags.h"
-
 #include "thrift/ThriftTypes.h"
 
 namespace nebula {

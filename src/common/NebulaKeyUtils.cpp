@@ -104,6 +104,14 @@ std::string NebulaKeyUtils::kvKey(PartitionID partId, const folly::StringPiece& 
     return key;
 }
 
+std::string NebulaKeyUtils::prefix(PartitionID partId) {
+    PartitionID item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kData);
+    std::string key;
+    key.reserve(sizeof(PartitionID));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(PartitionID));
+    return key;
+}
+
 // static
 std::string NebulaKeyUtils::vertexPrefix(size_t vIdLen, PartitionID partId,
                                          VertexID vId, TagID tagId) {
