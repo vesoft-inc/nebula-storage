@@ -25,6 +25,9 @@ nebula_add_library(
     graph_storage_service_handler OBJECT
     GraphStorageServiceHandler.cpp
     mutate/AddVerticesProcessor.cpp
+    mutate/DeleteVerticesProcessor.cpp
+    mutate/AddEdgesProcessor.cpp
+    mutate/DeleteEdgesProcessor.cpp
 )
 
 

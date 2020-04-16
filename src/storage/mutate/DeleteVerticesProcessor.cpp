@@ -5,83 +5,98 @@
  */
 
 #include "storage/mutate/DeleteVerticesProcessor.h"
-#include "base/NebulaKeyUtils.h"
-
-DECLARE_bool(enable_vertex_cache);
+#include "common/NebulaKeyUtils.h"
+#include "storage/StorageFlags.h"
 
 namespace nebula {
 namespace storage {
 
 void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
-    auto spaceId = req.get_space_id();
+    spaceId_ = req.get_space_id();
     const auto& partVertices = req.get_parts();
-    auto iRet = indexMan_->getTagIndexes(spaceId);
+
+    CHECK_NOTNULL(env_->schemaMan_);
+    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
+    if (!ret.ok()) {
+        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
+                   << ret.status().toString();
+        cpp2::PartitionResult thriftRet;
+        thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
+        codes_.emplace_back(std::move(thriftRet));
+        onFinished();
+        return;
+    }
+    auto spaceVidLen = ret.value();
+    callingNum_ = partVertices.size();
+
+    CHECK_NOTNULL(env_->indexMan_);
+    auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
     if (iRet.ok()) {
         indexes_ = std::move(iRet).value();
     }
 
+    CHECK_NOTNULL(env_->kvstore_);
     if (indexes_.empty()) {
-        std::for_each(partVertices.begin(), partVertices.end(), [this](auto& pv) {
-            this->callingNum_ += pv.second.size();
-        });
-
+        // Operate every part, the graph layer guarantees the unique of the vid
         std::vector<std::string> keys;
         keys.reserve(32);
-        for (auto pv = partVertices.begin(); pv != partVertices.end(); pv++) {
-            auto part = pv->first;
-            const auto& vertices = pv->second;
-            for (auto v = vertices.begin(); v != vertices.end(); v++) {
-                auto prefix = NebulaKeyUtils::vertexPrefix(part, *v);
+        for (auto& part : partVertices) {
+            auto partId = part.first;
+            const auto& vertexIds = part.second;
+            keys.clear();
+
+            for (auto& vid : vertexIds) {
+                auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vid);
                 std::unique_ptr<kvstore::KVIterator> iter;
-                auto ret = this->kvstore_->prefix(spaceId, part, prefix, &iter);
-                if (ret != kvstore::ResultCode::SUCCEEDED) {
-                    VLOG(3) << "Error! ret = " << static_cast<int32_t>(ret)
-                            << ", spaceID " << spaceId;
-                    this->handleErrorCode(ret, spaceId, part);
+                auto retRes = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
+                if (retRes != kvstore::ResultCode::SUCCEEDED) {
+                    VLOG(3) << "Error! ret = " << static_cast<int32_t>(retRes)
+                            << ", spaceID " << spaceId_;
+                    this->handleErrorCode(retRes, spaceId_, partId);
                     this->onFinished();
                     return;
                 }
-                keys.clear();
                 while (iter->valid()) {
                     auto key = iter->key();
-                    if (NebulaKeyUtils::isVertex(key)) {
-                        auto tag = NebulaKeyUtils::getTagId(key);
+                    if (NebulaKeyUtils::isVertex(spaceVidLen, key)) {
+                        auto tagId = NebulaKeyUtils::getTagId(spaceVidLen, key);
                         // Evict vertices from cache
                         if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                            VLOG(3) << "Evict vertex cache for VID " << *v << ", TagID " << tag;
-                            vertexCache_->evict(std::make_pair(*v, tag), part);
+                            VLOG(3) << "Evict vertex cache for VID " << vid
+                                    << ", TagID " << tagId;
+                            vertexCache_->evict(std::make_pair(vid, tagId), partId);
                         }
                         keys.emplace_back(key.str());
                     }
                     iter->next();
                 }
-                doRemove(spaceId, part, keys);
             }
+            doRemove(spaceId_, partId, keys);
         }
     } else {
-        callingNum_ = req.parts.size();
-        std::for_each(req.parts.begin(), req.parts.end(), [spaceId, this](auto &pv) {
-            auto partId = pv.first;
-            auto atomic = [spaceId,
-                           partId,
-                           v = std::move(pv.second),
-                           this]() -> folly::Optional<std::string> {
-                return deleteVertices(spaceId, partId, v);
+        for (auto& part : partVertices) {
+            auto partId = part.first;
+            auto atomic = [partId, vids = std::move(part.second), this]()
+                          -> folly::Optional<std::string> {
+                return this->deleteVertices(partId, vids);
             };
 
-            auto callback = [spaceId, partId, this](kvstore::ResultCode code) {
+            auto callback = [partId, this](kvstore::ResultCode code) {
                 VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
-                handleAsync(spaceId, partId, code);
+                this->handleAsync(this->spaceId_, partId, code);
             };
-            this->kvstore_->asyncAtomicOp(spaceId, partId, atomic, callback);
-        });
+            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+        }
     }
 }
 
 folly::Optional<std::string>
-DeleteVerticesProcessor::deleteVertices(GraphSpaceID spaceId,
-                                        PartitionID partId,
+DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                         const std::vector<VertexID>& vertices) {
+    UNUSED(partId);
+    UNUSED(vertices);
+    return std::string("");
+#if 0
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     for (auto& vertex : vertices) {
         auto prefix = NebulaKeyUtils::vertexPrefix(partId, vertex);
@@ -145,6 +160,7 @@ DeleteVerticesProcessor::deleteVertices(GraphSpaceID spaceId,
         }
     }
     return encodeBatchValue(batchHolder->getBatch());
+#endif
 }
 
 }  // namespace storage

@@ -38,6 +38,20 @@ set(storage_test_deps
 
 nebula_add_test(
     NAME
+        task_manager_test
+    SOURCES
+        AdminTaskManagerTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
         add_vertices_test
     SOURCES
         AddVerticesTest.cpp
@@ -52,9 +66,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        task_manager_test
+        delete_vertices_test
     SOURCES
-        AdminTaskManagerTest.cpp
+        DeleteVerticesTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
@@ -63,37 +77,35 @@ nebula_add_test(
         wangle
         gtest
 )
-#
-#nebula_add_test(
-#    NAME
-#        delete_vertices_test
-#    SOURCES
-#        DeleteVerticesTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        delete_edges_test
-#    SOURCES
-#        DeleteEdgesTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
+
+nebula_add_test(
+    NAME
+        add_edges_test
+    SOURCES
+        AddEdgesTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        delete_edges_test
+    SOURCES
+        DeleteEdgesTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        storage_service_handler_test
@@ -108,22 +120,7 @@ nebula_add_test(
 #        gtest
 #)
 #
-#
-#nebula_add_test(
-#    NAME
-#        add_edges_test
-#    SOURCES
-#        AddEdgesTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
+##
 #nebula_add_test(
 #    NAME
 #        query_bound_test

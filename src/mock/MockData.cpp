@@ -38,10 +38,10 @@ std::vector<std::string> MockData::teams_ = {
     "Raptors",
     "76ers",
     "Pacers",
-    "Bulls"
-    "Hawks"
-    "Knicks"
-    "Pistons"
+    "Bulls",
+    "Hawks",
+    "Knicks",
+    "Pistons",
     "Bucks",
     "Magic",
     "Nets",
@@ -51,6 +51,7 @@ std::vector<std::string> MockData::teams_ = {
 
 // Player name, age, playing, NBA career(years), start year, end year, games,
 // career average score, served teams, country(default value America), champions(nullable)
+// 51 players
 std::vector<Player> MockData::players_ = {
     {"Tim Duncan",            44,  false,  19,  1997,  2016,  1392,  19.0,  1,  "America",   5},
     {"Tony Parker",           38,  false,  18,  2001,  2019,  1254,  15.5,  2,  "France",    4},
@@ -107,6 +108,7 @@ std::vector<Player> MockData::players_ = {
 
 // Player name, team name, start year, end year,team career(years), games, average scores
 // Starting game(default value false), champions in team(nullable)
+// serve 160
 std::vector<Serve> MockData::serve_ = {
     {"Tim Duncan",            "Spurs",         1997, 2016, 19, 1392, 19.0, true,  5},
     {"Tony Parker",           "Spurs",         2001, 2018, 17, 1198, 16.6, true,  4},
@@ -123,10 +125,8 @@ std::vector<Serve> MockData::serve_ = {
     {"Marco Belinelli",       "Bulls",         2012, 2013,  1,   73,  9.6          },
     {"Marco Belinelli",       "Spurs",         2013, 2015,  2,  142, 11.4, false, 1},
     {"Marco Belinelli",       "Kings",         2015, 2016,  1,   68, 10.2          },
-    {"Marco Belinelli",       "Hornets",       2016, 2017,  1,   74, 10.5          },
     {"Marco Belinelli",       "Hawks",         2017, 2018,  1,   52, 11.4          },
     {"Marco Belinelli",       "76ers",         2018, 2018,  1,   28, 13.6          },
-    {"Marco Belinelli",       "Spurs",         2018, 2020,  2,  131,  5.8          },
     {"Danny Green",           "Cavaliers",     2009, 2010,  1,   20,  2.0          },
     {"Danny Green",           "Spurs",         2010, 2018,  8,  520,  9.1, false, 1},
     {"Danny Green",           "Raptors",       2018, 2019,  1,   80, 10.3, true,  1},
@@ -166,7 +166,6 @@ std::vector<Serve> MockData::serve_ = {
     {"Kobe Bryant",           "Lakers",        1996, 2016, 20, 1346, 25.0, true,  5},
     {"LeBron James",          "Cavaliers",     2003, 2010,  7,  548, 29.7, true    },
     {"LeBron James",          "Heat",          2010, 2014,  4,  294, 27.1, true,  2},
-    {"LeBron James",          "Cavaliers",     2014, 2018,  4,  301, 27.5, true,  1},
     {"LeBron James",          "Lakers",        2018, 2020,  2,  115, 25.7, true    },
     {"Stephen Curry",         "Warriors",      2009, 2020, 11,  699, 23.5, true,  3},
     {"Russell Westbrook",     "Thunders",      2008, 2019, 11,  821, 22.9, true    },
@@ -212,7 +211,6 @@ std::vector<Serve> MockData::serve_ = {
     {"Dwyane Wade",           "Heat",          2003, 2016, 13,  855, 26.6, true,  3},
     {"Dwyane Wade",           "Bulls",         2016, 2017,  1,   60, 18.3, true    },
     {"Dwyane Wade",           "Cavaliers",     2017, 2017,  1,   46, 11.2          },
-    {"Dwyane Wade",           "Heat",          2017, 2019,  2,   93, 15.0          },
     {"Joel Embiid",           "76ers",         2016, 2020,  4,  202, 24.1, true    },
     {"Paul George",           "Pacers",        2010, 2017,  7,  448, 17.4, true    },
     {"Paul George",           "Thunders",      2017, 2019,  2,  156, 28.0, true    },
@@ -222,7 +220,6 @@ std::vector<Serve> MockData::serve_ = {
     {"Blake Griffin",         "Clippers",      2010, 2018,  8,  504, 22.6, true    },
     {"Blake Griffin",         "Pistons",       2018, 2020,  2,  118, 21.4, true    },
     {"Damian Lillard",        "Trail Blazers", 2012, 2020,  8,  607, 24.0, true    },
-    {"Steve Nash",            "Suns",          1996, 1998,  2,  141,  9.1          },
     {"Steve Nash",            "Mavericks",     1998, 2004,  6,  408, 14.5, true    },
     {"Steve Nash",            "Suns",          2004, 2012,  8,  603, 16.5, true    },
     {"Steve Nash",            "Lakers",        2012, 2014,  2,   65,  6.8, true    },
@@ -258,7 +255,6 @@ std::vector<Serve> MockData::serve_ = {
     {"JaVale McGee",          "Warriors",      2016, 2018,  2,  142,  6.1, false, 2},
     {"JaVale McGee",          "Lakers",        2018, 2020,  2,  136,  6.8, true    },
     {"Dwight Howard",         "Magic",         2004, 2012,  8,  621, 20.6, true    },
-    {"Dwight Howard",         "Lakers",        2012, 2013,  1,   76, 17.1, true    },
     {"Dwight Howard",         "Rockets",       2013, 2016,  3,  183, 15.8, true    },
     {"Dwight Howard",         "Hawks",         2016, 2017,  1,   74, 13.5, true    },
     {"Dwight Howard",         "Hornets",       2017, 2018,  1,   81, 16.6, true    },
@@ -268,7 +264,6 @@ std::vector<Serve> MockData::serve_ = {
     {"Amare Stoudemire",      "Knicks",        2010, 2015,  5,  255, 14.2          },
     {"Amare Stoudemire",      "Mavericks",     2015, 2015,  1,   23, 10.8          },
     {"Amare Stoudemire",      "Heat",          2015, 2016,  1,   52,  5.8          },
-    {"Jason Kidd",            "Mavericks",     1994, 1997,  3,  182, 11.7, true    },
     {"Jason Kidd",            "Suns",          1997, 2001,  4,  313, 16.9, true    },
     {"Jason Kidd",            "Nets",          2001, 2008,  7,  506, 13.3, true    },
     {"Jason Kidd",            "Mavericks",     2008, 2012,  4,  318, 10.3, true,  1},
@@ -345,12 +340,6 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema() {
         prop.set_ttl_duration(FLAGS_mock_ttl_duration);
         schema->setProp(prop);
     }
-    for (int32_t i = 5; i < 10; i++) {
-        meta::cpp2::ColumnDef column;
-        column.name = folly::stringPrintf("col_%d", i);
-        column.type = meta::cpp2::PropertyType::STRING;
-        schema->addField(column.name, std::move(column.type));
-    }
     return schema;
 }
 
@@ -420,12 +409,6 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockEdgeSchema() {
         prop.set_ttl_duration(FLAGS_mock_ttl_duration);
         schema->setProp(prop);
     }
-    for (int32_t i = 5; i < 10; i++) {
-        meta::cpp2::ColumnDef column;
-        column.name = folly::stringPrintf("col_%d", i);
-        column.type = meta::cpp2::PropertyType::STRING;
-        schema->addField(column.name, std::move(column.type));
-    }
     return schema;
 }
 
@@ -476,6 +459,24 @@ std::vector<VertexData> MockData::mockVertices() {
     return ret;
 }
 
+std::vector<VertexID> MockData::mockVerticeIds() {
+    std::vector<VertexID> ret;
+    // Multiple vertices, each vertex has two tags, player and team
+    // player tagId is 1, team tagId is 2
+    for (auto& player : players_) {
+        VertexID data;
+        data = player.name_;
+        ret.push_back(data);
+    }
+
+    for (auto& team : teams_) {
+        VertexID data;
+        data = team;
+        ret.push_back(data);
+    }
+    return ret;
+}
+
 std::vector<EdgeData> MockData::mockEdges() {
     std::vector<EdgeData> ret;
     // Use serve data, EdgeType is 101, EdgeRanking is 102
@@ -511,7 +512,22 @@ std::vector<EdgeData> MockData::mockEdges() {
     return ret;
 }
 
-nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVertices(int32_t parts) {
+std::vector<EdgeData> MockData::mockEdgeKeys() {
+    std::vector<EdgeData> ret;
+    // Use serve data, EdgeType is 101, EdgeRanking is 102
+    for (auto& serve : serve_) {
+        EdgeData data;
+        data.srcId_ = serve.playerName_;
+        data.type_ = 101,
+        data.rank_ = 102,
+        data.dstId_ = serve.teamName_;
+        ret.push_back(data);
+    }
+    return ret;
+}
+
+
+nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVerticesReq(int32_t parts) {
     nebula::storage::cpp2::AddVerticesRequest req;
     req.space_id = 1;
     req.overwritable = true;
@@ -520,50 +536,76 @@ nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVertices(int32_t part
 #if 0
     auto retRecs = mockVertices();
 
-    int count = 0;
     for (auto& rec : retRecs) {
         nebula::storage::cpp2::NewVertex newVertex;
         nebula::storage::cpp2::NewTag newTag;
-        nebula::storage::cpp2::PropDataByRow  row;
+        auto partId = std::hash<std::string>()(rec.vId_) % parts + 1;
 
-        row.set_props(std::move(rec.props_));
         newTag.set_tag_id(rec.tId_);
-        newTag.set_props(std::move(row));
+        newTag.set_props(std::move(rec.props_));
 
         std::vector<nebula::storage::cpp2::NewTag> newTags;
         newTags.push_back(std::move(newTag));
 
         newVertex.id = rec.vId_;
         newVertex.set_tags(std::move(newTags));
-        req.parts[(count % parts) + 1].emplace_back(std::move(newVertex));
+        req.parts[partId].emplace_back(std::move(newVertex));
+    }
+    return req;
+}
+
+nebula::storage::cpp2::DeleteVerticesRequest MockData::mockDeleteVerticesReq(int32_t parts) {
+    nebula::storage::cpp2::DeleteVerticesRequest req;
+    req.space_id = 1;
+
+    auto retRecs = mockVerticeIds();
+    for (auto& rec : retRecs) {
+        auto partId = std::hash<std::string>()(rec) % parts + 1;
+        req.parts[partId].emplace_back(std::move(rec));
     }
 #endif
     return req;
 }
 
-nebula::storage::cpp2::AddEdgesRequest MockData::mockAddEdges(int32_t parts) {
+nebula::storage::cpp2::AddEdgesRequest MockData::mockAddEdgesReq(int32_t parts) {
     nebula::storage::cpp2::AddEdgesRequest req;
     req.space_id = 1;
     req.overwritable = true;
     UNUSED(parts);
 #if 0
     auto retRecs = mockEdges();
-    int count = 0;
     for (auto& rec : retRecs) {
         nebula::storage::cpp2::NewEdge newEdge;
         nebula::storage::cpp2::EdgeKey edgeKey;
+        auto partId = std::hash<std::string>()(rec.srcId_) % parts + 1;
+
         edgeKey.src = rec.srcId_;
         edgeKey.edge_type = rec.type_;
         edgeKey.ranking = rec.rank_;
         edgeKey.dst = rec.dstId_;
 
-        nebula::storage::cpp2::PropDataByRow  row;
-        row.set_props(std::move(rec.props_));
-
         newEdge.set_key(std::move(edgeKey));
-        newEdge.set_props(std::move(row));
+        newEdge.set_props(std::move(rec.props_));
 
-        req.parts[(count % parts) + 1].emplace_back(std::move(newEdge));
+        req.parts[partId].emplace_back(std::move(newEdge));
+    }
+    return req;
+}
+
+nebula::storage::cpp2::DeleteEdgesRequest MockData::mockDeleteEdgesReq(int32_t parts) {
+    nebula::storage::cpp2::DeleteEdgesRequest req;
+    req.space_id = 1;
+
+    auto retRecs = mockEdgeKeys();
+    for (auto& rec : retRecs) {
+        auto partId = std::hash<std::string>()(rec.srcId_) % parts + 1;
+
+        nebula::storage::cpp2::EdgeKey edgeKey;
+        edgeKey.src = rec.srcId_;
+        edgeKey.edge_type = rec.type_;
+        edgeKey.ranking = rec.rank_;
+        edgeKey.dst = rec.dstId_;
+        req.parts[partId].emplace_back(std::move(edgeKey));
     }
 #endif
     return req;
@@ -636,54 +678,51 @@ std::vector<EdgeData> MockData::mockEdgesSpecifiedOrder() {
 }
 
 nebula::storage::cpp2::AddVerticesRequest
-MockData::mockAddVerticesSpecifiedOrder(int32_t parts) {
+MockData::mockAddVerticesSpecifiedOrderReq(int32_t parts) {
     nebula::storage::cpp2::AddVerticesRequest req;
     req.space_id = 1;
     req.overwritable = true;
-    UNUSED(parts);
-#if 0
-    auto retRecs = mockVertices();
+    auto retRecs = mockVerticesSpecifiedOrder();
 
-    int count = 0;
     for (auto& rec : retRecs) {
-        nebula::storage::cpp2::NewVertex newVertex;
-        nebula::storage::cpp2::NewTag newTag;
-        nebula::storage::cpp2::PropDataByRow  row;
+        auto partId = std::hash<std::string>()(rec.vId_) % parts + 1;
 
-        row.set_props(std::move(rec.props_));
-        newTag.set_tag_id(rec.tId_);
-        newTag.set_props(std::move(row));
         if (rec.tId_ == 1) {
             std::vector<std::string> colNames{"serveTeams", "avgScore", "games", "endYear",
                                               "startYear",  "career", "playing", "age",
                                               "name"};
-            newTag.set_names(std::move(colNames));
+            req.prop_names[1].emplace_back(std::move(colNames));
         } else {
             std::vector<std::string> colNames{"name"};
-            newTag.set_names(std::move(colNames));
+            req.prop_names[2].emplace_back(std::move(colNames));
         }
+
+        nebula::storage::cpp2::NewVertex newVertex;
+        nebula::storage::cpp2::NewTag newTag;
+
+        newTag.set_tag_id(rec.tId_);
+        newTag.set_props(std::move(rec.props_));
         std::vector<nebula::storage::cpp2::NewTag> newTags;
         newTags.push_back(std::move(newTag));
 
         newVertex.id = rec.vId_;
         newVertex.set_tags(std::move(newTags));
-        req.parts[(count % parts) + 1].emplace_back(std::move(newVertex));
+        req.parts[partId].emplace_back(std::move(newVertex));
     }
-#endif
     return req;
 }
 
 nebula::storage::cpp2::AddEdgesRequest
-MockData::mockAddEdgesSpecifiedOrder(int32_t parts) {
+MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
     nebula::storage::cpp2::AddEdgesRequest req;
     req.space_id = 1;
     req.overwritable = true;
-    UNUSED(parts);
-#if 0
-    auto retRecs = mockEdges();
 
-    int count = 0;
+    auto retRecs = mockEdgesSpecifiedOrder();
+
     for (auto& rec : retRecs) {
+        auto partId = std::hash<std::string>()(rec.srcId_) % parts + 1;
+
         nebula::storage::cpp2::NewEdge newEdge;
         nebula::storage::cpp2::EdgeKey edgeKey;
         edgeKey.src = rec.srcId_;
@@ -691,18 +730,14 @@ MockData::mockAddEdgesSpecifiedOrder(int32_t parts) {
         edgeKey.ranking = rec.rank_;
         edgeKey.dst = rec.dstId_;
 
-        nebula::storage::cpp2::PropDataByRow  row;
-        row.set_props(std::move(rec.props_));
-
         newEdge.set_key(std::move(edgeKey));
-        newEdge.set_props(std::move(row));
+        newEdge.set_props(std::move(rec.props_));
+        req.parts[partId].emplace_back(std::move(newEdge));
 
         std::vector<std::string> colNames{"teamAvgScore", "teamGames", "teamCareer",
                                           "endYear", "startYear", "teamName", "playerName"};
-        newEdge.set_names(std::move(colNames));
-        req.parts[(count % parts) + 1].emplace_back(std::move(newEdge));
+        req.prop_names(std::move(colNames));
     }
-#endif
     return req;
 }
 

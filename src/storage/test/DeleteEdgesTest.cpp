@@ -8,125 +8,256 @@
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include "fs/TempDir.h"
-#include "storage/test/TestUtils.h"
 #include "storage/mutate/DeleteEdgesProcessor.h"
 #include "storage/mutate/AddEdgesProcessor.h"
-#include "base/NebulaKeyUtils.h"
-
+#include "common/NebulaKeyUtils.h"
+#include "mock/MockCluster.h"
+#include "mock/MockData.h"
+#include "interface/gen-cpp2/storage_types.h"
+#include "interface/gen-cpp2/common_types.h"
 
 namespace nebula {
 namespace storage {
 
 TEST(DeleteEdgesTest, SimpleTest) {
     fs::TempDir rootPath("/tmp/DeleteEdgesTest.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(TestUtils::initKV(rootPath.path()));
-    auto schemaMan = TestUtils::mockSchemaMan();
-    auto indexMan = TestUtils::mockIndexMan();
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+
     // Add edges
     {
-        auto* processor = AddEdgesProcessor::instance(kv.get(),
-                                                      schemaMan.get(),
-                                                      indexMan.get(),
-                                                      nullptr);
-        cpp2::AddEdgesRequest req;
-        req.space_id = 0;
-        req.overwritable = true;
-        for (PartitionID partId = 1; partId <= 3; partId++) {
-            auto edges = TestUtils::setupEdges(partId, partId * 10, 10 * (partId + 1));
-            req.parts.emplace(partId, std::move(edges));
-        }
+        auto* processor = AddEdgesProcessor::instance(env, nullptr);
 
+        LOG(INFO) << "Build AddEdgesRequest...";
+        cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
+
+        LOG(INFO) << "Test AddEdgesProcessor...";
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
-        EXPECT_EQ(0, resp.result.failed_codes.size());
-    }
-    // Add multi version edges
-    {
-        auto* processor = AddEdgesProcessor::instance(kv.get(),
-                                                      schemaMan.get(),
-                                                      indexMan.get(),
-                                                      nullptr);
-        cpp2::AddEdgesRequest req;
-        req.space_id = 0;
-        req.overwritable = true;
-        // partId => List<Edge>
-        // Edge => {EdgeKey, props}
-        for (PartitionID partId = 1; partId <= 3; partId++) {
-            auto edges = TestUtils::setupEdges(partId,
-                                               partId * 10,
-                                               10 * (partId + 1),
-                                               101,
-                                               1,
-                                               "%d_%d_%ld_%ld_%d_%ld_new");
-            req.parts.emplace(partId, std::move(edges));
-        }
+        EXPECT_EQ(0, resp.result.failed_parts.size());
 
-        auto fut = processor->getFuture();
-        processor->process(req);
-        auto resp = std::move(fut).get();
-        EXPECT_EQ(0, resp.result.failed_codes.size());
-    }
+        LOG(INFO) << "Check data in kv store...";
+        auto ret = env->schemaMan_->getSpaceVidLen(1);
+        auto spaceVidLen = ret.value();
 
-    for (PartitionID partId = 1; partId <= 3; partId++) {
-        for (VertexID srcId = 10 * partId; srcId < 10 * (partId + 1); srcId++) {
-            auto prefix = NebulaKeyUtils::edgePrefix(partId, srcId, 101);
-            std::unique_ptr<kvstore::KVIterator> iter;
-            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, kv->prefix(0, partId, prefix, &iter));
-            int num = 0;
-            while (iter->valid()) {
-                auto edgeType = 101;
-                auto dstId = srcId * 100 + 2;
-                if (num == 0) {
-                    EXPECT_EQ(TestUtils::encodeValue(partId, srcId, dstId, edgeType, 0,
-                                                     "%d_%d_%ld_%ld_%d_%ld_new"),
-                              iter->val().str());
-                } else {
-                    EXPECT_EQ(TestUtils::encodeValue(partId, srcId, dstId, edgeType),
-                              iter->val().str());
+        int totalCount = 0;
+        for (auto& part : req.parts) {
+            auto partId = part.first;
+            auto newEdgeVec = part.second;
+            for (auto& newEdge : newEdgeVec) {
+                auto edgekey = newEdge.key;
+                auto newEdgeProp = newEdge.props.props;
+
+                auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
+                                                         partId,
+                                                         edgekey.src,
+                                                         edgekey.edge_type,
+                                                         edgekey.ranking,
+                                                         edgekey.dst);
+                std::unique_ptr<kvstore::KVIterator> iter;
+                EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
+                          env->kvstore_->prefix(1, partId, prefix, &iter));
+
+                auto schema = env->schemaMan_->getEdgeSchema(1, edgekey.edge_type);
+                EXPECT_TRUE(schema != NULL);
+
+                Value val;
+                while (iter && iter->valid()) {
+                    auto reader = RowReader::getRowReader(schema.get(), iter->val());
+                    for (auto i = 0; i < 7; i++) {
+                        val = reader->getValueByIndex(i);
+                        EXPECT_EQ(newEdgeProp[i], val);
+                    }
+                    if (newEdgeProp.size() >= 8) {
+                        val = reader->getValueByIndex(7);
+                        EXPECT_EQ(newEdgeProp[7], val);
+                        if (newEdgeProp.size() == 9) {
+                            val = reader->getValueByIndex(8);
+                            EXPECT_EQ(newEdgeProp[8], val);
+                        }
+                    }
+                    totalCount++;
+                    iter->next();
                 }
-                num++;
-                iter->next();
             }
-            EXPECT_EQ(2, num);
         }
+        // The number of data in serve is 160
+        EXPECT_EQ(160, totalCount);
     }
 
     // Delete edges
     {
-        auto* processor = DeleteEdgesProcessor::instance(kv.get(), schemaMan.get(), indexMan.get());
-        cpp2::DeleteEdgesRequest req;
-        req.set_space_id(0);
-        // partId => List<EdgeKey>
-        for (PartitionID partId = 1; partId <= 3; partId++) {
-            std::vector<cpp2::EdgeKey> keys;
-            for (VertexID srcId = partId * 10; srcId < 10 * (partId + 1); srcId++) {
-                EdgeType edgeType = srcId * 100 + 1;
-                VertexID dstId = srcId * 100 + 2;
-                EdgeRanking ranking = srcId * 100 + 3;
-                cpp2::EdgeKey key;
-                key.set_src(srcId);
-                key.set_edge_type(edgeType);
-                key.set_ranking(ranking);
-                key.set_dst(dstId);
-                keys.emplace_back(std::move(key));
-            }
-            req.parts.emplace(partId, std::move(keys));
-        }
+        auto* processor = DeleteEdgesProcessor::instance(env);
 
+        LOG(INFO) << "Build DeleteEdgesRequest...";
+        cpp2::DeleteEdgesRequest req = mock::MockData::mockDeleteEdgesReq();
+
+        LOG(INFO) << "Test DeleteEdgesProcessor...";
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
-        EXPECT_EQ(0, resp.result.failed_codes.size());
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check data in kv store...";
+        auto ret = env->schemaMan_->getSpaceVidLen(1);
+        auto spaceVidLen = ret.value();
+
+        int totalCount = 0;
+        for (auto& part : req.parts) {
+            auto partId = part.first;
+            auto deleteEdgeKeyVec = part.second;
+            for (auto& edgeKey : deleteEdgeKeyVec) {
+                auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
+                                                         partId,
+                                                         edgeKey.src,
+                                                         edgeKey.edge_type,
+                                                         edgeKey.ranking,
+                                                         edgeKey.dst);
+                std::unique_ptr<kvstore::KVIterator> iter;
+                EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
+                          env->kvstore_->prefix(1, partId, prefix, &iter));
+
+                while (iter && iter->valid()) {
+                    totalCount++;
+                    iter->next();
+                }
+            }
+        }
+        // All the added datas are deleted, the number of edge is 0
+        EXPECT_EQ(0, totalCount);
+    }
+}
+
+TEST(DeleteEdgesTest, MultiVersionTest) {
+    fs::TempDir rootPath("/tmp/DeleteEdgesTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+
+    // Add edges
+    {
+        LOG(INFO) << "Build AddEdgesRequest...";
+        cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
+        cpp2::AddEdgesRequest specifiedOrderReq = mock::MockData::mockAddEdgesSpecifiedOrderReq();
+
+        {
+            LOG(INFO) << "AddEdgesProcessor...";
+            auto* processor = AddEdgesProcessor::instance(env, nullptr);
+            auto fut = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(fut).get();
+            EXPECT_EQ(0, resp.result.failed_parts.size());
+        }
+        {
+            LOG(INFO) << "AddEdgesProcessor...";
+            auto* processor = AddEdgesProcessor::instance(env, nullptr);
+            auto fut = processor->getFuture();
+            processor->process(specifiedOrderReq);
+            auto resp = std::move(fut).get();
+            EXPECT_EQ(0, resp.result.failed_parts.size());
+        }
+
+        LOG(INFO) << "Check data in kv store...";
+        auto ret = env->schemaMan_->getSpaceVidLen(1);
+        auto spaceVidLen = ret.value();
+
+        int totalCount = 0;
+        for (auto& part : req.parts) {
+            auto partId = part.first;
+            auto newEdgeVec = part.second;
+            for (auto& newEdge : newEdgeVec) {
+                auto edgekey = newEdge.key;
+                auto newEdgeProp = newEdge.props.props;
+
+                auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
+                                                         partId,
+                                                         edgekey.src,
+                                                         edgekey.edge_type,
+                                                         edgekey.ranking,
+                                                         edgekey.dst);
+                std::unique_ptr<kvstore::KVIterator> iter;
+                EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
+                          env->kvstore_->prefix(1, partId, prefix, &iter));
+
+                auto schema = env->schemaMan_->getEdgeSchema(1, edgekey.edge_type);
+                EXPECT_TRUE(schema != NULL);
+
+                Value val;
+                int num = 0;
+                while (iter && iter->valid()) {
+                    auto reader = RowReader::getRowReader(schema.get(), iter->val());
+                    for (auto i = 0; i < 7; i++) {
+                        val = reader->getValueByIndex(i);
+                        EXPECT_EQ(newEdgeProp[i], val);
+                    }
+                    // When adding edge in specified Order, the last two columns
+                    // use the default value and null
+                    if (num == 0) {
+                        val = reader->getValueByIndex(7);
+                        EXPECT_EQ(false, val.getBool());
+                    } else {
+                        if (newEdgeProp.size() >= 8) {
+                            val = reader->getValueByIndex(7);
+                            EXPECT_EQ(newEdgeProp[7], val);
+                            if (newEdgeProp.size() == 9) {
+                                val = reader->getValueByIndex(8);
+                                EXPECT_EQ(newEdgeProp[8], val);
+                            }
+                        }
+                    }
+                    num++;
+                    totalCount++;
+                    iter->next();
+                }
+                EXPECT_EQ(2, num);
+            }
+        }
+        // The number of data in serve is 320
+        EXPECT_EQ(320, totalCount);
     }
 
-    for (PartitionID partId = 1; partId <= 3; partId++) {
-        for (VertexID srcId = 10 * partId; srcId < 10 * (partId + 1); srcId++) {
-            auto prefix = NebulaKeyUtils::vertexPrefix(partId, srcId, srcId * 100 + 1);
-            std::unique_ptr<kvstore::KVIterator> iter;
-            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, kv->prefix(0, partId, prefix, &iter));
-            CHECK(!iter->valid());
+    // Delete edges
+    {
+        auto* processor = DeleteEdgesProcessor::instance(env);
+
+        LOG(INFO) << "Build DeleteEdgesRequest...";
+        cpp2::DeleteEdgesRequest req = mock::MockData::mockDeleteEdgesReq();
+
+        LOG(INFO) << "Test DeleteEdgesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check data in kv store...";
+        auto ret = env->schemaMan_->getSpaceVidLen(1);
+        auto spaceVidLen = ret.value();
+
+        int totalCount = 0;
+        for (auto& part : req.parts) {
+            auto partId = part.first;
+            auto deleteEdgeKeyVec = part.second;
+            for (auto& edgeKey : deleteEdgeKeyVec) {
+                auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
+                                                         partId,
+                                                         edgeKey.src,
+                                                         edgeKey.edge_type,
+                                                         edgeKey.ranking,
+                                                         edgeKey.dst);
+                std::unique_ptr<kvstore::KVIterator> iter;
+                EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
+                          env->kvstore_->prefix(1, partId, prefix, &iter));
+
+                while (iter && iter->valid()) {
+                    totalCount++;
+                    iter->next();
+                }
+            }
         }
+        // All the added datas are deleted, the number of edge is 0
+        EXPECT_EQ(0, totalCount);
     }
 }
 

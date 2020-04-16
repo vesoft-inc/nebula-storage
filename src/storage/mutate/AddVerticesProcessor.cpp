@@ -10,6 +10,7 @@
 #include <limits>
 #include "time/WallClock.h"
 #include "codec/RowWriterV2.h"
+#include "storage/StorageFlags.h"
 
 DECLARE_bool(enable_vertex_cache);
 
@@ -21,119 +22,123 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
         std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
     // Switch version to big-endian, make sure the key is in ordered.
     version = folly::Endian::big(version);
+
     spaceId_ = req.get_space_id();
     const auto& partVertices = req.get_parts();
+    const auto& propNamesMap = req.get_prop_names();
 
+    CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
         LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
                    << ret.status().toString();
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
+        codes_.emplace_back(std::move(thriftRet));
         onFinished();
         return;
     }
-    auto spaceVidLen = ret.value();
-
+    spaceVidLen_ = ret.value();
     callingNum_ = partVertices.size();
-    // auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
-    // if (iRet.ok()) {
-    //     indexes_ = std::move(iRet).value();
-    // }
+
+    CHECK_NOTNULL(env_->indexMan_);
+    auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
+    if (iRet.ok()) {
+        indexes_ = std::move(iRet).value();
+    }
 
     CHECK_NOTNULL(env_->kvstore_);
-    // if (indexes_.empty()) {
-        std::for_each(partVertices.begin(), partVertices.end(), [&](auto& pv) {
-            auto partId = pv.first;
-            const auto& vertices = pv.second;
+    if (indexes_.empty()) {
+        for (auto& part : partVertices) {
+            auto partId = part.first;
+            const auto& newVertices = part.second;
 
             std::vector<kvstore::KV> data;
-            std::for_each(vertices.begin(), vertices.end(), [&](auto& v) {
-                const auto& tags = v.get_tags();
-                std::for_each(tags.begin(), tags.end(), [&](auto& tag) {
-                    auto tagId = tag.get_tag_id();
-                    VLOG(3) << "PartitionID: " << partId << ", VertexID: " << v.get_id()
-                            << ", TagID: " << tag.get_tag_id() << ", TagVersion: " << version;
+            data.reserve(32);
+            for (auto& newVertex : newVertices) {
+                auto vid = newVertex.get_id();
+                const auto& newTags = newVertex.get_tags();
+                for (auto& newTag : newTags) {
+                    auto tagId = newTag.get_tag_id();
+                    VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
+                            << ", TagID: " << tagId << ", TagVersion: " << version;
 
-                    auto key = NebulaKeyUtils::vertexKey(spaceVidLen, partId, v.get_id(),
+                    auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid,
                                                          tagId, version);
-                    auto propDataByRow = tag.get_props().get_props();
                     auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
                     if (!schema) {
                         LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";
-                        cpp2::PartitionResult thriftRet;
-                        thriftRet.set_code(cpp2::ErrorCode::E_TAG_NOT_FOUND);
+                        pushResultCode(cpp2::ErrorCode::E_TAG_NOT_FOUND, partId);
                         onFinished();
                         return;
                     }
 
-                    CHECK_LE(propDataByRow.size(), schema->getNumFields());
-                    RowWriterV2 wt(schema.get());
-                    if (tag.get_names() && !tag.get_names()->empty()) {
-                        auto colNames = *tag.get_names();
-                        CHECK_EQ(propDataByRow.size(), colNames.size());
+                    auto props = newTag.get_props();
+                    auto iter = propNamesMap.find(tagId);
+                    RowWriterV2 rowWrite(schema.get());
+                    if (iter != propNamesMap.end()) {
+                        auto colNames = iter->second();
                         for (size_t i = 0; i < colNames.size(); i++) {
-                            auto r = wt.setValue(colNames[i], propDataByRow[i]);
-                            if (r != WriteResult::SUCCEEDED) {
+                            auto wRet = rowWrite.setValue(colNames[i], props[i]);
+                            if (wRet != WriteResult::SUCCEEDED) {
                                 LOG(ERROR) << "Add vertex faild";
-                                cpp2::PartitionResult thriftRet;
-                                thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
+                                pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                                 onFinished();
                                 return;
                             }
                         }
                     } else {
-                        for (size_t i = 0; i < propDataByRow.size(); i++) {
-                            auto r = wt.setValue(i, propDataByRow[i]);
-                            if (r != WriteResult::SUCCEEDED) {
+                        for (size_t i = 0; i < props.size(); i++) {
+                            auto wRet = rowWrite.setValue(i, props[i]);
+                            if (wRet != WriteResult::SUCCEEDED) {
                                 LOG(ERROR) << "Add vertex faild";
-                                cpp2::PartitionResult thriftRet;
-                                thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
+                                pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                                 onFinished();
                                 return;
                             }
                         }
                     }
-                    auto retWt = wt.finish();
-                    if (retWt != WriteResult::SUCCEEDED) {
+                    auto wRet = rowWrite.finish();
+                    if (wRet != WriteResult::SUCCEEDED) {
                         LOG(ERROR) << "Add vertex faild";
-                        cpp2::PartitionResult thriftRet;
-                        thriftRet.set_code(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
+                        pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                         onFinished();
                         return;
                     }
 
-                    std::string encode = std::move(wt).moveEncodedStr();
+                    std::string encode = std::move(rowWrite).moveEncodedStr();
                     data.emplace_back(std::move(key), std::move(encode));
 
-                    //if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                    //    vertexCache_->evict(std::make_pair(v.get_id(), tagId), partId);
-                    //    VLOG(3) << "Evict cache for vId " << v.get_id()
-                    //            << ", tagId " << tagId;
-                    //}
-                });
-            });
+                    if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
+                        vertexCache_->evict(std::make_pair(vid, tagId), partId);
+                        VLOG(3) << "Evict cache for vId " << vid
+                                << ", tagId " << tagId;
+                    }
+                }
+            }
             doPut(spaceId_, partId, std::move(data));
-        });
-
-    // } else {
-    //    std::for_each(partVertices.begin(), partVertices.end(), [&](auto &pv) {
-    //         auto partId = pv.first;
-    //        auto atomic = [version, partId, vertices = std::move(pv.second), this]()
-    //                      -> folly::Optional<std::string> {
-    //            return addVertices(version, partId, vertices);
-    //        };
-    //        auto callback = [partId, this](kvstore::ResultCode code) {
-    //            handleAsync(spaceId_, partId, code);
-    //        };
-    //        this->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-    //    });
-    //}
+        }
+    } else {
+        for (auto& part : partVertices) {
+            auto partId = part.first;
+            auto atomic = [version, partId, vertices = std::move(part.second), this]()
+                          -> folly::Optional<std::string> {
+                return this->addVertices(version, partId, vertices);
+            };
+            auto callback = [partId, this](kvstore::ResultCode code) {
+                this->handleAsync(this->spaceId_, partId, code);
+            };
+            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+        }
+    }
 }
 
-#if 0
 std::string AddVerticesProcessor::addVertices(int64_t version, PartitionID partId,
-                                              const std::vector<cpp2::Vertex>& vertices) {
+                                              const std::vector<cpp2::NewVertex>& vertices) {
+    UNUSED(version);
+    UNUSED(partId);
+    UNUSED(vertices);
+#if 0
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     /*
      * Define the map newIndexes to avoid inserting duplicate vertex.
@@ -210,8 +215,10 @@ std::string AddVerticesProcessor::addVertices(int64_t version, PartitionID partI
         batchHolder->put(std::move(key), std::move(prop));
     }
     return encodeBatchValue(batchHolder->getBatch());
+#endif
+    return std::string("");
 }
-
+/*
 std::string AddVerticesProcessor::findObsoleteIndex(PartitionID partId,
                                                     VertexID vId,
                                                     TagID tagId) {
@@ -238,7 +245,7 @@ std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                           index->get_index_id(),
                                           vId, values);
 }
-#endif
+*/
 
 }  // namespace storage
 }  // namespace nebula

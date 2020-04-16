@@ -17,38 +17,33 @@ namespace storage {
 
 class AddEdgesProcessor : public BaseProcessor<cpp2::ExecResponse> {
 public:
-    static AddEdgesProcessor* instance(kvstore::KVStore* kvstore,
-                                       meta::SchemaManager* schemaMan,
-                                       meta::IndexManager* indexMan,
+    static AddEdgesProcessor* instance(StorageEnv* env,
                                        stats::Stats* stats) {
-        return new AddEdgesProcessor(kvstore, schemaMan, indexMan, stats);
+        return new AddEdgesProcessor(env, stats);
     }
 
     void process(const cpp2::AddEdgesRequest& req);
 
 private:
-    explicit AddEdgesProcessor(kvstore::KVStore* kvstore,
-                               meta::SchemaManager* schemaMan,
-                               meta::IndexManager* indexMan,
-                               stats::Stats* stats)
-            : BaseProcessor<cpp2::ExecResponse>(kvstore, schemaMan, stats)
-            , indexMan_(indexMan) {}
+    AddEdgesProcessor(StorageEnv* env, stats::Stats* stats)
+        : BaseProcessor<cpp2::ExecResponse>(env, stats) {}
 
     std::string addEdges(int64_t version, PartitionID partId,
-                         const std::vector<cpp2::Edge>& edges);
+                         const std::vector<cpp2::NewEdge>& edges);
 
+    /*
     std::string findObsoleteIndex(PartitionID partId,
                                   const folly::StringPiece& rawKey);
 
     std::string indexKey(PartitionID partId,
                          RowReader* reader,
                          const folly::StringPiece& rawKey,
-                         std::shared_ptr<nebula::cpp2::IndexItem> index);
+                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
+    */
 
 private:
-    GraphSpaceID                                          spaceId_;
-    meta::IndexManager*                                   indexMan_{nullptr};
-    std::vector<std::shared_ptr<nebula::cpp2::IndexItem>> indexes_;
+    GraphSpaceID                                                spaceId_;
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
 };
 
 }  // namespace storage
