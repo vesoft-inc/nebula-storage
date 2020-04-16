@@ -67,7 +67,7 @@ private:
 
     kvstore::ResultCode getEdgeRow(PartitionID partId,
                                    const folly::StringPiece& key,
-                                   cpp2::Edge* data);
+                                   cpp2::EdgeIndexData* data);
 
     std::string getRowFromReader(RowReader* reader);
 
@@ -84,15 +84,15 @@ protected:
     VertexCache*                           vertexCache_{nullptr};
     std::shared_ptr<SchemaWriter>          schema_{nullptr};
     std::vector<cpp2::VertexIndexData>     vertexRows_;
-    std::vector<cpp2::Edge>                edgeRows_;
+    std::vector<cpp2::EdgeIndexData>       edgeRows_;
 
 private:
-    int                                    rowNum_{0};
-    int32_t                                tagOrEdge_;
-    bool                                   isEdgeIndex_{false};
-    int32_t                                vColNum_{0};
-    std::vector<PropContext>               props_;
-    std::map<std::string, nebula::cpp2::SupportedType> indexCols_;
+    int                                        rowNum_{0};
+    int32_t                                    tagOrEdge_;
+    bool                                       isEdgeIndex_{false};
+    int32_t                                    vColNum_{0};
+    std::vector<PropContext>                   props_;
+    std::map<std::string, cpp2::SupportedType> indexCols_;
 };
 
 }  // namespace storage

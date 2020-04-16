@@ -41,7 +41,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::buildExecutionPlan(const std::string& filte
 
 template <typename RESP>
 cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
-    StatusOr<std::shared_ptr<nebula::cpp2::IndexItem>> index;
+    StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>> index;
     if (isEdgeIndex_) {
         index = indexMan_->getEdgeIndex(spaceId_, indexId);
     } else {
@@ -55,7 +55,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
                                   index_->get_schema_id().get_tag_id();
     for (const auto& col : index_->get_fields()) {
         indexCols_[col.get_name()] = col.get_type().get_type();
-        if (col.get_type().get_type() == nebula::cpp2::SupportedType::STRING) {
+        if (col.get_type().get_type() == nebula::cpp2::PropertyType::STRING) {
             vColNum_++;
         }
     }
@@ -153,7 +153,7 @@ kvstore::ResultCode IndexExecutor<RESP>::getDataRow(PartitionID partId,
                                                     const folly::StringPiece& key) {
     kvstore::ResultCode ret;
     if (isEdgeIndex_) {
-        cpp2::Edge data;
+        cpp2::EdgeIndexData data;
         ret = getEdgeRow(partId, key, &data);
         if (ret == kvstore::SUCCEEDED) {
             edgeRows_.emplace_back(std::move(data));
@@ -282,7 +282,7 @@ bool IndexExecutor<RESP>::conditionsCheck(const folly::StringPiece& key) {
 template<typename RESP>
 OptVariantType IndexExecutor<RESP>::decodeValue(const folly::StringPiece& key,
                                                 const folly::StringPiece& prop) {
-    using nebula::cpp2::SupportedType;
+    using nebula::cpp2::PropertyType;
     auto type = indexCols_[prop.str()];
     /**
      * Here need a string copy to avoid memory change
@@ -296,27 +296,27 @@ folly::StringPiece IndexExecutor<RESP>::getIndexVal(const folly::StringPiece& ke
                                                     const folly::StringPiece& prop) {
     auto tailLen = (!isEdgeIndex_) ? sizeof(VertexID) :
                                      sizeof(VertexID) * 2 + sizeof(EdgeRanking);
-    using nebula::cpp2::SupportedType;
+    // using nebula::cpp2::PropertyType;
     size_t offset = sizeof(PartitionID) + sizeof(IndexID);
     size_t len = 0;
     int32_t vCount = vColNum_;
     for (const auto& col : index_->get_fields()) {
         switch (col.get_type().get_type()) {
-            case SupportedType::BOOL: {
+            case meta::cpp2::PropertyType::BOOL: {
                 len = sizeof(bool);
                 break;
             }
-            case SupportedType::TIMESTAMP:
-            case SupportedType::INT: {
+            case meta::cpp2::PropertyType::TIMESTAMP:
+            case meta::cpp2::PropertyType::INT64: {
                 len = sizeof(int64_t);
                 break;
             }
-            case SupportedType::FLOAT:
-            case SupportedType::DOUBLE: {
+            case meta::cpp2::PropertyType::FLOAT:
+            case meta::cpp2::PropertyType::DOUBLE: {
                 len = sizeof(double);
                 break;
             }
-            case SupportedType::STRING: {
+            case meta::cpp2::PropertyType::STRING: {
                 auto off = key.size() - vCount * sizeof(int32_t) - tailLen;
                 len = *reinterpret_cast<const int32_t*>(key.data() + off);
                 --vCount;

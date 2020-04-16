@@ -70,7 +70,7 @@ protected:
     std::unique_ptr<ExpressionContext>       expCtx_{nullptr};
     std::unique_ptr<Expression>              exp_{nullptr};
     std::string                              prefix_;
-    std::shared_ptr<nebula::cpp2::IndexItem> index_{nullptr};
+    std::shared_ptr<meta::cpp2::IndexItem>   index_{nullptr};
     bool                                     optimizedPolicy_{true};
     bool                                     requiredFilter_{true};
     std::vector<OperatorItem>                operatorList_;

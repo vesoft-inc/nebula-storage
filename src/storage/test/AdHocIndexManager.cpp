@@ -175,6 +175,11 @@ Status AdHocIndexManager::checkEdgeIndexed(GraphSpaceID space, EdgeType edgeType
     return Status::EdgeNotFound();
 }
 
+
+StatusOr<int32_t> AdHocIndexManager::getSpaceVidLen(GraphSpaceID) {
+    return 0;
+}
+
 }  // namespace storage
 }  // namespace nebula
 

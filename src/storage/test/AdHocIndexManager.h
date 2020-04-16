@@ -55,6 +55,8 @@ public:
     void init(nebula::meta::MetaClient *) override {
     }
 
+    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID) override;
+
 protected:
     folly::RWSpinLock tagIndexLock_;
     folly::RWSpinLock edgeIndexLock_;
