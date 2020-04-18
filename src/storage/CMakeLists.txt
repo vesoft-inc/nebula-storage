@@ -17,6 +17,9 @@ nebula_add_library(
 nebula_add_library(
     graph_storage_service_handler OBJECT
     GraphStorageServiceHandler.cpp
+    index/ExecutionPlan.cpp
+    index/IndexExecutor.cpp
+    index/LookupIndexProcessor.cpp
 )
 
 
@@ -32,4 +35,4 @@ nebula_add_library(
     StorageServer.cpp
 )
 
-# nebula_add_subdirectory(test)
+nebula_add_subdirectory(test)

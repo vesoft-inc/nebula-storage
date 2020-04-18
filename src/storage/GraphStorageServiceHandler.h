@@ -9,6 +9,7 @@
 
 #include "base/Base.h"
 #include "interface/gen-cpp2/GraphStorageService.h"
+#include "stats/Stats.h"
 
 namespace nebula {
 namespace storage {
@@ -17,11 +18,15 @@ class StorageEnv;
 class GraphStorageServiceHandler final : public cpp2::GraphStorageServiceSvIf {
 public:
     explicit GraphStorageServiceHandler(StorageEnv* env) : env_(env) {
+        lookupQpsStat_ = stats::Stats("storage", "lookup_vertices");
     }
 
+folly::Future<cpp2::LookupIndexResp>
+future_lookupIndex(const cpp2::LookupIndexRequest& req) override;
 
 private:
     StorageEnv*             env_{nullptr};
+    stats::Stats            lookupQpsStat_;
 };
 
 }  // namespace storage

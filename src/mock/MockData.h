@@ -65,9 +65,17 @@ public:
      */
     static std::shared_ptr<meta::SchemaProviderIf> mockPlayerTagSchema();
 
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockGeneralTagIndexColumns();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockEdgeIndexColumns();
+
     static std::shared_ptr<meta::SchemaProviderIf> mockTeamTagSchema();
 
     static std::shared_ptr<meta::SchemaProviderIf> mockEdgeSchema();
+
+    static std::shared_ptr<meta::SchemaProviderIf> mockGeneralTagSchemaV1();
+
+    static std::shared_ptr<meta::SchemaProviderIf> mockGeneralTagSchemaV2();
 
     /*
      * Mock data
