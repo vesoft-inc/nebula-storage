@@ -14,7 +14,7 @@ namespace meta {
 
 SimpleConcurrentJobExecutor::
 SimpleConcurrentJobExecutor(int jobId,
-                            nebula::cpp2::AdminCmd cmd,
+                            cpp2::AdminCmd cmd,
                             std::vector<std::string> paras,
                             nebula::kvstore::KVStore* kvStore,
                             AdminClient* adminClient)

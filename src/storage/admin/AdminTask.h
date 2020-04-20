@@ -49,14 +49,14 @@ struct TaskContext {
             , spaceId_(req.get_para().get_space_id())
             , store_(store)
             , onFinish_(cb) {}
-    ::nebula::cpp2::AdminCmd    cmd_;
-    int32_t                     jobId_{-1};
-    int32_t                     taskId_{-1};
-    int32_t                     spaceId_{-1};
-    TaskPriority                pri_{TaskPriority::MID};
-    kvstore::NebulaStore*       store_{nullptr};
-    CallBack                    onFinish_;
-    size_t                      concurrentReq_{INT_MAX};
+    nebula::meta::cpp2::AdminCmd    cmd_;
+    int32_t                         jobId_{-1};
+    int32_t                         taskId_{-1};
+    int32_t                         spaceId_{-1};
+    TaskPriority                    pri_{TaskPriority::MID};
+    kvstore::NebulaStore*           store_{nullptr};
+    CallBack                        onFinish_;
+    size_t                          concurrentReq_{INT_MAX};
 };
 
 class AdminTask {

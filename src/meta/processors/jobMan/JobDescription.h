@@ -37,7 +37,7 @@ class JobDescription {
 public:
     JobDescription() = default;
     JobDescription(int32_t id,
-                   nebula::cpp2::AdminCmd cmd,
+                   cpp2::AdminCmd cmd,
                    std::vector<std::string> paras,
                    Status status = Status::QUEUE,
                    int64_t = 0,
@@ -54,7 +54,7 @@ public:
     /*
      * return the command for this job. (e.g. compact, flush ...)
      * */
-    nebula::cpp2::AdminCmd getCmd() const { return cmd_; }
+    cpp2::AdminCmd getCmd() const { return cmd_; }
 
     /*
      * return the paras for this job. (e.g. space name for compact/flush)
@@ -124,7 +124,7 @@ public:
      * decode val from kvstore, return
      * {command, paras, status, start time, stop time}
      * */
-    static std::tuple<nebula::cpp2::AdminCmd,
+    static std::tuple<cpp2::AdminCmd,
                       std::vector<std::string>,
                       Status, int64_t, int64_t>
     parseVal(const folly::StringPiece& rawVal);
@@ -140,14 +140,14 @@ private:
      * decode val if it stored in data ver.1, return
      * {command, paras, status, start time, stop time}
      * */
-    static std::tuple<nebula::cpp2::AdminCmd,
+    static std::tuple<cpp2::AdminCmd,
                       std::vector<std::string>,
                       Status, int64_t, int64_t>
     decodeValV1(const folly::StringPiece& rawVal);
 
 private:
     int32_t                         id_;
-    nebula::cpp2::AdminCmd          cmd_;
+    cpp2::AdminCmd                  cmd_;
     std::vector<std::string>        paras_;
     Status                          status_;
     int64_t                         startTime_;

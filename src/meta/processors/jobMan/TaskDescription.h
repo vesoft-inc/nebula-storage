@@ -41,6 +41,7 @@ class TaskDescription {
 
 public:
     TaskDescription(int32_t iJob, int32_t iTask, const Host& dest);
+    TaskDescription(int32_t iJob, int32_t iTask, const HostAddr& dst);
     TaskDescription(int32_t iJob, int32_t iTask, int32_t ip, int32_t port);
     TaskDescription(const folly::StringPiece& key, const folly::StringPiece& val);
 

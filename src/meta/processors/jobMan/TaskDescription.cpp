@@ -26,6 +26,9 @@ TaskDescription::TaskDescription(int32_t iJob,
                                    startTime_(std::time(nullptr)),
                                    stopTime_(0) {}
 
+TaskDescription::TaskDescription(int32_t iJob, int32_t iTask, const HostAddr& dst)
+                                : TaskDescription(iJob, iTask, dst.ip, dst.port) {}
+
 TaskDescription::TaskDescription(int32_t iJob, int32_t iTask, int32_t ip, int32_t port)
                 : iJob_(iJob)
                 , iTask_(iTask)

@@ -19,7 +19,7 @@ public:
     using ErrOrHostAddrVec  = ErrorOr<nebula::kvstore::ResultCode, std::vector<HostAddr>>;
 
     SimpleConcurrentJobExecutor(int jobId,
-                                nebula::cpp2::AdminCmd cmd,
+                                cpp2::AdminCmd cmd,
                                 std::vector<std::string> params,
                                 nebula::kvstore::KVStore* kvStore,
                                 AdminClient* adminClient);
@@ -33,7 +33,7 @@ private:
 
 private:
     int                         jobId_;
-    nebula::cpp2::AdminCmd      cmd_;
+    cpp2::AdminCmd              cmd_;
     std::vector<std::string>    paras_;
     nebula::kvstore::KVStore*   kvStore_;
     AdminClient*                adminClient_;

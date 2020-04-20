@@ -667,7 +667,7 @@ folly::Future<Status> AdminClient::rebuildEdgeIndex(const HostAddr& address,
 }
 
 folly::Future<Status>
-AdminClient::addTask(nebula::cpp2::AdminCmd cmd,
+AdminClient::addTask(cpp2::AdminCmd cmd,
                     int32_t jobId,
                     int32_t taskId,
                     GraphSpaceID spaceId,

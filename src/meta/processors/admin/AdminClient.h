@@ -122,7 +122,7 @@ public:
                                            std::vector<PartitionID> parts,
                                            bool isOffline);
 
-    folly::Future<Status> addTask(nebula::cpp2::AdminCmd cmd,
+    folly::Future<Status> addTask(cpp2::AdminCmd cmd,
                                   int32_t jobId,
                                   int32_t taskId,
                                   GraphSpaceID spaceId,

@@ -17,13 +17,13 @@ namespace nebula {
 namespace meta {
 
 using Status = cpp2::JobStatus;
-using AdminCmd = nebula::cpp2::AdminCmd;
+using AdminCmd = cpp2::AdminCmd;
 
 int32_t JobDescription::minDataVer_ = 1;
 int32_t JobDescription::currDataVer_ = 1;
 
 JobDescription::JobDescription(int32_t id,
-                               nebula::cpp2::AdminCmd cmd,
+                               cpp2::AdminCmd cmd,
                                std::vector<std::string> paras,
                                Status status,
                                int64_t startTime,

@@ -22,16 +22,16 @@ MetaJobExecutorFactory::createMetaJobExecutor(const JobDescription& jd,
 
     auto cmd = jd.getCmd();
     switch (cmd) {
-    case nebula::cpp2::AdminCmd::COMPACT:
-    case nebula::cpp2::AdminCmd::FLUSH:
+    case cpp2::AdminCmd::COMPACT:
+    case cpp2::AdminCmd::FLUSH:
         ret.reset(new SimpleConcurrentJobExecutor(jd.getJobId(),
                                                   cmd,
                                                   jd.getParas(),
                                                   store,
                                                   client));
         break;
-    case nebula::cpp2::AdminCmd::REBUILD_TAG_INDEX:
-    case nebula::cpp2::AdminCmd::REBUILD_EDGE_INDEX:
+    case cpp2::AdminCmd::REBUILD_TAG_INDEX:
+    case cpp2::AdminCmd::REBUILD_EDGE_INDEX:
         break;
     default:
         break;
