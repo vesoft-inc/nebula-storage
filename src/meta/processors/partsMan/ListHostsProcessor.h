@@ -27,7 +27,7 @@ private:
     /**
      * Get all hosts with online/offline status and partition distribution.
      * */
-    Status allHostsWithStatus();
+    Status allHostsWithStatus(cpp2::HostRole role = cpp2::HostRole::STORAGE);
 
     // Get map of spaceId -> spaceName
     Status getSpaceIdNameMap();

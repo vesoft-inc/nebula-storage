@@ -11,6 +11,7 @@
 #include <gtest/gtest_prod.h>
 #include "kvstore/KVStore.h"
 #include "meta/MetaServiceUtils.h"
+#include "interface/gen-cpp2/meta_types.h"
 
 namespace nebula {
 namespace meta {
@@ -19,6 +20,11 @@ struct HostInfo {
     HostInfo() = default;
     explicit HostInfo(int64_t lastHBTimeInMilliSec)
         : lastHBTimeInMilliSec_(lastHBTimeInMilliSec) {}
+
+    HostInfo(int64_t lastHBTimeInMilliSec, cpp2::HostRole role, std::string gitInfoSha)
+        : lastHBTimeInMilliSec_(lastHBTimeInMilliSec)
+        , role_(role)
+        , gitInfoSha_(std::move(gitInfoSha)) {}
 
     bool operator==(const HostInfo& that) const {
         return this->lastHBTimeInMilliSec_ == that.lastHBTimeInMilliSec_;
@@ -29,6 +35,8 @@ struct HostInfo {
     }
 
     int64_t lastHBTimeInMilliSec_ = 0;
+    cpp2::HostRole  role_;
+    std::string     gitInfoSha_;
 
     static std::string encode(const HostInfo& info) {
         std::string encode;
@@ -42,6 +50,43 @@ struct HostInfo {
         info.lastHBTimeInMilliSec_ = *reinterpret_cast<const int64_t*>(data.data());
         return info;
     }
+
+    static std::string encodeV2(const HostInfo& info) {
+        std::string encode;
+        encode.reserve(sizeof(int64_t)+sizeof(cpp2::HostRole));
+        encode.append(reinterpret_cast<const char*>(&info.lastHBTimeInMilliSec_), sizeof(int64_t));
+        if (info.role_ != cpp2::HostRole::UNKNOWN) {
+            encode.append(reinterpret_cast<const char*>(&info.role_), sizeof(cpp2::HostRole));
+            if (!info.gitInfoSha_.empty()) {
+                int len = info.gitInfoSha_.size();
+                encode.append(reinterpret_cast<const char*>(&len), sizeof(len));
+                encode.append(info.gitInfoSha_.c_str(), len);
+            }
+        }
+        return encode;
+    }
+
+    static HostInfo decodeV2(const folly::StringPiece& data) {
+        HostInfo info;
+        info.lastHBTimeInMilliSec_ = *reinterpret_cast<const int64_t*>(data.data());
+        auto offset = sizeof(int64_t);
+        if (offset + sizeof(cpp2::HostRole) <= data.size()) {
+            info.role_ = *reinterpret_cast<const cpp2::HostRole*>(data.data() + offset);
+        }
+        offset += sizeof(cpp2::HostRole);
+        if (offset + sizeof(int) <= data.size()) {
+            int len = *reinterpret_cast<const int*>(data.data() + offset);
+            offset += sizeof(int);
+            if (offset + len <= data.size()) {
+                info.gitInfoSha_ = std::string(data.data() + offset, len);
+            } else {
+                LOG(ERROR) << folly::sformat("trying to decode SHA from data, size = {0}", data.size());
+            }
+        } else {
+            LOG(ERROR) << folly::sformat("trying to decode role from data, size = {0}", data.size());
+        }
+        return info;
+    }
 };
 
 class ActiveHostsMan final {
@@ -53,7 +98,9 @@ public:
                                               const HostInfo& info,
                                               const LeaderParts* leaderParts = nullptr);
 
-    static std::vector<HostAddr> getActiveHosts(kvstore::KVStore* kv, int32_t expiredTTL = 0);
+    static std::vector<HostAddr> getActiveHosts(kvstore::KVStore* kv,
+                                                int32_t expiredTTL = 0,
+                                                cpp2::HostRole role = cpp2::HostRole::STORAGE);
 
     static bool isLived(kvstore::KVStore* kv, const HostAddr& host);
 
