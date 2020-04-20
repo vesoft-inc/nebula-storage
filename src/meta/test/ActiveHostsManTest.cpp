@@ -15,6 +15,37 @@ DECLARE_int32(expired_threshold_sec);
 namespace nebula {
 namespace meta {
 
+TEST(ActiveHostsManTest, EncodeDecodeHostInfoV2) {
+    auto now = time::WallClock::fastNowInMilliSec();
+    auto role = cpp2::HostRole::STORAGE;
+    std::string strGitInfoSHA = NEBULA_STRINGIFY(GIT_INFO_SHA);
+    {
+        HostInfo hostInfo(now, role, strGitInfoSHA);
+        auto encodeHostInfo = HostInfo::encodeV2(hostInfo);
+
+        auto decodeHostInfo = HostInfo::decodeV2(encodeHostInfo);
+        ASSERT_EQ(hostInfo.lastHBTimeInMilliSec_, decodeHostInfo.lastHBTimeInMilliSec_);
+        ASSERT_EQ(hostInfo.role_, decodeHostInfo.role_);
+        ASSERT_EQ(hostInfo.gitInfoSha_, decodeHostInfo.gitInfoSha_);
+    }
+    {
+        HostInfo hostInfo(now);
+        auto encodeHostInfo = HostInfo::encode(hostInfo);
+
+        auto decodeHostInfo = HostInfo::decodeV2(encodeHostInfo);
+        ASSERT_EQ(hostInfo.lastHBTimeInMilliSec_, decodeHostInfo.lastHBTimeInMilliSec_);
+        ASSERT_EQ(hostInfo.role_, decodeHostInfo.role_);
+        ASSERT_EQ(hostInfo.gitInfoSha_, decodeHostInfo.gitInfoSha_);
+    }
+    {
+        HostInfo hostInfo(now, role, strGitInfoSHA);
+        auto encodeHostInfo = HostInfo::encodeV2(hostInfo);
+
+        auto decodeHostInfo = HostInfo::decode(encodeHostInfo);
+        ASSERT_EQ(hostInfo.lastHBTimeInMilliSec_, decodeHostInfo.lastHBTimeInMilliSec_);
+    }
+}
+
 TEST(ActiveHostsManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
     FLAGS_expired_threshold_sec = 2;

@@ -25,7 +25,7 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             onFinished();
             return;
         }
-        auto status = allHostsWithStatus();
+        auto status = allHostsWithStatus(req.get_role());
         if (!status.ok()) {
             onFinished();
             return;
@@ -35,7 +35,7 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
     onFinished();
 }
 
-Status ListHostsProcessor::allHostsWithStatus() {
+Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
     const auto& hostPrefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter);
@@ -51,7 +51,13 @@ Status ListHostsProcessor::allHostsWithStatus() {
         cpp2::HostItem item;
         auto host = MetaServiceUtils::parseHostKey(iter->key());
         item.set_hostAddr(std::move(host));
-        HostInfo info = HostInfo::decode(iter->val());
+        HostInfo info = HostInfo::decodeV2(iter->val());
+        if (info.role_ != role) {
+            iter->next();
+            continue;
+        }
+        item.set_role(info.role_);
+        item.set_git_info_sha(info.gitInfoSha_);
         if (now - info.lastHBTimeInMilliSec_ < FLAGS_removed_threshold_sec * 1000) {
             if (now - info.lastHBTimeInMilliSec_ < FLAGS_expired_threshold_sec * 1000) {
                 item.set_status(cpp2::HostStatus::ONLINE);
@@ -65,6 +71,9 @@ Status ListHostsProcessor::allHostsWithStatus() {
         iter->next();
     }
 
+    if (role == cpp2::HostRole::GRAPH || role == cpp2::HostRole::META || role == cpp2::HostRole::STORAGE) {
+        return Status::OK();
+    }
     const auto& leaderPrefix = MetaServiceUtils::leaderPrefix();
     kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
@@ -89,7 +98,6 @@ Status ListHostsProcessor::allHostsWithStatus() {
         }
         iter->next();
     }
-
     std::unordered_map<HostAddr,
                        std::unordered_map<std::string, std::vector<PartitionID>>> allParts;
     for (const auto& spaceId : spaceIds_) {

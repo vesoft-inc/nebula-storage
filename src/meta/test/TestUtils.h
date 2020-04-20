@@ -165,6 +165,17 @@ public:
         }
      }
 
+    static void setupHB(kvstore::KVStore* kv,
+                        const std::vector<HostAddr>& hosts,
+                        cpp2::HostRole role,
+                        const std::string& gitInfoSha) {
+        auto now = time::WallClock::fastNowInMilliSec();
+        for (auto& h : hosts) {
+            auto ret = ActiveHostsMan::updateHostInfo(kv, h, HostInfo(now, role, gitInfoSha));
+            CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
+        }
+    }
+
     static int32_t createSomeHosts(kvstore::KVStore* kv,
                                    std::vector<HostAddr> hosts
                                        = {{0, 0}, {1, 1}, {2, 2}, {3, 3}}) {

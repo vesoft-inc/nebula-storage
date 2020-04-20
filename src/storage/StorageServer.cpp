@@ -115,6 +115,9 @@ bool StorageServer::start() {
         return false;
     }
 
+    metaClient_->setupLongTermHeartBeat(nebula::meta::cpp2::HostRole::STORAGE,
+                                        NEBULA_STRINGIFY(GIT_INFO_SHA));
+
     gFlagsMan_ = std::make_unique<meta::ClientBasedGflagsManager>(metaClient_.get());
 
     LOG(INFO) << "Init schema manager";
