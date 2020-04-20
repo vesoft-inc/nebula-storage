@@ -16,8 +16,8 @@ using meta::cpp2::PropertyType;
 
 const double e = 2.71828182845904523536028747135266249775724709369995;
 const float pi = 3.14159265358979;
-const std::string str = "Hello world!";
-const std::string fixed = "Nebula Graph";
+const std::string str = "Hello world!";  // NOLINT
+const std::string fixed = "Nebula Graph";  // NOLINT
 const Timestamp now = 1582183355;
 const Date date = {2020, 2, 20};
 const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600};
@@ -359,6 +359,27 @@ TEST(RowWriterV2, Update) {
     EXPECT_EQ(Value::Type::STRING, v1.type());
     EXPECT_EQ(str, v1.getStr());
     EXPECT_EQ(v1, v2);
+}
+
+
+TEST(RowWriterV2, OutOfRange) {
+    SchemaWriter schema(12 /*Schema version*/);
+    schema.appendCol("Col02", PropertyType::INT8);
+    schema.appendCol("Col03", PropertyType::INT16);
+    schema.appendCol("Col04", PropertyType::INT32);
+    // schema.appendCol("Col05", PropertyType::INT64); won't
+
+    RowWriterV2 writer1(&schema);
+    // negative coversion
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(0, std::numeric_limits<int8_t>::max() + 1));
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(1, std::numeric_limits<int16_t>::max() + 1));
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(
+        2, static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1));
+
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(0, std::numeric_limits<int8_t>::min() - 1));
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(1, std::numeric_limits<int16_t>::min() - 1));
+    EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer1.set(
+        2, static_cast<int64_t>(std::numeric_limits<int32_t>::min()) - 1));
 }
 
 }  // namespace nebula

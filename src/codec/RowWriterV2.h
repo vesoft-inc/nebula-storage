@@ -138,10 +138,10 @@ public:
         }
     }
 
-    WriteResult setValue(ssize_t index, const Value& val) noexcept;
+    WriteResult setValue(size_t index, const Value& val) noexcept;
     WriteResult setValue(folly::StringPiece name, const Value& val) noexcept;
 
-    WriteResult setNull(ssize_t index) noexcept;
+    WriteResult setNull(size_t index) noexcept;
     WriteResult setNull(folly::StringPiece name) noexcept;
 
 private:
@@ -166,31 +166,31 @@ private:
 
     void processV2EncodedStr() noexcept;
 
-    void setNullBit(ssize_t pos) noexcept;
-    void clearNullBit(ssize_t pos) noexcept;
+    void setNullBit(size_t pos) noexcept;
+    void clearNullBit(size_t pos) noexcept;
     // Return true if the flag at the given position is NULL;
     // otherwise, return false
-    bool checkNullBit(ssize_t pos) const noexcept;
+    bool checkNullBit(size_t pos) const noexcept;
 
-    WriteResult write(ssize_t index, bool v) noexcept;
-    WriteResult write(ssize_t index, float v) noexcept;
-    WriteResult write(ssize_t index, double v) noexcept;
+    WriteResult write(size_t index, bool v) noexcept;
+    WriteResult write(size_t index, float v) noexcept;
+    WriteResult write(size_t index, double v) noexcept;
 
-    WriteResult write(ssize_t index, int8_t v) noexcept;
-    WriteResult write(ssize_t index, int16_t v) noexcept;
-    WriteResult write(ssize_t index, int32_t v) noexcept;
-    WriteResult write(ssize_t index, int64_t v) noexcept;
-    WriteResult write(ssize_t index, uint8_t v) noexcept;
-    WriteResult write(ssize_t index, uint16_t v) noexcept;
-    WriteResult write(ssize_t index, uint32_t v) noexcept;
-    WriteResult write(ssize_t index, uint64_t v) noexcept;
+    WriteResult write(size_t index, int8_t v) noexcept;
+    WriteResult write(size_t index, uint8_t v) noexcept;
+    WriteResult write(size_t index, int16_t v) noexcept;
+    WriteResult write(size_t index, uint16_t v) noexcept;
+    WriteResult write(size_t index, int32_t v) noexcept;
+    WriteResult write(size_t index, uint32_t v) noexcept;
+    WriteResult write(size_t index, int64_t v) noexcept;
+    // WriteResult RowWriterV2::write(size_t index, uint64_t v) noexcept;
 
-    WriteResult write(ssize_t index, const std::string& v) noexcept;
-    WriteResult write(ssize_t index, folly::StringPiece v) noexcept;
-    WriteResult write(ssize_t index, const char* v) noexcept;
+    WriteResult write(size_t index, const std::string& v) noexcept;
+    WriteResult write(size_t index, folly::StringPiece v) noexcept;
+    WriteResult write(size_t index, const char* v) noexcept;
 
-    WriteResult write(ssize_t index, const Date& v) noexcept;
-    WriteResult write(ssize_t index, const DateTime& v) noexcept;
+    WriteResult write(size_t index, const Date& v) noexcept;
+    WriteResult write(size_t index, const DateTime& v) noexcept;
 };
 
 }  // namespace nebula

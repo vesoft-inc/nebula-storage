@@ -20,7 +20,7 @@ SchemaWriter schemaLong;
 
 const double e = 2.71828182845904523536028747135266249775724709369995;
 const float pi = 3.14159265358979;
-const std::string str = "Hello world!";
+const std::string str = "Hello world!";  // NOLINT
 
 
 void prepareSchema(SchemaWriter* schema, size_t numRepeats) {
@@ -60,7 +60,7 @@ void writeDataV2(SchemaWriter* schema, int32_t iters) {
         size_t idx = 0;
         for (size_t j = 0; j < schema->getNumFields() / 6; j++) {
             writer.set(idx++, true);
-            writer.set(idx++, j);
+            writer.set(idx++, static_cast<int64_t>(j)/*not safe*/);
             writer.set(idx++, 1551331827);
             writer.set(idx++, pi);
             writer.set(idx++, e);
