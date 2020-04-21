@@ -12,6 +12,9 @@
 #include "interface/gen-cpp2/storage_types.h"
 #include "meta/SchemaProviderIf.h"
 
+DECLARE_bool(mock_ttl_col);
+DECLARE_int32(mock_ttl_duration);
+
 namespace nebula {
 namespace mock {
 
@@ -39,7 +42,8 @@ struct Player {
     int                 games_;
     double              avgScore_;
     int                 serveTeams_;
-    std::string         country_;
+    std::string         country_{""};
+    int                 champions_{0};
 };
 
 struct Serve {
@@ -50,6 +54,8 @@ struct Serve {
     int                 teamCareer_;
     int                 teamGames_;
     double              teamAvgScore_;
+    bool                starting_{false};
+    int                 champions_{0};;
 };
 
 class MockData {
