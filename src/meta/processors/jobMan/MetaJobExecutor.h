@@ -15,18 +15,54 @@
 namespace nebula {
 namespace meta {
 
+using ExecuteRet   = ErrorOr<cpp2::ErrorCode, std::unordered_map<HostAddr, Status>>;
+
+using ErrOrHosts  = ErrorOr<cpp2::ErrorCode,
+                            std::vector<std::pair<HostAddr, std::vector<PartitionID>>>>;
+
 class MetaJobExecutor {
 public:
-    using ExecuteRet = ErrorOr<kvstore::ResultCode, std::map<HostAddr, Status>>;
+    MetaJobExecutor(JobID jobId,
+                    kvstore::KVStore* kvstore,
+                    AdminClient* adminClient,
+                    std::vector<std::string> paras)
+    : jobId_(jobId),
+      kvstore_(kvstore),
+      adminClient_(adminClient),
+      paras_(paras) {}
 
-    MetaJobExecutor() = default;
-
-    virtual ExecuteRet execute() = 0;
-    virtual void stop() = 0;
     virtual ~MetaJobExecutor() = default;
 
+    // Check the argument's size about the job
+    virtual bool check() = 0;
+
+    //
+    virtual cpp2::ErrorCode prepare() = 0;
+
+    //
+    ExecuteRet execute();
+
+    //
+    virtual cpp2::ErrorCode stop() = 0;
+
 protected:
-    int32_t jobId_{INT_MIN};
+    ErrorOr<cpp2::ErrorCode, GraphSpaceID>
+    getSpaceIdFromName(const std::string& spaceName);
+
+    ErrOrHosts getTargetHost(GraphSpaceID space);
+
+    ErrOrHosts getLeaderHost(GraphSpaceID space);
+
+    virtual folly::Future<Status> executeInternal(const HostAddr& address,
+                                                  std::vector<PartitionID> parts) = 0;
+
+protected:
+    JobID                       jobId_{INT_MIN};
+    kvstore::KVStore*           kvstore_{nullptr};
+    AdminClient*                adminClient_{nullptr};
+    GraphSpaceID                space_;
+    std::vector<std::string>    paras_;
+    bool                        toLeader_{false};
 };
 
 class MetaJobExecutorFactory {

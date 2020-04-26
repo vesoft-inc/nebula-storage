@@ -34,12 +34,12 @@ class JobDescription {
 
 public:
     JobDescription() = default;
-    JobDescription(int32_t id,
+    JobDescription(JobID id,
                    cpp2::AdminCmd cmd,
                    std::vector<std::string> paras,
                    Status status = Status::QUEUE,
-                   int64_t = 0,
-                   int64_t = 0);
+                   int64_t startTime = 0,
+                   int64_t stopTime  = 0);
 
     /*
      * return the JobDescription if both key & val is valid
@@ -47,7 +47,7 @@ public:
     static folly::Optional<JobDescription>
     makeJobDescription(folly::StringPiece key, folly::StringPiece val);
 
-    int32_t getJobId() const { return id_; }
+    JobID getJobId() const { return id_; }
 
     /*
      * return the command for this job. (e.g. compact, flush ...)
@@ -93,12 +93,12 @@ public:
      * get a existed job from kvstore, return folly::none if there isn't
      * */
     static folly::Optional<JobDescription>
-    loadJobDescription(int32_t iJob, nebula::kvstore::KVStore* kv);
+    loadJobDescription(JobID iJob, nebula::kvstore::KVStore* kv);
 
     /*
      * compose a key write to kvstore, according to the given job id
      * */
-    static std::string makeJobKey(int32_t iJob);
+    static std::string makeJobKey(JobID iJob);
 
     /*
      * write out all job details in human readable strings
@@ -144,7 +144,7 @@ private:
     decodeValV1(const folly::StringPiece& rawVal);
 
 private:
-    int32_t                         id_;
+    JobID                           id_;
     cpp2::AdminCmd                  cmd_;
     std::vector<std::string>        paras_;
     Status                          status_;

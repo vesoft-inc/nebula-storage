@@ -7,37 +7,28 @@
 #ifndef META_SIMPLECONCURRENTJOBEXECUTOR_H_
 #define META_SIMPLECONCURRENTJOBEXECUTOR_H_
 
-#include "meta/processors/jobMan/MetaJobExecutor.h"
 #include "common/interface/gen-cpp2/common_types.h"
+#include "meta/processors/jobMan/MetaJobExecutor.h"
 
 namespace nebula {
 namespace meta {
 
 class SimpleConcurrentJobExecutor : public MetaJobExecutor {
 public:
-    using ExecuteRet = ErrorOr<kvstore::ResultCode, std::map<HostAddr, Status>>;
-    using ErrOrInt  = ErrorOr<nebula::kvstore::ResultCode, int32_t>;
-    using ErrOrHostAddrVec  = ErrorOr<nebula::kvstore::ResultCode, std::vector<HostAddr>>;
+    SimpleConcurrentJobExecutor(JobID jobId,
+                                kvstore::KVStore* kvstore,
+                                AdminClient* adminClient,
+                                std::vector<std::string> params);
 
-    SimpleConcurrentJobExecutor(int jobId,
-                                cpp2::AdminCmd cmd,
-                                std::vector<std::string> params,
-                                nebula::kvstore::KVStore* kvStore,
-                                AdminClient* adminClient);
+    bool check() override;
 
-    ExecuteRet execute() override;
-    void stop() override;
+    cpp2::ErrorCode prepare() override;
 
-private:
-    ErrOrInt getSpaceIdFromName(const std::string& spaceName);
-    ErrOrHostAddrVec getTargetHost(int32_t spaceId);
+    cpp2::ErrorCode stop() override;
 
-private:
-    int                         jobId_;
-    cpp2::AdminCmd              cmd_;
-    std::vector<std::string>    paras_;
-    nebula::kvstore::KVStore*   kvStore_;
-    AdminClient*                adminClient_;
+protected:
+    int32_t        taskId_{0};
+    int32_t        concurrency_{INT_MAX};
 };
 
 }  // namespace meta

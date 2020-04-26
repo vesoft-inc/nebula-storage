@@ -21,16 +21,17 @@ bool AdminTaskManager::init() {
     pool_ = std::make_unique<ThreadPool>(FLAGS_max_concurrent_subtasks);
 
     bgThread_ = std::make_unique<thread::GenericWorker>();
-    CHECK(bgThread_->start());
+    if (!bgThread_->start()) {
+        return false;
+    }
     bgThread_->addTask(&AdminTaskManager::schedule, this);
-
     shutdown_ = false;
     LOG(INFO) << "exit AdminTaskManager::init()";
     return true;
 }
 
 void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
-    TaskHandle handle = std::make_pair(task->getJobId(), task->getTaskId());
+    auto handle = std::make_pair(task->getJobId(), task->getTaskId());
     LOG(INFO) << folly::stringPrintf("try enqueue task(%d, %d), con req=%zu",
                                      task->getJobId(), task->getTaskId(),
                                      task->getConcurrentReq());
@@ -82,7 +83,6 @@ void AdminTaskManager::shutdown() {
     }
 
     pool_->join();
-
     LOG(INFO) << "exit AdminTaskManager::shutdown()";
 }
 
@@ -107,8 +107,8 @@ void AdminTaskManager::schedule() {
         auto it = tasks_.find(handle);
         if (it == tasks_.end()) {
             LOG(ERROR) << folly::stringPrintf(
-                        "trying to exec non-exist task(%d, %d)",
-                        handle.first, handle.second);
+                          "trying to exec non-exist task(%d, %d)",
+                          handle.first, handle.second);
             continue;
         }
 

@@ -19,7 +19,8 @@ namespace meta {
 TEST(ActiveHostsManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
     FLAGS_expired_threshold_sec = 2;
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     auto now = time::WallClock::fastNowInMilliSec();
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 0), HostInfo(now));
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 1), HostInfo(now));
@@ -56,7 +57,8 @@ TEST(ActiveHostsManTest, NormalTest) {
 TEST(ActiveHostsManTest, LeaderTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
     FLAGS_expired_threshold_sec = 2;
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     auto now = time::WallClock::fastNowInMilliSec();
 
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 0), HostInfo(now));
@@ -101,7 +103,8 @@ TEST(ActiveHostsManTest, LeaderTest) {
 
 TEST(LastUpdateTimeManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/LastUpdateTimeManTest.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
 
     ASSERT_EQ(0, LastUpdateTimeMan::get(kv.get()));
     int64_t now = time::WallClock::fastNowInMilliSec();

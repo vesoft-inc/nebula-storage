@@ -26,7 +26,7 @@ FlushTask::genSubTasks() {
 
     auto space = nebula::value(errOrSpace);
 
-    ret.emplace_back([space = space](){
+    ret.emplace_back([space = space]() {
         for (auto& engine : space->engines_) {
             auto code = engine->flush();
             if (code != kvstore::ResultCode::SUCCEEDED) {

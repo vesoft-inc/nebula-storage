@@ -146,7 +146,8 @@ TEST(AdminClientTest, SimpleTest) {
     std::string localIp("127.0.0.1");
     // network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
     fs::TempDir rootPath("/tmp/AdminTest.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     auto client = std::make_unique<AdminClient>(kv.get());
 
     {
@@ -193,7 +194,8 @@ TEST(AdminClientTest, RetryTest) {
 
     LOG(INFO) << "Now test interfaces with retry to leader!";
     fs::TempDir rootPath("/tmp/AdminTest.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     {
         LOG(INFO) << "Write some part information!";
         std::vector<HostAddr> thriftPeers;
@@ -298,7 +300,8 @@ TEST(AdminClientTest, SnapshotTest) {
 
     LOG(INFO) << "Now test interfaces with retry to leader!";
     fs::TempDir rootPath("/tmp/admin_snapshot_test.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     auto now = time::WallClock::fastNowInMilliSec();
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr(localIp, rpcServer->port_), HostInfo(now));
     ASSERT_EQ(1, ActiveHostsMan::getActiveHosts(kv.get()).size());
@@ -338,7 +341,8 @@ TEST(AdminClientTest, RebuildIndexTest) {
 
     LOG(INFO) << "Now test interfaces with retry to leader!";
     fs::TempDir rootPath("/tmp/admin_snapshot_test.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    mock::MockCluster cluster;
+    auto kv = cluster.initMetaKV(rootPath.path());
     auto now = time::WallClock::fastNowInMilliSec();
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr(localIp, rpcServer->port_), HostInfo(now));
     ASSERT_EQ(1, ActiveHostsMan::getActiveHosts(kv.get()).size());
