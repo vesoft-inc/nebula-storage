@@ -21,20 +21,20 @@ namespace storage {
 // Vertice section
 folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_addVertices(const cpp2::AddVerticesRequest& req) {
-    auto* processor = AddVerticesProcessor::instance(env_, &addVertexQpsStat_, &vertexCache_);
+    auto* processor = AddVerticesProcessor::instance(env_, &addVerticesQpsStat_, &vertexCache_);
     RETURN_FUTURE(processor);
 }
 
 folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_deleteVertices(const cpp2::DeleteVerticesRequest& req) {
-    auto* processor = DeleteVerticesProcessor::instance(env_, &delVertexQpsStat_, &vertexCache_);
+    auto* processor = DeleteVerticesProcessor::instance(env_, &delVerticesQpsStat_, &vertexCache_);
     RETURN_FUTURE(processor);
 }
 
 // Edge section
 folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_addEdges(const cpp2::AddEdgesRequest& req) {
-    auto* processor = AddEdgesProcessor::instance(env_, &addEdgeQpsStat_);
+    auto* processor = AddEdgesProcessor::instance(env_, &addEdgesQpsStat_);
     RETURN_FUTURE(processor);
 }
 

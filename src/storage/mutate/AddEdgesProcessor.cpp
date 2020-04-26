@@ -72,6 +72,8 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
 
                 auto props = newEdge.get_props();
                 RowWriterV2 rowWrite(schema.get());
+                // If req.prop_names is not empty, use the property name in req.prop_names
+                // Otherwise, use property name in schema
                 if (!propNames.empty()) {
                     for (size_t i = 0; i < propNames.size(); i++) {
                         auto wRet = rowWrite.setValue(propNames[i], props[i]);

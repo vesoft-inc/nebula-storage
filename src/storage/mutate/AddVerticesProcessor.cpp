@@ -14,9 +14,6 @@
 
 DECLARE_bool(enable_vertex_cache);
 
-/*
- * Start of DeleteVertex section
- */
 namespace nebula {
 namespace storage {
 
@@ -79,6 +76,8 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                     auto props = newTag.get_props();
                     auto iter = propNamesMap.find(tagId);
                     RowWriterV2 rowWrite(schema.get());
+                    // If tagId is specified in req.prop_names, use the property name
+                    // in req.prop_names, otherwise, use property name in schema
                     if (iter != propNamesMap.end()) {
                         auto colNames = iter->second;
                         for (size_t i = 0; i < colNames.size(); i++) {

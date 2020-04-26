@@ -24,9 +24,9 @@ public:
     explicit GraphStorageServiceHandler(StorageEnv* env)
         : env_(env)
         , vertexCache_(FLAGS_vertex_cache_num, FLAGS_vertex_cache_bucket_exp) {
-        addVertexQpsStat_ = stats::Stats("storage", "add_vertex");
-        addEdgeQpsStat_ = stats::Stats("storage", "add_edge");
-        delVertexQpsStat_ = stats::Stats("storage", "del_vertex");
+        addVerticesQpsStat_ = stats::Stats("storage", "add_vertices");
+        addEdgesQpsStat_ = stats::Stats("storage", "add_edges");
+        delVerticesQpsStat_ = stats::Stats("storage", "del_vertices");
     }
 
     // Vertice section
@@ -46,9 +46,9 @@ public:
 private:
     StorageEnv*             env_{nullptr};
     VertexCache             vertexCache_;
-    stats::Stats            addVertexQpsStat_;
-    stats::Stats            addEdgeQpsStat_;
-    stats::Stats            delVertexQpsStat_;
+    stats::Stats            addVerticesQpsStat_;
+    stats::Stats            addEdgesQpsStat_;
+    stats::Stats            delVerticesQpsStat_;
 };
 
 }  // namespace storage
