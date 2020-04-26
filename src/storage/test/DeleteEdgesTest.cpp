@@ -48,7 +48,7 @@ TEST(DeleteEdgesTest, SimpleTest) {
             auto newEdgeVec = part.second;
             for (auto& newEdge : newEdgeVec) {
                 auto edgekey = newEdge.key;
-                auto newEdgeProp = newEdge.props.props;
+                auto newEdgeProp = newEdge.props;
 
                 auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
                                                          partId,
@@ -169,7 +169,7 @@ TEST(DeleteEdgesTest, MultiVersionTest) {
             auto newEdgeVec = part.second;
             for (auto& newEdge : newEdgeVec) {
                 auto edgekey = newEdge.key;
-                auto newEdgeProp = newEdge.props.props;
+                auto newEdgeProp = newEdge.props;
 
                 auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
                                                          partId,

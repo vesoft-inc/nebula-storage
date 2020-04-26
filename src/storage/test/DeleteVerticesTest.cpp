@@ -68,20 +68,20 @@ TEST(DeleteVerticesTest, SimpleTest) {
                         if (tagId == 1) {
                             for (auto i = 0; i < 9; i++) {
                                 val = reader->getValueByIndex(i);
-                                EXPECT_EQ(newTag.props.props[i], val);
+                                EXPECT_EQ(newTag.props[i], val);
                             }
-                            if (newTag.props.props.size() >= 10) {
+                            if (newTag.props.size() >= 10) {
                                 val = reader->getValueByIndex(9);
-                                EXPECT_EQ(newTag.props.props[9], val);
-                                if (newTag.props.props.size() == 11) {
+                                EXPECT_EQ(newTag.props[9], val);
+                                if (newTag.props.size() == 11) {
                                     val = reader->getValueByIndex(10);
-                                    EXPECT_EQ(newTag.props.props[10], val);
+                                    EXPECT_EQ(newTag.props[10], val);
                                 }
                             }
                         } else if (tagId == 2) {
                             // For teams tagId is 2
                             val = reader->getValueByIndex(0);
-                            EXPECT_EQ(newTag.props.props[0], val);
+                            EXPECT_EQ(newTag.props[0], val);
                         } else {
                             // Impossible to get here
                             ASSERT_TRUE(false);
@@ -200,21 +200,21 @@ TEST(DeleteVerticesTest, MultiVersionTest) {
                                 // columns always use the default value or null value
                                 for (auto i = 0; i < 9; i++) {
                                     val = reader->getValueByIndex(i);
-                                    EXPECT_EQ(newTag.props.props[i], val);
+                                    EXPECT_EQ(newTag.props[i], val);
                                 }
                                 val = reader->getValueByIndex(9);
                                 EXPECT_EQ("America", val.getStr());
                             } else {
                                 for (auto i = 0; i < 9; i++) {
                                     val = reader->getValueByIndex(i);
-                                    EXPECT_EQ(newTag.props.props[i], val);
+                                    EXPECT_EQ(newTag.props[i], val);
                                 }
-                                if (newTag.props.props.size() >= 10) {
+                                if (newTag.props.size() >= 10) {
                                     val = reader->getValueByIndex(9);
-                                    EXPECT_EQ(newTag.props.props[9], val);
-                                    if (newTag.props.props.size() == 11) {
+                                    EXPECT_EQ(newTag.props[9], val);
+                                    if (newTag.props.size() == 11) {
                                         val = reader->getValueByIndex(10);
-                                        EXPECT_EQ(newTag.props.props[10], val);
+                                        EXPECT_EQ(newTag.props[10], val);
                                     }
                                 }
                              }
@@ -223,7 +223,7 @@ TEST(DeleteVerticesTest, MultiVersionTest) {
                         if (tagId == 2) {
                             // For teams tagId is 2
                             val = reader->getValueByIndex(0);
-                            EXPECT_EQ(newTag.props.props[0], val);
+                            EXPECT_EQ(newTag.props[0], val);
                         }
                         num++;
                         count++;

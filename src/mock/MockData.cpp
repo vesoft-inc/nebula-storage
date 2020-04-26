@@ -532,8 +532,6 @@ nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVerticesReq(int32_t p
     req.space_id = 1;
     req.overwritable = true;
 
-    UNUSED(parts);
-#if 0
     auto retRecs = mockVertices();
 
     for (auto& rec : retRecs) {
@@ -563,7 +561,6 @@ nebula::storage::cpp2::DeleteVerticesRequest MockData::mockDeleteVerticesReq(int
         auto partId = std::hash<std::string>()(rec) % parts + 1;
         req.parts[partId].emplace_back(std::move(rec));
     }
-#endif
     return req;
 }
 
@@ -571,8 +568,6 @@ nebula::storage::cpp2::AddEdgesRequest MockData::mockAddEdgesReq(int32_t parts) 
     nebula::storage::cpp2::AddEdgesRequest req;
     req.space_id = 1;
     req.overwritable = true;
-    UNUSED(parts);
-#if 0
     auto retRecs = mockEdges();
     for (auto& rec : retRecs) {
         nebula::storage::cpp2::NewEdge newEdge;
@@ -607,7 +602,6 @@ nebula::storage::cpp2::DeleteEdgesRequest MockData::mockDeleteEdgesReq(int32_t p
         edgeKey.dst = rec.dstId_;
         req.parts[partId].emplace_back(std::move(edgeKey));
     }
-#endif
     return req;
 }
 
@@ -691,10 +685,10 @@ MockData::mockAddVerticesSpecifiedOrderReq(int32_t parts) {
             std::vector<std::string> colNames{"serveTeams", "avgScore", "games", "endYear",
                                               "startYear",  "career", "playing", "age",
                                               "name"};
-            req.prop_names[1].emplace_back(std::move(colNames));
+            req.prop_names[1] = std::move(colNames);
         } else {
             std::vector<std::string> colNames{"name"};
-            req.prop_names[2].emplace_back(std::move(colNames));
+            req.prop_names[2] = std::move(colNames);
         }
 
         nebula::storage::cpp2::NewVertex newVertex;
@@ -736,7 +730,7 @@ MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
 
         std::vector<std::string> colNames{"teamAvgScore", "teamGames", "teamCareer",
                                           "endYear", "startYear", "teamName", "playerName"};
-        req.prop_names(std::move(colNames));
+        req.set_prop_names(std::move(colNames));
     }
     return req;
 }

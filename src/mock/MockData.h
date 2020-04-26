@@ -100,7 +100,7 @@ public:
     static nebula::storage::cpp2::DeleteVerticesRequest
     mockDeleteVerticesReq(int32_t parts = 6);
 
-    static  nebula::storage::cpp2::DeleteEdgesRequest
+    static nebula::storage::cpp2::DeleteEdgesRequest
     mockDeleteEdgesReq(int32_t parts = 6);
 
     static nebula::storage::cpp2::AddVerticesRequest
