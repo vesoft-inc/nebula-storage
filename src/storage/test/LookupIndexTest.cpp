@@ -109,7 +109,30 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
         processor->process(req);
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
-        EXPECT_EQ(2, resp.vertices.size());
+        std::vector<std::string> expectCols = {"_vid", "col_bool", "col_int"};
+        auto columns = resp.get_data()->colNames;
+        EXPECT_EQ(expectCols, columns);
+        auto rows = resp.get_data()->rows;
+        EXPECT_EQ(2, rows.size());
+        decltype(resp.get_data()->rows) expectRows;
+
+        int64_t vid1 = 1, vid2 = 2;
+        // setup V1 row
+        auto vId1 = reinterpret_cast<const char*>(&vid1);
+        auto vId2 = reinterpret_cast<const char*>(&vid2);
+        Row row1;
+        row1.columns.emplace_back(Value(vId1));
+        row1.columns.emplace_back(Value(true));
+        row1.columns.emplace_back(Value(1L));
+        expectRows.emplace_back(Row(row1));
+
+        Row row2;
+        row2.columns.emplace_back(Value(vId2));
+        row2.columns.emplace_back(Value(true));
+        row2.columns.emplace_back(Value(1L));
+        expectRows.emplace_back(Row(row2));
+
+        EXPECT_EQ(expectRows[0], rows[0]);
     }
 }
 

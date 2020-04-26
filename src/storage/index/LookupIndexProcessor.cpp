@@ -42,11 +42,7 @@ void LookupIndexProcessor::process(const cpp2::LookupIndexRequest& req) {
     /**
      * step 3 : collect result.
      */
-    if (isEdgeIndex_) {
-        this->resp_.set_edges(std::move(edgeRows_));
-    } else {
-        this->resp_.set_vertices(std::move(vertexRows_));
-    }
+    this->resp_.set_data(std::move(returnData_));
 
     this->onFinished();
 }

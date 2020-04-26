@@ -37,6 +37,14 @@ protected:
 
     cpp2::ErrorCode prepareRequest(const cpp2::LookupIndexRequest &req);
 
+    /**
+     * Details Scan index or data part as one by one.
+     **/
+    kvstore::ResultCode executeExecutionPlan(PartitionID part);
+
+private:
+    void setupReturnColumns() noexcept;
+
     cpp2::ErrorCode buildExecutionPlan(int32_t hintId, const cpp2::IndexQueryContext& queryContext);
 
     cpp2::ErrorCode setupIndexColumns(std::map<std::string, Value::Type> &cols,
@@ -44,12 +52,6 @@ protected:
 
     Value::Type toValueType(nebula::meta::cpp2::PropertyType type) noexcept;
 
-    /**
-     * Details Scan index or data part as one by one.
-     **/
-    kvstore::ResultCode executeExecutionPlan(PartitionID part);
-
-private:
     kvstore::ResultCode executeIndexScan(int32_t hintId, PartitionID part);
 
     kvstore::ResultCode executeIndexRangeScan(int32_t hintId, PartitionID part);
@@ -60,12 +62,10 @@ private:
                                    const folly::StringPiece& key);
 
     kvstore::ResultCode getVertexRow(PartitionID partId,
-                                     const folly::StringPiece& key,
-                                     cpp2::VertexIndexData* data);
+                                     const folly::StringPiece& key);
 
     kvstore::ResultCode getEdgeRow(PartitionID partId,
-                                   const folly::StringPiece& key,
-                                   cpp2::EdgeIndexData* data);
+                                   const folly::StringPiece& key);
 
     bool conditionsCheck(int32_t hintId, const folly::StringPiece& key);
 
@@ -81,8 +81,7 @@ protected:
     GraphSpaceID                           spaceId_;
     VertexCache*                           vertexCache_{nullptr};
     size_t                                 vIdLen_{0};
-    std::vector<cpp2::VertexIndexData>     vertexRows_;
-    std::vector<cpp2::EdgeIndexData>       edgeRows_;
+    DataSet                                returnData_;
     bool                                   isEdgeIndex_{false};
 
 private:

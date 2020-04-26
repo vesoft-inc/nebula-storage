@@ -18,11 +18,13 @@ cpp2::ErrorCode IndexExecutor<RESP>::prepareRequest(const cpp2::LookupIndexReque
     spaceId_ = req.get_space_id();
 
     // step 2 : check and setup lookup type, such as tag index or edge index
+    isEdgeIndex_ = req.get_is_edge();
     tagOrEdgeId_ = req.get_tag_or_edge_id();
 
     // step 3 : check and setup return columns.
     if (req.__isset.return_columns && !req.get_return_columns()->empty()) {
         returnColumns_ = *req.get_return_columns();
+        setupReturnColumns();
     }
 
     // TODO : (sky) get the fixed length VId len from space meta.
@@ -42,6 +44,23 @@ cpp2::ErrorCode IndexExecutor<RESP>::prepareRequest(const cpp2::LookupIndexReque
 }
 
 template <typename RESP>
+void IndexExecutor<RESP>::setupReturnColumns() noexcept {
+    std::vector<std::string> returnCols;
+    if (isEdgeIndex_) {
+        returnCols.emplace_back("_src");
+        returnCols.emplace_back("_type");
+        returnCols.emplace_back("_ranking");
+        returnCols.emplace_back("_dst");
+    } else {
+        returnCols.emplace_back("_vid");
+    }
+    std::for_each(returnColumns_.begin(), returnColumns_.end(), [&](auto& col) {
+        returnCols.emplace_back(col);
+        });
+    returnData_.colNames = std::move(returnCols);
+}
+
+template <typename RESP>
 cpp2::ErrorCode
 IndexExecutor<RESP>::buildExecutionPlan(int32_t hintId,
                                         const cpp2::IndexQueryContext& queryContext) {
@@ -54,7 +73,7 @@ IndexExecutor<RESP>::buildExecutionPlan(int32_t hintId,
         index = this->env_->indexMan_->getTagIndex(spaceId_, indexId);
     }
     if (!index.ok()) {
-        return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
+        return cpp2::ErrorCode::E_LOAD_META_FAILED;
     }
     std::map<std::string, Value::Type> indexCols;
     auto ret = setupIndexColumns(indexCols, index.value());
@@ -216,17 +235,13 @@ kvstore::ResultCode IndexExecutor<RESP>::getDataRow(PartitionID partId,
                                                     const folly::StringPiece& key) {
     kvstore::ResultCode ret;
     if (isEdgeIndex_) {
-        cpp2::EdgeIndexData data;
-        ret = getEdgeRow(partId, key, &data);
+        ret = getEdgeRow(partId, key);
         if (ret == kvstore::SUCCEEDED) {
-            edgeRows_.emplace_back(std::move(data));
             ++rowNum_;
         }
     } else {
-        cpp2::VertexIndexData data;
-        ret = getVertexRow(partId, key, &data);
+        ret = getVertexRow(partId, key);
         if (ret == kvstore::SUCCEEDED) {
-            vertexRows_.emplace_back(std::move(data));
             ++rowNum_;
         }
     }
@@ -235,10 +250,14 @@ kvstore::ResultCode IndexExecutor<RESP>::getDataRow(PartitionID partId,
 
 template<typename RESP>
 kvstore::ResultCode IndexExecutor<RESP>::getVertexRow(PartitionID partId,
-                                                      const folly::StringPiece& key,
-                                                      cpp2::VertexIndexData* data) {
+                                                      const folly::StringPiece& key) {
+    Row row;
     auto vId = IndexKeyUtils::getIndexVertexID(vIdLen_, key);
-    data->set_id(vId.str());
+    row.columns.emplace_back(Value(vId));
+
+    if (returnColumns_.empty()) {
+        return kvstore::ResultCode::SUCCEEDED;
+    }
     // DOTO : (sky) vertex cache
     auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId.str(), tagOrEdgeId_);
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -255,42 +274,37 @@ kvstore::ResultCode IndexExecutor<RESP>::getVertexRow(PartitionID partId,
         if (reader == nullptr) {
             return kvstore::ResultCode::ERR_UNKNOWN;
         }
-        std::vector<Value> values;
         for (const auto col : returnColumns_) {
             auto v = reader->getValueByName(col);
-            values.emplace_back(std::move(v));
+            row.columns.emplace_back(std::move(v));
         }
-        data->set_props(std::move(values));
+        returnData_.rows.emplace_back(std::move(row));
     } else {
         LOG(ERROR) << "Missed partId " << partId << ", vId " << vId << ", tagId " << tagOrEdgeId_;
         return kvstore::ResultCode::ERR_KEY_NOT_FOUND;
     }
-    
     return kvstore::ResultCode::SUCCEEDED;
 }
 
 template<typename RESP>
 kvstore::ResultCode IndexExecutor<RESP>::getEdgeRow(PartitionID partId,
-                                                    const folly::StringPiece& key,
-                                                    cpp2::EdgeIndexData* data) {
+                                                    const folly::StringPiece& key) {
+    Row row;
     auto src = IndexKeyUtils::getIndexSrcId(0, key);
     auto rank = IndexKeyUtils::getIndexRank(0, key);
     auto dst = IndexKeyUtils::getIndexDstId(0, key);
-    cpp2::EdgeKey edge;
-    edge.set_src(src.data());
-    edge.set_edge_type(tagOrEdgeId_);
-    edge.set_ranking(rank);
-    edge.set_dst(dst.data());
-    data->set_edge(edge);
-    
+    row.columns.emplace_back(Value(src));
+    row.columns.emplace_back(Value(tagOrEdgeId_));
+    row.columns.emplace_back(Value(rank));
+    row.columns.emplace_back(Value(dst));
     if (returnColumns_.empty()) {
         return kvstore::ResultCode::SUCCEEDED;
     }
-
     auto prefix = NebulaKeyUtils::edgePrefix(vIdLen_, partId, src.str(),
                                              tagOrEdgeId_, rank, dst.str());
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = this->env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
+
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = "
                    << static_cast<int32_t>(ret)
@@ -305,12 +319,11 @@ kvstore::ResultCode IndexExecutor<RESP>::getEdgeRow(PartitionID partId,
         if (reader == nullptr) {
             return kvstore::ResultCode::ERR_UNKNOWN;
         }
-        std::vector<Value> values;
         for (const auto col : returnColumns_) {
             auto v = reader->getValueByName(col);
-            values.emplace_back(std::move(v));
+            row.columns.emplace_back(std::move(v));
         }
-        data->set_props(std::move(values));
+        returnData_.rows.emplace_back(std::move(row));
     } else {
         LOG(ERROR) << "Missed partId " << partId
                    << ", src " << src << ", edgeType "
