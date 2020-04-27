@@ -96,56 +96,6 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
     UNUSED(partId);
     UNUSED(edges);
     return std::string("");
-#if 0
-    std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
-    for (auto& edge : edges) {
-        auto type = edge.edge_type;
-        auto srcId = edge.src;
-        auto rank = edge.ranking;
-        auto dstId = edge.dst;
-        auto prefix = NebulaKeyUtils::edgePrefix(partId, srcId, type, rank, dstId);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = this->kvstore_->prefix(spaceId, partId, prefix, &iter);
-        if (ret != kvstore::ResultCode::SUCCEEDED) {
-            VLOG(3) << "Error! ret = " << static_cast<int32_t>(ret)
-                    << ", spaceId " << spaceId;
-            return folly::none;
-        }
-        bool isLatestVE = true;
-        while (iter->valid()) {
-            /**
-             * just get the latest version edge for index.
-             */
-            if (isLatestVE) {
-                std::unique_ptr<RowReader> reader;
-                for (auto& index : indexes_) {
-                    auto indexId = index->get_index_id();
-                    if (type == index->get_schema_id().get_edge_type()) {
-                        if (reader == nullptr) {
-                            reader = RowReader::getEdgePropReader(this->schemaMan_,
-                                                                  iter->val(),
-                                                                  spaceId,
-                                                                  type);
-                        }
-                        auto values = collectIndexValues(reader.get(),
-                                                         index->get_fields());
-                        auto indexKey = NebulaKeyUtils::edgeIndexKey(partId,
-                                                                     indexId,
-                                                                     srcId,
-                                                                     rank,
-                                                                     dstId,
-                                                                     values);
-                        batchHolder->remove(std::move(indexKey));
-                    }
-                }
-                isLatestVE = false;
-            }
-            batchHolder->remove(iter->key().str());
-            iter->next();
-        }
-    }
-    return encodeBatchValue(batchHolder->getBatch());
-#endif
 }
 
 }  // namespace storage

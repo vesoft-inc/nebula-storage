@@ -483,8 +483,8 @@ std::vector<EdgeData> MockData::mockEdges() {
     for (auto& serve : serve_) {
         EdgeData data;
         data.srcId_ = serve.playerName_;
-        data.type_ = 101,
-        data.rank_ = 102,
+        data.type_ = 101;
+        data.rank_ = 102;
         data.dstId_ = serve.teamName_;
 
         std::vector<Value>  props;
@@ -518,8 +518,8 @@ std::vector<EdgeData> MockData::mockEdgeKeys() {
     for (auto& serve : serve_) {
         EdgeData data;
         data.srcId_ = serve.playerName_;
-        data.type_ = 101,
-        data.rank_ = 102,
+        data.type_ = 101;
+        data.rank_ = 102;
         data.dstId_ = serve.teamName_;
         ret.push_back(data);
     }
@@ -649,8 +649,8 @@ std::vector<EdgeData> MockData::mockEdgesSpecifiedOrder() {
     for (auto& serve : serve_) {
         EdgeData data;
         data.srcId_ = serve.playerName_;
-        data.type_ = 101,
-        data.rank_ = 102,
+        data.type_ = 101;
+        data.rank_ = 102;
         data.dstId_ = serve.teamName_;
 
         std::vector<Value>  props;
