@@ -125,8 +125,9 @@ if (GIT_INFO_SHA)
 endif()
 
 # To include customized FindXXX.cmake modules
-set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" ${CMAKE_MODULE_PATH})
-
+list(APPEND CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake")
+#list(APPEND CMAKE_MODULE_PATH "${NEBULA_HOME}/modules/common")
+message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 # When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/nebula/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
     SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
@@ -154,7 +155,7 @@ add_dependent_project(
     ${NEBULA_COMMON_REPO_URL}
     ${NEBULA_COMMON_REPO_TAG}
 )
-find_package(${NEBULA_COMMON_PACKAGE} REQUIRED)
+find_package(${NEBULA_COMMON_PACKAGE} REQUIRED PATHS "${NEBULA_HOME}/modules/common")
 message(STATUS ">>>>> The nebula-common repo has been configured successfully <<<<<")
 message(STATUS "")
 include_directories(AFTER modules/common/src)
