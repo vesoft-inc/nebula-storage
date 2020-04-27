@@ -20,9 +20,54 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
                         return false;
                     }
                     break;
-                case cpp2::PropertyType::INT8:
-                case cpp2::PropertyType::INT16:
-                case cpp2::PropertyType::INT32:
+                case cpp2::PropertyType::INT8: {
+                    if (value->type() != nebula::Value::Type::INT) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " type mismatch";
+                        return false;
+                    }
+
+                    auto v = value->getInt();
+                    if (v > std::numeric_limits<int8_t>::max()
+                            || v < std::numeric_limits<int8_t>::min()) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " out of rang";
+                        return false;
+                    }
+                    break;
+                }
+                case cpp2::PropertyType::INT16: {
+                    if (value->type() != nebula::Value::Type::INT) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " type mismatch";
+                        return false;
+                    }
+
+                    auto v = value->getInt();
+                    if (v > std::numeric_limits<int16_t>::max()
+                            || v < std::numeric_limits<int16_t>::min()) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " out of rang";
+                        return false;
+                    }
+                    break;
+                }
+                case cpp2::PropertyType::INT32: {
+                    if (value->type() != nebula::Value::Type::INT) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " type mismatch";
+                        return false;
+                    }
+
+                    auto v = value->getInt();
+                    if (v > std::numeric_limits<int32_t>::max()
+                            || v < std::numeric_limits<int32_t>::min()) {
+                        LOG(ERROR) << "Create Tag Failed: " << name
+                                   << " out of rang";
+                        return false;
+                    }
+                    break;
+                }
                 case cpp2::PropertyType::INT64:
                     if (value->type() != nebula::Value::Type::INT) {
                         LOG(ERROR) << "Create Tag Failed: " << name

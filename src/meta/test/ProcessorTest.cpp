@@ -484,6 +484,31 @@ TEST(ProcessorTest, CreateTagTest) {
         auto resp = std::move(f).get();
         ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
     }
+    // Wrong default value
+    {
+        cpp2::Schema schemaWithDefault;
+        decltype(schema.columns) colsWithDefault;
+
+        cpp2::ColumnDef columnWithDefault;
+        columnWithDefault.set_name(folly::stringPrintf("col_value_mismatch"));
+        columnWithDefault.set_type(PropertyType::INT8);
+        nebula::Value defaultValue;
+        defaultValue.setInt(256);
+        columnWithDefault.set_default_value(std::move(defaultValue));
+
+        colsWithDefault.push_back(std::move(columnWithDefault));
+        schemaWithDefault.set_columns(std::move(colsWithDefault));
+
+        cpp2::CreateTagReq req;
+        req.set_space_id(1);
+        req.set_tag_name("tag_value_mismatche");
+        req.set_schema(std::move(schemaWithDefault));
+        auto* processor = CreateTagProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+    }
     {
         cpp2::CreateTagReq req;
         req.set_space_id(1);
