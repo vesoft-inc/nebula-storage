@@ -9,6 +9,7 @@
 
 #include "base/ErrorOr.h"
 #include "kvstore/KVStore.h"
+#include "meta/processors/admin/AdminClient.h"
 #include "meta/processors/jobMan/JobDescription.h"
 
 namespace nebula {
