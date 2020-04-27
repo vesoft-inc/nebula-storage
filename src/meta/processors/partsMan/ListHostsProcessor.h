@@ -27,13 +27,16 @@ private:
     /**
      * Get all hosts with online/offline status and partition distribution.
      * */
-    Status allHostsWithStatus(cpp2::HostRole role = cpp2::HostRole::STORAGE);
+    Status allHostsWithStatus(cpp2::ListHostType type);
 
     // Get map of spaceId -> spaceName
     Status getSpaceIdNameMap();
 
     std::unordered_map<std::string, std::vector<PartitionID>>
     getLeaderPartsWithSpaceName(const LeaderParts& leaderParts);
+
+    bool match(cpp2::ListHostType type, cpp2::HostRole role);
+    void removeExpiredHosts(std::vector<std::string>&& removeHostsKey);
 
     std::vector<GraphSpaceID> spaceIds_;
     std::unordered_map<GraphSpaceID, std::string> spaceIdNameMap_;

@@ -25,7 +25,7 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             onFinished();
             return;
         }
-        auto status = allHostsWithStatus(req.get_role());
+        auto status = allHostsWithStatus(req.get_type());
         if (!status.ok()) {
             onFinished();
             return;
@@ -35,7 +35,23 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
     onFinished();
 }
 
-Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
+bool ListHostsProcessor::match(cpp2::ListHostType type, cpp2::HostRole role) {
+    switch (type) {
+    case cpp2::ListHostType::GRAPH:
+        return role == cpp2::HostRole::GRAPH;
+    case cpp2::ListHostType::META:
+        return role == cpp2::HostRole::META;
+    case cpp2::ListHostType::STORAGE:
+        return role == cpp2::HostRole::STORAGE;
+    case cpp2::ListHostType::ALLOC:
+        return role == cpp2::HostRole::STORAGE;
+    default:
+        break;
+    }
+    return false;
+}
+
+Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
     const auto& hostPrefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter);
@@ -52,12 +68,14 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
         auto host = MetaServiceUtils::parseHostKey(iter->key());
         item.set_hostAddr(std::move(host));
         HostInfo info = HostInfo::decodeV2(iter->val());
-        if (info.role_ != role) {
+        if (!match(type, info.role_)) {
             iter->next();
             continue;
         }
-        item.set_role(info.role_);
-        item.set_git_info_sha(info.gitInfoSha_);
+        if (type != cpp2::ListHostType::ALLOC) {
+            item.set_role(info.role_);
+            item.set_git_info_sha(info.gitInfoSha_);
+        }
         if (now - info.lastHBTimeInMilliSec_ < FLAGS_removed_threshold_sec * 1000) {
             if (now - info.lastHBTimeInMilliSec_ < FLAGS_expired_threshold_sec * 1000) {
                 item.set_status(cpp2::HostStatus::ONLINE);
@@ -71,9 +89,11 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
         iter->next();
     }
 
-    if (role == cpp2::HostRole::GRAPH || role == cpp2::HostRole::META || role == cpp2::HostRole::STORAGE) {
+    if (type != cpp2::ListHostType::ALLOC) {
+        removeExpiredHosts(std::move(removeHostsKey));
         return Status::OK();
     }
+
     const auto& leaderPrefix = MetaServiceUtils::leaderPrefix();
     kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
@@ -135,18 +155,23 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
         }
     }
 
-    // Remove hosts that long time at OFFLINE status
-    if (!removeHostsKey.empty()) {
-        kvstore_->asyncMultiRemove(kDefaultSpaceId,
-                                   kDefaultPartId,
-                                   std::move(removeHostsKey),
-                                   [] (kvstore::ResultCode code) {
-                if (code != kvstore::ResultCode::SUCCEEDED) {
-                    LOG(ERROR) << "Async remove long time offline hosts failed: " << code;
-                }
-            });
-    }
+    removeExpiredHosts(std::move(removeHostsKey));
     return Status::OK();
+}
+
+// Remove hosts that long time at OFFLINE status
+void ListHostsProcessor::removeExpiredHosts(std::vector<std::string>&& removeHostsKey) {
+    if (removeHostsKey.empty()) {
+        return;
+    }
+    kvstore_->asyncMultiRemove(kDefaultSpaceId,
+                               kDefaultPartId,
+                               std::move(removeHostsKey),
+                               [] (kvstore::ResultCode code) {
+            if (code != kvstore::ResultCode::SUCCEEDED) {
+                LOG(ERROR) << "Async remove long time offline hosts failed: " << code;
+            }
+        });
 }
 
 Status ListHostsProcessor::getSpaceIdNameMap() {
