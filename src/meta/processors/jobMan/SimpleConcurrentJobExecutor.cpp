@@ -53,7 +53,7 @@ SimpleConcurrentJobExecutor::execute() {
     std::vector<PartitionID> parts;
     for (auto& host : hosts) {
         auto future = adminClient_->addTask(cmd_, jobId_, taskId++, spaceId,
-                                      {host}, 0, parts, concurrency);
+                                            {host}, {}, parts, concurrency);
         futures.push_back(std::move(future));
     }
 

@@ -672,7 +672,7 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
                     int32_t taskId,
                     GraphSpaceID spaceId,
                     const std::vector<HostAddr>& targetHost,
-                    IndexID indexID,
+                    const std::vector<std::string>& taskSpecficParas,
                     std::vector<PartitionID> parts,
                     int concurrency) {
     auto hosts = targetHost.empty() ? ActiveHostsMan::getActiveHosts(kv_) : targetHost;
@@ -684,8 +684,8 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
 
     storage::cpp2::TaskPara para;
     para.set_space_id(spaceId);
-    para.set_index_id(indexID);
     para.set_parts(std::move(parts));
+    para.set_task_specfic_paras(taskSpecficParas);
 
     req.set_para(para);
 

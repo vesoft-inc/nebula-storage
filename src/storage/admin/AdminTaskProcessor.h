@@ -17,16 +17,13 @@ namespace nebula {
 namespace storage {
 class AdminTaskProcessor : public BaseProcessor<cpp2::AdminExecResp> {
 public:
-    // static AdminTaskProcessor* instance(kvstore::KVStore* kvstore) {
     static AdminTaskProcessor* instance(StorageEnv* env) {
-        // return new AdminTaskProcessor(kvstore);
         return new AdminTaskProcessor(env);
     }
 
     void process(const cpp2::AddAdminTaskRequest& req);
 
 private:
-    // explicit AdminTaskProcessor(kvstore::KVStore* kvstore)
     explicit AdminTaskProcessor(StorageEnv* env)
             : BaseProcessor<cpp2::AdminExecResp>(env) {}
 };

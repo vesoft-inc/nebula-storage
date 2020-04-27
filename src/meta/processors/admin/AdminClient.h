@@ -127,7 +127,7 @@ public:
                                   int32_t taskId,
                                   GraphSpaceID spaceId,
                                   const std::vector<HostAddr>& specificHosts,
-                                  IndexID indexID,
+                                  const std::vector<std::string>& taskSpecficParas,
                                   std::vector<PartitionID> parts,
                                   int concurrency);
 
