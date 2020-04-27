@@ -35,7 +35,7 @@ struct HostInfo {
     }
 
     int64_t lastHBTimeInMilliSec_ = 0;
-    cpp2::HostRole  role_;
+    cpp2::HostRole  role_{cpp2::HostRole::UNKNOWN};
     std::string     gitInfoSha_;
 
     static std::string encode(const HostInfo& info) {
@@ -80,10 +80,12 @@ struct HostInfo {
             if (offset + len <= data.size()) {
                 info.gitInfoSha_ = std::string(data.data() + offset, len);
             } else {
-                LOG(ERROR) << folly::sformat("trying to decode SHA from data, size = {0}", data.size());
+                LOG(ERROR) << folly::format("trying to decode SHA from data, size = {0}",
+                                            data.size());
             }
         } else {
-            LOG(ERROR) << folly::sformat("trying to decode role from data, size = {0}", data.size());
+            LOG(ERROR) << folly::format("trying to decode role from data, size = {0}",
+                                        data.size());
         }
         return info;
     }
