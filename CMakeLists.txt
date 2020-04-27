@@ -130,7 +130,7 @@ list(APPEND CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake")
 message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 # When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/nebula/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
-    SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
+    SET(NEBULA_THIRDPARTY_ROOT "/opt/vesoft/third-party")
 endif()
 
 if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
@@ -144,6 +144,7 @@ endif()
 message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
 SET(NEBULA_COMMON_PACKAGE "nebula-common")
+SET(nebula-common_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules/common)
 
 # Configure the dependent projects
 include(AddDependentProject)

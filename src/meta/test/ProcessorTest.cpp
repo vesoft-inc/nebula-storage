@@ -191,6 +191,7 @@ TEST(ProcessorTest, SpaceTest) {
         properties.set_space_name("default_space");
         properties.set_partition_num(8);
         properties.set_replica_factor(3);
+        properties.set_vid_size(10);
         properties.set_charset_name("utf8");
         properties.set_collate_name("utf8_bin");
         cpp2::CreateSpaceReq req;
@@ -213,6 +214,7 @@ TEST(ProcessorTest, SpaceTest) {
         ASSERT_EQ("default_space", resp.item.properties.space_name);
         ASSERT_EQ(8, resp.item.properties.partition_num);
         ASSERT_EQ(3, resp.item.properties.replica_factor);
+        ASSERT_EQ(10, resp.item.properties.vid_size);
         ASSERT_EQ("utf8", resp.item.properties.charset_name);
         ASSERT_EQ("utf8_bin", resp.item.properties.collate_name);
     }
@@ -457,26 +459,7 @@ TEST(ProcessorTest, CreateTagTest) {
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(5, resp.get_id().get_tag_id());
     }
-    {
-        cpp2::Schema schemaWithDefault;
-        decltype(schema.columns) colsWithDefault;
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(0, PropertyType::BOOL));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(1, PropertyType::INT64));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(2, PropertyType::DOUBLE));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(3, PropertyType::STRING));
-        schemaWithDefault.set_columns(std::move(colsWithDefault));
-
-        cpp2::CreateTagReq req;
-        req.set_space_id(1);
-        req.set_tag_name("tag_with_default");
-        req.set_schema(std::move(schemaWithDefault));
-        auto* processor = CreateTagProcessor::instance(kv.get());
-        auto f = processor->getFuture();
-        processor->process(req);
-        auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
-        ASSERT_EQ(6, resp.get_id().get_tag_id());
-    }
+    // Wrong default value type
     {
         cpp2::Schema schemaWithDefault;
         decltype(schema.columns) colsWithDefault;
@@ -499,7 +482,30 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+    }
+    {
+        cpp2::CreateTagReq req;
+        req.set_space_id(1);
+        req.set_tag_name("all_tag_type");
+        auto allSchema = TestUtils::mockSchemaWithAllType();
+        req.set_schema(std::move(allSchema));
+        auto* processor = CreateTagProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+
+        cpp2::GetTagReq getReq;
+        getReq.set_space_id(1);
+        getReq.set_tag_name("all_tag_type");
+        getReq.set_version(0);
+        auto* getProcessor = GetTagProcessor::instance(kv.get());
+        auto getFut = getProcessor->getFuture();
+        getProcessor->process(getReq);
+        auto getResp = std::move(getFut).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.code);
+        TestUtils::checkSchemaWithAllType(getResp.get_schema());
     }
 }
 
@@ -630,10 +636,10 @@ TEST(ProcessorTest, CreateEdgeTest) {
     {
         cpp2::Schema schemaWithDefault;
         decltype(schema.columns) colsWithDefault;
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(0, PropertyType::BOOL));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(1, PropertyType::INT64));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(2, PropertyType::DOUBLE));
-        colsWithDefault.emplace_back(TestUtils::columnDefWithDefault(3, PropertyType::STRING));
+        colsWithDefault.emplace_back(TestUtils::columnDef(0, PropertyType::BOOL, Value(false)));
+        colsWithDefault.emplace_back(TestUtils::columnDef(1, PropertyType::INT64, Value(11)));
+        colsWithDefault.emplace_back(TestUtils::columnDef(2, PropertyType::DOUBLE, Value(11.0)));
+        colsWithDefault.emplace_back(TestUtils::columnDef(3, PropertyType::STRING, Value("test")));
         schemaWithDefault.set_columns(std::move(colsWithDefault));
 
         cpp2::CreateEdgeReq req;
@@ -650,15 +656,8 @@ TEST(ProcessorTest, CreateEdgeTest) {
     {
         cpp2::Schema schemaWithDefault;
         decltype(schema.columns) colsWithDefault;
-
-        cpp2::ColumnDef columnWithDefault;
-        columnWithDefault.set_name(folly::stringPrintf("col_type_mismatch"));
-        columnWithDefault.set_type(PropertyType::BOOL);
-        nebula::Value defaultValue;
-        defaultValue.setStr("default value");
-        columnWithDefault.set_default_value(std::move(defaultValue));
-
-        colsWithDefault.push_back(std::move(columnWithDefault));
+        colsWithDefault.push_back(TestUtils::columnDef(0,
+                    PropertyType::BOOL, Value("default value")));
         schemaWithDefault.set_columns(std::move(colsWithDefault));
 
         cpp2::CreateEdgeReq req;
@@ -669,7 +668,30 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+    }
+    {
+        cpp2::CreateTagReq req;
+        req.set_space_id(1);
+        req.set_tag_name("all_edge_type");
+        auto allSchema = TestUtils::mockSchemaWithAllType();
+        req.set_schema(std::move(allSchema));
+        auto* processor = CreateTagProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+
+        cpp2::GetTagReq getReq;
+        getReq.set_space_id(1);
+        getReq.set_tag_name("all_edge_type");
+        getReq.set_version(0);
+        auto* getProcessor = GetTagProcessor::instance(kv.get());
+        auto getFut = getProcessor->getFuture();
+        getProcessor->process(getReq);
+        auto getResp = std::move(getFut).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.code);
+        TestUtils::checkSchemaWithAllType(getResp.get_schema());
     }
 }
 
@@ -797,7 +819,6 @@ TEST(ProcessorTest, KVOperationTest) {
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
     }
 }
-
 
 TEST(ProcessorTest, ListOrGetTagsTest) {
     fs::TempDir rootPath("/tmp/ListOrGetTagsTest.XXXXXX");
@@ -948,7 +969,6 @@ TEST(ProcessorTest, ListOrGetEdgesTest) {
     }
 }
 
-
 TEST(ProcessorTest, DropTagTest) {
     fs::TempDir rootPath("/tmp/DropTagTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
@@ -1038,7 +1058,6 @@ TEST(ProcessorTest, DropTagTest) {
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
     }
 }
-
 
 TEST(ProcessorTest, DropEdgeTest) {
     fs::TempDir rootPath("/tmp/DropEdgeTest.XXXXXX");
@@ -3093,5 +3112,6 @@ int main(int argc, char** argv) {
     google::SetStderrLogging(google::INFO);
     return RUN_ALL_TESTS();
 }
+
 
 
