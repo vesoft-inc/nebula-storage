@@ -107,6 +107,9 @@ bool StorageServer::start() {
     options.inStoraged_ = true;
     options.serviceName_ = "";
     options.skipConfig_ = FLAGS_local_config;
+    options.role_ = nebula::meta::cpp2::HostRole::STORAGE;
+    options.gitInfoSHA_ = NEBULA_STRINGIFY(GIT_INFO_SHA);
+
     metaClient_ = std::make_unique<meta::MetaClient>(ioThreadPool_,
                                                      metaAddrs_,
                                                      options);
@@ -114,9 +117,6 @@ bool StorageServer::start() {
         LOG(ERROR) << "waitForMetadReady error!";
         return false;
     }
-
-    metaClient_->setupLongTermHeartBeat(nebula::meta::cpp2::HostRole::STORAGE,
-                                        NEBULA_STRINGIFY(GIT_INFO_SHA));
 
     gFlagsMan_ = std::make_unique<meta::ClientBasedGflagsManager>(metaClient_.get());
 
