@@ -5,7 +5,6 @@
  */
 
 #include "mock/MockData.h"
-#include "meta/NebulaSchemaProvider.h"
 #include "interface/gen-cpp2/common_types.h"
 #include "interface/gen-cpp2/meta_types.h"
 
