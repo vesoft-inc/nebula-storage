@@ -181,6 +181,7 @@ std::vector<std::pair<TagID, std::shared_ptr<const nebula::meta::NebulaSchemaPro
 AdHocSchemaManager::listLatestTagSchema(GraphSpaceID space) {
     std::vector<std::pair<TagID, std::shared_ptr<
                                  const nebula::meta::NebulaSchemaProvider>>> schemas;
+    folly::RWSpinLock::ReadHolder rh(tagLock_);
     for (const auto& entry : tagSchemas_) {
         if (entry.first.first == space) {
             schemas.emplace_back(entry.first.second, entry.second.rbegin()->second);
@@ -193,6 +194,7 @@ std::vector<std::pair<EdgeType, std::shared_ptr<const nebula::meta::NebulaSchema
 AdHocSchemaManager::listLatestEdgeSchema(GraphSpaceID space) {
     std::vector<std::pair<EdgeType, std::shared_ptr<
                                     const nebula::meta::NebulaSchemaProvider>>> schemas;
+    folly::RWSpinLock::ReadHolder rh(edgeLock_);
     for (const auto& entry : edgeSchemas_) {
         if (entry.first.first == space) {
             schemas.emplace_back(entry.first.second, entry.second.rbegin()->second);
