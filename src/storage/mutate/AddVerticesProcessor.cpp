@@ -30,8 +30,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
     CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
-        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
-                   << ret.status().toString();
+        LOG(ERROR) << ret.status();
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
         codes_.emplace_back(std::move(thriftRet));
@@ -58,6 +57,15 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
             for (auto& newVertex : newVertices) {
                 auto vid = newVertex.get_id();
                 const auto& newTags = newVertex.get_tags();
+
+                if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
+                    LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                               << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    onFinished();
+                    return;
+                }
+
                 for (auto& newTag : newTags) {
                     auto tagId = newTag.get_tag_id();
                     VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid

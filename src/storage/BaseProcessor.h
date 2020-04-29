@@ -92,6 +92,7 @@ protected:
     std::vector<cpp2::PartitionResult>              codes_;
     std::mutex                                      lock_;
     int32_t                                         callingNum_{0};
+    int32_t                                         spaceVidLen_;
 };
 
 }  // namespace storage

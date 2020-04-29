@@ -18,15 +18,14 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
     CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
-        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
-                   << ret.status().toString();
+        LOG(ERROR) << ret.status();
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
         codes_.emplace_back(std::move(thriftRet));
         onFinished();
         return;
     }
-    auto spaceVidLen = ret.value();
+    spaceVidLen_ = ret.value();
     callingNum_ = partVertices.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -46,7 +45,15 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
             keys.clear();
 
             for (auto& vid : vertexIds) {
-                auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vid);
+                if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
+                    LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                               << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    onFinished();
+                    return;
+                }
+
+                auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vid);
                 std::unique_ptr<kvstore::KVIterator> iter;
                 auto retRes = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
                 if (retRes != kvstore::ResultCode::SUCCEEDED) {
@@ -58,8 +65,8 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 }
                 while (iter->valid()) {
                     auto key = iter->key();
-                    if (NebulaKeyUtils::isVertex(spaceVidLen, key)) {
-                        auto tagId = NebulaKeyUtils::getTagId(spaceVidLen, key);
+                    if (NebulaKeyUtils::isVertex(spaceVidLen_, key)) {
+                        auto tagId = NebulaKeyUtils::getTagId(spaceVidLen_, key);
                         // Evict vertices from cache
                         if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
                             VLOG(3) << "Evict vertex cache for VID " << vid

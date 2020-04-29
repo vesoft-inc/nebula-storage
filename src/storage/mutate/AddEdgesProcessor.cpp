@@ -26,15 +26,14 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
     CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
-        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
-                   << ret.status().toString();
+        LOG(ERROR) << ret.status();
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
         codes_.emplace_back(std::move(thriftRet));
         onFinished();
         return;
     }
-    auto spaceVidLen = ret.value();
+    spaceVidLen_ = ret.value();
     callingNum_ = req.parts.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -58,9 +57,22 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                         << edgeKey.ranking << ", VertexID: "
                         << edgeKey.dst << ", EdgeVersion: " << version;
 
-                auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edgeKey.src,
-                                                   edgeKey.edge_type, edgeKey.ranking,
-                                                   edgeKey.dst, version);
+                if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, edgeKey.src, edgeKey.dst)) {
+                    LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
+                               << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
+                               << edgeKey.src << " dstVid: " << edgeKey.dst;
+                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    onFinished();
+                    return;
+                }
+
+                auto key = NebulaKeyUtils::edgeKey(spaceVidLen_,
+                                                   partId,
+                                                   edgeKey.src,
+                                                   edgeKey.edge_type,
+                                                   edgeKey.ranking,
+                                                   edgeKey.dst,
+                                                   version);
                 auto schema = env_->schemaMan_->getEdgeSchema(spaceId_, edgeKey.edge_type);
                 if (!schema) {
                     LOG(ERROR) << "Space " << spaceId_ << ", Edge "

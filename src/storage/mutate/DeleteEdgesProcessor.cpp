@@ -18,15 +18,14 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
-        LOG(ERROR) << "Space " << spaceId_ << " VertexId length invalid."
-                   << ret.status().toString();
+        LOG(ERROR) << ret.status();
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
         codes_.emplace_back(std::move(thriftRet));
         onFinished();
         return;
     }
-    auto spaceVidLen = ret.value();
+    spaceVidLen_ = ret.value();
     callingNum_ = partEdges.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -44,14 +43,22 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
             auto partId = part.first;
             keys.clear();
             for (auto& edgeKey : part.second) {
-                auto start = NebulaKeyUtils::edgeKey(spaceVidLen,
+                if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, edgeKey.src, edgeKey.dst)) {
+                    LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
+                               << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
+                               << edgeKey.src << " dstVid: " << edgeKey.dst;
+                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    onFinished();
+                    return;
+                }
+                auto start = NebulaKeyUtils::edgeKey(spaceVidLen_,
                                                      partId,
                                                      edgeKey.src,
                                                      edgeKey.edge_type,
                                                      edgeKey.ranking,
                                                      edgeKey.dst,
                                                      0);
-                auto end = NebulaKeyUtils::edgeKey(spaceVidLen,
+                auto end = NebulaKeyUtils::edgeKey(spaceVidLen_,
                                                    partId,
                                                    edgeKey.src,
                                                    edgeKey.edge_type,
