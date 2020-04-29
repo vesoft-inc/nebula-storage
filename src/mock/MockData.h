@@ -71,13 +71,13 @@ public:
     /*
      * Mock schema
      */
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockPlayerTagSchema();
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockPlayerTagSchema(SchemaVer ver = 0);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeamTagSchema();
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeamTagSchema(SchemaVer ver = 0);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeSchema();
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeSchema(SchemaVer ver = 0);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateSchema();
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateSchema(SchemaVer ver = 0);
 
     /*
      * Mock data
@@ -88,6 +88,9 @@ public:
     static std::vector<EdgeData> mockEdges();
 
     static std::vector<VertexID> mockVerticeIds();
+
+    static std::unordered_map<VertexID, std::vector<EdgeData>> mockmMultiRankServes(
+            EdgeRanking rankCount = 1);
 
     // generate player -> list<Serve> according to players_;
     static std::unordered_map<std::string, std::vector<Serve>> playerServes() {

@@ -18,11 +18,13 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         const std::vector<ReturnProp>& vertexProps) {
     for (size_t i = 0; i < vertexProps.size(); i++) {
         auto tagId = vertexProps[i].entryId_;
-        auto tagSchema = this->env_->schemaMan_->getTagSchema(spaceId_, tagId);
-        if (!tagSchema) {
+        auto iter = tagSchemas_.find(tagId);
+        if (iter == tagSchemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
             return cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
+        CHECK(!iter->second.empty());
+        const auto& tagSchema = iter->second.back();
         auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagId);
         if (!tagName.ok()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
@@ -48,7 +50,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         }
         tagContexts_.emplace_back(tagId, std::move(ctxs));
         tagIndexMap_.emplace(tagId, tagContexts_.size() - 1);
-        tagSchemas_.emplace(tagId, std::move(tagSchema));
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -58,11 +59,13 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         const std::vector<ReturnProp>& edgeProps) {
     for (size_t i = 0; i < edgeProps.size(); i++) {
         auto edgeType = edgeProps[i].entryId_;
-        auto edgeSchema = this->env_->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
-        if (!edgeSchema) {
+        auto iter = edgeSchemas_.find(std::abs(edgeType));
+        if (iter == edgeSchemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
             return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
+        CHECK(!iter->second.empty());
+        const auto& edgeSchema = iter->second.back();
         auto edgeName = this->env_->schemaMan_->toEdgeName(spaceId_, std::abs(edgeType));
         if (!edgeName.ok()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
@@ -78,10 +81,10 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
             // because there are some reserved edge prop in key (src/dst/type/rank),
             // we can't find those prop in schema
             PropContext ctx(name.c_str());
-            auto iter = std::find_if(kPropsInKey_.begin(), kPropsInKey_.end(),
-                                     [&] (const auto& entry) { return entry.first == name; });
-            if (iter != kPropsInKey_.end()) {
-                ctx.propInKeyType_ = iter->second;
+            auto propIter = std::find_if(kPropsInKey_.begin(), kPropsInKey_.end(),
+                                         [&] (const auto& entry) { return entry.first == name; });
+            if (propIter != kPropsInKey_.end()) {
+                ctx.propInKeyType_ = propIter->second;
             } else {
                 auto field = edgeSchema->field(name);
                 if (field == nullptr) {
@@ -95,7 +98,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         }
         edgeContexts_.emplace_back(edgeType, std::move(ctxs));
         edgeIndexMap_.emplace(edgeType, edgeContexts_.size() - 1);
-        edgeSchemas_.emplace(edgeType, std::move(edgeSchema));
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -119,12 +121,12 @@ void QueryBaseProcessor<REQ, RESP>::buildTagTTLInfo() {
         auto tagId = tc.first;
         auto iter = tagSchemas_.find(tagId);
         CHECK(iter != tagSchemas_.end());
-        const auto& tagSchema = iter->second;
+        const auto& tagSchema = iter->second.back();
 
         auto ttlInfo = tagSchema->getTTLInfo();
         if (ttlInfo.ok()) {
             VLOG(2) << "Add ttl col " << ttlInfo.value().first << " of tag " << tagId;
-            tagTTLInfo_.emplace(tagId, std::move(ttlInfo.value()));
+            tagTTLInfo_.emplace(tagId, std::move(ttlInfo).value());
         }
     }
 }
@@ -133,14 +135,14 @@ template<typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
     for (const auto& ec : edgeContexts_) {
         auto edgeType = ec.first;
-        auto iter = edgeSchemas_.find(edgeType);
-        CHECK(iter != tagSchemas_.end());
-        const auto& edgeSchema = iter->second;
+        auto iter = edgeSchemas_.find(std::abs(edgeType));
+        CHECK(iter != edgeSchemas_.end());
+        const auto& edgeSchema = iter->second.back();
 
         auto ttlInfo = edgeSchema->getTTLInfo();
         if (ttlInfo.ok()) {
             VLOG(2) << "Add ttl col " << ttlInfo.value().first << " of edge " << edgeType;
-            edgeTTLInfo_.emplace(edgeType, std::move(ttlInfo.value()));
+            edgeTTLInfo_.emplace(edgeType, std::move(ttlInfo).value());
         }
     }
 }
@@ -188,7 +190,7 @@ kvstore::ResultCode QueryBaseProcessor<REQ, RESP>::processTagProps(
     // use latest schema to check if value is expired for ttl
     auto schemaIter = tagSchemas_.find(tagId);
     CHECK(schemaIter != tagSchemas_.end());
-    const auto* latestSchema = schemaIter->second.get();
+    const auto* latestSchema = schemaIter->second.back().get();
     if (FLAGS_enable_vertex_cache && this->vertexCache_ != nullptr) {
         auto result = this->vertexCache_->get(std::make_pair(vId, tagId), partId);
         if (result.ok()) {
@@ -303,7 +305,7 @@ kvstore::ResultCode QueryBaseProcessor<REQ, RESP>::collectEdgeProps(
                     if (!status.ok()) {
                         return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
                     }
-                    value = std::move(status.value());
+                    value = std::move(status).value();
                 }
                 break;
             }
@@ -370,14 +372,13 @@ void QueryBaseProcessor<REQ, RESP>::addStatValue(const Value& value, PropStat& s
 }
 
 template<typename REQ, typename RESP>
-std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps(GraphSpaceID spaceId) {
-    auto schemas = this->env_->schemaMan_->listLatestTagSchema(spaceId);
+std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
     std::vector<ReturnProp> result;
-    for (const auto& entry : schemas) {
+    for (const auto& entry : tagSchemas_) {
         ReturnProp prop;
         prop.entryId_ = entry.first;
         std::vector<std::string> names;
-        const auto& schema = entry.second;
+        const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);
@@ -391,18 +392,16 @@ std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps(GraphSpa
 
 template<typename REQ, typename RESP>
 std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
-        GraphSpaceID spaceId,
         const cpp2::EdgeDirection& direction) {
-    auto schemas = this->env_->schemaMan_->listLatestEdgeSchema(spaceId);
     std::vector<ReturnProp> result;
-    for (const auto& entry : schemas) {
+    for (const auto& entry : edgeSchemas_) {
         ReturnProp prop;
         prop.entryId_ = entry.first;
         if (direction == cpp2::EdgeDirection::IN_EDGE) {
             prop.entryId_ = -prop.entryId_;
         }
         std::vector<std::string> names;
-        auto& schema = entry.second;
+        const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);

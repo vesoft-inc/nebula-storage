@@ -102,7 +102,9 @@ void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
     LOG(INFO) << "The Meta Daemon started on port " << metaServer_->port_;
 }
 
-void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
+void MockCluster::initStorageKV(HostAddr addr,
+                                const std::string& rootPath,
+                                SchemaVer schemaVerCount) {
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     totalParts_ = 6;
     kvstore::KVOptions options;
@@ -118,7 +120,7 @@ void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
         LOG(INFO) << "Use meta in memory!";
         options.partMan_ = memPartMan(1, parts);;
         indexMan_ = memIndexMan();
-        schemaMan_ = memSchemaMan();
+        schemaMan_ = memSchemaMan(schemaVerCount);
     }
     std::vector<std::string> paths;
     paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
@@ -135,8 +137,10 @@ void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
     storageEnv_->kvstore_ = storageKV_.get();
 }
 
-void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
-    initStorageKV(rootPath.c_str(), addr);
+void MockCluster::startStorage(HostAddr addr,
+                               const std::string& rootPath,
+                               SchemaVer schemaVerCount) {
+    initStorageKV(rootPath.c_str(), addr, schemaVerCount);
     storageAdminServer_ = std::make_unique<RpcServer>();
     auto handler1 = std::make_shared<storage::StorageAdminServiceHandler>(storageEnv_.get());
     storageAdminServer_->start("admin-storage", addr.port, handler1);
@@ -150,19 +154,22 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
 }
 
 std::unique_ptr<meta::SchemaManager>
-MockCluster::memSchemaMan() {
+MockCluster::memSchemaMan(SchemaVer schemaVerCount) {
     auto schemaMan = std::make_unique<AdHocSchemaManager>();
-    // Vertex has two tags: players and teams
-    // When tagId is 1, use players data
-    schemaMan->addTagSchema(1, 1, MockData::mockPlayerTagSchema());
-    // When tagId is 2, use teams data
-    schemaMan->addTagSchema(1, 2, MockData::mockTeamTagSchema());
+    // if have multi version schema, need to add from newest to oldest
+    for (SchemaVer ver = schemaVerCount - 1; ver > -1; ver--) {
+        // Vertex has two tags: players and teams
+        // When tagId is 1, use players data
+        schemaMan->addTagSchema(1, 1, MockData::mockPlayerTagSchema(ver));
+        // When tagId is 2, use teams data
+        schemaMan->addTagSchema(1, 2, MockData::mockTeamTagSchema(ver));
 
-    // Edge has two type: serve and teammate
-    // When edgeType is 101, use serve data
-    schemaMan->addEdgeSchema(1, 101, MockData::mockServeSchema());
-    // When edgeType is 102, use teammate data
-    schemaMan->addEdgeSchema(1, 102, MockData::mockTeammateSchema());
+        // Edge has two type: serve and teammate
+        // When edgeType is 101, use serve data
+        schemaMan->addEdgeSchema(1, 101, MockData::mockServeSchema(ver));
+        // When edgeType is 102, use teammate data
+        schemaMan->addEdgeSchema(1, 102, MockData::mockTeammateSchema(ver));
+    }
     return schemaMan;
 }
 

@@ -290,9 +290,12 @@ std::vector<Teammate> MockData::teammates_ = {
     {"Stephen Curry",  "Klay Thompson",    "Warriors", 2011, 2019},
 };
 
+std::unordered_map<std::string, std::vector<Serve>> MockData::playerServes_ = playerServes();
+std::unordered_map<std::string, std::vector<Serve>> MockData::teamServes_ = teamServes();
+
 // Mock schema
-std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema() {
-    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(0));
+std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema(SchemaVer ver) {
+    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(ver));
     meta::cpp2::ColumnDef col1;
     col1.name = "name";
     col1.type = meta::cpp2::PropertyType::STRING;
@@ -367,8 +370,8 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema() {
     return schema;
 }
 
-std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTeamTagSchema() {
-    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(0));
+std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTeamTagSchema(SchemaVer ver) {
+    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(ver));
     meta::cpp2::ColumnDef col;
     col.name = "name";
     col.type = meta::cpp2::PropertyType::STRING;
@@ -376,8 +379,8 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTeamTagSchema() {
     return schema;
 }
 
-std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeSchema() {
-    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(0));
+std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeSchema(SchemaVer ver) {
+    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(ver));
     meta::cpp2::ColumnDef col1;
     col1.name = "playerName";
     col1.type = meta::cpp2::PropertyType::STRING;
@@ -442,8 +445,8 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeSchema() {
     return schema;
 }
 
-std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTeammateSchema() {
-    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(0));
+std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTeammateSchema(SchemaVer ver) {
+    std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(ver));
     meta::cpp2::ColumnDef col1;
     col1.name = "player1";
     col1.type = meta::cpp2::PropertyType::STRING;
@@ -551,7 +554,7 @@ std::vector<EdgeData> MockData::mockEdges() {
 
     std::vector<EdgeData> ret;
     // Use serve data, positive edgeType is 101, reverse edgeType is -101
-    for (auto& serve : serve_) {
+    for (auto& serve : serves_) {
         EdgeData positiveEdge;
         positiveEdge.srcId_ = serve.playerName_;
         positiveEdge.type_ = 101;
@@ -578,9 +581,9 @@ std::vector<EdgeData> MockData::mockEdges() {
                 props.emplace_back(serve.champions_);
             }
         }
-        data.props_ = std::move(props);
-        auto reverseData = reverseEdge(data);
-        ret.emplace_back(std::move(data));
+        positiveEdge.props_ = std::move(props);
+        auto reverseData = reverseEdge(positiveEdge);
+        ret.emplace_back(std::move(positiveEdge));
         ret.emplace_back(std::move(reverseData));
     }
 
@@ -617,7 +620,7 @@ std::vector<EdgeData> MockData::mockEdges() {
 std::vector<EdgeData> MockData::mockEdgeKeys() {
     std::vector<EdgeData> ret;
     // Use serve data, positive edgeType is 101, reverse edgeType is -101
-    for (auto& serve : serve_) {
+    for (auto& serve : serves_) {
         EdgeData positiveEdge;
         positiveEdge.srcId_ = serve.playerName_;
         positiveEdge.type_ = 101;
@@ -629,12 +632,66 @@ std::vector<EdgeData> MockData::mockEdgeKeys() {
         reverseEdge.type_ = -positiveEdge.type_;
         ret.push_back(positiveEdge);
         ret.push_back(reverseEdge);
-=======
+    }
     return ret;
 }
 
-std::unordered_map<std::string, std::vector<Serve>> MockData::playerServes_ = playerServes();
-std::unordered_map<std::string, std::vector<Serve>> MockData::teamServes_ = teamServes();
+std::unordered_map<VertexID, std::vector<EdgeData>> MockData::mockmMultiRankServes(
+        EdgeRanking rankCount) {
+    std::unordered_map<VertexID, std::vector<EdgeData>> ret;
+    // add multiple serve edge for benchmark
+    // Use serve data, EdgeType is 101
+    for (EdgeRanking rank = 0; rank < rankCount; rank++) {
+        for (const auto& serve : serves_) {
+            EdgeData data;
+            data.srcId_ = serve.playerName_;
+            data.type_ = 101;
+            data.rank_ = rank;
+            data.dstId_ = serve.teamName_;
+
+            std::vector<Value> props;
+            props.emplace_back(serve.playerName_);
+            props.emplace_back(serve.teamName_);
+            props.emplace_back(serve.startYear_);
+            props.emplace_back(serve.endYear_);
+            props.emplace_back(serve.teamCareer_);
+            props.emplace_back(serve.teamGames_);
+            props.emplace_back(serve.teamAvgScore_);
+
+            // Use insert time as ttl col
+            if (FLAGS_mock_ttl_col) {
+                props.emplace_back(time::WallClock::fastNowInSec());
+            }
+            // Use default value and nullable
+            if (!serve.type_.empty()) {
+                props.emplace_back(serve.type_);
+            }
+            if (serve.champions_) {
+                props.emplace_back(serve.champions_);
+            }
+            data.props_ = std::move(props);
+            ret[data.srcId_].emplace_back(std::move(data));
+        }
+
+        for (const auto& teammate : teammates_) {
+            EdgeData data;
+            data.srcId_ = teammate.player1_;
+            data.type_ = 102,
+            data.rank_ = rank;
+            data.dstId_ = teammate.player2_;
+
+            std::vector<Value> props;
+            props.emplace_back(teammate.player1_);
+            props.emplace_back(teammate.player2_);
+            props.emplace_back(teammate.teamName_);
+            props.emplace_back(teammate.startYear_);
+            props.emplace_back(teammate.endYear_);
+            data.props_ = std::move(props);
+            ret[data.srcId_].emplace_back(std::move(data));
+        }
+    }
+    return ret;
+}
 
 nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVerticesReq(int32_t parts) {
     nebula::storage::cpp2::AddVerticesRequest req;
@@ -755,7 +812,7 @@ std::vector<VertexData> MockData::mockVerticesSpecifiedOrder() {
 std::vector<EdgeData> MockData::mockEdgesSpecifiedOrder() {
     std::vector<EdgeData> ret;
     // Use serve data, positive edgeType is 101, reverse edgeType is -101
-    for (auto& serve : serve_) {
+    for (auto& serve : serves_) {
         EdgeData positiveEdge;
         positiveEdge.srcId_ = serve.playerName_;
         positiveEdge.type_ = 101;
@@ -848,7 +905,6 @@ MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
     }
     return req;
 }
-*/
 
 }  // namespace mock
 }  // namespace nebula

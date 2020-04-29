@@ -142,12 +142,8 @@ protected:
 
     cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId);
 
-    // only used in getVertexProps, get all prop of all tagId
-    std::vector<ReturnProp> buildAllTagProps(GraphSpaceID spaceId);
-
-    // only used in getEdgeProps, get all prop of all edgeType
-    std::vector<ReturnProp> buildAllEdgeProps(GraphSpaceID spaceId,
-                                              const cpp2::EdgeDirection& direction);
+    std::vector<ReturnProp> buildAllTagProps();
+    std::vector<ReturnProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
 protected:
     GraphSpaceID spaceId_;
@@ -162,9 +158,10 @@ protected:
     std::unordered_map<EdgeType, size_t> edgeIndexMap_;
 
     std::unordered_map<TagID,
-                       std::shared_ptr<const nebula::meta::NebulaSchemaProvider>> tagSchemas_;
+                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> tagSchemas_;
+
     std::unordered_map<EdgeType,
-                       std::shared_ptr<const nebula::meta::NebulaSchemaProvider>> edgeSchemas_;
+                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> edgeSchemas_;
 
     std::unordered_map<TagID, std::pair<std::string, int64_t>> tagTTLInfo_;
     std::unordered_map<EdgeType, std::pair<std::string, int64_t>> edgeTTLInfo_;

@@ -6,7 +6,6 @@
 #include "base/Base.h"
 #include <gtest/gtest.h>
 #include "fs/TempDir.h"
-#include "time/WallClock.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/test/QueryTestUtils.h"
 
@@ -664,83 +663,6 @@ TEST(GetNeighborsTest, FailedTest) {
         ASSERT_EQ(cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND, resp.result.failed_parts.front().code);
     }
 }
-
-TEST(GetNeighborsTest, ProcessEdgePropsBench) {
-    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-    auto totalParts = cluster.getTotalParts();
-    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
-
-    std::hash<std::string> hash;
-    VertexID vId = "Spurs";
-    GraphSpaceID spaceId = 1;
-    PartitionID partId = (hash(vId) % totalParts) + 1;
-    EdgeType edgeType = -101;
-
-    std::vector<PropContext> props;
-    {
-        std::string name = "playerName";
-        PropContext ctx(name.c_str());
-        ctx.returned_ = true;
-        props.emplace_back(std::move(ctx));
-    }
-
-    {
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = 1;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
-        int64_t edgeRowCount = 0;
-        nebula::DataSet dataSet;
-        auto tick = time::WallClock::fastNowInMicroSec();
-        processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [processor, spaceId, edgeType, env, &props, &dataSet]
-            (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
-            -> kvstore::ResultCode {
-                if (reader->get() == nullptr) {
-                    *reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
-                                                           std::abs(edgeType), val);
-                    if (!reader) {
-                        return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                    }
-                } else if (!(*reader)->resetEdgePropReader(env->schemaMan_, spaceId,
-                                                           std::abs(edgeType), val)) {
-                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                }
-
-                return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                   dataSet, nullptr);
-            });
-        auto tock = time::WallClock::fastNowInMicroSec();
-        LOG(INFO) << "ProcessEdgeProps with reader reset: process " << edgeRowCount
-                  << " takes " << tock - tick << " us.";
-    }
-    {
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = 1;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
-        int64_t edgeRowCount = 0;
-        nebula::DataSet dataSet;
-        auto tick = time::WallClock::fastNowInMicroSec();
-        processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [processor, spaceId, edgeType, env, &props, &dataSet]
-            (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
-            -> kvstore::ResultCode {
-                *reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
-                                                       std::abs(edgeType), val);
-                if (!reader) {
-                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                }
-
-                return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                   dataSet, nullptr);
-            });
-        auto tock = time::WallClock::fastNowInMicroSec();
-        LOG(INFO) << "ProcessEdgeProps without reader reset: process " << edgeRowCount
-                  << " takes " << tock - tick << " us.";
-    }
-}
 */
 
 TEST(GetNeighborsTest, GoOverAllTest) {
@@ -753,7 +675,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
     {
-        LOG(INFO) << "GoOverAll";
+        LOG(INFO) << "GoFromPlayerOverAll";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<EdgeType> over = {};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -767,10 +689,11 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 8 column: vId, stat, player, team, +/- serve, +/- teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 8);
     }
     {
-        LOG(INFO) << "GoOverAll";
+        LOG(INFO) << "GoFromTeamOverAll";
         std::vector<VertexID> vertices = {"Spurs"};
         std::vector<EdgeType> over = {};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -784,10 +707,11 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 8 column: vId, stat, player, team, +/- serve, +/- teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 8);
     }
     {
-        LOG(INFO) << "GoOverInEdge";
+        LOG(INFO) << "GoFromPlayerOverInEdge";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<EdgeType> over = {};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -801,10 +725,11 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 6 column: vId, stat, player, team, -serve, -teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 6);
     }
     {
-        LOG(INFO) << "GoOverOutEdge";
+        LOG(INFO) << "GoFromPlayerOverOutEdge";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<EdgeType> over = {};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -818,7 +743,44 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 6 column: vId, stat, player, team, +serve, +teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 6);
+    }
+    {
+        LOG(INFO) << "GoFromMultiPlayerOverAll";
+        std::vector<VertexID> vertices = {"Tim Duncan", "LeBron James", "Dwyane Wade"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.edge_direction = cpp2::EdgeDirection::BOTH;
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 8 column: vId, stat, player, team, +/- serve, +/- teammate
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 8);
+    }
+    {
+        LOG(INFO) << "GoFromMultiTeamOverAll";
+        std::vector<VertexID> vertices = {"Spurs", "Lakers", "Heat"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.edge_direction = cpp2::EdgeDirection::BOTH;
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 8 column: vId, stat, player, team, +/- serve, +/- teammate
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 8);
     }
 }
 

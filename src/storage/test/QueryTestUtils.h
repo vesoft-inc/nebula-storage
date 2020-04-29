@@ -10,6 +10,7 @@
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
 #include "codec/RowWriterV2.h"
+#include "codec/RowReaderWrapper.h"
 #include "common/NebulaKeyUtils.h"
 
 DECLARE_bool(mock_ttl_col);
@@ -43,22 +44,7 @@ public:
                 LOG(ERROR) << "Invalid tagId " << tagId;
                 return false;
             }
-            RowWriterV2 writer(schema.get());
-            auto& props = vertex.props_;
-            for (size_t i = 0; i < props.size(); i++) {
-                auto r = writer.setValue(i, props[i]);
-                if (r != WriteResult::SUCCEEDED) {
-                    LOG(ERROR) << "Invalid prop " << i;
-                    return false;
-                }
-            }
-            auto ret = writer.finish();
-            if (ret != WriteResult::SUCCEEDED) {
-                LOG(ERROR) << "Failed to write data";
-                return false;
-            }
-            auto encode = std::move(writer).moveEncodedStr();
-            data.emplace_back(std::move(key), std::move(encode));
+            EXPECT_TRUE(encode(schema.get(), key, vertex.props_, data));
             env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
                                         [&](kvstore::ResultCode code) {
                                             EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
@@ -94,22 +80,7 @@ public:
                 LOG(ERROR) << "Invalid edge " << edge.type_;
                 return false;
             }
-            RowWriterV2 writer(schema.get());
-            auto& props = edge.props_;
-            for (size_t i = 0; i < props.size(); i++) {
-                auto r = writer.setValue(i, props[i]);
-                if (r != WriteResult::SUCCEEDED) {
-                    LOG(ERROR) << "Invalid prop " << i;
-                    return false;
-                }
-            }
-            auto ret = writer.finish();
-            if (ret != WriteResult::SUCCEEDED) {
-                LOG(ERROR) << "Failed to write data";
-                return false;
-            }
-            auto encode = std::move(writer).moveEncodedStr();
-            data.emplace_back(std::move(key), std::move(encode));
+            EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
             env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
                                         [&](kvstore::ResultCode code) {
                                             EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
@@ -120,6 +91,70 @@ public:
                                         });
         }
         baton.wait();
+        return true;
+    }
+
+    static bool mockBenchEdgeData(storage::StorageEnv* env,
+                                 int32_t totalParts,
+                                 SchemaVer schemaVerCount,
+                                 EdgeRanking rankCount) {
+        GraphSpaceID spaceId = 1;
+        auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+        if (!status.ok()) {
+            LOG(ERROR) << "Get space vid length failed";
+            return false;
+        }
+        std::hash<std::string> hash;
+        auto spaceVidLen = status.value();
+        auto edges = mock::MockData::mockmMultiRankServes(rankCount);
+        std::atomic<size_t> count(edges.size());
+        folly::Baton<true, std::atomic> baton;
+        for (const auto& entry : edges) {
+            PartitionID partId = (hash(entry.first) % totalParts) + 1;
+            std::vector<kvstore::KV> data;
+            for (const auto& edge : entry.second) {
+                auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
+                                                   edge.rank_, edge.dstId_, 0L);
+                SchemaVer ver = folly::Random::rand64() % schemaVerCount;
+                auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_), ver);
+                if (!schema) {
+                    LOG(ERROR) << "Invalid edge " << edge.type_;
+                    return false;
+                }
+                EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
+            }
+            env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
+                                        [&](kvstore::ResultCode code) {
+                                            EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
+                                            count.fetch_sub(1);
+                                            if (count.load() == 0) {
+                                                baton.post();
+                                            }
+                                        });
+        }
+        baton.wait();
+        return true;
+    }
+
+    static bool encode(const meta::NebulaSchemaProvider* schema,
+                       const std::string& key,
+                       const std::vector<Value>& props,
+                       std::vector<kvstore::KV>& data) {
+        RowWriterV2 writer(schema);
+        for (size_t i = 0; i < props.size(); i++) {
+            auto r = writer.setValue(i, props[i]);
+            if (r != WriteResult::SUCCEEDED) {
+                LOG(ERROR) << "Invalid prop " << i;
+                return false;
+            }
+        }
+        auto ret = writer.finish();
+        if (ret != WriteResult::SUCCEEDED) {
+            LOG(ERROR) << "Failed to write data";
+            return false;
+        }
+        auto encode = std::move(writer).moveEncodedStr();
+        data.emplace_back(std::move(key), std::move(encode));
         return true;
     }
 
@@ -309,8 +344,10 @@ public:
                               const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by team name
-                return serve.teamName_ == values[1].getStr();
+                // find corresponding record by team name and start year
+                // in case a player serve the same team more than once
+                return serve.teamName_ == values[1].getStr() &&
+                       serve.startYear_ == values[2].getInt();
             });
             ASSERT_TRUE(iter != serves.end());
             checkAllPropertyOfServe(*iter, values);
@@ -334,7 +371,8 @@ public:
                              const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by player name and start year
+                // find corresponding record by player name and start year,
+                // in case a player serve the same team more than once
                 return serve.playerName_ == values[0].getStr() &&
                        serve.startYear_ == values[2].getInt();
             });

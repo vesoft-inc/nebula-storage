@@ -31,7 +31,7 @@ public:
 
     void startMeta(int32_t port, const std::string& rootPath);
 
-    void startStorage(HostAddr addr, const std::string& rootPath);
+    void startStorage(HostAddr addr, const std::string& rootPath, SchemaVer schemaVerCount = 1);
 
     /**
      * Init a meta client connect to current meta server.
@@ -40,16 +40,13 @@ public:
     void initMetaClient(meta::MetaClientOptions options = meta::MetaClientOptions());
 
 
-    std::unique_ptr<meta::SchemaManager>
-    memSchemaMan();
+    std::unique_ptr<meta::SchemaManager> memSchemaMan(SchemaVer schemaVerCount = 1);
 
-    std::unique_ptr<meta::IndexManager>
-    memIndexMan();
+    std::unique_ptr<meta::IndexManager> memIndexMan();
 
-    static
-    void waitUntilAllElected(kvstore::NebulaStore* kvstore,
-                             GraphSpaceID spaceId,
-                             const std::vector<PartitionID>& partIds);
+    static void waitUntilAllElected(kvstore::NebulaStore* kvstore,
+                                    GraphSpaceID spaceId,
+                                    const std::vector<PartitionID>& partIds);
 
     static std::unique_ptr<kvstore::MemPartManager>
     memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& parts);
@@ -60,7 +57,9 @@ public:
     static std::unique_ptr<kvstore::NebulaStore>
     initMetaKV(const char* dataPath, HostAddr localHost = HostAddr(0, 0));
 
-    void initStorageKV(const char* dataPath, HostAddr localHost = HostAddr(0, 0));
+    void initStorageKV(const char* dataPath,
+                       HostAddr localHost = HostAddr(0, 0),
+                       SchemaVer schemaVerCount = 1);
 
     static IPv4 localIP();
 

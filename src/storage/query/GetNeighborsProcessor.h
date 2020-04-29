@@ -21,7 +21,8 @@ using EdgeProcessor = std::function<kvstore::ResultCode(std::unique_ptr<RowReade
 
 class GetNeighborsProcessor
     : public QueryBaseProcessor<cpp2::GetNeighborsRequest, cpp2::GetNeighborsResponse> {
-    FRIEND_TEST(GetNeighborsTest, ProcessEdgePropsBench);
+    FRIEND_TEST(GetNeighborsBench, ProcessEdgeProps);
+    FRIEND_TEST(GetNeighborsBench, ScanEdgesVsProcessEdgeProps);
 
 public:
     static GetNeighborsProcessor* instance(StorageEnv* env,
@@ -45,6 +46,7 @@ protected:
     void onProcessFinished() override;
 
     cpp2::ErrorCode checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) override;
+    cpp2::ErrorCode getSpaceSchema();
     cpp2::ErrorCode buildTagContext(const cpp2::GetNeighborsRequest& req);
     cpp2::ErrorCode buildEdgeContext(const cpp2::GetNeighborsRequest& req);
 
