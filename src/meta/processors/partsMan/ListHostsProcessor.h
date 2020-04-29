@@ -25,9 +25,18 @@ private:
             : BaseProcessor<cpp2::ListHostsResp>(kvstore) {}
 
     /**
-     * Get all hosts with online/offline status and partition distribution.
+     * if type == ALLOC
+     *      Get all hosts with online/offline status and partition distribution.
+     * else
+     *      return gitInfoSHA for all hosts
      * */
     Status allHostsWithStatus(cpp2::ListHostType type);
+
+    /**
+     * Get gitInfoSHA from all meta hosts gitInfoSHA
+     * now, assume of of them are equal
+     * */
+    Status allMetaHostsStatus();
 
     // Get map of spaceId -> spaceName
     Status getSpaceIdNameMap();
