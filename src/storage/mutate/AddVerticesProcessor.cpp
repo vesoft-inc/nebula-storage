@@ -61,7 +61,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
-                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }
@@ -129,26 +129,8 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
             doPut(spaceId_, partId, std::move(data));
         }
     } else {
-        for (auto& part : partVertices) {
-            auto partId = part.first;
-            auto atomic = [version, partId, vertices = std::move(part.second), this]()
-                          -> folly::Optional<std::string> {
-                return this->addVertices(version, partId, vertices);
-            };
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                this->handleAsync(this->spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        }
+        LOG(FATAL) << "Unimplement";
     }
-}
-
-std::string AddVerticesProcessor::addVertices(int64_t version, PartitionID partId,
-                                              const std::vector<cpp2::NewVertex>& vertices) {
-    UNUSED(version);
-    UNUSED(partId);
-    UNUSED(vertices);
-    return std::string("");
 }
 
 }  // namespace storage

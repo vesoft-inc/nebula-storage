@@ -28,9 +28,6 @@ private:
     AddEdgesProcessor(StorageEnv* env, stats::Stats* stats)
         : BaseProcessor<cpp2::ExecResponse>(env, stats) {}
 
-    std::string addEdges(int64_t version, PartitionID partId,
-                         const std::vector<cpp2::NewEdge>& edges);
-
 private:
     GraphSpaceID                                                spaceId_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;

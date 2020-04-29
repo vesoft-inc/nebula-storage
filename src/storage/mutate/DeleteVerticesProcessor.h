@@ -30,10 +30,6 @@ private:
         : BaseProcessor<cpp2::ExecResponse>(env, stats)
         , vertexCache_(cache) {}
 
-    folly::Optional<std::string>
-    deleteVertices(PartitionID partId,
-                   const std::vector<VertexID>& vertices);
-
 private:
     GraphSpaceID                                                spaceId_;
     VertexCache*                                                vertexCache_{nullptr};

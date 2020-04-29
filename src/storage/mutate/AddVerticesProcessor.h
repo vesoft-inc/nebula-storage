@@ -31,10 +31,6 @@ private:
         : BaseProcessor<cpp2::ExecResponse>(env, stats)
         , vertexCache_(cache) {}
 
-    std::string addVertices(int64_t version,
-                            PartitionID partId,
-                            const std::vector<cpp2::NewVertex>& vertices);
-
 private:
     GraphSpaceID                                                spaceId_;
     VertexCache*                                                vertexCache_{nullptr};

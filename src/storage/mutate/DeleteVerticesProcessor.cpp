@@ -48,7 +48,7 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
-                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }
@@ -81,28 +81,8 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
             doRemove(spaceId_, partId, keys);
         }
     } else {
-        for (auto& part : partVertices) {
-            auto partId = part.first;
-            auto atomic = [partId, vids = std::move(part.second), this]()
-                          -> folly::Optional<std::string> {
-                return this->deleteVertices(partId, vids);
-            };
-
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
-                this->handleAsync(this->spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        }
+        LOG(FATAL) << "Unimplement";
     }
-}
-
-folly::Optional<std::string>
-DeleteVerticesProcessor::deleteVertices(PartitionID partId,
-                                        const std::vector<VertexID>& vertices) {
-    UNUSED(partId);
-    UNUSED(vertices);
-    return std::string("");
 }
 
 }  // namespace storage

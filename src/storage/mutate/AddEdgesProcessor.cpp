@@ -61,7 +61,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
                                << edgeKey.src << " dstVid: " << edgeKey.dst;
-                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }
@@ -122,26 +122,8 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             doPut(spaceId_, partId, std::move(data));
         }
     } else {
-        for (auto& part : partEdges) {
-            auto partId = part.first;
-            auto atomic = [version, partId, edges = std::move(part.second), this]()
-                          -> folly::Optional<std::string> {
-                return this->addEdges(version, partId, edges);
-            };
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                this->handleAsync(this->spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        }
+        LOG(FATAL) << "Unimplement";
     }
-}
-
-std::string AddEdgesProcessor::addEdges(int64_t version, PartitionID partId,
-                                        const std::vector<cpp2::NewEdge>& edges) {
-    UNUSED(version);
-    UNUSED(partId);
-    UNUSED(edges);
-    return std::string("");
 }
 
 }  // namespace storage

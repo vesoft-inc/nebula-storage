@@ -47,7 +47,7 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
                                << edgeKey.src << " dstVid: " << edgeKey.dst;
-                    pushResultCode(cpp2::ErrorCode::E_Invalid_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }
@@ -83,26 +83,8 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
             doRemove(spaceId_, partId, keys);
         }
     } else {
-        for (auto& part : partEdges) {
-            auto partId = part.first;
-            auto atomic = [partId, edgeKeys = std::move(part.second), this]()
-                          -> folly::Optional<std::string> {
-               return this->deleteEdges(partId, edgeKeys);
-            };
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                this->handleAsync(this->spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        }
+        LOG(FATAL) << "Unimplement";
     }
-}
-
-folly::Optional<std::string>
-DeleteEdgesProcessor::deleteEdges(PartitionID partId,
-                                  const std::vector<cpp2::EdgeKey>& edges) {
-    UNUSED(partId);
-    UNUSED(edges);
-    return std::string("");
 }
 
 }  // namespace storage
