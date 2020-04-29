@@ -25,7 +25,9 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             onFinished();
             return;
         }
-        auto status = allHostsWithStatus(req.get_type());
+        Status status = req.get_type() == cpp2::ListHostType::META ?
+                        allMetaHostsStatus() : allHostsWithStatus(req.get_type());
+
         if (!status.ok()) {
             onFinished();
             return;
@@ -49,6 +51,31 @@ bool ListHostsProcessor::match(cpp2::ListHostType type, cpp2::HostRole role) {
         break;
     }
     return false;
+}
+
+/*
+ * now(2020-04-29), assume all metad have same gitInfoSHA
+ * this will change if some day
+ * meta.thrift support interface like getHostStatus()
+ * which return a bunch of host infomation
+ * it's not necessary add this interface only for gitInfoSHA
+ * */
+Status ListHostsProcessor::allMetaHostsStatus() {
+    auto* partManager = kvstore_->partManager();
+    auto status = partManager->partMeta(kDefaultSpaceId, kDefaultPartId);
+    if (!status.ok()) {
+        return status.status();
+    }
+    auto partMeta = status.value();
+    for (auto& host : partMeta.hosts_) {
+        cpp2::HostItem item;
+        item.set_hostAddr(std::move(host));
+        item.set_role(cpp2::HostRole::META);
+        item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
+        item.set_status(cpp2::HostStatus::ONLINE);
+        hostItems_.emplace_back(item);
+    }
+    return Status::OK();
 }
 
 Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
