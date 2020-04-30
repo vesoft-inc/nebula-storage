@@ -83,41 +83,19 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
 
                     auto props = newTag.get_props();
                     auto iter = propNamesMap.find(tagId);
-                    RowWriterV2 rowWrite(schema.get());
-                    // If tagId is specified in req.prop_names, use the property name
-                    // in req.prop_names, otherwise, use property name in schema
+                    std::vector<std::string> propNames;
                     if (iter != propNamesMap.end()) {
-                        auto colNames = iter->second;
-                        for (size_t i = 0; i < colNames.size(); i++) {
-                            auto wRet = rowWrite.setValue(colNames[i], props[i]);
-                            if (wRet != WriteResult::SUCCEEDED) {
-                                LOG(ERROR) << "Add vertex faild";
-                                pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
-                                onFinished();
-                                return;
-                            }
-                        }
-                    } else {
-                        for (size_t i = 0; i < props.size(); i++) {
-                            auto wRet = rowWrite.setValue(i, props[i]);
-                            if (wRet != WriteResult::SUCCEEDED) {
-                                LOG(ERROR) << "Add vertex faild";
-                                pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
-                                onFinished();
-                                return;
-                            }
-                        }
+                        propNames = iter->second;
                     }
-                    auto wRet = rowWrite.finish();
-                    if (wRet != WriteResult::SUCCEEDED) {
-                        LOG(ERROR) << "Add vertex faild";
+
+                    auto retEnc = encodeRowVal(schema.get(), propNames, props);
+                    if (!retEnc.ok()) {
+                        LOG(ERROR) << retEnc.status();
                         pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                         onFinished();
                         return;
                     }
-
-                    std::string encode = std::move(rowWrite).moveEncodedStr();
-                    data.emplace_back(std::move(key), std::move(encode));
+                    data.emplace_back(std::move(key), std::move(retEnc.value()));
 
                     if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
                         vertexCache_->evict(std::make_pair(vid, tagId), partId);

@@ -83,41 +83,15 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                 }
 
                 auto props = newEdge.get_props();
-                RowWriterV2 rowWrite(schema.get());
-                // If req.prop_names is not empty, use the property name in req.prop_names
-                // Otherwise, use property name in schema
-                if (!propNames.empty()) {
-                    for (size_t i = 0; i < propNames.size(); i++) {
-                        auto wRet = rowWrite.setValue(propNames[i], props[i]);
-                        if (wRet != WriteResult::SUCCEEDED) {
-                            LOG(ERROR) << "Add edge faild";
-                            pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
-                            onFinished();
-                            return;
-                        }
-                    }
-                } else {
-                    for (size_t i = 0; i < props.size(); i++) {
-                        auto wRet = rowWrite.setValue(i, props[i]);
-                        if (wRet != WriteResult::SUCCEEDED) {
-                            LOG(ERROR) << "Add edge faild";
-                            pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
-                            onFinished();
-                            return;
-                        }
-                    }
-                }
-
-                auto wRet = rowWrite.finish();
-                if (wRet != WriteResult::SUCCEEDED) {
-                    LOG(ERROR) << "Add edge faild";
+                auto retEnc = encodeRowVal(schema.get(), propNames, props);
+                if (!retEnc.ok()) {
+                    LOG(ERROR) << retEnc.status();
                     pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                     onFinished();
                     return;
                 }
 
-                std::string encode = std::move(rowWrite).moveEncodedStr();
-                data.emplace_back(std::move(key), std::move(encode));
+                data.emplace_back(std::move(key), std::move(retEnc.value()));
             }
             doPut(spaceId_, partId, std::move(data));
         }
