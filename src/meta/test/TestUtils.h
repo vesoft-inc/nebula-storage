@@ -263,7 +263,7 @@ public:
         cols.emplace_back(TestUtils::columnDef(0,
                     PropertyType::BOOL, Value(true), false));
         cols.emplace_back(TestUtils::columnDef(1,
-                    PropertyType::INT8, Value(2), false));
+                    PropertyType::INT8, Value(NullType::__NULL__), true));
         cols.emplace_back(TestUtils::columnDef(2,
                     PropertyType::INT16, Value(20), false));
         cols.emplace_back(TestUtils::columnDef(3,
@@ -297,8 +297,8 @@ public:
 
         ASSERT_EQ(schema.columns[1].get_name(), "col_1");
         ASSERT_EQ(schema.columns[1].get_type(), PropertyType::INT8);
-        ASSERT_EQ(*schema.columns[1].get_default_value(), Value(2));
-        ASSERT_EQ(*schema.columns[1].get_nullable(), false);
+        ASSERT_EQ(*schema.columns[1].get_default_value(), Value(NullType::__NULL__));
+        ASSERT_EQ(*schema.columns[1].get_nullable(), true);
 
         ASSERT_EQ(schema.columns[2].get_name(), "col_2");
         ASSERT_EQ(schema.columns[2].get_type(), PropertyType::INT16);

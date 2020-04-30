@@ -12,88 +12,89 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
         if (column.__isset.default_value) {
             auto name = column.get_name();
             auto* value = column.get_default_value();
+            auto nullable = column.__isset.nullable ? *column.get_nullable() : false;
+            if (nullable && value->isNull()) {
+                continue;;
+            }
             switch (column.get_type()) {
                 case cpp2::PropertyType::BOOL:
                     if (value->type() != nebula::Value::Type::BOOL) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::INT8: {
                     if (value->type() != nebula::Value::Type::INT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
 
                     auto v = value->getInt();
                     if (v > std::numeric_limits<int8_t>::max()
                             || v < std::numeric_limits<int8_t>::min()) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " out of rang";
+                        LOG(ERROR) << "`" << name << "'  out of rang";
                         return false;
                     }
                     break;
                 }
                 case cpp2::PropertyType::INT16: {
                     if (value->type() != nebula::Value::Type::INT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
 
                     auto v = value->getInt();
                     if (v > std::numeric_limits<int16_t>::max()
                             || v < std::numeric_limits<int16_t>::min()) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " out of rang";
+                        LOG(ERROR) << "`" << name << "'  out of rang";
                         return false;
                     }
                     break;
                 }
                 case cpp2::PropertyType::INT32: {
                     if (value->type() != nebula::Value::Type::INT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
 
                     auto v = value->getInt();
                     if (v > std::numeric_limits<int32_t>::max()
                             || v < std::numeric_limits<int32_t>::min()) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " out of rang";
+                        LOG(ERROR) << "`" << name << "'  out of rang";
                         return false;
                     }
                     break;
                 }
                 case cpp2::PropertyType::INT64:
                     if (value->type() != nebula::Value::Type::INT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::FLOAT:
                 case cpp2::PropertyType::DOUBLE:
                     if (value->type() != nebula::Value::Type::FLOAT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::STRING:
                     if (value->type() != nebula::Value::Type::STRING) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::FIXED_STRING: {
                     if (value->type() != nebula::Value::Type::STRING) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     size_t typeLen = column.__isset.type_length ? *column.get_type_length() : 0;
@@ -105,22 +106,22 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
                 }
                 case cpp2::PropertyType::TIMESTAMP:
                     if (value->type() != nebula::Value::Type::INT) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::DATE:
                     if (value->type() != nebula::Value::Type::DATE) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
                 case cpp2::PropertyType::DATETIME:
                     if (value->type() != nebula::Value::Type::DATETIME) {
-                        LOG(ERROR) << "Create Tag Failed: " << name
-                                   << " type mismatch";
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value->type();
                         return false;
                     }
                     break;
