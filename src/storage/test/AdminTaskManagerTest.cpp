@@ -71,7 +71,7 @@ struct HookableTask : public AdminTask {
 // *** 0. basic component
 TEST(TaskManagerTest, extract_subtasks_to_context) {
     size_t numSubTask = 5;
-    std::shared_ptr<AdminTask> vtask(new HookableTask());
+    auto vtask = std::make_shared<HookableTask>();
     HookableTask* task = static_cast<HookableTask*>(vtask.get());
     int subTaskCalled = 0;
     for (size_t i = 0; i < numSubTask; ++i) {
@@ -80,13 +80,12 @@ TEST(TaskManagerTest, extract_subtasks_to_context) {
             return kvstore::ResultCode::SUCCEEDED;
         });
     }
-    AdminTaskManager::TaskExecContext ctx(vtask);
     for (auto& subtask : task->subTasks) {
-        ctx.subtasks_.add(subtask);
+        vtask->subtasks_.add(subtask);
     }
 
     std::chrono::milliseconds ms10{10};
-    while (auto it = ctx.subtasks_.try_take_for(ms10)) {
+    while (auto it = vtask->subtasks_.try_take_for(ms10)) {
         auto& subTask = *it;
         subTask.invoke();
     }
@@ -167,17 +166,16 @@ TEST(TaskManagerTest, component_IOThreadPool) {
 
 TEST(TaskManagerTest, data_structure_ConcurrentHashMap) {
     using TKey = std::pair<int, int>;
-    using TVal = std::shared_ptr<AdminTaskManager::TaskExecContext>;
+    using TVal = std::shared_ptr<AdminTask>;
     using TaskContainer = folly::ConcurrentHashMap<TKey, TVal>;
     // CRUD
     // create
-    std::shared_ptr<AdminTask> t1(new HookableTask());
+    std::shared_ptr<AdminTask> t1 = std::make_shared<HookableTask>();
     TaskContainer tasks;
     TKey k0 = std::make_pair(1, 1);
-    TVal ctx0 = std::make_shared<AdminTaskManager::TaskExecContext>(t1);
     EXPECT_TRUE(tasks.empty());
     EXPECT_EQ(tasks.find(k0), tasks.cend());
-    auto r = tasks.insert(k0, ctx0);
+    auto r = tasks.insert(k0, t1);
     EXPECT_TRUE(r.second);
 
     // read
@@ -185,7 +183,7 @@ TEST(TaskManagerTest, data_structure_ConcurrentHashMap) {
 
     // update
     auto newTask = tasks[k0];
-    newTask->task_ = t1;
+    newTask  = t1;
 
     // delete
     auto nRemove = tasks.erase(k0);
@@ -205,7 +203,7 @@ TEST(TaskManagerTest, happy_path_task1_sub1) {
     taskMgr->init();
 
     size_t numSubTask = 1;
-    std::shared_ptr<AdminTask> task(new HookableTask());
+    std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
     HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
     folly::Promise<ResultCode> pTaskFini;
     auto fTaskFini = pTaskFini.getFuture();
@@ -241,7 +239,7 @@ TEST(TaskManagerTest, run_a_medium_task_before_a_huge_task) {
 
     {   // 256 sub tasks
         size_t numSubTask = 256;
-        std::shared_ptr<AdminTask> task(new HookableTask());
+        std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
         int jobId = ++gJobId;
 
@@ -275,7 +273,7 @@ TEST(TaskManagerTest, happy_path) {
     taskMgr->init();
         {
             size_t numSubTask = 1;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
             mockTask->setJobId(jobId);
@@ -304,7 +302,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // use 3 background to run 2 task
             size_t numSubTask = 2;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
             mockTask->setJobId(jobId);
@@ -333,7 +331,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // use 3 background to run 3 task
             size_t numSubTask = 3;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             folly::Promise<ResultCode> pro;
             folly::Future<ResultCode> fut = pro.getFuture();
@@ -362,7 +360,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // use 3 background to run 4 task
             size_t numSubTask = 4;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
             mockTask->setJobId(jobId);
@@ -390,7 +388,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // 8 task
             size_t numSubTask = 8;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
             mockTask->setJobId(jobId);
@@ -418,7 +416,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // 16 task
             size_t numSubTask = 16;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
             mockTask->setJobId(jobId);
@@ -446,7 +444,7 @@ TEST(TaskManagerTest, happy_path) {
 
         {   // 256 sub tasks
             size_t numSubTask = 256;
-            std::shared_ptr<AdminTask> task(new HookableTask());
+            std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
             HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
             int jobId = ++gJobId;
 
@@ -480,7 +478,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
     taskMgr->init();
 
     {
-        std::shared_ptr<AdminTask> task(new HookableTask());
+        std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
         mockTask->fGenSubTasks = [&]() {
             return kvstore::ResultCode::ERR_UNSUPPORTED;
@@ -521,7 +519,8 @@ TEST(TaskManagerTest, some_subtask_failed) {
         std::atomic<int> subTaskCalled{0};
         auto errCode = errorCode[t];
 
-        std::shared_ptr<AdminTask> task(new HookableTask());
+        // std::shared_ptr<AdminTask> task(new HookableTask());
+        std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = static_cast<HookableTask*>(task.get());
         mockTask->setJobId(jobId);
         mockTask->setTaskId(jobId);
@@ -552,7 +551,7 @@ TEST(TaskManagerTest, cancel_a_running_task_with_only_1_sub_task) {
     taskMgr->init();
     int jobId = ++gJobId;
 
-    std::shared_ptr<AdminTask> task(new HookableTask());
+    std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
     HookableTask* mockTask = static_cast<HookableTask*>(task.get());
     mockTask->setJobId(jobId);
 
@@ -608,7 +607,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
     folly::Promise<int> pCancelTask2;
     folly::Future<int> fCancelTask2 = pCancelTask2.getFuture();
 
-    std::shared_ptr<AdminTask> vtask1(new HookableTask());
+    std::shared_ptr<AdminTask> vtask1 = std::make_shared<HookableTask>();
     HookableTask* task1 = static_cast<HookableTask*>(vtask1.get());
     task1->setJobId(1);
 
@@ -626,7 +625,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
         pTask1.setValue(ret);
     });
 
-    std::shared_ptr<AdminTask> vtask2(new HookableTask());
+    std::shared_ptr<AdminTask> vtask2 = std::make_shared<HookableTask>();
     HookableTask* task2 = static_cast<HookableTask*>(vtask2.get());
     task2->setJobId(2);
 
@@ -668,7 +667,7 @@ TEST(TaskManagerTest, cancel_a_task_before_all_sub_task_running) {
     folly::Promise<int> pCancelTask;
     auto fCancelTask = pCancelTask.getFuture();
 
-    std::shared_ptr<AdminTask> vtask0(new HookableTask());
+    std::shared_ptr<AdminTask> vtask0 = std::make_shared<HookableTask>();
     HookableTask* task0 = static_cast<HookableTask*>(vtask0.get());
     task0->setJobId(jobId);
 
@@ -716,7 +715,7 @@ TEST(TaskManagerTest, cancel_a_task_while_some_sub_task_running) {
     folly::Promise<int> subtask_run_p;
     folly::Future<int> subtask_run_f = subtask_run_p.getFuture();
 
-    std::shared_ptr<AdminTask> vtask0(new HookableTask());
+    std::shared_ptr<AdminTask> vtask0 = std::make_shared<HookableTask>();
     HookableTask* task1 = static_cast<HookableTask*>(vtask0.get());
     task1->setJobId(1);
 

@@ -19,10 +19,10 @@ AdminTaskFactory::createAdminTask(TaskContext&& ctx) {
     std::shared_ptr<AdminTask> ret;
     switch (ctx.cmd_) {
     case AdminCmd::COMPACT:
-        ret.reset(new CompactTask(std::move(ctx)));
+        ret = std::make_shared<CompactTask>(std::move(ctx));
         break;
     case AdminCmd::FLUSH:
-        ret.reset(new FlushTask(std::move(ctx)));
+        ret = std::make_shared<FlushTask>(std::move(ctx));
         break;
     case AdminCmd::REBUILD_TAG_INDEX:
     case AdminCmd::REBUILD_EDGE_INDEX:

@@ -27,21 +27,10 @@ class AdminTaskManager {
     using ResultCode = nebula::kvstore::ResultCode;
 
 public:
-    struct TaskExecContext {
-        explicit TaskExecContext(std::shared_ptr<AdminTask> task) : task_(task) {}
-        using SubTaskQueue = folly::UnboundedBlockingQueue<AdminSubTask>;
-        using ResultContainer = std::vector<folly::SemiFuture<ResultCode>>;
-
-        std::shared_ptr<AdminTask>  task_{nullptr};
-        std::mutex                  mu_;  // guard unFinishedTask_
-        size_t                      unFinishedTask_;
-        SubTaskQueue                subtasks_;
-    };
-
     using ThreadPool = folly::IOThreadPoolExecutor;
     using TaskHandle = std::pair<int, int>;  // jobid + taskid
-    using TaskVal = std::shared_ptr<TaskExecContext>;
-    using TaskContainer = folly::ConcurrentHashMap<TaskHandle, TaskVal>;
+    using TypeTask = std::shared_ptr<AdminTask>;
+    using TaskContainer = folly::ConcurrentHashMap<TaskHandle, TypeTask>;
     using TaskQueue = folly::UnboundedBlockingQueue<TaskHandle>;
 
     AdminTaskManager() = default;

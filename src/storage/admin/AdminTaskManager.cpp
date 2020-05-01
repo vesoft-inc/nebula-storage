@@ -35,8 +35,7 @@ void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
     LOG(INFO) << folly::stringPrintf("try enqueue task(%d, %d), con req=%zu",
                                      task->getJobId(), task->getTaskId(),
                                      task->getConcurrentReq());
-    auto ctx = std::make_shared<TaskExecContext>(task);
-    tasks_.insert(handle, ctx);
+    tasks_.insert(handle, task);
     taskQueue_.add(handle);
     LOG(INFO) << folly::stringPrintf("enqueue task(%d, %d), con req=%zu",
                                      task->getJobId(), task->getTaskId(),
@@ -50,8 +49,7 @@ AdminTaskManager::cancelJob(int jobId) {
     while (it != tasks_.end()) {
         auto handle = it->first;
         if (handle.first == jobId) {
-            auto ctx = it->second;
-            ctx->task_->cancel();
+            it->second->cancel();
             FLOG_INFO("task(%d, %d) cancelled", jobId, handle.second);
             ret = kvstore::ResultCode::SUCCEEDED;
         }
@@ -71,7 +69,7 @@ AdminTaskManager::cancelTask(int jobId, int taskId) {
     if (it == tasks_.cend()) {
         ret = ResultCode::ERR_KEY_NOT_FOUND;
     } else {
-        it->second->task_->cancel();
+        it->second->cancel();
     }
     return ret;
 }
@@ -83,7 +81,7 @@ void AdminTaskManager::shutdown() {
     bgThread_->wait();
 
     for (auto it = tasks_.begin(); it != tasks_.end(); ++it) {
-        it->second->task_->cancel();  // cancelled_ = true;
+        it->second->cancel();  // cancelled_ = true;
     }
 
     pool_->join();
@@ -117,29 +115,29 @@ void AdminTaskManager::schedule() {
             continue;
         }
 
-        std::shared_ptr<TaskExecContext> ctx = it->second;
-        auto errOrSubTasks = ctx->task_->genSubTasks();
+        auto task = it->second;
+        auto errOrSubTasks = task->genSubTasks();
         if (!nebula::ok(errOrSubTasks)) {
             LOG(ERROR) << "genSubTasks() failed=" << static_cast<int>(nebula::error(errOrSubTasks));
-            ctx->task_->finish(nebula::error(errOrSubTasks));
+            task->finish(nebula::error(errOrSubTasks));
             tasks_.erase(handle);
             return;
         }
 
         auto subTasks = nebula::value(errOrSubTasks);
         for (auto& subtask : subTasks) {
-            ctx->subtasks_.add(subtask);
+            task->subtasks_.add(subtask);
         }
 
-        auto subTaskConcurrency = std::min(ctx->task_->getConcurrentReq(),
+        auto subTaskConcurrency = std::min(task->getConcurrentReq(),
                                            static_cast<size_t>(FLAGS_max_concurrent_subtasks));
         subTaskConcurrency = std::min(subTaskConcurrency, subTasks.size());
-        ctx->unFinishedTask_ = subTasks.size();
+        task->unFinishedSubTask_ = subTasks.size();
 
-        LOG(INFO) << folly::stringPrintf("run task(%d, %d), %zu subtasks in %zu thread",
-                                         handle.first, handle.second,
-                                         ctx->unFinishedTask_,
-                                         subTaskConcurrency);
+        FLOG_INFO("run task(%d, %d), %zu subtasks in %zu thread",
+                  handle.first, handle.second,
+                  task->unFinishedSubTask_.load(),
+                  subTaskConcurrency);
         for (size_t i = 0; i < subTaskConcurrency; ++i) {
             pool_->add(std::bind(&AdminTaskManager::runSubTask, this, handle));
         }
@@ -153,25 +151,21 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
         FLOG_INFO("task(%d, %d) runSubTask() exit", handle.first, handle.second);
         return;
     }
-    auto ctx = it->second;
+    auto task = it->second;
     std::chrono::milliseconds take_dura{10};
-    if (auto subTask = ctx->subtasks_.try_take_for(take_dura)) {
-        // LOG(INFO) << "take sub task";
-        if (ctx->task_->Status() == ResultCode::SUCCEEDED) {
+    if (auto subTask = task->subtasks_.try_take_for(take_dura)) {
+        if (task->status() == ResultCode::SUCCEEDED) {
             ResultCode rc = subTask->invoke();
-            ctx->task_->subTaskFinish(rc);
+            task->subTaskFinish(rc);
         }
 
-        {
-            std::lock_guard<std::mutex> lk(ctx->mu_);
-            if (0 == --ctx->unFinishedTask_) {
-                FLOG_INFO("task(%d, %d) finished", ctx->task_->getJobId(),
-                                                   ctx->task_->getTaskId());
-                ctx->task_->finish();
-                tasks_.erase(handle);
-            } else {
-                pool_->add(std::bind(&AdminTaskManager::runSubTask, this, handle));
-            }
+        if (0 == --task->unFinishedSubTask_) {
+            FLOG_INFO("task(%d, %d) finished", task->getJobId(),
+                                                task->getTaskId());
+            task->finish();
+            tasks_.erase(handle);
+        } else {
+            pool_->add(std::bind(&AdminTaskManager::runSubTask, this, handle));
         }
     } else {
         FLOG_INFO("task(%d, %d) runSubTask() exit", handle.first, handle.second);

@@ -7,6 +7,7 @@
 #ifndef STORAGE_ADMIN_ADMINTASK_H_
 #define STORAGE_ADMIN_ADMINTASK_H_
 
+#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include "kvstore/Common.h"
 #include "thrift/ThriftTypes.h"
 #include "interface/gen-cpp2/storage_types.h"
@@ -18,6 +19,7 @@ namespace storage {
 class AdminSubTask {
 public:
     using ResultCode = nebula::kvstore::ResultCode;
+
     AdminSubTask() = default;
     explicit AdminSubTask(std::function<ResultCode()> f) : run_(f) {}
     ResultCode invoke() {
@@ -62,6 +64,7 @@ struct TaskContext {
 class AdminTask {
     using ResultCode = nebula::kvstore::ResultCode;
     using TCallBack = std::function<void(ResultCode)>;
+    using SubTaskQueue = folly::UnboundedBlockingQueue<AdminSubTask>;
 
 public:
     AdminTask() = default;
@@ -102,6 +105,10 @@ public:
         return ctx_.concurrentReq_;
     }
 
+    virtual ResultCode status() const {
+        return rc_;
+    }
+
     virtual ResultCode Status() const {
         return rc_;
     }
@@ -123,6 +130,10 @@ public:
         static ResultCode suc{ResultCode::SUCCEEDED};
         rc_.compare_exchange_strong(suc, ResultCode::ERR_USER_CANCELLED);
     }
+
+public:
+    std::atomic<size_t>         unFinishedSubTask_;
+    SubTaskQueue                subtasks_;
 
 protected:
     TaskContext                 ctx_;
