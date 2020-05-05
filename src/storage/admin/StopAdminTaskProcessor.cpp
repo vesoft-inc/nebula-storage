@@ -15,9 +15,9 @@ void StopAdminTaskProcessor::process(const cpp2::StopAdminTaskRequest& req) {
     auto taskManager = AdminTaskManager::instance();
     auto rc = taskManager->cancelJob(req.get_job_id());
 
-    if (rc != kvstore::ResultCode::SUCCEEDED) {
+    if (rc != cpp2::ErrorCode::SUCCEEDED) {
         cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(to(rc));
+        thriftRet.set_code(rc);
         codes_.emplace_back(std::move(thriftRet));
     }
 

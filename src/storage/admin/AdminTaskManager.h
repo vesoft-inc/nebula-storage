@@ -7,15 +7,16 @@
 #ifndef STORAGE_ADMIN_ADMINTASKMANAGER_H_
 #define STORAGE_ADMIN_ADMINTASKMANAGER_H_
 
-#include "interface/gen-cpp2/storage_types.h"
 #include <condition_variable>
 #include <mutex>
-#include <gtest/gtest_prod.h>
-#include "kvstore/NebulaStore.h"
-#include "storage/admin/AdminTask.h"
-#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include <folly/concurrency/ConcurrentHashMap.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
+#include <gtest/gtest_prod.h>
+#include "interface/gen-cpp2/storage_types.h"
+#include "kvstore/NebulaStore.h"
+#include "storage/admin/AdminTask.h"
+
 
 namespace nebula {
 namespace storage {
@@ -24,13 +25,11 @@ class AdminTaskManager {
     FRIEND_TEST(TaskManagerTest, happy_path);
     FRIEND_TEST(TaskManagerTest, gen_sub_task_failed);
 
-    using ResultCode = nebula::kvstore::ResultCode;
-
 public:
     using ThreadPool = folly::IOThreadPoolExecutor;
     using TaskHandle = std::pair<int, int>;  // jobid + taskid
-    using TypeTask = std::shared_ptr<AdminTask>;
-    using TaskContainer = folly::ConcurrentHashMap<TaskHandle, TypeTask>;
+    using TTask = std::shared_ptr<AdminTask>;
+    using TaskContainer = folly::ConcurrentHashMap<TaskHandle, TTask>;
     using TaskQueue = folly::UnboundedBlockingQueue<TaskHandle>;
 
     AdminTaskManager() = default;
@@ -43,8 +42,8 @@ public:
 
     void invoke();
 
-    ResultCode cancelJob(int jobId);
-    ResultCode cancelTask(int jobId, int taskId = -1);
+    cpp2::ErrorCode cancelJob(int jobId);
+    cpp2::ErrorCode cancelTask(int jobId, int taskId = -1);
 
     bool init();
 

@@ -5,28 +5,29 @@
  */
 
 #include "storage/admin/CompactTask.h"
+#include "storage/admin/TaskUtils.h"
 #include "base/Logging.h"
 
 namespace nebula {
 namespace storage {
 
-using ResultCode = nebula::kvstore::ResultCode;
-
-ErrorOr<ResultCode, std::vector<AdminSubTask>>
+ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>>
 CompactTask::genSubTasks() {
     std::vector<AdminSubTask> ret;
     if (!ctx_.store_) {
         return ret;
     }
 
-    auto errOrSpace = ctx_.store_->space(ctx_.spaceId_);
+    auto* store = dynamic_cast<kvstore::NebulaStore*>(ctx_.store_);
+    CHECK_NOTNULL(store);
+    auto errOrSpace = store->space(ctx_.spaceId_);
     if (!ok(errOrSpace)) {
-        return error(errOrSpace);
+        return toStorageErr(error(errOrSpace));
     }
 
     auto space = nebula::value(errOrSpace);
 
-    using FuncObj = std::function<ResultCode()>;
+    using FuncObj = std::function<kvstore::ResultCode()>;
     for (auto& engine : space->engines_) {
         FuncObj obj = std::bind(&CompactTask::subTask, this, engine.get());
         ret.emplace_back(obj);
@@ -34,7 +35,7 @@ CompactTask::genSubTasks() {
     return ret;
 }
 
-ResultCode CompactTask::subTask(nebula::kvstore::KVEngine* engine) {
+kvstore::ResultCode CompactTask::subTask(kvstore::KVEngine* engine) {
     return engine->compact();
 }
 

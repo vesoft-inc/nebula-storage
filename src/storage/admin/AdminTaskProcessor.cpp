@@ -13,31 +13,32 @@ namespace storage {
 
 void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     bool runDirectly = true;
-    auto rc = nebula::kvstore::ResultCode::SUCCEEDED;
+    auto rc = cpp2::ErrorCode::SUCCEEDED;
     auto taskManager = AdminTaskManager::instance();
 
-    auto* store = dynamic_cast<kvstore::NebulaStore*>(env_->kvstore_);
-    auto cb = [&](nebula::kvstore::ResultCode ret) {
-        if (ret != nebula::kvstore::ResultCode::SUCCEEDED) {
+    auto* store = dynamic_cast<kvstore::KVStore*>(env_->kvstore_);
+    auto cb = [&](cpp2::ErrorCode ret) {
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
             cpp2::PartitionResult thriftRet;
-            thriftRet.set_code(to(ret));
+            thriftRet.set_code(ret);
             codes_.emplace_back(std::move(thriftRet));
         }
         onFinished();
     };
+
     TaskContext ctx(req, store, cb);
     auto task = AdminTaskFactory::createAdminTask(std::move(ctx));
     if (task) {
         runDirectly = false;
         taskManager->addAsyncTask(task);
     } else {
-        rc = kvstore::ResultCode::ERR_INVALID_ARGUMENT;
+        rc = cpp2::ErrorCode::E_INVALID_TASK_PARA;
     }
 
     if (runDirectly) {
-        if (rc != kvstore::ResultCode::SUCCEEDED) {
+        if (rc != cpp2::ErrorCode::SUCCEEDED) {
             cpp2::PartitionResult thriftRet;
-            thriftRet.set_code(to(rc));
+            thriftRet.set_code(rc);
             codes_.emplace_back(std::move(thriftRet));
         }
         onFinished();

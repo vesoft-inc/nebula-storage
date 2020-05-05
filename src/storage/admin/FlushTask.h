@@ -16,11 +16,10 @@ namespace nebula {
 namespace storage {
 
 class FlushTask : public AdminTask {
-    using ResultCode = nebula::kvstore::ResultCode;
 public:
     explicit FlushTask(TaskContext&& ctx) : AdminTask(std::move(ctx)) {}
 
-    ErrorOr<ResultCode, std::vector<AdminSubTask>> genSubTasks() override;
+    ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 };
 
 }  // namespace storage

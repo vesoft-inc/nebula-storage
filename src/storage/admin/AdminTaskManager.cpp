@@ -42,32 +42,30 @@ void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
                                      task->getConcurrentReq());
 }
 
-nebula::kvstore::ResultCode
-AdminTaskManager::cancelJob(int jobId) {
-    auto ret = ResultCode::ERR_KEY_NOT_FOUND;
+cpp2::ErrorCode AdminTaskManager::cancelJob(int jobId) {
+    auto ret = cpp2::ErrorCode::E_KEY_NOT_FOUND;
     auto it = tasks_.begin();
     while (it != tasks_.end()) {
         auto handle = it->first;
         if (handle.first == jobId) {
             it->second->cancel();
             FLOG_INFO("task(%d, %d) cancelled", jobId, handle.second);
-            ret = kvstore::ResultCode::SUCCEEDED;
+            ret = cpp2::ErrorCode::SUCCEEDED;
         }
         ++it;
     }
     return ret;
 }
 
-nebula::kvstore::ResultCode
-AdminTaskManager::cancelTask(int jobId, int taskId) {
+cpp2::ErrorCode AdminTaskManager::cancelTask(int jobId, int taskId) {
     if (taskId < 0) {
         return cancelJob(jobId);
     }
-    auto ret = ResultCode::SUCCEEDED;
+    auto ret = cpp2::ErrorCode::SUCCEEDED;
     TaskHandle handle = std::make_pair(jobId, taskId);
     auto it = tasks_.find(handle);
     if (it == tasks_.cend()) {
-        ret = ResultCode::ERR_KEY_NOT_FOUND;
+        ret = cpp2::ErrorCode::E_KEY_NOT_FOUND;
     } else {
         it->second->cancel();
     }
@@ -154,8 +152,8 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
     auto task = it->second;
     std::chrono::milliseconds take_dura{10};
     if (auto subTask = task->subtasks_.try_take_for(take_dura)) {
-        if (task->status() == ResultCode::SUCCEEDED) {
-            ResultCode rc = subTask->invoke();
+        if (task->status() == cpp2::ErrorCode::SUCCEEDED) {
+            auto rc = subTask->invoke();
             task->subTaskFinish(rc);
         }
 

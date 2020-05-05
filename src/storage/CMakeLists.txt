@@ -18,6 +18,7 @@ nebula_add_library(
     admin/AdminTask.cpp
     admin/CompactTask.cpp
     admin/FlushTask.cpp
+    admin/TaskUtils.cpp
 )
 
 nebula_add_library(
