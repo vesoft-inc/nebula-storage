@@ -14,7 +14,10 @@
 
 namespace nebula {
 
-using IndexValues = std::vector<std::pair<Value::Type, std::string>>;
+/**
+ *  IndexValues <Value Type, Value binary, is nullable column, is null value>
+ */
+using IndexValues = std::vector<std::tuple<Value::Type, std::string, bool, bool>>;
 
 /**
  * This class supply some utils for index in kvstore.
@@ -23,7 +26,48 @@ class IndexKeyUtils final {
 public:
     ~IndexKeyUtils() = default;
 
-    static std::string encodeValue(const Value& v)  {
+    static std::string encodeNullValue(Value::Type type) {
+        std::string raw;
+        switch (type) {
+            case Value::Type::INT : {
+                raw.reserve(sizeof(int64_t));
+                raw.append(sizeof(int64_t), '\0');
+                break;
+            }
+            case Value::Type::FLOAT : {
+                raw.reserve(sizeof(double));
+                raw.append(sizeof(double), '\0');
+                break;
+            }
+            case Value::Type::BOOL: {
+                raw.reserve(sizeof(bool));
+                raw.append(sizeof(bool), '\0');
+                break;
+            }
+            case Value::Type::STRING : {
+                raw.reserve(1);
+                raw.append(1, '\0');
+                break;
+            }
+            case Value::Type::DATE : {
+                std::string buf;
+                buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
+                raw.append(sizeof(int8_t) * 2 + sizeof(int16_t), '\0');
+                break;
+            }
+            case Value::Type::DATETIME : {
+                std::string buf;
+                buf.reserve(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5);
+                raw.append(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5, '\0');
+                break;
+            }
+            default :
+                LOG(ERROR) << "Unsupported default value type";
+        }
+        return raw;
+    }
+
+    static std::string encodeValue(const Value& v) {
         switch (v.type()) {
             case Value::Type::INT :
                 return encodeInt64(v.getInt());
@@ -250,7 +294,6 @@ public:
 
 private:
     IndexKeyUtils() = delete;
-
 };
 
 }  // namespace nebula
