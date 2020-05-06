@@ -37,8 +37,8 @@ TEST(AddEdgesTest, SimpleTest) {
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
     LOG(INFO) << "Check data in kv store...";
-    // The number of data in serve is 160
-    checkAddEdgesData(req, env, 160, 0);
+    // The number of data in serve is 334
+    checkAddEdgesData(req, env, 334, 0);
 }
 
 TEST(AddEdgesTest, SpecifyPropertyNameTest) {
@@ -59,8 +59,8 @@ TEST(AddEdgesTest, SpecifyPropertyNameTest) {
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
     LOG(INFO) << "Check data in kv store...";
-    // The number of data in serve is 160
-    checkAddEdgesData(req, env, 160, 1);
+    // The number of data in serve is 334
+    checkAddEdgesData(req, env, 334, 1);
 }
 
 TEST(AddEdgesTest, MultiVersionTest) {
@@ -91,8 +91,8 @@ TEST(AddEdgesTest, MultiVersionTest) {
     }
 
     LOG(INFO) << "Check data in kv store...";
-    // The number of data in serve is 320
-    checkAddEdgesData(req, env, 320, 2);
+    // The number of data in serve is 668
+    checkAddEdgesData(req, env, 668, 2);
 }
 
 }  // namespace storage

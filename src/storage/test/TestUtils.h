@@ -193,7 +193,7 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
             EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
                       env->kvstore_->prefix(spaceId, partId, prefix, &iter));
 
-            auto schema = env->schemaMan_->getEdgeSchema(spaceId, edgekey.edge_type);
+            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edgekey.edge_type));
             EXPECT_TRUE(schema != NULL);
 
             Value val;

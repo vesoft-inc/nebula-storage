@@ -27,12 +27,13 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
         LOG(ERROR) << ret.status();
-        cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
-        codes_.emplace_back(std::move(thriftRet));
+        for (auto& part : partEdges) {
+            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+        }
         onFinished();
         return;
     }
+
     spaceVidLen_ = ret.value();
     callingNum_ = req.parts.size();
 
@@ -73,7 +74,8 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                                                    edgeKey.ranking,
                                                    edgeKey.dst,
                                                    version);
-                auto schema = env_->schemaMan_->getEdgeSchema(spaceId_, edgeKey.edge_type);
+                auto schema = env_->schemaMan_->getEdgeSchema(spaceId_,
+                                                              std::abs(edgeKey.edge_type));
                 if (!schema) {
                     LOG(ERROR) << "Space " << spaceId_ << ", Edge "
                                << edgeKey.edge_type << " invalid";

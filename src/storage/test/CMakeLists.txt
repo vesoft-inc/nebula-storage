@@ -66,9 +66,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        delete_vertices_test
+        add_edges_test
     SOURCES
-        DeleteVerticesTest.cpp
+        AddEdgesTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
@@ -80,9 +80,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        add_edges_test
+        delete_vertices_test
     SOURCES
-        AddEdgesTest.cpp
+        DeleteVerticesTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES

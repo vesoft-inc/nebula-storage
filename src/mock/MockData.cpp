@@ -107,7 +107,7 @@ std::vector<Player> MockData::players_ = {
 
 // Player name, team name, start year, end year,team career(years), games, average scores
 // Starting game(default value false), champions in team(nullable)
-// serve 160
+// serve 167
 std::vector<Serve> MockData::serve_ = {
     {"Tim Duncan",            "Spurs",         1997, 2016, 19, 1392, 19.0, true,  5},
     {"Tony Parker",           "Spurs",         2001, 2018, 17, 1198, 16.6, true,  4},
@@ -124,8 +124,10 @@ std::vector<Serve> MockData::serve_ = {
     {"Marco Belinelli",       "Bulls",         2012, 2013,  1,   73,  9.6          },
     {"Marco Belinelli",       "Spurs",         2013, 2015,  2,  142, 11.4, false, 1},
     {"Marco Belinelli",       "Kings",         2015, 2016,  1,   68, 10.2          },
+    {"Marco Belinelli",       "Hornets",       2016, 2017,  1,   74, 10.5          },
     {"Marco Belinelli",       "Hawks",         2017, 2018,  1,   52, 11.4          },
     {"Marco Belinelli",       "76ers",         2018, 2018,  1,   28, 13.6          },
+    {"Marco Belinelli",       "Spurs",         2018, 2020,  2,  131,  5.8          },
     {"Danny Green",           "Cavaliers",     2009, 2010,  1,   20,  2.0          },
     {"Danny Green",           "Spurs",         2010, 2018,  8,  520,  9.1, false, 1},
     {"Danny Green",           "Raptors",       2018, 2019,  1,   80, 10.3, true,  1},
@@ -165,6 +167,7 @@ std::vector<Serve> MockData::serve_ = {
     {"Kobe Bryant",           "Lakers",        1996, 2016, 20, 1346, 25.0, true,  5},
     {"LeBron James",          "Cavaliers",     2003, 2010,  7,  548, 29.7, true    },
     {"LeBron James",          "Heat",          2010, 2014,  4,  294, 27.1, true,  2},
+    {"LeBron James",          "Cavaliers",     2014, 2018,  4,  301, 27.5, true,  1},
     {"LeBron James",          "Lakers",        2018, 2020,  2,  115, 25.7, true    },
     {"Stephen Curry",         "Warriors",      2009, 2020, 11,  699, 23.5, true,  3},
     {"Russell Westbrook",     "Thunders",      2008, 2019, 11,  821, 22.9, true    },
@@ -210,6 +213,7 @@ std::vector<Serve> MockData::serve_ = {
     {"Dwyane Wade",           "Heat",          2003, 2016, 13,  855, 26.6, true,  3},
     {"Dwyane Wade",           "Bulls",         2016, 2017,  1,   60, 18.3, true    },
     {"Dwyane Wade",           "Cavaliers",     2017, 2017,  1,   46, 11.2          },
+    {"Dwyane Wade",           "Heat",          2017, 2019,  2,   93, 15.0          },
     {"Joel Embiid",           "76ers",         2016, 2020,  4,  202, 24.1, true    },
     {"Paul George",           "Pacers",        2010, 2017,  7,  448, 17.4, true    },
     {"Paul George",           "Thunders",      2017, 2019,  2,  156, 28.0, true    },
@@ -219,6 +223,7 @@ std::vector<Serve> MockData::serve_ = {
     {"Blake Griffin",         "Clippers",      2010, 2018,  8,  504, 22.6, true    },
     {"Blake Griffin",         "Pistons",       2018, 2020,  2,  118, 21.4, true    },
     {"Damian Lillard",        "Trail Blazers", 2012, 2020,  8,  607, 24.0, true    },
+    {"Steve Nash",            "Suns",          1996, 1998,  2,  141,  9.1          },
     {"Steve Nash",            "Mavericks",     1998, 2004,  6,  408, 14.5, true    },
     {"Steve Nash",            "Suns",          2004, 2012,  8,  603, 16.5, true    },
     {"Steve Nash",            "Lakers",        2012, 2014,  2,   65,  6.8, true    },
@@ -254,6 +259,7 @@ std::vector<Serve> MockData::serve_ = {
     {"JaVale McGee",          "Warriors",      2016, 2018,  2,  142,  6.1, false, 2},
     {"JaVale McGee",          "Lakers",        2018, 2020,  2,  136,  6.8, true    },
     {"Dwight Howard",         "Magic",         2004, 2012,  8,  621, 20.6, true    },
+    {"Dwight Howard",         "Lakers",        2012, 2013,  1,   76, 17.1, true    },
     {"Dwight Howard",         "Rockets",       2013, 2016,  3,  183, 15.8, true    },
     {"Dwight Howard",         "Hawks",         2016, 2017,  1,   74, 13.5, true    },
     {"Dwight Howard",         "Hornets",       2017, 2018,  1,   81, 16.6, true    },
@@ -263,6 +269,7 @@ std::vector<Serve> MockData::serve_ = {
     {"Amare Stoudemire",      "Knicks",        2010, 2015,  5,  255, 14.2          },
     {"Amare Stoudemire",      "Mavericks",     2015, 2015,  1,   23, 10.8          },
     {"Amare Stoudemire",      "Heat",          2015, 2016,  1,   52,  5.8          },
+    {"Jason Kidd",            "Mavericks",     1994, 1997,  3,  182, 11.7, true    },
     {"Jason Kidd",            "Suns",          1997, 2001,  4,  313, 16.9, true    },
     {"Jason Kidd",            "Nets",          2001, 2008,  7,  506, 13.3, true    },
     {"Jason Kidd",            "Mavericks",     2008, 2012,  4,  318, 10.3, true,  1},
@@ -478,13 +485,13 @@ std::vector<VertexID> MockData::mockVerticeIds() {
 
 std::vector<EdgeData> MockData::mockEdges() {
     std::vector<EdgeData> ret;
-    // Use serve data, EdgeType is 101, EdgeRanking is 102
+    // Use serve data, positive edgeType is 101, reverse edgeType is -101
     for (auto& serve : serve_) {
-        EdgeData data;
-        data.srcId_ = serve.playerName_;
-        data.type_ = 101;
-        data.rank_ = 102;
-        data.dstId_ = serve.teamName_;
+        EdgeData positiveEdge;
+        positiveEdge.srcId_ = serve.playerName_;
+        positiveEdge.type_ = 101;
+        positiveEdge.rank_ = serve.startYear_;
+        positiveEdge.dstId_ = serve.teamName_;
 
         std::vector<Value>  props;
         props.emplace_back(serve.playerName_);
@@ -497,30 +504,39 @@ std::vector<EdgeData> MockData::mockEdges() {
 
         // Use default value and nullable
         if (!serve.starting_) {
-            data.props_ = std::move(props);
-            ret.push_back(data);
+            positiveEdge.props_ = std::move(props);
         } else {
             props.emplace_back(serve.starting_);
             if (serve.champions_) {
                 props.emplace_back(serve.champions_);
             }
-            data.props_ = std::move(props);
-            ret.push_back(data);
+            positiveEdge.props_ = std::move(props);
         }
+
+        // Reverse edge
+        auto reverseEdge = positiveEdge;
+        reverseEdge.type_ = -positiveEdge.type_;
+        ret.push_back(positiveEdge);
+        ret.push_back(reverseEdge);
     }
     return ret;
 }
 
 std::vector<EdgeData> MockData::mockEdgeKeys() {
     std::vector<EdgeData> ret;
-    // Use serve data, EdgeType is 101, EdgeRanking is 102
+    // Use serve data, positive edgeType is 101, reverse edgeType is -101
     for (auto& serve : serve_) {
-        EdgeData data;
-        data.srcId_ = serve.playerName_;
-        data.type_ = 101;
-        data.rank_ = 102;
-        data.dstId_ = serve.teamName_;
-        ret.push_back(data);
+        EdgeData positiveEdge;
+        positiveEdge.srcId_ = serve.playerName_;
+        positiveEdge.type_ = 101;
+        positiveEdge.rank_ = serve.startYear_;
+        positiveEdge.dstId_ = serve.teamName_;
+
+        // Reverse edge
+        auto reverseEdge = positiveEdge;
+        reverseEdge.type_ = -positiveEdge.type_;
+        ret.push_back(positiveEdge);
+        ret.push_back(reverseEdge);
     }
     return ret;
 }
@@ -644,13 +660,13 @@ std::vector<VertexData> MockData::mockVerticesSpecifiedOrder() {
 
 std::vector<EdgeData> MockData::mockEdgesSpecifiedOrder() {
     std::vector<EdgeData> ret;
-    // Use serve data, EdgeType is 101, EdgeRanking is 102
+    // Use serve data, positive edgeType is 101, reverse edgeType is -101
     for (auto& serve : serve_) {
-        EdgeData data;
-        data.srcId_ = serve.playerName_;
-        data.type_ = 101;
-        data.rank_ = 102;
-        data.dstId_ = serve.teamName_;
+        EdgeData positiveEdge;
+        positiveEdge.srcId_ = serve.playerName_;
+        positiveEdge.type_ = 101;
+        positiveEdge.rank_ = serve.startYear_;
+        positiveEdge.dstId_ = serve.teamName_;
 
         std::vector<Value>  props;
         props.emplace_back(serve.teamAvgScore_);
@@ -663,9 +679,13 @@ std::vector<EdgeData> MockData::mockEdgesSpecifiedOrder() {
 
         // serve.starting_ use default value
         // serve.champions_ use null value
+        positiveEdge.props_ = std::move(props);
 
-        data.props_ = std::move(props);
-        ret.push_back(data);
+        // Reverse edge
+        auto reverseEdge = positiveEdge;
+        reverseEdge.type_ = -positiveEdge.type_;
+        ret.push_back(positiveEdge);
+        ret.push_back(reverseEdge);
     }
     return ret;
 }
@@ -708,6 +728,7 @@ MockData::mockAddVerticesSpecifiedOrderReq(int32_t parts) {
 nebula::storage::cpp2::AddEdgesRequest
 MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
     nebula::storage::cpp2::AddEdgesRequest req;
+    // Use space id is 1 when mock
     req.space_id = 1;
     req.overwritable = true;
 

@@ -19,9 +19,9 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
         LOG(ERROR) << ret.status();
-        cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN);
-        codes_.emplace_back(std::move(thriftRet));
+        for (auto& part : partVertices) {
+            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+        }
         onFinished();
         return;
     }
