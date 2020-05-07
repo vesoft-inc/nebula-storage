@@ -15,10 +15,6 @@
 #include "stats/StatsManager.h"
 #include "storage/StorageFlags.h"
 
-DECLARE_int32(reader_handlers);
-DECLARE_int32(vertex_cache_num);
-DECLARE_int32(vertex_cache_bucket_exp);
-
 namespace nebula {
 namespace storage {
 

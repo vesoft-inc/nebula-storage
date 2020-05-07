@@ -4,12 +4,9 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/query/GetNeighborsProcessor.h"
 #include "common/NebulaKeyUtils.h"
-
-DEFINE_int32(max_edge_returned_per_vertex, INT_MAX, "Max edge number returnred searching vertex");
-DEFINE_bool(enable_vertex_cache, true, "Enable vertex cache");
-DEFINE_bool(enable_reservoir_sampling, false, "Will do reservoir sampling if set true.");
+#include "storage/query/GetNeighborsProcessor.h"
+#include "storage/StorageFlags.h"
 
 namespace nebula {
 namespace storage {

@@ -83,12 +83,18 @@ public:
      * Mock data
      */
     // Construct data in the order of schema
+    // generate player tag
     static std::vector<VertexData> mockVertices();
 
+    // generate serve edge
     static std::vector<EdgeData> mockEdges();
+
+    // generate serve and teammate edge
+    static std::vector<EdgeData> mockMultiEdges();
 
     static std::vector<VertexID> mockVerticeIds();
 
+    // generate serve edge with different rank
     static std::unordered_map<VertexID, std::vector<EdgeData>> mockmMultiRankServes(
             EdgeRanking rankCount = 1);
 
@@ -155,6 +161,8 @@ public:
 
     // team name -> list<Serve>
     static std::unordered_map<std::string, std::vector<Serve>> teamServes_;
+
+    static EdgeData getReverseEdge(const EdgeData& edge);
 };
 
 }  // namespace mock

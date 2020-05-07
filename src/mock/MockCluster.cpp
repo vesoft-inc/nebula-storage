@@ -102,8 +102,8 @@ void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
     LOG(INFO) << "The Meta Daemon started on port " << metaServer_->port_;
 }
 
-void MockCluster::initStorageKV(HostAddr addr,
-                                const std::string& rootPath,
+void MockCluster::initStorageKV(const char* dataPath,
+                                HostAddr addr,
                                 SchemaVer schemaVerCount) {
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     totalParts_ = 6;

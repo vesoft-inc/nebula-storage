@@ -67,7 +67,7 @@ public:
         }
         std::hash<std::string> hash;
         auto spaceVidLen = status.value();
-        auto edges = mock::MockData::mockEdges();
+        auto edges = mock::MockData::mockMultiEdges();
         std::vector<kvstore::KV> data;
         std::atomic<size_t> count(edges.size());
         folly::Baton<true, std::atomic> baton;
