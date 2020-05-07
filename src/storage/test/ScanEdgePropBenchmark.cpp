@@ -8,22 +8,20 @@
 #include "fs/TempDir.h"
 #include "time/WallClock.h"
 #include "mock/AdHocSchemaManager.h"
-#include "storage/query/GetNeighborsProcessor.h"
+#include "storage/exec/ScanEdgePropExecutor.h"
 #include "storage/test/QueryTestUtils.h"
 
 namespace nebula {
 namespace storage {
 
-// the parameter pair<int, int> is count of edge schema version,
-// and how many edges of diffent rank of a mock edge
-class GetNeighborsBench : public ::testing::TestWithParam<std::pair<int, int>> {
+class ScanEdgePropBench : public ::testing::TestWithParam<std::pair<int, int>> {
 };
 
-TEST_P(GetNeighborsBench, ProcessEdgeProps) {
+TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
     auto param = GetParam();
     SchemaVer schemaVerCount = param.first;
     EdgeRanking rankCount = param.second;
-    fs::TempDir rootPath("/tmp/GetNeighborsBench.XXXXXX");
+    fs::TempDir rootPath("/tmp/ScanEdgePropBench.XXXXXX");
     mock::MockCluster cluster;
     cluster.startStorage({0, 0}, rootPath.path(), schemaVerCount);
     auto* env = cluster.storageEnv_.get();
@@ -35,6 +33,7 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
     GraphSpaceID spaceId = 1;
     PartitionID partId = (hash(vId) % totalParts) + 1;
     EdgeType edgeType = 101;
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
 
     std::vector<PropContext> props;
     {
@@ -50,14 +49,13 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
         // mock the process in 1.0, each time we get the schema from SchemaMan
         // (cache in MetaClient), and then collect values
         auto* schemaMan = dynamic_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
+        EdgeTypePrefixScanEdgePropExecutor executor(
+            nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
         auto tick = time::WallClock::fastNowInMicroSec();
-        auto retCode = processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [schemaMan, processor, spaceId, edgeType, &props, &dataSet]
+        auto retCode = executor.processEdgeProps(edgeType, edgeRowCount,
+            [&executor, schemaMan, spaceId, edgeType, &props, &dataSet]
             (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
             -> kvstore::ResultCode {
                 UNUSED(reader);
@@ -73,8 +71,8 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
                     return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
                 }
 
-                return processor->collectEdgeProps(edgeType, wrapper.get(), key, props,
-                                                   dataSet, nullptr);
+                return executor.collectEdgeProps(edgeType, wrapper.get(), key, props,
+                                                 dataSet, nullptr);
             });
         EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
         auto tock = time::WallClock::fastNowInMicroSec();
@@ -82,15 +80,39 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
                      << " edges takes " << tock - tick << " us.";
     }
     {
-        // reset edge reader each time instead of new one
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
+        // new edge reader each time
+        EdgeTypePrefixScanEdgePropExecutor executor(
+            nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
         auto tick = time::WallClock::fastNowInMicroSec();
-        auto retCode = processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [processor, spaceId, edgeType, env, &props, &dataSet]
+        auto retCode = executor.processEdgeProps(edgeType, edgeRowCount,
+            [&executor, spaceId, edgeType, env, &props, &dataSet]
+            (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
+            -> kvstore::ResultCode {
+                *reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
+                                                       std::abs(edgeType), val);
+                if (!reader) {
+                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
+                }
+
+                return executor.collectEdgeProps(edgeType, reader->get(), key, props,
+                                                 dataSet, nullptr);
+            });
+        EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
+        auto tock = time::WallClock::fastNowInMicroSec();
+        LOG(WARNING) << "ProcessEdgeProps without reader reset: process " << edgeRowCount
+                     << " edges takes " << tock - tick << " us.";
+    }
+    {
+        // reset edge reader each time instead of new one
+        EdgeTypePrefixScanEdgePropExecutor executor(
+            nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
+        int64_t edgeRowCount = 0;
+        nebula::DataSet dataSet;
+        auto tick = time::WallClock::fastNowInMicroSec();
+        auto retCode = executor.processEdgeProps(edgeType, edgeRowCount,
+            [&executor, spaceId, edgeType, env, &props, &dataSet]
             (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
             -> kvstore::ResultCode {
                 if (reader->get() == nullptr) {
@@ -104,8 +126,8 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
                     return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
                 }
 
-                return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                   dataSet, nullptr);
+                return executor.collectEdgeProps(edgeType, reader->get(), key, props,
+                                                 dataSet, nullptr);
             });
         EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
         auto tock = time::WallClock::fastNowInMicroSec();
@@ -113,36 +135,9 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
                      << " edges takes " << tock - tick << " us.";
     }
     {
-        // new edge reader each time
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
-        int64_t edgeRowCount = 0;
-        nebula::DataSet dataSet;
-        auto tick = time::WallClock::fastNowInMicroSec();
-        auto retCode = processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [processor, spaceId, edgeType, env, &props, &dataSet]
-            (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
-            -> kvstore::ResultCode {
-                *reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
-                                                       std::abs(edgeType), val);
-                if (!reader) {
-                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                }
-
-                return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                   dataSet, nullptr);
-            });
-        EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
-        auto tock = time::WallClock::fastNowInMicroSec();
-        LOG(WARNING) << "ProcessEdgeProps without reader reset: process " << edgeRowCount
-                     << " edges takes " << tock - tick << " us.";
-    }
-    {
         // use the schema saved in processor
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
+        EdgeTypePrefixScanEdgePropExecutor executor(
+            nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
 
@@ -155,8 +150,8 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
         const auto& schemas = edgeIter->second;
 
         auto tick = time::WallClock::fastNowInMicroSec();
-        auto retCode = processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-            [processor, spaceId, edgeType, &props, &dataSet, &schemas]
+        auto retCode = executor.processEdgeProps(edgeType, edgeRowCount,
+            [&executor, spaceId, edgeType, &props, &dataSet, &schemas]
             (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
             -> kvstore::ResultCode {
                 if (reader->get() == nullptr) {
@@ -168,8 +163,8 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
                     return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
                 }
 
-                return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                   dataSet, nullptr);
+                return executor.collectEdgeProps(edgeType, reader->get(), key, props,
+                                                 dataSet, nullptr);
             });
         EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
         auto tock = time::WallClock::fastNowInMicroSec();
@@ -178,11 +173,11 @@ TEST_P(GetNeighborsBench, ProcessEdgeProps) {
     }
 }
 
-TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
+TEST_P(ScanEdgePropBench, ScanEdgesVsProcessEdgeProps) {
     auto param = GetParam();
     SchemaVer schemaVerCount = param.first;
     EdgeRanking rankCount = param.second;
-    fs::TempDir rootPath("/tmp/GetNeighborsBench.XXXXXX");
+    fs::TempDir rootPath("/tmp/ScanEdgePropBench.XXXXXX");
     mock::MockCluster cluster;
     cluster.startStorage({0, 0}, rootPath.path(), schemaVerCount);
     auto* env = cluster.storageEnv_.get();
@@ -194,6 +189,7 @@ TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
     GraphSpaceID spaceId = 1;
     PartitionID partId = (hash(vId) % totalParts) + 1;
     EdgeType serve = 101, teammate = 102;
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
 
     std::vector<EdgeType> edgeTypes = {serve, teammate};
     std::vector<std::vector<PropContext>> ctxs;
@@ -218,28 +214,28 @@ TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
         ctxs.emplace_back(teammateProps);
     }
 
+    // find all version of edge schema
+    auto edges = env->schemaMan_->getAllVerEdgeSchema(spaceId);
+    ASSERT_TRUE(edges.ok());
+    EdgeContext ctx;
+    ctx.schemas_ = std::move(edges).value();
+    ctx.propContexts_.emplace_back(serve, serveProps);
+    ctx.propContexts_.emplace_back(teammate, teammateProps);
+    ctx.indexMap_.emplace(serve, 0);
+    ctx.indexMap_.emplace(teammate, 1);
+
     {
         // scan with vertex prefix
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
-        FilterContext fcontext;
+        FilterOperator filter;
         nebula::Row row;
         row.columns.emplace_back(vId);
         row.columns.emplace_back(NullType::__NULL__);
 
-        // find all version of edge schema
-        auto edges = env->schemaMan_->getAllVerEdgeSchema(spaceId);
-        ASSERT_TRUE(edges.ok());
-        processor->edgeSchemas_ = std::move(edges).value();
-        processor->edgeContexts_.emplace_back(serve, serveProps);
-        processor->edgeContexts_.emplace_back(teammate, teammateProps);
-        processor->edgeIndexMap_.emplace(serve, 0);
-        processor->edgeIndexMap_.emplace(teammate, 1);
-
+        VertexPrefixScanEdgePropExecutor executor(
+            &ctx, env, spaceId, partId, vIdLen, vId, nullptr, &filter, &row);
         {
             auto tick = time::WallClock::fastNowInMicroSec();
-            auto retCode = processor->scanEdges(partId, vId, fcontext, row);
+            auto retCode = executor.execute().get();
             EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
             auto tock = time::WallClock::fastNowInMicroSec();
             LOG(WARNING) << "ScanEdges using local schmeas: process"
@@ -247,29 +243,32 @@ TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
         }
     }
     {
-        // use the schema saved in processor
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, nullptr);
-        processor->spaceId_ = spaceId;
-        processor->vIdLen_ = env->schemaMan_->getSpaceVidLen(spaceId).value();
-        int64_t edgeRowCount = 0;
-        nebula::DataSet dataSet;
+        // scan with vertex and edgeType prefix
+        FilterOperator filter;
+        nebula::Row row;
+        row.columns.emplace_back(vId);
+        row.columns.emplace_back(NullType::__NULL__);
 
+        EdgeTypePrefixScanEdgePropExecutor executor(
+            &ctx, env, spaceId, partId, vIdLen, vId, nullptr, &filter, &row);
         // find all version of edge schema
-        auto edges = env->schemaMan_->getAllVerEdgeSchema(spaceId);
-        ASSERT_TRUE(edges.ok());
-        auto edgeSchemas = std::move(edges).value();
+        auto status = env->schemaMan_->getAllVerEdgeSchema(spaceId);
+        ASSERT_TRUE(status.ok());
+        auto edgeSchemas = std::move(status).value();
+        int64_t edgeRowCount = 0;
 
         auto tick = time::WallClock::fastNowInMicroSec();
         for (size_t i = 0; i < edgeTypes.size(); i++) {
+            nebula::DataSet dataSet;
             EdgeType edgeType = edgeTypes[i];
             auto edgeIter = edgeSchemas.find(std::abs(edgeType));
             ASSERT_TRUE(edgeIter != edgeSchemas.end());
             const auto& schemas = edgeIter->second;
             const auto& props = ctxs[i];
 
-            auto ttl = processor->getEdgeTTLInfo(edgeType);
-            auto retCode = processor->processEdgeProps(partId, vId, edgeType, edgeRowCount,
-                [processor, spaceId, edgeType, &props, &dataSet, &schemas, &ttl]
+            auto ttl = executor.getEdgeTTLInfo(edgeType);
+            auto retCode = executor.processEdgeProps(edgeType, edgeRowCount,
+                [&executor, spaceId, edgeType, &props, &dataSet, &schemas, &ttl]
                 (std::unique_ptr<RowReader>* reader, folly::StringPiece key, folly::StringPiece val)
                 -> kvstore::ResultCode {
                     if (reader->get() == nullptr) {
@@ -283,15 +282,18 @@ TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
 
                     const auto& latestSchema = schemas.back();
                     if (ttl.has_value() &&
-                        checkDataExpiredForTTL(latestSchema.get(), reader->get(),
-                                            ttl.value().first, ttl.value().second)) {
+                        CommonUtils::checkDataExpiredForTTL(latestSchema.get(),
+                                                            reader->get(),
+                                                            ttl.value().first,
+                                                            ttl.value().second)) {
                         return kvstore::ResultCode::ERR_RESULT_EXPIRED;
                     }
 
-                    return processor->collectEdgeProps(edgeType, reader->get(), key, props,
-                                                       dataSet, nullptr);
+                    return executor.collectEdgeProps(edgeType, reader->get(), key, props,
+                                                     dataSet, nullptr);
                 });
             EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
+            row.columns.emplace_back(std::move(dataSet));
         }
         auto tock = time::WallClock::fastNowInMicroSec();
         LOG(WARNING) << "ProcessEdgeProps using local schmeas: process " << edgeRowCount
@@ -299,9 +301,11 @@ TEST_P(GetNeighborsBench, ScanEdgesVsProcessEdgeProps) {
     }
 }
 
+// the parameter pair<int, int> is count of edge schema version,
+// and how many edges of diffent rank of a mock edge
 INSTANTIATE_TEST_CASE_P(
-    GetNeighborsBench,
-    GetNeighborsBench,
+    ScanEdgePropBench,
+    ScanEdgePropBench,
     ::testing::Values(
         std::make_pair(1, 10000),
         std::make_pair(10, 10000),

@@ -35,6 +35,7 @@ enum ResultCode {
     ERR_EDGE_PROP_NOT_FOUND = -15,
     ERR_RESULT_OVERFLOW     = -16,
     ERR_RESULT_EXPIRED      = -17,
+    ERR_RESULT_FILTERED     = -18,
     ERR_USER_CANCELLED      = -98,
     ERR_PARTIAL_RESULT      = -99,
     ERR_UNKNOWN             = -100,

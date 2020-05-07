@@ -4,9 +4,11 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "common/NebulaKeyUtils.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/StorageFlags.h"
+#include "storage/exec/FilterOperator.h"
+#include "storage/exec/GetTagPropExecutor.h"
+#include "storage/exec/ScanEdgePropExecutor.h"
 
 namespace nebula {
 namespace storage {
@@ -16,37 +18,66 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
-            this->pushResultCode(retCode, p.first);
+            pushResultCode(retCode, p.first);
         }
-        this->onFinished();
+        onFinished();
         return;
     }
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
-            this->pushResultCode(retCode, p.first);
+            pushResultCode(retCode, p.first);
         }
-        this->onFinished();
+        onFinished();
         return;
     }
 
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
-        for (const auto& row : partEntry.second) {
-            CHECK_GE(row.columns.size(), 1);
+        for (const auto& input : partEntry.second) {
+            CHECK_GE(input.columns.size(), 1);
+            auto vId = input.columns[0].getStr();
+
+            FilterOperator filter;
+            nebula::Row resultRow;
+            // vertexId is the first column
+            resultRow.columns.emplace_back(vId);
+            // reserve second column for stat
+            resultRow.columns.emplace_back(NullType::__NULL__);
+
             // the first column of each row would be the vertex id
-            auto ret = processOneVertex(partId, row.columns[0].getStr());
-            if (ret != kvstore::ResultCode::SUCCEEDED &&
-                failedParts.find(partId) == failedParts.end()) {
-                failedParts.emplace(partId);
-                handleErrorCode(ret, spaceId_, partId);
+            auto dag = createExecutor(partId, vId, &filter, &resultRow);
+            auto ret = dag.go().get();
+            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                if (failedParts.find(partId) == failedParts.end()) {
+                    failedParts.emplace(partId);
+                    handleErrorCode(ret, spaceId_, partId);
+                }
+            } else {
+                resultDataSet_.rows.emplace_back(std::move(resultRow));
             }
         }
     }
     onProcessFinished();
     onFinished();
+}
+
+StorageDAG GetNeighborsProcessor::createExecutor(PartitionID partId,
+                                                 const VertexID& vId,
+                                                 FilterOperator* filter,
+                                                 nebula::Row* row) {
+    StorageDAG dag;
+    auto tag = std::make_unique<GetTagPropExecutor>(
+            &tagContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
+    auto tagIdx = dag.addNode(std::move(tag));
+    auto edge = std::make_unique<EdgeTypePrefixScanEdgePropExecutor>(
+            &edgeContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
+    edge->addDependency(dag.getNode(tagIdx));
+    auto edgeIdx = dag.addNode(std::move(edge));
+    dag.setOutput(edgeIdx);
+    return dag;
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) {
@@ -82,20 +113,24 @@ cpp2::ErrorCode GetNeighborsProcessor::getSpaceSchema() {
         return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
 
-    tagSchemas_ = std::move(tags).value();
-    edgeSchemas_ = std::move(edges).value();
+    tagContext_.schemas_ = std::move(tags).value();
+    edgeContext_.schemas_ = std::move(edges).value();
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsRequest& req) {
     std::vector<ReturnProp> returnProps;
-    // generate related props if no tagId or property specified
-    auto ret = prepareVertexProps(req.vertex_props, returnProps);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        return ret;
+    if (!req.__isset.vertex_props) {
+        // If no tagId specified, get all property of all tagId in space
+        returnProps = buildAllTagProps();
+    } else {
+        auto ret = prepareVertexProps(req.vertex_props, returnProps);
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            return ret;
+        }
     }
-    // generate tagContexts_
-    ret = handleVertexProps(returnProps);
+    // generate tag prop context
+    auto ret = handleVertexProps(returnProps);
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
@@ -106,11 +141,6 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsR
 cpp2::ErrorCode GetNeighborsProcessor::prepareVertexProps(
         const std::vector<std::string>& vertexProps,
         std::vector<ReturnProp>& returnProps) {
-    // If no edgeType specified, get all property of all tagId in space
-    if (vertexProps.empty()) {
-        returnProps = buildAllTagProps();
-        return cpp2::ErrorCode::SUCCEEDED;
-    }
     // todo(doodle): wait
     /*
     for (auto& vertexProp : vertexProps) {
@@ -131,18 +161,27 @@ cpp2::ErrorCode GetNeighborsProcessor::prepareVertexProps(
         }
     }
     */
+    UNUSED(vertexProps);
+    UNUSED(returnProps);
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighborsRequest& req) {
     std::vector<ReturnProp> returnProps;
-    // generate related props if no edge type or property specified
-    auto ret = prepareEdgeProps(req.edge_props, req.edge_direction, returnProps);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        return ret;
+    // If no edgeType specified, get all property of all edge type in space
+    if (!req.__isset.edge_props) {
+        scanAllEdges_ = true;
+        returnProps = buildAllEdgeProps(req.edge_direction);
+    } else {
+        // generate related props if no edge type or property specified
+        auto ret = prepareEdgeProps(req.edge_props, returnProps);
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            return ret;
+        }
     }
-    // generate edgeContexts_
-    ret = handleEdgeProps(returnProps);
+
+    // generate edge prop context
+    auto ret = handleEdgeProps(returnProps);
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
@@ -155,14 +194,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::prepareEdgeProps(const std::vector<std::string>& edgeProps,
-                                                        const cpp2::EdgeDirection& direction,
                                                         std::vector<ReturnProp>& returnProps) {
-    // If no edgeType specified, get all property of all edge type in space
-    if (edgeProps.empty()) {
-        scanAllEdges_ = true;
-        returnProps = buildAllEdgeProps(direction);
-        return cpp2::ErrorCode::SUCCEEDED;
-    }
     // todo(doodle): wait
     /*
     for (auto& edgeProp : edgeProps) {
@@ -183,6 +215,8 @@ cpp2::ErrorCode GetNeighborsProcessor::prepareEdgeProps(const std::vector<std::s
         }
     }
     */
+    UNUSED(edgeProps);
+    UNUSED(returnProps);
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -217,10 +251,10 @@ cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
         }
 
         // find if corresponding edgeType contexts exists
-        auto edgeIter = edgeIndexMap_.find(edgeType);
-        if (edgeIter != edgeIndexMap_.end()) {
+        auto edgeIter = edgeContext_.indexMap_.find(edgeType);
+        if (edgeIter != edgeContext_.indexMap_.end()) {
             // find if corresponding PropContext exists
-            auto& ctxs = edgeContexts_[edgeIter->second].second;
+            auto& ctxs = edgeContext_.propContexts_[edgeIter->second].second;
             auto propIter = std::find_if(ctxs.begin(), ctxs.end(),
                 [&] (const auto& propContext) {
                     return propContext.name_ == name;
@@ -238,8 +272,8 @@ cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
             std::vector<PropContext> ctxs;
             auto ctx = buildPropContextWithStat(name, idx, prop.stat, field);
             ctxs.emplace_back(std::move(ctx));
-            edgeContexts_.emplace_back(edgeType, std::move(ctxs));
-            edgeIndexMap_.emplace(edgeType, edgeContexts_.size() - 1);
+            edgeContext_.propContexts_.emplace_back(edgeType, std::move(ctxs));
+            edgeContext_.indexMap_.emplace(edgeType, edgeContext_.propContexts_.size() - 1);
         }
         */
     }
@@ -286,340 +320,6 @@ cpp2::ErrorCode GetNeighborsProcessor::checkStatType(const meta::cpp2::PropertyT
         }
     }
     return cpp2::ErrorCode::SUCCEEDED;
-}
-
-kvstore::ResultCode GetNeighborsProcessor::processOneVertex(
-        PartitionID partId, const VertexID& vId) {
-    nebula::Row row;
-    // vertexId is the first column
-    row.columns.emplace_back(vId);
-    // reserve second column for stat
-    row.columns.emplace_back(NullType::__NULL__);
-
-    FilterContext fcontext;
-    auto ret = processTag(partId, vId, fcontext, row);
-    if (ret != kvstore::ResultCode::SUCCEEDED) {
-        return ret;
-    }
-
-    if (scanAllEdges_) {
-        ret = scanEdges(partId, vId, fcontext, row);
-    } else {
-        ret = processEdge(partId, vId, fcontext, row);
-    }
-    if (ret != kvstore::ResultCode::SUCCEEDED) {
-        return ret;
-    }
-
-    // We will return an row with only Id if it doesn't have specified tag or edge,
-    // this is different from 1.0
-    resultDataSet_.rows.emplace_back(std::move(row));
-    return kvstore::ResultCode::SUCCEEDED;
-}
-
-kvstore::ResultCode GetNeighborsProcessor::scanEdges(PartitionID partId,
-                                                     const VertexID& vId,
-                                                     FilterContext& fcontext,
-                                                     nebula::Row& row) {
-    auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
-    if (ret != kvstore::ResultCode::SUCCEEDED) {
-        return ret;
-    }
-    if (!iter || !iter->valid()) {
-        return kvstore::ResultCode::ERR_KEY_NOT_FOUND;
-    }
-
-    CHECK_EQ(tagContexts_.size() + 2, row.columns.size());
-    row.columns.resize(tagContexts_.size() + edgeContexts_.size() + 2,
-                       NullType::__NULL__);
-
-    auto stats = initStatValue();
-    EdgeType lastType = 0;
-    EdgeRanking lastRank = 0;
-    VertexID lastDstId = "";
-    // all version schemas of a edgeType
-    std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas = nullptr;
-    // save the column num in response
-    size_t lastEdgeTypeIdx;
-    folly::Optional<std::pair<std::string, int64_t>> ttl;
-    auto reader = std::unique_ptr<RowReader>();
-    nebula::DataSet dataSet;
-    int64_t edgeRowCount = 0;
-
-    for (; iter->valid(); iter->next()) {
-        if (edgeRowCount >= FLAGS_max_edge_returned_per_vertex) {
-            break;
-        }
-        auto key = iter->key();
-        if (!NebulaKeyUtils::isEdge(vIdLen_, key)) {
-            continue;
-        }
-
-        auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
-        auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
-        auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
-        if (edgeType == lastType && rank == lastRank && lastDstId == dstId.str()) {
-            VLOG(1) << "Only get the latest version for each edge.";
-            continue;
-        }
-
-        if (schemas == nullptr || edgeType != lastType) {
-            // add dataSet of lastType to row
-            if (lastType != 0) {
-                auto idx = lastEdgeTypeIdx + tagContexts_.size() + 2;
-                row.columns[idx] = std::move(dataSet);
-            }
-
-            auto idxIter = edgeIndexMap_.find(edgeType);
-            if (idxIter == edgeIndexMap_.end()) {
-                // skip the edges should not return
-                continue;
-            }
-
-            auto schemaIter = edgeSchemas_.find(std::abs(edgeType));
-            if (schemaIter == edgeSchemas_.end()) {
-                // skip the edges which is obsolete
-                continue;
-            }
-            lastType = edgeType;
-            lastEdgeTypeIdx = idxIter->second;
-            CHECK(!schemaIter->second.empty());
-            schemas = &(schemaIter->second);
-            ttl = getEdgeTTLInfo(edgeType);
-        }
-
-        lastRank = rank;
-        lastDstId = dstId.str();
-        auto val = iter->val();
-        if (reader.get() == nullptr) {
-            reader = RowReader::getRowReader(*schemas, val);
-            if (reader.get() == nullptr) {
-                return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-            }
-        } else if (!reader->reset(*schemas, val)) {
-            return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-        }
-
-        if (ttl.has_value() &&
-            checkDataExpiredForTTL(schemas->back().get(), reader.get(),
-                                   ttl.value().first, ttl.value().second)) {
-            continue;
-        }
-
-        UNUSED(fcontext);
-
-        ret = collectEdgeProps(edgeType, reader.get(), key,
-                               edgeContexts_[lastEdgeTypeIdx].second, dataSet, &stats);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            ++edgeRowCount;
-        }
-    }
-
-    if (lastType != 0) {
-        // set the result of last edgeType
-        auto idx = lastEdgeTypeIdx + tagContexts_.size() + 2;
-        row.columns[idx] = std::move(dataSet);
-    }
-
-    auto statsValueList = calculateStat(stats);
-    if (!statsValueList.empty()) {
-        row.columns[kStatReturnIndex_] = std::move(statsValueList);
-    }
-    return kvstore::ResultCode::SUCCEEDED;
-}
-
-kvstore::ResultCode GetNeighborsProcessor::processTag(PartitionID partId,
-                                                      const VertexID& vId,
-                                                      FilterContext& fcontext,
-                                                      nebula::Row& row) {
-    for (auto& tc : this->tagContexts_) {
-        nebula::DataSet dataSet;
-        VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tc.first
-                << ", prop size " << tc.second.size();
-        auto ret = processTagProps(partId, vId, tc.first, tc.second, fcontext, dataSet);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            row.columns.emplace_back(std::move(dataSet));
-            continue;
-        } else if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-            row.columns.emplace_back(NullType::__NULL__);
-            continue;
-        } else {
-            return ret;
-        }
-    }
-    return kvstore::ResultCode::SUCCEEDED;
-}
-
-kvstore::ResultCode GetNeighborsProcessor::processEdge(PartitionID partId,
-                                                       const VertexID& vId,
-                                                       const FilterContext& fcontext,
-                                                       nebula::Row& row) {
-    auto stats = initStatValue();
-    int64_t edgeRowCount = 0;
-    for (const auto& ec : edgeContexts_) {
-        VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << ec.first
-                << ", prop size " << ec.second.size();
-        if (edgeRowCount >= FLAGS_max_edge_returned_per_vertex) {
-            // add a null field if return size exceeds, make sure the resp has correct columns
-            row.columns.emplace_back(NullType::__NULL__);
-            continue;
-        }
-
-        nebula::DataSet dataSet;
-        auto edgeType = ec.first;
-        auto& returnProps = ec.second;
-
-        auto schemaIter = edgeSchemas_.find(std::abs(edgeType));
-        CHECK(schemaIter != edgeSchemas_.end());
-        CHECK(!schemaIter->second.empty());
-        // all version schemas of a edgeType
-        const auto& schemas = schemaIter->second;
-
-        auto ttl = getEdgeTTLInfo(edgeType);
-        auto ret = processEdgeProps(partId, vId, edgeType, edgeRowCount,
-                   [this, edgeType, &fcontext, &ttl, &schemas, &returnProps, &dataSet, &stats]
-                   (std::unique_ptr<RowReader>* reader,
-                    folly::StringPiece key,
-                    folly::StringPiece val)
-                   -> kvstore::ResultCode {
-            if (reader->get() == nullptr) {
-                *reader = RowReader::getRowReader(schemas, val);
-                if (!reader) {
-                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                }
-            } else if (!(*reader)->reset(schemas, val)) {
-                return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-            }
-
-            const auto& latestSchema = schemas.back();
-            if (ttl.has_value() &&
-                checkDataExpiredForTTL(latestSchema.get(), reader->get(),
-                                       ttl.value().first, ttl.value().second)) {
-                return kvstore::ResultCode::ERR_RESULT_EXPIRED;
-            }
-
-            UNUSED(fcontext);
-
-            return collectEdgeProps(edgeType, reader->get(), key, returnProps, dataSet, &stats);
-        });
-
-        if (ret == kvstore::ResultCode::SUCCEEDED ||
-            ret == kvstore::ResultCode::ERR_RESULT_OVERFLOW) {
-            row.columns.emplace_back(std::move(dataSet));
-            continue;
-        } else if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-            // just add a null field if there is no corresponding edge
-            row.columns.emplace_back(NullType::__NULL__);
-            continue;
-        } else if (ret != kvstore::ResultCode::SUCCEEDED) {
-            return ret;
-        }
-    }
-
-    auto statsValueList = calculateStat(stats);
-    if (!statsValueList.empty()) {
-        row.columns[kStatReturnIndex_] = std::move(statsValueList);
-    }
-    return kvstore::ResultCode::SUCCEEDED;
-}
-
-kvstore::ResultCode GetNeighborsProcessor::processEdgeProps(PartitionID partId,
-                                                            const VertexID& vId,
-                                                            EdgeType edgeType,
-                                                            int64_t& edgeRowCount,
-                                                            EdgeProcessor proc) {
-    auto prefix = NebulaKeyUtils::edgePrefix(vIdLen_, partId, vId, edgeType);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
-    if (ret != kvstore::ResultCode::SUCCEEDED) {
-        return ret;
-    }
-    if (!iter || !iter->valid()) {
-        return kvstore::ResultCode::ERR_KEY_NOT_FOUND;
-    }
-
-    EdgeRanking lastRank = 0;
-    VertexID lastDstId = "";
-    lastDstId.reserve(vIdLen_);
-    bool firstLoop = true;
-    int64_t count = edgeRowCount;
-
-    auto reader = std::unique_ptr<RowReader>();
-    for (; iter->valid(); iter->next()) {
-        if (edgeRowCount >= FLAGS_max_edge_returned_per_vertex) {
-            return kvstore::ResultCode::ERR_RESULT_OVERFLOW;
-        }
-
-        auto key = iter->key();
-        auto val = iter->val();
-        auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
-        auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
-        if (!firstLoop && rank == lastRank && lastDstId == dstId.str()) {
-            VLOG(1) << "Only get the latest version for each edge.";
-            continue;
-        }
-        lastRank = rank;
-        lastDstId = dstId.str();
-
-        ret = proc(&reader, key, val);
-        if (ret == kvstore::ResultCode::ERR_RESULT_EXPIRED) {
-            continue;
-        } else if (ret != kvstore::ResultCode::SUCCEEDED) {
-            return ret;
-        }
-
-        edgeRowCount++;
-        if (firstLoop) {
-            firstLoop = false;
-        }
-    }
-
-    // return not found if none of the edges is valid, so we can add a null field to resp row
-    return edgeRowCount == count ? kvstore::ResultCode::ERR_KEY_NOT_FOUND :
-                                   kvstore::ResultCode::SUCCEEDED;
-}
-
-std::vector<PropStat> GetNeighborsProcessor::initStatValue() {
-    if (statCount_ <= 0) {
-        return {};
-    }
-
-    // initialize all stat value of all edgeTypes
-    std::vector<PropStat> stats;
-    stats.resize(statCount_);
-    for (const auto& ec : edgeContexts_) {
-        for (const auto& ctx : ec.second) {
-            if (ctx.hasStat_) {
-                PropStat stat(ctx.statType_);
-                stats[ctx.statIndex_] = std::move(stat);
-            }
-        }
-    }
-    return stats;
-}
-
-nebula::Value GetNeighborsProcessor::calculateStat(const std::vector<PropStat>& stats) {
-    if (statCount_ <= 0) {
-        return NullType::__NULL__;
-    }
-    nebula::List result;
-    result.values.reserve(statCount_);
-    for (const auto& stat : stats) {
-        if (stat.statType_ == cpp2::StatType::SUM) {
-            result.values.emplace_back(stat.sum_);
-        } else if (stat.statType_ == cpp2::StatType::COUNT) {
-            result.values.emplace_back(stat.count_);
-        } else if (stat.statType_ == cpp2::StatType::AVG) {
-            if (stat.count_ > 0) {
-                result.values.emplace_back(stat.sum_ / stat.count_);
-            } else {
-                result.values.emplace_back(NullType::NaN);
-            }
-        }
-    }
-    return result;
 }
 
 void GetNeighborsProcessor::onProcessFinished() {

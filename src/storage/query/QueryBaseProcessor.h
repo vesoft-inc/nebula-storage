@@ -8,11 +8,8 @@
 #define STORAGE_QUERY_QUERYBASEPROCESSOR_H_
 
 #include "base/Base.h"
-#include "common/NebulaKeyUtils.h"
-#include "meta/NebulaSchemaProvider.h"
+#include "expression/Expression.h"
 #include "storage/BaseProcessor.h"
-#include "storage/CommonUtils.h"
-#include "stats/Stats.h"
 
 namespace nebula {
 namespace storage {
@@ -52,17 +49,6 @@ public:
     cpp2::StatType statType_;
 };
 
-// used to save stat value of each vertex
-struct PropStat {
-    PropStat() = default;
-
-    explicit PropStat(const cpp2::StatType& statType) : statType_(statType) {}
-
-    cpp2::StatType statType_;
-    mutable Value sum_ = 0L;
-    mutable int32_t count_ = 0;
-};
-
 const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKey_ = {
     {"_src", PropContext::PropInKeyType::SRC},
     {"_type", PropContext::PropInKeyType::TYPE},
@@ -70,9 +56,21 @@ const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKe
     {"_dst", PropContext::PropInKeyType::DST},
 };
 
-struct FilterContext {
-    // key: <tagId, propName> -> propValue
-    std::unordered_map<std::pair<TagID, std::string>, nebula::Value> tagFilters_;
+struct TagContext {
+    std::vector<std::pair<TagID, std::vector<PropContext>>> propContexts_;
+    std::unordered_map<TagID, size_t> indexMap_;
+    std::unordered_map<TagID,
+                    std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    std::unordered_map<TagID, std::pair<std::string, int64_t>> ttlInfo_;
+    VertexCache* vertexCache_ = nullptr;
+};
+
+struct EdgeContext {
+    std::vector<std::pair<EdgeType, std::vector<PropContext>>> propContexts_;
+    std::unordered_map<EdgeType, size_t> indexMap_;
+    std::unordered_map<EdgeType,
+                    std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    std::unordered_map<EdgeType, std::pair<std::string, int64_t>> ttlInfo_;
 };
 
 template<typename REQ, typename RESP>
@@ -86,8 +84,9 @@ protected:
     explicit QueryBaseProcessor(StorageEnv* env,
                                 stats::Stats* stats = nullptr,
                                 VertexCache* cache = nullptr)
-        : BaseProcessor<RESP>(env, stats)
-        , vertexCache_(cache) {}
+        : BaseProcessor<RESP>(env, stats) {
+        this->tagContext_.vertexCache_ = cache;
+    }
 
     virtual cpp2::ErrorCode checkAndBuildContexts(const REQ& req) = 0;
     virtual void onProcessFinished() = 0;
@@ -97,74 +96,21 @@ protected:
     // build edgeContexts_ according to return props
     cpp2::ErrorCode handleEdgeProps(const std::vector<ReturnProp>& edgeProps);
 
-    // todo(doodle)
     cpp2::ErrorCode buildFilter(const REQ& req);
 
     // build ttl info map
     void buildTagTTLInfo();
     void buildEdgeTTLInfo();
 
-    kvstore::ResultCode processTagProps(PartitionID partId,
-                                        const VertexID& vId,
-                                        TagID tagId,
-                                        const std::vector<PropContext>& returnProps,
-                                        FilterContext& fcontext,
-                                        nebula::DataSet& dataSet);
-
-    kvstore::ResultCode collectTagPropIfValid(const meta::NebulaSchemaProvider* schema,
-                                              folly::StringPiece value,
-                                              TagID tagId,
-                                              const std::vector<PropContext>& returnProps,
-                                              FilterContext& fcontext,
-                                              nebula::DataSet& dataSet);
-
-    // collectTagProps and collectEdgeProps is use to collect prop in props,
-    // and put them into dataSet
-    kvstore::ResultCode collectTagProps(TagID tagId,
-                                        RowReader* reader,
-                                        const std::vector<PropContext>& props,
-                                        FilterContext& fcontext,
-                                        nebula::DataSet& dataSet);
-
-    kvstore::ResultCode collectEdgeProps(EdgeType edgeType,
-                                         RowReader* reader,
-                                         folly::StringPiece key,
-                                         const std::vector<PropContext>& props,
-                                         nebula::DataSet& dataSet,
-                                         std::vector<PropStat>* stats);
-
-    StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx);
-
-    void addStatValue(const Value& value, PropStat& stat);
-
-    folly::Optional<std::pair<std::string, int64_t>> getTagTTLInfo(TagID tagId);
-    folly::Optional<std::pair<std::string, int64_t>> getEdgeTTLInfo(EdgeType edgeType);
-
-    cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId);
-
     std::vector<ReturnProp> buildAllTagProps();
     std::vector<ReturnProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
 protected:
     GraphSpaceID spaceId_;
-    size_t vIdLen_;
-    VertexCache* vertexCache_ = nullptr;
 
-    std::vector<std::pair<TagID, std::vector<PropContext>>> tagContexts_;
-    std::vector<std::pair<EdgeType, std::vector<PropContext>>> edgeContexts_;
-
-    // the value of index map is the index in tagContexts/edgeContexts
-    std::unordered_map<TagID, size_t> tagIndexMap_;
-    std::unordered_map<EdgeType, size_t> edgeIndexMap_;
-
-    std::unordered_map<TagID,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> tagSchemas_;
-
-    std::unordered_map<EdgeType,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> edgeSchemas_;
-
-    std::unordered_map<TagID, std::pair<std::string, int64_t>> tagTTLInfo_;
-    std::unordered_map<EdgeType, std::pair<std::string, int64_t>> edgeTTLInfo_;
+    TagContext tagContext_;
+    EdgeContext edgeContext_;
+    std::unique_ptr<Expression> exp_;
 
     nebula::DataSet resultDataSet_;
 };

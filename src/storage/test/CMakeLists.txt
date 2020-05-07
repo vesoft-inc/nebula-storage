@@ -106,6 +106,20 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        simple_dag_test
+    SOURCES
+        SimpleDAGTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        storage_service_handler_test
@@ -136,9 +150,9 @@ nebula_add_test(
 
 nebula_add_executable(
     NAME
-        get_neighbors_bm 
+        scan_edge_prop_bm
     SOURCES
-        GetNeighborsBenchmark.cpp
+        ScanEdgePropBenchmark.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES

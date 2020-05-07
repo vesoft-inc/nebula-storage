@@ -9,27 +9,20 @@
 
 #include "base/Base.h"
 #include <gtest/gtest_prod.h>
-#include "algorithm/ReservoirSampling.h"
 #include "storage/query/QueryBaseProcessor.h"
+#include "storage/exec/StorageDAG.h"
 
 namespace nebula {
 namespace storage {
 
-using EdgeProcessor = std::function<kvstore::ResultCode(std::unique_ptr<RowReader>* reader,
-                                                        folly::StringPiece key,
-                                                        folly::StringPiece val)>;
-
 class GetNeighborsProcessor
     : public QueryBaseProcessor<cpp2::GetNeighborsRequest, cpp2::GetNeighborsResponse> {
-    FRIEND_TEST(GetNeighborsBench, ProcessEdgeProps);
-    FRIEND_TEST(GetNeighborsBench, ScanEdgesVsProcessEdgeProps);
 
 public:
     static GetNeighborsProcessor* instance(StorageEnv* env,
                                            stats::Stats* stats,
-                                           VertexCache* cache,
-                                           folly::Executor* executor) {
-        return new GetNeighborsProcessor(env, stats, cache, executor);
+                                           VertexCache* cache) {
+        return new GetNeighborsProcessor(env, stats, cache);
     }
 
     void process(const cpp2::GetNeighborsRequest& req) override;
@@ -37,11 +30,14 @@ public:
 protected:
     GetNeighborsProcessor(StorageEnv* env,
                           stats::Stats* stats,
-                          VertexCache* cache,
-                          folly::Executor* executor)
+                          VertexCache* cache)
         : QueryBaseProcessor<cpp2::GetNeighborsRequest,
-                             cpp2::GetNeighborsResponse>(env, stats, cache)
-        , executor_(executor) {}
+                             cpp2::GetNeighborsResponse>(env, stats, cache) {}
+
+    StorageDAG createExecutor(PartitionID partId,
+                              const VertexID& vId,
+                              FilterOperator* filter,
+                              nebula::Row* row);
 
     void onProcessFinished() override;
 
@@ -56,50 +52,20 @@ protected:
 
     // collect edge props need to return
     cpp2::ErrorCode prepareEdgeProps(const std::vector<std::string>& edgeProps,
-                                     const cpp2::EdgeDirection& direction,
                                      std::vector<ReturnProp>& returnProps);
 
     // add PropContext of stat
     cpp2::ErrorCode handleEdgeStatProps(const std::vector<cpp2::StatProp>& statProps);
     cpp2::ErrorCode checkStatType(const meta::cpp2::PropertyType& fType, cpp2::StatType statType);
-    PropContext buildPropContextWithStat(
-            const std::string& name,
-            size_t idx,
-            const cpp2::StatType& statType,
-            const meta::SchemaProviderIf::Field* field);
-
-    kvstore::ResultCode processOneVertex(PartitionID partId, const VertexID& vId);
-
-    kvstore::ResultCode scanEdges(PartitionID partId,
-                                  const VertexID& vId,
-                                  FilterContext& fcontext,
-                                  nebula::Row& row);
-
-    kvstore::ResultCode processTag(PartitionID partId,
-                                   const VertexID& vId,
-                                   FilterContext& fcontext,
-                                   nebula::Row& row);
-
-    kvstore::ResultCode processEdge(PartitionID partId,
-                                    const VertexID& vId,
-                                    const FilterContext& fcontext,
-                                    nebula::Row& row);
-
-    kvstore::ResultCode processEdgeProps(PartitionID partId,
-                                         const VertexID& vId,
-                                         EdgeType edgeType,
-                                         int64_t& edgeRowCount,
-                                         EdgeProcessor proc);
-
-    std::vector<PropStat> initStatValue();
-    nebula::Value calculateStat(const std::vector<PropStat>& stats);
+    PropContext buildPropContextWithStat(const std::string& name,
+                                         size_t idx,
+                                         const cpp2::StatType& statType,
+                                         const meta::SchemaProviderIf::Field* field);
 
 private:
     size_t statCount_ = 0;
     bool scanAllEdges_ = false;
     static constexpr size_t kStatReturnIndex_ = 1;
-
-    folly::Executor* executor_ = nullptr;
 };
 
 }  // namespace storage

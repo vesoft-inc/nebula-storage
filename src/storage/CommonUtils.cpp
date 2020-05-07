@@ -10,10 +10,10 @@
 namespace nebula {
 namespace storage {
 
-bool checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
-                            RowReader* reader,
-                            const std::string& ttlCol,
-                            int64_t ttlDuration) {
+bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
+                                         RowReader* reader,
+                                         const std::string& ttlCol,
+                                         int64_t ttlDuration) {
     const auto& ftype = schema->getFieldType(ttlCol);
     // could not support VID type anymore
     // todo: could support DateTime later

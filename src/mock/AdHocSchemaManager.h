@@ -75,7 +75,7 @@ public:
     // get all version of all tags
     StatusOr<TagSchemas> getAllVerTagSchema(GraphSpaceID space) override;
 
-    // get all version of all tags
+    // get all version of all edges
     StatusOr<EdgeSchemas> getAllVerEdgeSchema(GraphSpaceID space) override;
 
     // mock previous version of get schema from cache in MetaClient, only used of benchmark
