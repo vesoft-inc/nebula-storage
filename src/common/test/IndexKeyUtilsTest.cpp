@@ -18,15 +18,20 @@ VertexID getStringId(int64_t vId) {
 
 IndexValues getIndexValues() {
     IndexValues values;
-    values.emplace_back(Value::Type::STRING, IndexKeyUtils::encodeValue(Value("str")));
-    values.emplace_back(Value::Type::BOOL, IndexKeyUtils::encodeValue(Value(true)));
-    values.emplace_back(Value::Type::INT, IndexKeyUtils::encodeValue(Value(12L)));
-    values.emplace_back(Value::Type::FLOAT, IndexKeyUtils::encodeValue(Value(12.12f)));
+    values.emplace_back(Value::Type::STRING,
+                        IndexKeyUtils::encodeValue(Value("str")), false, false);
+    values.emplace_back(Value::Type::BOOL,
+                        IndexKeyUtils::encodeValue(Value(true)), false, false);
+    values.emplace_back(Value::Type::INT,
+                        IndexKeyUtils::encodeValue(Value(12L)), false, false);
+    values.emplace_back(Value::Type::FLOAT,
+                        IndexKeyUtils::encodeValue(Value(12.12f)), false, false);
     nebula::Date d;
     d.year = 2020;
     d.month = 4;
     d.day = 11;
-    values.emplace_back(Value::Type::DATE, IndexKeyUtils::encodeValue(Value(std::move(d))));
+    values.emplace_back(Value::Type::DATE,
+                        IndexKeyUtils::encodeValue(Value(std::move(d))), false, false);
 
     nebula::DateTime dt;
     dt.year = 2020;
@@ -37,7 +42,8 @@ IndexValues getIndexValues() {
     dt.sec = 22;
     dt.microsec = 1111;
     dt.timezone = 2222;
-    values.emplace_back(Value::Type::DATE, IndexKeyUtils::encodeValue(Value(std::move(dt))));
+    values.emplace_back(Value::Type::DATE,
+                        IndexKeyUtils::encodeValue(Value(std::move(dt))), false, false);
     return values;
 }
 
@@ -194,6 +200,65 @@ TEST(IndexKeyUtilsTest, edgeIndexKeyV2) {
     ASSERT_EQ(1, IndexKeyUtils::getIndexRank(100, key));
     ASSERT_EQ(vid, IndexKeyUtils::getIndexDstId(100, key));
     ASSERT_EQ(true, IndexKeyUtils::isIndexKey(key));
+}
+
+TEST(IndexKeyUtilsTest, nullableValue) {
+    {
+        std::string raw;
+        IndexValues values;
+        for (int64_t j = 2; j <= 7; j++) {
+            auto type = Value::Type(j);
+            values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
+        }
+        IndexKeyUtils::indexRaw(std::move(values), raw);
+        char c = 0xfc; /* the binary is '11111100'*/
+        std::string expected;
+        expected.append(reinterpret_cast<const char*>(&c), sizeof(char));
+        auto result = raw.substr(raw.size() - sizeof(int32_t) - sizeof(char), sizeof(char));
+        ASSERT_EQ(expected, result);
+    }
+    {
+        std::string raw;
+        IndexValues values;
+        auto type = Value::Type::BOOL;
+        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, false);
+        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
+        IndexKeyUtils::indexRaw(std::move(values), raw);
+        char c = 0x40; /* the binary is '01000000'*/
+        std::string expected;
+        expected.append(reinterpret_cast<const char*>(&c), sizeof(char));
+        auto result = raw.substr(raw.size() - sizeof(char), sizeof(char));
+        ASSERT_EQ(expected, result);
+    }
+    {
+        std::string raw;
+        IndexValues values;
+        auto type = Value::Type::BOOL;
+        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), false, false);
+        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), false, false);
+        IndexKeyUtils::indexRaw(std::move(values), raw);
+        ASSERT_EQ(2, raw.size());
+    }
+    {
+        std::string raw;
+        IndexValues values;
+        for (int64_t i = 0; i <2; i++) {
+            for (int64_t j = 2; j <= 7; j++) {
+            auto type = Value::Type(j);
+            values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
+            }
+        }
+
+        IndexKeyUtils::indexRaw(std::move(values), raw);
+        char c1 = 0xff; /* the binary is '11111111'*/
+        char c2 = 0xf0; /* the binary is '11110000'*/
+        std::string expected;
+        expected.append(reinterpret_cast<const char*>(&c1), sizeof(char))
+                .append(reinterpret_cast<const char*>(&c2), sizeof(char));
+        auto result = raw.substr(raw.size() - sizeof(int32_t) * 2 - sizeof(char) * 2,
+                                 sizeof(char) * 2);
+        ASSERT_EQ(expected, result);
+    }
 }
 
 }  // namespace nebula

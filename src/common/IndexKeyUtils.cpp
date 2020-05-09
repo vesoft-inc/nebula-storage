@@ -11,11 +11,40 @@ namespace nebula {
 // static
 void IndexKeyUtils::indexRaw(const IndexValues &values, std::string& raw) {
     std::vector<int32_t> colsLen;
-    for (auto& col : values) {
-        if (col.first == Value::Type::STRING) {
-            colsLen.emplace_back(col.second.size());
+    std::vector<char> nullables;
+    bool hasNullCol = false;
+    char nullable = '\0';
+    for (size_t i = 0; i < values.size(); i++) {
+        /**
+         * string type
+         **/
+        if (std::get<0>(values[i]) == Value::Type::STRING) {
+            colsLen.emplace_back(std::get<1>(values[i]).size());
         }
-        raw.append(col.second.data(), col.second.size());
+
+        /**
+         * nullable type
+         **/
+        if (std::get<2>(values[i])) {
+            if (!hasNullCol) {
+                hasNullCol = true;
+            }
+            if (i > 7 && i%8 == 0) {
+                hasNullCol = false;
+                nullables.emplace_back(nullable);
+                nullable = '\0';
+            }
+            if (std::get<3>(values[i])) {
+                nullable |= 0x80 >> i%8;
+            }
+        }
+        raw.append(std::get<1>(values[i]).data(), std::get<1>(values[i]).size());
+    }
+    if (hasNullCol) {
+        nullables.emplace_back(std::move(nullable));
+    }
+    for (auto n : nullables) {
+        raw.append(reinterpret_cast<const char*>(&n), sizeof(char));
     }
     for (auto len : colsLen) {
         raw.append(reinterpret_cast<const char*>(&len), sizeof(int32_t));

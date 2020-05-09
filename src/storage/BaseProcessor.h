@@ -20,6 +20,7 @@
 #include "stats/StatsManager.h"
 #include "stats/Stats.h"
 #include "codec/RowReader.h"
+#include "common/IndexKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -84,6 +85,9 @@ protected:
     StatusOr<std::string> encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);
+
+    StatusOr<IndexValues>
+    collectIndexValues(RowReader* reader, const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
 protected:
     StorageEnv*                                     env_{nullptr};
