@@ -22,8 +22,6 @@ jobs:
           fetch-depth: 2
       - name: Cpplint
         run: |
-          cp ci/keys/deploy_key ~/.ssh/id_rsa
-          chmod 0400 ~/.ssh/id_rsa
           cd .linters/cpp && ln -snf hooks/pre-commit.sh
           ./pre-commit.sh $(git --no-pager diff --name-only $(git log --oneline -n 1 | cut -d ' ' -f 1,5) | sed -E 's/(.*)/..\/..\/\1/g')
   gcc_build:
@@ -42,6 +40,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 1
+      - name: Prepare
+        run: |
+            mkdir -p ~/.ssh
+            cp ./ci/deploy_key ~/.ssh/id_rsa
+            chmod 0400 ~/.ssh/id_rsa
+            echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
       - name: CMake
         run: |
           cmake -E make_directory build
@@ -79,6 +83,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 1
+      - name: Prepare
+        run: |
+          mkdir -p ~/.ssh
+          cp ./ci/deploy_key ~/.ssh/id_rsa
+          chmod 0400 ~/.ssh/id_rsa
+          echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
       - name: CMake
         run: |
           cmake -E make_directory build
