@@ -186,17 +186,25 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
 }
 
 template <typename RESP>
+<<<<<<< HEAD
 StatusOr<std::vector<Value>>
 BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
                                         const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
                                         std::vector<Value::Type>& colsType) {
     std::vector<Value> values;
     bool haveNullCol = false;
+=======
+StatusOr<IndexValues>
+BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
+                                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols) {
+    IndexValues values;
+>>>>>>> index insert and delete
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
     }
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
+<<<<<<< HEAD
         auto isNullable = col.__isset.nullable && *(col.get_nullable());
         if (isNullable && !haveNullCol) {
             haveNullCol = true;
@@ -212,10 +220,20 @@ BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
     }
     if (!haveNullCol) {
         colsType.clear();
+=======
+        auto isNullable = col.get_nullable();
+        auto nullVal = v.type() == Value::Type::NULLVALUE;
+        auto val = isNullable && nullVal ?
+                   IndexKeyUtils::encodeNullValue(v.type()) :
+                   IndexKeyUtils::encodeValue(std::move(v));
+        values.emplace_back(IndexKeyUtils::toValueType(col.get_type()),
+                            std::move(val), isNullable, nullVal);
+>>>>>>> index insert and delete
     }
     return values;
 }
 
+<<<<<<< HEAD
 template <typename RESP>
 Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
     if (!v.isNull()) {
@@ -251,5 +269,7 @@ Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
     return Status::OK();
 }
 
+=======
+>>>>>>> index insert and delete
 }  // namespace storage
 }  // namespace nebula

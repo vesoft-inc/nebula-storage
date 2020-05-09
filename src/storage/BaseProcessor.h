@@ -85,12 +85,17 @@ protected:
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);
 
+<<<<<<< HEAD
     StatusOr<std::vector<Value>>
     collectIndexValues(RowReader* reader,
                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
                        std::vector<Value::Type>& colsType);
 
     Status checkValue(const Value& v, bool isNullable);
+=======
+    StatusOr<IndexValues>
+    collectIndexValues(RowReader* reader, const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
+>>>>>>> index insert and delete
 
 protected:
     StorageEnv*                                     env_{nullptr};
