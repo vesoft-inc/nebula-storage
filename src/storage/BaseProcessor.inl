@@ -185,5 +185,26 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
     return std::move(rowWrite).moveEncodedStr();
 }
 
+template <typename RESP>
+StatusOr<IndexValues>
+BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
+                                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols) {
+    IndexValues values;
+    if (reader == nullptr) {
+        return Status::Error("Invalid row reader");
+    }
+    for (auto& col : cols) {
+        auto v = reader->getValueByName(col.get_name());
+        auto isNullable = col.get_nullable();
+        auto nullVal = v.type() == Value::Type::NULLVALUE;
+        auto val = isNullable && nullVal ?
+                   IndexKeyUtils::encodeNullValue(v.type()) :
+                   IndexKeyUtils::encodeValue(std::move(v));
+        values.emplace_back(IndexKeyUtils::toValueType(col.get_type()),
+                            std::move(val), isNullable, nullVal);
+    }
+    return values;
+}
+
 }  // namespace storage
 }  // namespace nebula
