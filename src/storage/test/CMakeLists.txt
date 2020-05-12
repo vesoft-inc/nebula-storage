@@ -106,6 +106,20 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        checkpoint_test
+    SOURCES
+        CheckpointTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        storage_service_handler_test
@@ -329,20 +343,6 @@ nebula_add_test(
 #        vertex_cache_test
 #    SOURCES
 #        VertexCacheTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#nebula_add_test(
-#    NAME
-#        checkpoint_test
-#    SOURCES
-#        CheckpointTest.cpp
 #    OBJECTS
 #        ${storage_test_deps}
 #    LIBRARIES
