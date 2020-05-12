@@ -52,16 +52,16 @@ public:
     memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& parts);
 
     static std::unique_ptr<kvstore::NebulaStore>
-    initKV(kvstore::KVOptions options, HostAddr localHost = HostAddr(0, 0));
+    initKV(kvstore::KVOptions options, HostAddr localHost = HostAddr("", 0));
 
     static std::unique_ptr<kvstore::NebulaStore>
-    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr(0, 0));
+    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr("", 0));
 
     void initStorageKV(const char* dataPath,
-                       HostAddr localHost = HostAddr(0, 0),
+                       HostAddr localHost = HostAddr("", 0),
                        SchemaVer schemaVerCount = 1);
 
-    static IPv4 localIP();
+    static std::string localIP();
 
     int32_t getTotalParts() {
         return totalParts_;

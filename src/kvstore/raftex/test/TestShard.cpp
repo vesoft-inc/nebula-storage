@@ -18,15 +18,14 @@ std::string encodeLearner(const HostAddr& addr) {
     std::string str;
     CommandType type = CommandType::ADD_LEARNER;
     str.append(reinterpret_cast<const char*>(&type), 1);
-    str.append(reinterpret_cast<const char*>(&addr), sizeof(HostAddr));
+    str.append(serializeHostAddr(addr));
     return str;
 }
 
 HostAddr decodeLearner(const folly::StringPiece& log) {
-    HostAddr learner;
-    memcpy(&learner.ip, log.begin() + 1, sizeof(learner.ip));
-    memcpy(&learner.port, log.begin() + 1 + sizeof(learner.ip), sizeof(learner.port));
-    return learner;
+    auto rawlog = log;
+    rawlog.advance(1);
+    return deserializeHostAddr(rawlog);
 }
 
 folly::Optional<std::string> compareAndSet(const std::string& log) {
@@ -42,15 +41,14 @@ std::string encodeTransferLeader(const HostAddr& addr) {
     std::string str;
     CommandType type = CommandType::TRANSFER_LEADER;
     str.append(reinterpret_cast<const char*>(&type), 1);
-    str.append(reinterpret_cast<const char*>(&addr), sizeof(HostAddr));
+    str.append(serializeHostAddr(addr));
     return str;
 }
 
 HostAddr decodeTransferLeader(const folly::StringPiece& log) {
-    HostAddr leader;
-    memcpy(&leader.ip, log.begin() + 1, sizeof(leader.ip));
-    memcpy(&leader.port, log.begin() + 1 + sizeof(leader.ip), sizeof(leader.port));
-    return leader;
+    auto raw = log;
+    raw.advance(1);
+    return deserializeHostAddr(raw);
 }
 
 std::string encodeSnapshotRow(LogID logId, const std::string& row) {
@@ -71,30 +69,28 @@ std::string encodeAddPeer(const HostAddr& addr) {
     std::string str;
     CommandType type = CommandType::ADD_PEER;
     str.append(reinterpret_cast<const char*>(&type), 1);
-    str.append(reinterpret_cast<const char*>(&addr), sizeof(HostAddr));
+    str.append(serializeHostAddr(addr));
     return str;
 }
 
 HostAddr decodeAddPeer(const folly::StringPiece& log) {
-    HostAddr addr;
-    memcpy(&addr.ip, log.begin() + 1, sizeof(addr.ip));
-    memcpy(&addr.port, log.begin() + 1 + sizeof(addr.ip), sizeof(addr.port));
-    return addr;
+    auto rawlog = log;
+    rawlog.advance(1);
+    return deserializeHostAddr(rawlog);
 }
 
 std::string encodeRemovePeer(const HostAddr& addr) {
     std::string str;
     CommandType type = CommandType::REMOVE_PEER;
     str.append(reinterpret_cast<const char*>(&type), 1);
-    str.append(reinterpret_cast<const char*>(&addr), sizeof(HostAddr));
+    str.append(serializeHostAddr(addr));
     return str;
 }
 
 HostAddr decodeRemovePeer(const folly::StringPiece& log) {
-    HostAddr addr;
-    memcpy(&addr.ip, log.begin() + 1, sizeof(addr.ip));
-    memcpy(&addr.port, log.begin() + 1 + sizeof(addr.ip), sizeof(addr.port));
-    return addr;
+    auto rawlog = log;
+    rawlog.advance(1);
+    return deserializeHostAddr(rawlog);
 }
 
 std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>>

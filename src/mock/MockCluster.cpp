@@ -26,7 +26,7 @@ void MockCluster::waitUntilAllElected(kvstore::NebulaStore* kvstore,
             auto retLeader = kvstore->partLeader(spaceId, partId);
             if (ok(retLeader)) {
                 auto leader = value(std::move(retLeader));
-                if (leader != HostAddr(0, 0)) {
+                if (leader != HostAddr("", 0)) {
                     readyNum++;
                 }
             }
@@ -52,10 +52,11 @@ MockCluster::memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& pa
 }
 
 // static
-IPv4 MockCluster::localIP() {
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
-    return localIp;
+std::string MockCluster::localIP() {
+    // IPv4 localIp;
+    // network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
+    // return localIp;
+    return "127.0.0.1";
 }
 
 // static
@@ -66,8 +67,8 @@ MockCluster::initKV(kvstore::KVOptions options, HostAddr localHost) {
                              1, true /*stats*/);
     workers->setNamePrefix("executor");
     workers->start();
-    if (localHost.ip == 0) {
-        localHost.ip = localIP();
+    if (localHost.host == 0) {
+        localHost.host = localIP();
     }
     if (localHost.port == 0) {
         localHost.port = network::NetworkUtils::getAvailablePort();
@@ -94,7 +95,7 @@ MockCluster::initMetaKV(const char* dataPath, HostAddr addr) {
 }
 
 void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
-    metaKV_ = initMetaKV(rootPath.c_str(), {0, port});
+    metaKV_ = initMetaKV(rootPath.c_str(), {"", port});
     metaServer_ = std::make_unique<RpcServer>();
     auto handler = std::make_shared<meta::MetaServiceHandler>(metaKV_.get(),
                                                               clusterId_);
