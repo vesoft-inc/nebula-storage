@@ -80,8 +80,7 @@ AdHocSchemaManager::getTagSchema(GraphSpaceID space,
             // Not found
             return std::shared_ptr<const nebula::meta::NebulaSchemaProvider>();
         } else {
-            // the schema is stored from newest to oldest, so need to get in reverse order
-            return tagIt->second[tagIt->second.size() - 1 - ver];
+            return tagIt->second[ver];
         }
     }
 }
@@ -152,8 +151,7 @@ AdHocSchemaManager::getEdgeSchema(GraphSpaceID space,
             // Not found
             return std::shared_ptr<const nebula::meta::NebulaSchemaProvider>();
         } else {
-            // the schema is stored from newest to oldest, so need to get in reverse order
-            return edgeIt->second[edgeIt->second.size() - 1 - ver];
+            return edgeIt->second[ver];
         }
     }
 }

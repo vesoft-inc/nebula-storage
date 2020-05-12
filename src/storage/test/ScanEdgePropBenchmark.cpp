@@ -76,7 +76,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             });
         EXPECT_EQ(retCode, kvstore::ResultCode::SUCCEEDED);
         auto tock = time::WallClock::fastNowInMicroSec();
-        LOG(WARNING) << "ProcessEdgeProps with reader reset: process " << edgeRowCount
+        LOG(WARNING) << "ProcessEdgeProps with schema from map: process " << edgeRowCount
                      << " edges takes " << tock - tick << " us.";
     }
     {

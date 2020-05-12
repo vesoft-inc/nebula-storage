@@ -16,10 +16,10 @@
 namespace nebula {
 namespace mock {
 
-// the different version of tag schema, from newest to oldest
+// the different version of tag schema, from oldest to newest
 using TagSchemas =
     std::unordered_map<TagID, std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>;
-// the different version of edge schema, from newest to oldest
+// the different version of edge schema, from oldest to newest
 using EdgeSchemas =
     std::unordered_map<EdgeType, std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>;
 

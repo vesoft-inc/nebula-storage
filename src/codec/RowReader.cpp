@@ -136,12 +136,11 @@ std::unique_ptr<RowReader> RowReader::getRowReader(
     if (static_cast<size_t>(schemaVer) >= schemas.size()) {
         return std::unique_ptr<RowReader>();
     }
-    // the schema is stored from newest to oldest, so need to get in reverse order
-    size_t idx = schemas.size() - 1 - schemaVer;
-    if (schemaVer != schemas[idx]->getVersion()) {
+    // the schema is stored from oldest to newest, so just use version as idx
+    if (schemaVer != schemas[schemaVer]->getVersion()) {
         return std::unique_ptr<RowReader>();
     }
-    if (reader->reset(schemas[idx].get(), row, readerVer)) {
+    if (reader->reset(schemas[schemaVer].get(), row, readerVer)) {
         return reader;
     } else {
         LOG(ERROR) << "Failed to initiate the reader, most likely the data"
@@ -222,12 +221,11 @@ bool RowReader::reset(const std::vector<std::shared_ptr<const meta::NebulaSchema
     if (static_cast<size_t>(schemaVer) >= schemas.size()) {
         return false;
     }
-    // the schema is stored from newest to oldest, so need to get in reverse order
-    size_t idx = schemas.size() - 1 - schemaVer;
-    if (schemaVer != schemas[idx]->getVersion()) {
+    // the schema is stored from oldest to newest, so just use version as idx
+    if (schemaVer != schemas[schemaVer]->getVersion()) {
         return false;
     }
-    return reset(schemas[idx].get(), row, readerVer);
+    return reset(schemas[schemaVer].get(), row, readerVer);
 }
 
 bool RowReader::resetImpl(meta::SchemaProviderIf const* schema,
