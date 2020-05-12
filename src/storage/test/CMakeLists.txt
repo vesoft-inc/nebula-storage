@@ -107,9 +107,15 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
+<<<<<<< HEAD
         simple_dag_test
     SOURCES
         SimpleDAGTest.cpp
+=======
+        index_write_test
+    SOURCES
+        IndexWriteTest.cpp
+>>>>>>> add testcase
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
@@ -367,20 +373,6 @@ nebula_add_executable(
 #        vertex_cache_test
 #    SOURCES
 #        VertexCacheTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#nebula_add_test(
-#    NAME
-#        index_write_test
-#    SOURCES
-#        IndexTest.cpp
 #    OBJECTS
 #        ${storage_test_deps}
 #    LIBRARIES
