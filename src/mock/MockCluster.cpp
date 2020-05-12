@@ -116,8 +116,8 @@ void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
     } else {
         LOG(INFO) << "Use meta in memory!";
         options.partMan_ = memPartMan(1, parts);;
-        indexMan_ = memIndexMan();
         schemaMan_ = memSchemaMan();
+        indexMan_ = memIndexMan();
     }
     std::vector<std::string> paths;
     paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
@@ -129,8 +129,8 @@ void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
     waitUntilAllElected(storageKV_.get(), 1, parts);
 
     storageEnv_ = std::make_unique<storage::StorageEnv>();
-    storageEnv_->indexMan_ = indexMan_.get();
     storageEnv_->schemaMan_ = schemaMan_.get();
+    storageEnv_->indexMan_ = indexMan_.get();
     storageEnv_->kvstore_ = storageKV_.get();
 }
 
@@ -157,6 +157,10 @@ MockCluster::memSchemaMan() {
     // When tagId is 2, use teams data
     schemaMan->addTagSchema(1, 2, MockData::mockTeamTagSchema());
 
+    schemaMan->addTagSchema(1, 3, MockData::mockGeneralTagSchemaV1());
+
+    schemaMan->addTagSchema(1, 3, MockData::mockGeneralTagSchemaV2());
+
     // When edgeType is 101, use serve data
     schemaMan->addEdgeSchema(1, 101, MockData::mockEdgeSchema());
     return schemaMan;
@@ -165,6 +169,8 @@ MockCluster::memSchemaMan() {
 std::unique_ptr<meta::IndexManager>
 MockCluster::memIndexMan() {
     auto indexMan = std::make_unique<AdHocIndexManager>();
+    indexMan->addTagIndex(1, 3, 3, MockData::mockGeneralTagIndexColumns());
+    indexMan->addEdgeIndex(1, 101, 101, MockData::mockEdgeIndexColumns());
     return indexMan;
 }
 
