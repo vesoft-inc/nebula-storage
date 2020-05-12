@@ -5,17 +5,12 @@
  */
 
 #include "base/Base.h"
-#include "common/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
-#include <rocksdb/db.h>
 #include "fs/TempDir.h"
 #include "storage/admin/CreateCheckpointProcessor.h"
 #include "storage/mutate/AddVerticesProcessor.h"
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
-#include "interface/gen-cpp2/storage_types.h"
-#include "interface/gen-cpp2/common_types.h"
-#include "storage/test/TestUtils.h"
 
 namespace nebula {
 namespace storage {
