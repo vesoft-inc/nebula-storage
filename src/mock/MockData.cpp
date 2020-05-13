@@ -523,6 +523,16 @@ std::vector<VertexData> MockData::mockVertices() {
     return ret;
 }
 
+std::unorder_map<PartitionID, std::vector<VertexData>>  mockVerticesofPart(int32_t parts) {
+    std::unorder_map<PartitionID, std::vector<VertexData>> ret;
+    auto verticesVec = mockVertices();
+    for (vertexData : verticesVec) {
+         auto partId = std::hash<std::string>()(vertexData.vId_) % parts + 1;
+         ret[partId].push_back(vertexData);
+    }
+    return ret;
+}
+
 std::vector<VertexID> MockData::mockVerticeIds() {
     std::vector<VertexID> ret;
     // Multiple vertices, each vertex has two tags, player and team
@@ -607,6 +617,16 @@ std::vector<EdgeData> MockData::mockMultiEdges() {
         auto reverseAntiData = getReverseEdge(antiData);
         ret.emplace_back(std::move(antiData));
         ret.emplace_back(std::move(reverseAntiData));
+    }
+    return ret;
+}
+
+std::unorder_map<PartitionID, std::vector<EdgeData>>  mockEdgesofPart(int32_t parts) {
+    std::unorder_map<PartitionID, std::vector<EdgeData>> ret;
+    auto edgesVec = mockEdges();
+    for (EdgeData : edgesVec) {
+         auto partId = std::hash<std::string>()(EdgeData.srcId_) % parts + 1;
+         ret[partId].push_back(EdgeData);
     }
     return ret;
 }
