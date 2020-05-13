@@ -83,7 +83,7 @@ public:
      * Mock data
      */
     // Construct data in the order of schema
-    // generate player tag
+    // generate player and team tag
     static std::vector<VertexData> mockVertices();
 
     // generate serve edge

@@ -16,7 +16,7 @@ namespace storage {
 TEST(GetNeighborsTest, PropertyTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -259,7 +259,7 @@ TEST(GetNeighborsTest, PropertyTest) {
 TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -335,7 +335,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
 TEST(GetNeighborsTest, StatTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -388,7 +388,7 @@ TEST(GetNeighborsTest, StatTest) {
 TEST(GetNeighborsTest, SampleTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -479,7 +479,7 @@ TEST(GetNeighborsTest, SampleTest) {
 TEST(GetNeighborsTest, VertexCacheTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -530,7 +530,7 @@ TEST(GetNeighborsTest, TtlTest) {
 
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -585,7 +585,7 @@ TEST(GetNeighborsTest, TtlTest) {
 TEST(GetNeighborsTest, FailedTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
@@ -668,7 +668,7 @@ TEST(GetNeighborsTest, FailedTest) {
 TEST(GetNeighborsTest, GoOverAllTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
-    cluster.startStorage({0, 0}, rootPath.path());
+    cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
