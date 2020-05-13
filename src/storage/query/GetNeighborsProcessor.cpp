@@ -6,9 +6,9 @@
 
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/StorageFlags.h"
-#include "storage/exec/FilterOperator.h"
-#include "storage/exec/GetTagPropExecutor.h"
-#include "storage/exec/ScanEdgePropExecutor.h"
+#include "storage/exec/FilterNode.h"
+#include "storage/exec/TagNode.h"
+#include "storage/exec/EdgeNode.h"
 
 namespace nebula {
 namespace storage {
@@ -40,7 +40,7 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
             CHECK_GE(input.columns.size(), 1);
             auto vId = input.columns[0].getStr();
 
-            FilterOperator filter;
+            FilterNode filter;
             nebula::Row resultRow;
             // vertexId is the first column
             resultRow.columns.emplace_back(vId);
@@ -66,17 +66,16 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
 
 StorageDAG GetNeighborsProcessor::createExecutor(PartitionID partId,
                                                  const VertexID& vId,
-                                                 FilterOperator* filter,
+                                                 FilterNode* filter,
                                                  nebula::Row* row) {
     StorageDAG dag;
-    auto tag = std::make_unique<GetTagPropExecutor>(
+    auto tag = std::make_unique<TagNode>(
             &tagContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
     auto tagIdx = dag.addNode(std::move(tag));
-    auto edge = std::make_unique<EdgeTypePrefixScanEdgePropExecutor>(
+    auto edge = std::make_unique<EdgeTypePrefixScanEdgePropNode>(
             &edgeContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
     edge->addDependency(dag.getNode(tagIdx));
-    auto edgeIdx = dag.addNode(std::move(edge));
-    dag.setOutput(edgeIdx);
+    dag.addNode(std::move(edge));
     return dag;
 }
 

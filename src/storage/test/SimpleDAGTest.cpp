@@ -13,9 +13,8 @@ namespace storage {
 
 TEST(SimpleDAGTest, SimpleTest) {
     StorageDAG dag;
-    auto out = std::make_unique<Executor>("output");
-    auto idx = dag.addNode(std::move(out));
-    dag.setOutput(idx);
+    auto out = std::make_unique<RelNode>("leaf");
+    dag.addNode(std::move(out));
     dag.go().get();
 }
 
@@ -23,29 +22,27 @@ TEST(SimpleDAGTest, ChainTest) {
     StorageDAG dag;
     size_t lastIdx;
     for (size_t i = 0; i < 10; i++) {
-        auto node = std::make_unique<Executor>(folly::to<std::string>(i));
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
         if (i != 0) {
             node->addDependency(dag.getNode(lastIdx));
         }
         lastIdx = dag.addNode(std::move(node));
     }
-    auto out = std::make_unique<Executor>("output");
+    auto out = std::make_unique<RelNode>("leaf");
     out->addDependency(dag.getNode(lastIdx));
-    auto idx = dag.addNode(std::move(out));
-    dag.setOutput(idx);
+    dag.addNode(std::move(out));
     dag.go().get();
 }
 
 TEST(SimpleDAGTest, FanOutInTest) {
     StorageDAG dag;
-    auto out = std::make_unique<Executor>("output");
+    auto out = std::make_unique<RelNode>("leaf");
     for (size_t i = 0; i < 10; i++) {
-        auto node = std::make_unique<Executor>(folly::to<std::string>(i));
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
         auto idx = dag.addNode(std::move(node));
         out->addDependency(dag.getNode(idx));
     }
-    auto idx = dag.addNode(std::move(out));
-    dag.setOutput(idx);
+    dag.addNode(std::move(out));
     dag.go().get();
 }
 

@@ -10,6 +10,7 @@
 #include "base/Base.h"
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
+#include "storage/exec/FilterNode.h"
 #include "storage/exec/StorageDAG.h"
 
 namespace nebula {
@@ -36,7 +37,7 @@ protected:
 
     StorageDAG createExecutor(PartitionID partId,
                               const VertexID& vId,
-                              FilterOperator* filter,
+                              FilterNode* filter,
                               nebula::Row* row);
 
     void onProcessFinished() override;

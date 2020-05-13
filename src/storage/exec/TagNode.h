@@ -1,30 +1,29 @@
-
 /* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef STORAGE_EXEC_GETTAGPROPEXECUTOR_H_
-#define STORAGE_EXEC_GETTAGPROPEXECUTOR_H_
+#ifndef STORAGE_EXEC_TAGNODE_H_
+#define STORAGE_EXEC_TAGNODE_H_
 
 #include "base/Base.h"
-#include "storage/exec/Executor.h"
+#include "storage/exec/RelNode.h"
 
 namespace nebula {
 namespace storage {
 
-class GetTagPropExecutor final : public Executor {
+class TagNode final : public RelNode {
 public:
-    GetTagPropExecutor(TagContext* ctx,
-                       StorageEnv* env,
-                       GraphSpaceID spaceId,
-                       PartitionID partId,
-                       size_t vIdLen,
-                       const VertexID& vId,
-                       const Expression* exp,
-                       FilterOperator* filter,
-                       nebula::Row* row)
+    TagNode(TagContext* ctx,
+            StorageEnv* env,
+            GraphSpaceID spaceId,
+            PartitionID partId,
+            size_t vIdLen,
+            const VertexID& vId,
+            const Expression* exp,
+            FilterNode* filter,
+            nebula::Row* row)
         : tagContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
@@ -167,11 +166,11 @@ private:
     size_t vIdLen_;
     VertexID vId_;
     const Expression* exp_;
-    FilterOperator* filter_;
+    FilterNode* filter_;
     nebula::Row* resultRow_;
 };
 
 }  // namespace storage
 }  // namespace nebula
 
-#endif  // STORAGE_EXEC_GETTAGPROPEXECUTOR_H_
+#endif  // STORAGE_EXEC_TAGNODE_H_

@@ -4,18 +4,17 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef STORAGE_EXEC_EXECUTOR_H_
-#define STORAGE_EXEC_EXECUTOR_H_
+#ifndef STORAGE_EXEC_RELNODE_H_
+#define STORAGE_EXEC_RELNODE_H_
 
 #include "base/Base.h"
 #include "common/NebulaKeyUtils.h"
-#include "storage/exec/FilterOperator.h"
 #include "storage/query/QueryBaseProcessor.h"
 
 namespace nebula {
 namespace storage {
 
-class Executor {
+class RelNode {
     friend class StorageDAG;
 public:
     virtual folly::Future<kvstore::ResultCode> execute() {
@@ -23,12 +22,14 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    void addDependency(Executor* dep) {
+    void addDependency(RelNode* dep) {
         dependencies_.emplace_back(dep);
+        dep->hasDependents_ = true;
     }
 
-    Executor() = default;
-    explicit Executor(const std::string& name): name_(name) {}
+    RelNode() = default;
+
+    explicit RelNode(const std::string& name): name_(name) {}
 
 protected:
     StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx) {
@@ -57,10 +58,11 @@ protected:
 
     std::string name_;
     folly::SharedPromise<kvstore::ResultCode> promise_;
-    std::vector<Executor*> dependencies_;
+    std::vector<RelNode*> dependencies_;
+    bool hasDependents_;
 };
 
 }  // namespace storage
 }  // namespace nebula
 
-#endif  // STORAGE_EXEC_EXECUTOR_H_
+#endif  // STORAGE_EXEC_RELNODE_H_

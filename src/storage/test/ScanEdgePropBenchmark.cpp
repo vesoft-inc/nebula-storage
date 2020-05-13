@@ -8,7 +8,8 @@
 #include "fs/TempDir.h"
 #include "time/WallClock.h"
 #include "mock/AdHocSchemaManager.h"
-#include "storage/exec/ScanEdgePropExecutor.h"
+#include "storage/exec/FilterNode.h"
+#include "storage/exec/EdgeNode.h"
 #include "storage/test/QueryTestUtils.h"
 
 namespace nebula {
@@ -49,7 +50,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         // mock the process in 1.0, each time we get the schema from SchemaMan
         // (cache in MetaClient), and then collect values
         auto* schemaMan = dynamic_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
-        EdgeTypePrefixScanEdgePropExecutor executor(
+        EdgeTypePrefixScanEdgePropNode executor(
             nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
@@ -81,7 +82,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
     }
     {
         // new edge reader each time
-        EdgeTypePrefixScanEdgePropExecutor executor(
+        EdgeTypePrefixScanEdgePropNode executor(
             nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
@@ -106,7 +107,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
     }
     {
         // reset edge reader each time instead of new one
-        EdgeTypePrefixScanEdgePropExecutor executor(
+        EdgeTypePrefixScanEdgePropNode executor(
             nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
@@ -136,7 +137,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
     }
     {
         // use the schema saved in processor
-        EdgeTypePrefixScanEdgePropExecutor executor(
+        EdgeTypePrefixScanEdgePropNode executor(
             nullptr, env, spaceId, partId, vIdLen, vId, nullptr, nullptr, nullptr);
         int64_t edgeRowCount = 0;
         nebula::DataSet dataSet;
@@ -226,12 +227,12 @@ TEST_P(ScanEdgePropBench, ScanEdgesVsProcessEdgeProps) {
 
     {
         // scan with vertex prefix
-        FilterOperator filter;
+        FilterNode filter;
         nebula::Row row;
         row.columns.emplace_back(vId);
         row.columns.emplace_back(NullType::__NULL__);
 
-        VertexPrefixScanEdgePropExecutor executor(
+        VertexPrefixScanEdgePropNode executor(
             &ctx, env, spaceId, partId, vIdLen, vId, nullptr, &filter, &row);
         {
             auto tick = time::WallClock::fastNowInMicroSec();
@@ -244,12 +245,12 @@ TEST_P(ScanEdgePropBench, ScanEdgesVsProcessEdgeProps) {
     }
     {
         // scan with vertex and edgeType prefix
-        FilterOperator filter;
+        FilterNode filter;
         nebula::Row row;
         row.columns.emplace_back(vId);
         row.columns.emplace_back(NullType::__NULL__);
 
-        EdgeTypePrefixScanEdgePropExecutor executor(
+        EdgeTypePrefixScanEdgePropNode executor(
             &ctx, env, spaceId, partId, vIdLen, vId, nullptr, &filter, &row);
         // find all version of edge schema
         auto status = env->schemaMan_->getAllVerEdgeSchema(spaceId);
