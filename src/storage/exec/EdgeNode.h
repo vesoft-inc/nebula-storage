@@ -174,20 +174,20 @@ protected:
     static constexpr size_t kStatReturnIndex_ = 1;
 };
 
-class EdgeTypePrefixScanEdgePropNode final : public EdgeNode {
+class EdgeTypePrefixScanNode final : public EdgeNode {
     FRIEND_TEST(ScanEdgePropBench, ProcessEdgeProps);
     FRIEND_TEST(ScanEdgePropBench, ScanEdgesVsProcessEdgeProps);
 
 public:
-    EdgeTypePrefixScanEdgePropNode(EdgeContext* ctx,
-                                   StorageEnv* env,
-                                   GraphSpaceID spaceId,
-                                   PartitionID partId,
-                                   size_t vIdLen,
-                                   const VertexID& vId,
-                                   const Expression* exp,
-                                   const FilterNode* filter,
-                                   nebula::Row* row)
+    EdgeTypePrefixScanNode(EdgeContext* ctx,
+                           StorageEnv* env,
+                           GraphSpaceID spaceId,
+                           PartitionID partId,
+                           size_t vIdLen,
+                           const VertexID& vId,
+                           const Expression* exp,
+                           const FilterNode* filter,
+                           nebula::Row* row)
         : EdgeNode(ctx, env, spaceId, partId, vIdLen, vId, exp, filter, row) {}
 
     folly::Future<kvstore::ResultCode> execute() override {
@@ -320,19 +320,19 @@ private:
     }
 };
 
-class VertexPrefixScanEdgePropNode final : public EdgeNode {
+class VertexPrefixScanNode final : public EdgeNode {
     FRIEND_TEST(ScanEdgePropBench, ScanEdgesVsProcessEdgeProps);
 
 public:
-    VertexPrefixScanEdgePropNode(EdgeContext* ctx,
-                                 StorageEnv* env,
-                                 GraphSpaceID spaceId,
-                                 PartitionID partId,
-                                 size_t vIdLen,
-                                 const VertexID& vId,
-                                 const Expression* exp,
-                                 const FilterNode* filter,
-                                 nebula::Row* row)
+    VertexPrefixScanNode(EdgeContext* ctx,
+                         StorageEnv* env,
+                         GraphSpaceID spaceId,
+                         PartitionID partId,
+                         size_t vIdLen,
+                         const VertexID& vId,
+                         const Expression* exp,
+                         const FilterNode* filter,
+                         nebula::Row* row)
         : EdgeNode(ctx, env, spaceId, partId, vIdLen, vId, exp, filter, row) {}
 
     folly::Future<kvstore::ResultCode> execute() override {

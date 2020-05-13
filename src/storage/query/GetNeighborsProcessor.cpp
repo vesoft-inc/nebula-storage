@@ -72,7 +72,7 @@ StorageDAG GetNeighborsProcessor::buildDAG(PartitionID partId,
     auto tag = std::make_unique<TagNode>(
             &tagContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
     auto tagIdx = dag.addNode(std::move(tag));
-    auto edge = std::make_unique<EdgeTypePrefixScanEdgePropNode>(
+    auto edge = std::make_unique<EdgeTypePrefixScanNode>(
             &edgeContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
     edge->addDependency(dag.getNode(tagIdx));
     dag.addNode(std::move(edge));
