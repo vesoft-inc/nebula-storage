@@ -86,7 +86,7 @@ public:
         meta::SchemaProviderIf const* schema,
         folly::StringPiece row);
 
-    // notice: the schemas is from oldest to newest,
+    // notice: the schemas are from oldest to newest,
     // usually from getAllVerTagSchema or getAllVerEdgeSchema in SchemaMan
     static std::unique_ptr<RowReader> getRowReader(
         const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>& schemas,
@@ -107,7 +107,7 @@ public:
     bool reset(meta::SchemaProviderIf const* schema,
                folly::StringPiece row) noexcept;
 
-    // notice: the schemas is from oldest to newest,
+    // notice: the schemas are from oldest to newest,
     // usually from getAllVerTagSchema or getAllVerEdgeSchema in SchemaMan
     bool reset(const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>& schemas,
                folly::StringPiece row) noexcept;
