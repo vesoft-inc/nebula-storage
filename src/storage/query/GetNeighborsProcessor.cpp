@@ -48,7 +48,7 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
             resultRow.columns.emplace_back(NullType::__NULL__);
 
             // the first column of each row would be the vertex id
-            auto dag = createExecutor(partId, vId, &filter, &resultRow);
+            auto dag = buildDAG(partId, vId, &filter, &resultRow);
             auto ret = dag.go().get();
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 if (failedParts.find(partId) == failedParts.end()) {
@@ -64,10 +64,10 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-StorageDAG GetNeighborsProcessor::createExecutor(PartitionID partId,
-                                                 const VertexID& vId,
-                                                 FilterNode* filter,
-                                                 nebula::Row* row) {
+StorageDAG GetNeighborsProcessor::buildDAG(PartitionID partId,
+                                           const VertexID& vId,
+                                           FilterNode* filter,
+                                           nebula::Row* row) {
     StorageDAG dag;
     auto tag = std::make_unique<TagNode>(
             &tagContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
