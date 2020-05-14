@@ -13,7 +13,7 @@
 namespace nebula {
 namespace storage {
 
-class StorageEnv;
+struct StorageEnv;
 
 class StorageAdminServiceHandler final : public cpp2::StorageAdminServiceSvIf {
 

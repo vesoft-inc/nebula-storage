@@ -17,7 +17,7 @@
 namespace nebula {
 namespace storage {
 
-class StorageEnv;
+struct StorageEnv;
 
 class GraphStorageServiceHandler final : public cpp2::GraphStorageServiceSvIf {
 public:

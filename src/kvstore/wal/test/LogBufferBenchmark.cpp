@@ -287,7 +287,7 @@ runSingleWriterMultiReadersInBackground(LogBufferPtr logBuffer,
 
     for (int i = 0; i < readersNum; i++) {
         threads.emplace_back(
-                std::make_unique<std::thread>([i, logBuffer, &writePoint, &stop] {
+                std::make_unique<std::thread>([logBuffer, &writePoint, &stop] {
                     while (!stop) {
                         auto wp = writePoint.load(std::memory_order_acquire);
                         auto start = wp - 32;
