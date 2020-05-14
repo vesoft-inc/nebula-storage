@@ -88,6 +88,8 @@ protected:
     StatusOr<IndexValues>
     collectIndexValues(RowReader* reader, const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
+    StatusOr<bool> isNullValue(const Value& v, bool isNullable);
+
 protected:
     StorageEnv*                                     env_{nullptr};
     stats::Stats*                                   stats_{nullptr};

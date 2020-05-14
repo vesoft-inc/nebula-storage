@@ -19,6 +19,8 @@
 #include "interface/gen-cpp2/common_types.h"
 #include "storage/test/TestUtils.h"
 #include "common/NebulaKeyUtils.h"
+#include "mock/AdHocIndexManager.h"
+#include "mock/AdHocSchemaManager.h"
 
 namespace nebula {
 namespace storage {
@@ -191,7 +193,7 @@ TEST(IndexTest, SimpleEdgesTest) {
     }
     // verify delete
     {
-        auto* processor = DeleteEdgesProcessor::instance(env);
+        auto* processor = DeleteEdgesProcessor::instance(env, nullptr);
         cpp2::DeleteEdgesRequest req;
         req.set_space_id(1);
         for (auto partId = 1; partId <= 6; partId++) {
@@ -225,9 +227,276 @@ TEST(IndexTest, SimpleEdgesTest) {
     }
 }
 
+/**
+ * Test nullable and default value for vertex insert.
+ * And verify the correctness of the nullable and default value.
+ **/
+TEST(IndexTest, VerticesValueTest) {
+    GraphSpaceID spaceId = 1;
+    TagID tagId = 111;
+    IndexID indexId = 111;
+    fs::TempDir rootPath("/tmp/VerticesValueTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
+
+    // Mock a tag schema for nullable column and default column.
+    {
+        auto* schemaMan = reinterpret_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
+        schemaMan->addTagSchema(spaceId, tagId, mock::MockData::mockTypicaSchemaV2());
+    }
+    // Mock a index for nullable column and default column.
+    {
+        auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
+        indexMan->addTagIndex(spaceId, indexId, tagId, mock::MockData::mockTypicaIndexColumns());
+    }
+    // verify insert
+    {
+        cpp2::AddVerticesRequest req;
+        req.set_space_id(spaceId);
+        req.set_overwritable(true);
+        decltype(req.prop_names) propNames;
+        propNames[tagId] = {"col_bool", "col_int", "col_float",
+                            "col_float_null", "col_str", "col_date"};
+        req.set_prop_names(std::move(propNames));
+        // mock v2 vertices
+        for (auto partId = 1; partId <= 6; partId++) {
+            nebula::storage::cpp2::NewVertex newVertex;
+            nebula::storage::cpp2::NewTag newTag;
+            newTag.set_tag_id(tagId);
+            const Date date = {2020, 1, 20};
+            std::vector<Value>  props;
+            props.emplace_back(Value(true));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1.1f));
+            props.emplace_back(Value(5.5f));
+            props.emplace_back(Value("string"));
+            props.emplace_back(Value(std::move(date)));
+            newTag.set_props(std::move(props));
+            std::vector<nebula::storage::cpp2::NewTag> newTags;
+            newTags.push_back(std::move(newTag));
+            newVertex.set_id(convertVertexId(vIdLen, partId));
+            newVertex.set_tags(std::move(newTags));
+            req.parts[partId].emplace_back(std::move(newVertex));
+        }
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check insert data...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId,
+                                                       convertVertexId(vIdLen, partId));
+            auto retNum = verifyResultNum(1, partId, prefix, env->kvstore_);
+            EXPECT_EQ(1, retNum);
+        }
+
+        LOG(INFO) << "Check insert index...";
+        IndexValues values;
+        // col_bool
+        values.emplace_back(Value::Type::BOOL,
+                            IndexKeyUtils::encodeValue(Value(true)), false, false);
+        // col_bool_null
+        values.emplace_back(Value::Type::BOOL,
+                            IndexKeyUtils::encodeNullValue(Value::Type::BOOL), true, true);
+        // col_bool_default
+        values.emplace_back(Value::Type::BOOL,
+                            IndexKeyUtils::encodeValue(Value(true)), false, false);
+        // col_int
+        values.emplace_back(Value::Type::INT,
+                    IndexKeyUtils::encodeValue(Value(1L)), false, false);
+        // col_int_null
+        values.emplace_back(Value::Type::INT,
+                            IndexKeyUtils::encodeNullValue(Value::Type::INT), true, true);
+        // col_float
+        values.emplace_back(Value::Type::FLOAT,
+                            IndexKeyUtils::encodeValue(Value(1.1f)), false, false);
+        // col_float_null
+        values.emplace_back(Value::Type::FLOAT,
+                            IndexKeyUtils::encodeValue(Value(5.5f)), true, false);
+        // col_str
+        values.emplace_back(Value::Type::STRING,
+                            IndexKeyUtils::encodeValue(Value("string")), false, false);
+        // col_str_null
+        values.emplace_back(Value::Type::STRING,
+                            IndexKeyUtils::encodeNullValue(Value::Type::STRING), true, true);
+        // col_date
+        const Date date = {2020, 1, 20};
+        values.emplace_back(Value::Type::DATE,
+                            IndexKeyUtils::encodeValue(Value(std::move(date))), false, false);
+        // col_date_null
+        values.emplace_back(Value::Type::DATE,
+                            IndexKeyUtils::encodeNullValue(Value::Type::DATE), true, true);
+
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = IndexKeyUtils::indexPrefix(partId, indexId);
+            auto indexKey = IndexKeyUtils::vertexIndexKey(vIdLen, partId, indexId,
+                                                          convertVertexId(vIdLen, partId),
+                                                          values);
+            std::unique_ptr<kvstore::KVIterator> iter;
+            auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
+            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+            int64_t rowCount = 0;
+            while (iter->valid()) {
+                EXPECT_EQ(indexKey, iter->key().str());
+                rowCount++;
+                iter->next();
+            }
+            EXPECT_EQ(1, rowCount);
+        }
+    }
+}
+
+/**
+ * Alter tag test. 
+ * If a tag is attached to an index. allows to add new columns.
+ * Test the old index work well.
+ * And then create new index with newly added columns. 
+ * Test the all indexes works well.
+ **/
+TEST(IndexTest, AlterTagIndexTest) {
+    GraphSpaceID spaceId = 1;
+    TagID tagId = 111;
+    IndexID indexId1 = 222;
+    IndexID indexId2 = 333;
+    fs::TempDir rootPath("/tmp/AlterTagIndexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
+
+    // Mock a tag schema for nullable column and default column.
+    {
+        auto* schemaMan = reinterpret_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
+        schemaMan->addTagSchema(spaceId, tagId, mock::MockData::mockGeneralTagSchemaV1());
+    }
+    // Mock a index for nullable column and default column.
+    {
+        auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
+        indexMan->addTagIndex(spaceId, indexId1, tagId,
+                              mock::MockData::mockGeneralTagIndexColumns());
+    }
+    // verify insert
+    {
+        cpp2::AddVerticesRequest req;
+        req.set_space_id(spaceId);
+        req.set_overwritable(true);
+        // mock v2 vertices
+        for (auto partId = 1; partId <= 6; partId++) {
+            nebula::storage::cpp2::NewVertex newVertex;
+            nebula::storage::cpp2::NewTag newTag;
+            newTag.set_tag_id(tagId);
+            std::vector<Value>  props;
+            props.emplace_back(Value(true));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1.1f));
+            props.emplace_back(Value(1.1f));
+            props.emplace_back(Value("string"));
+            newTag.set_props(std::move(props));
+            std::vector<nebula::storage::cpp2::NewTag> newTags;
+            newTags.push_back(std::move(newTag));
+            newVertex.set_id(convertVertexId(vIdLen, partId));
+            newVertex.set_tags(std::move(newTags));
+            req.parts[partId].emplace_back(std::move(newVertex));
+        }
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check insert data...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId,
+                                                       convertVertexId(vIdLen, partId));
+            auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
+            EXPECT_EQ(1, retNum);
+        }
+
+        LOG(INFO) << "Check insert index...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = IndexKeyUtils::indexPrefix(partId, indexId1);
+            auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
+            EXPECT_EQ(1, retNum);
+        }
+    }
+
+    // Alter tag add new columns.
+    {
+        auto* schemaMan = reinterpret_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
+        schemaMan->addTagSchema(spaceId, tagId, mock::MockData::mockGeneralTagSchemaV2());
+    }
+    // create new index with newly added columns.
+    {
+        auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
+        indexMan->addTagIndex(spaceId, indexId2, tagId,
+                              mock::MockData::mockSimpleTagIndexColumns());
+    }
+    // verify insert
+    {
+        cpp2::AddVerticesRequest req;
+        req.set_space_id(spaceId);
+        req.set_overwritable(true);
+        // mock v2 vertices
+        for (auto partId = 1; partId <= 6; partId++) {
+            nebula::storage::cpp2::NewVertex newVertex;
+            nebula::storage::cpp2::NewTag newTag;
+            newTag.set_tag_id(tagId);
+            const Date date = {2020, 2, 20};
+            const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600};
+            std::vector<Value>  props;
+            props.emplace_back(Value(true));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1.1f));
+            props.emplace_back(Value(1.1f));
+            props.emplace_back(Value("string"));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(1L));
+            props.emplace_back(Value(std::move(date)));
+            props.emplace_back(Value(std::move(dt)));
+            newTag.set_props(std::move(props));
+            std::vector<nebula::storage::cpp2::NewTag> newTags;
+            newTags.push_back(std::move(newTag));
+            newVertex.set_id(convertVertexId(vIdLen, partId));
+            newVertex.set_tags(std::move(newTags));
+            req.parts[partId].emplace_back(std::move(newVertex));
+        }
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check insert data...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId,
+                                                       convertVertexId(vIdLen, partId));
+            auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
+            EXPECT_EQ(2, retNum);
+        }
+
+        LOG(INFO) << "Check insert index1...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = IndexKeyUtils::indexPrefix(partId, indexId1);
+            auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
+            EXPECT_EQ(1, retNum);
+        }
+
+        LOG(INFO) << "Check insert index2...";
+        for (auto partId = 1; partId <= 6; partId++) {
+            auto prefix = IndexKeyUtils::indexPrefix(partId, indexId2);
+            auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
+            EXPECT_EQ(1, retNum);
+        }
+    }
+}
 }  // namespace storage
 }  // namespace nebula
-
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);

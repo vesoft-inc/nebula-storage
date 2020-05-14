@@ -81,11 +81,17 @@ public:
 
     static std::vector<nebula::meta::cpp2::ColumnDef> mockGeneralTagIndexColumns();
 
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockSimpleTagIndexColumns();
+
     static std::vector<nebula::meta::cpp2::ColumnDef> mockEdgeIndexColumns();
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockGeneralTagSchemaV1();
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockGeneralTagSchemaV2();
+
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTypicaSchemaV2();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockTypicaIndexColumns();
 
     /*
      * Mock data

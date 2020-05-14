@@ -195,15 +195,57 @@ BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
     }
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
-        auto isNullable = col.get_nullable();
-        auto nullVal = v.type() == Value::Type::NULLVALUE;
-        auto val = isNullable && nullVal ?
-                   IndexKeyUtils::encodeNullValue(v.type()) :
+        auto isNullable = col.__isset.nullable && *(col.get_nullable());
+        bool nullVal = false;
+        if (v.isNull()) {
+            auto ret = isNullValue(v, isNullable);
+            if (ret.ok()) {
+                nullVal = ret.value();
+            } else {
+                LOG(ERROR) << "prop error by : " << col.get_name()
+                           << ". status : " << ret.status();
+                return ret.status();
+            }
+        }
+        auto val = nullVal ?
+                   IndexKeyUtils::encodeNullValue(IndexKeyUtils::toValueType(col.get_type())) :
                    IndexKeyUtils::encodeValue(std::move(v));
         values.emplace_back(IndexKeyUtils::toValueType(col.get_type()),
                             std::move(val), isNullable, nullVal);
     }
     return values;
+}
+
+template <typename RESP>
+StatusOr<bool> BaseProcessor<RESP>::isNullValue(const Value& v, bool isNullable) {
+    switch (v.getNull()) {
+        case nebula::NullType::UNKNOWN_PROP : {
+            return Status::Error("Unknown prop");
+        }
+        case nebula::NullType::__NULL__ : {
+            if (!isNullable) {
+                return Status::Error("Not allowed to be null");
+            } else {
+                return true;
+            }
+        }
+        case nebula::NullType::BAD_DATA : {
+            return Status::Error("Bad data");
+        }
+        case nebula::NullType::BAD_TYPE : {
+            return Status::Error("Bad type");
+        }
+        case nebula::NullType::ERR_OVERFLOW : {
+            return Status::Error("Data overflow");
+        }
+        case nebula::NullType::DIV_BY_ZERO : {
+            return Status::Error("Div zero");
+        }
+        case nebula::NullType::NaN : {
+            return Status::Error("NaN");
+        }
+    }
+    return Status::Error("Unknown error");
 }
 
 }  // namespace storage
