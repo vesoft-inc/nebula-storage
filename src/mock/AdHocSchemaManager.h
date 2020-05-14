@@ -10,6 +10,7 @@
 #include <folly/RWSpinLock.h>
 #include "meta/SchemaProviderIf.h"
 #include "meta/SchemaManager.h"
+#include "meta/NebulaSchemaProvider.h"
 #include "clients/meta/MetaClient.h"
 
 namespace nebula {
@@ -22,17 +23,15 @@ public:
 
     void addTagSchema(GraphSpaceID space,
                       TagID tag,
-                      std::shared_ptr<nebula::meta::SchemaProviderIf> schema,
-                      SchemaVer version = 0);
+                      std::shared_ptr<nebula::meta::NebulaSchemaProvider> schema);
 
     void addEdgeSchema(GraphSpaceID space,
                        EdgeType edge,
-                       std::shared_ptr<nebula::meta::SchemaProviderIf> schema,
-                       SchemaVer version = 0);
+                       std::shared_ptr<nebula::meta::NebulaSchemaProvider> schema);
 
     void removeTagSchema(GraphSpaceID space, TagID tag);
 
-    std::shared_ptr<const nebula::meta::SchemaProviderIf>
+    std::shared_ptr<const nebula::meta::NebulaSchemaProvider>
     getTagSchema(GraphSpaceID space,
                  TagID tag,
                  SchemaVer version = -1) override;
@@ -41,7 +40,7 @@ public:
     // Returns a negative number when the schema does not exist
     StatusOr<SchemaVer> getNewestTagSchemaVer(GraphSpaceID space, TagID tag) override;
 
-    std::shared_ptr<const nebula::meta::SchemaProviderIf>
+    std::shared_ptr<const nebula::meta::NebulaSchemaProvider>
     getEdgeSchema(GraphSpaceID space,
                   EdgeType edge,
                   SchemaVer version = -1) override;
@@ -67,17 +66,25 @@ public:
         return Status::Error("Unimplemented");
     }
 
+    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID space) override;
+
+    std::vector<std::pair<TagID, std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>>
+    listLatestTagSchema(GraphSpaceID space) override;
+
+    std::vector<std::pair<EdgeType, std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>>
+    listLatestEdgeSchema(GraphSpaceID space) override;
+
 protected:
     folly::RWSpinLock tagLock_;
     std::unordered_map<std::pair<GraphSpaceID, TagID>,
                        // version -> schema
-                       std::map<SchemaVer, std::shared_ptr<const nebula::meta::SchemaProviderIf>>>
+                       std::map<SchemaVer, std::shared_ptr<const meta::NebulaSchemaProvider>>>
         tagSchemas_;
 
     folly::RWSpinLock edgeLock_;
     std::unordered_map<std::pair<GraphSpaceID, EdgeType>,
                        // version -> schema
-                       std::map<SchemaVer, std::shared_ptr<const nebula::meta::SchemaProviderIf>>>
+                       std::map<SchemaVer, std::shared_ptr<const meta::NebulaSchemaProvider>>>
         edgeSchemas_;
 
     folly::RWSpinLock spaceLock_;

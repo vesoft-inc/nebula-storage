@@ -118,8 +118,7 @@ bool StorageServer::start() {
     gFlagsMan_ = std::make_unique<meta::ClientBasedGflagsManager>(metaClient_.get());
 
     LOG(INFO) << "Init schema manager";
-    schemaMan_ = meta::SchemaManager::create();
-    static_cast<meta::ServerBasedSchemaManager*>(schemaMan_.get())->init(metaClient_.get());
+    schemaMan_ = meta::SchemaManager::create(metaClient_.get());
 
     LOG(INFO) << "Init index manager";
     indexMan_ = meta::IndexManager::create();
@@ -138,6 +137,11 @@ bool StorageServer::start() {
         return false;
     }
 
+    taskMgr_ = AdminTaskManager::instance();
+    if (!taskMgr_->init()) {
+        LOG(ERROR) << "Init task manager failed!";
+        return false;
+    }
     StorageEnv env;
     env.kvstore_ = kvstore_.get();
     env.indexMan_ = indexMan_.get();
@@ -171,6 +175,10 @@ void StorageServer::stop() {
     stopped_ = true;
 
     webSvc_.reset();
+
+    if (taskMgr_) {
+        taskMgr_->shutdown();
+    }
 
     if (metaClient_) {
         metaClient_->stop();

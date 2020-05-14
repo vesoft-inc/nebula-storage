@@ -125,8 +125,9 @@ if (GIT_INFO_SHA)
 endif()
 
 # To include customized FindXXX.cmake modules
-set(CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake" ${CMAKE_MODULE_PATH})
-
+list(APPEND CMAKE_MODULE_PATH "${NEBULA_HOME}/cmake")
+#list(APPEND CMAKE_MODULE_PATH "${NEBULA_HOME}/modules/common")
+message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 # When NEBULA_THIRDPARTY_ROOT is null, set default value as /opt/nebula/third-party
 if("${NEBULA_THIRDPARTY_ROOT}" STREQUAL "")
     SET(NEBULA_THIRDPARTY_ROOT "/opt/nebula/third-party")
@@ -138,7 +139,7 @@ endif()
 message(STATUS "NEBULA_COMMON_REPO_URL: " ${NEBULA_COMMON_REPO_URL})
 
 if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
-    SET(NEBULA_COMMON_REPO_TAG "HEAD")
+    SET(NEBULA_COMMON_REPO_TAG "master")
 endif()
 message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
@@ -154,7 +155,7 @@ add_dependent_project(
     ${NEBULA_COMMON_REPO_URL}
     ${NEBULA_COMMON_REPO_TAG}
 )
-find_package(${NEBULA_COMMON_PACKAGE} REQUIRED)
+find_package(${NEBULA_COMMON_PACKAGE} REQUIRED PATHS "${NEBULA_HOME}/modules/common")
 message(STATUS ">>>>> The nebula-common repo has been configured successfully <<<<<")
 message(STATUS "")
 include_directories(AFTER modules/common/src)
@@ -231,6 +232,7 @@ add_compile_options(-Werror)
 add_compile_options(-Wunused-parameter)
 add_compile_options(-Wshadow)
 add_compile_options(-Wno-invalid-pch)
+add_compile_options(-Wno-strict-aliasing)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     # This requries GCC 5.1+

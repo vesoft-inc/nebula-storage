@@ -6,10 +6,12 @@
 #include "mock/MockCluster.h"
 #include "mock/AdHocIndexManager.h"
 #include "mock/AdHocSchemaManager.h"
+#include "mock/MockData.h"
 #include "meta/MetaServiceHandler.h"
 #include "meta/ServerBasedSchemaManager.h"
 #include "clients/meta/MetaClient.h"
 #include "storage/StorageAdminServiceHandler.h"
+#include "storage/GraphStorageServiceHandler.h"
 
 namespace nebula {
 namespace mock {
@@ -98,10 +100,9 @@ void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
                                                               clusterId_);
     metaServer_->start("meta", port, handler);
     LOG(INFO) << "The Meta Daemon started on port " << metaServer_->port_;
-
 }
 
-void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
+void MockCluster::initStorageKV(const char* dataPath, HostAddr addr) {
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     kvstore::KVOptions options;
     if (metaClient_ != nullptr) {
@@ -109,8 +110,7 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,
                                             metaClient_.get());
-        schemaMan_ = meta::SchemaManager::create();
-        static_cast<meta::ServerBasedSchemaManager*>(schemaMan_.get())->init(metaClient_.get());
+        schemaMan_ = meta::SchemaManager::create(metaClient_.get());
         indexMan_ = meta::IndexManager::create();
         indexMan_->init(metaClient_.get());
     } else {
@@ -120,8 +120,8 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
         schemaMan_ = memSchemaMan();
     }
     std::vector<std::string> paths;
-    paths.emplace_back(folly::stringPrintf("%s/disk1", rootPath.c_str()));
-    paths.emplace_back(folly::stringPrintf("%s/disk2", rootPath.c_str()));
+    paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
+    paths.emplace_back(folly::stringPrintf("%s/disk2", dataPath));
     // Prepare KVStore
     options.dataPaths_ = std::move(paths);
     // options.cffBuilder_ = std::move(cffBuilder);
@@ -132,7 +132,10 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
     storageEnv_->indexMan_ = indexMan_.get();
     storageEnv_->schemaMan_ = schemaMan_.get();
     storageEnv_->kvstore_ = storageKV_.get();
+}
 
+void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
+    initStorageKV(rootPath.c_str(), addr);
     storageAdminServer_ = std::make_unique<RpcServer>();
     auto handler1 = std::make_shared<storage::StorageAdminServiceHandler>(storageEnv_.get());
     storageAdminServer_->start("admin-storage", addr.port, handler1);
@@ -140,13 +143,22 @@ void MockCluster::startStorage(HostAddr addr, const std::string& rootPath) {
 
     graphStorageServer_ = std::make_unique<RpcServer>();
     auto handler2 = std::make_shared<storage::GraphStorageServiceHandler>(storageEnv_.get());
-    graphStorageServer_->start("graph-storage", addr.port + 10, handler2);
+    auto port = addr.port == 0 ? addr.port : addr.port + 10;
+    graphStorageServer_->start("graph-storage", port, handler2);
     LOG(INFO) << "The graph storage daemon started on port " << graphStorageServer_->port_;
 }
 
 std::unique_ptr<meta::SchemaManager>
 MockCluster::memSchemaMan() {
     auto schemaMan = std::make_unique<AdHocSchemaManager>();
+    // Vertex has two tags: players and teams
+    // When tagId is 1, use players data
+    schemaMan->addTagSchema(1, 1, MockData::mockPlayerTagSchema());
+    // When tagId is 2, use teams data
+    schemaMan->addTagSchema(1, 2, MockData::mockTeamTagSchema());
+
+    // When edgeType is 101, use serve data
+    schemaMan->addEdgeSchema(1, 101, MockData::mockEdgeSchema());
     return schemaMan;
 }
 

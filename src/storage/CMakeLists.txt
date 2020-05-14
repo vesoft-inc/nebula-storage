@@ -12,11 +12,22 @@ nebula_add_library(
     admin/SendBlockSignProcessor.cpp
     # admin/RebuildTagIndexProcessor.cpp
     # admin/RebuildEdgeIndexProcessor.cpp
+    admin/AdminTaskProcessor.cpp
+    admin/StopAdminTaskProcessor.cpp
+    admin/AdminTaskManager.cpp
+    admin/AdminTask.cpp
+    admin/CompactTask.cpp
+    admin/FlushTask.cpp
+    admin/TaskUtils.cpp
 )
 
 nebula_add_library(
     graph_storage_service_handler OBJECT
     GraphStorageServiceHandler.cpp
+    mutate/AddVerticesProcessor.cpp
+    mutate/DeleteVerticesProcessor.cpp
+    mutate/AddEdgesProcessor.cpp
+    mutate/DeleteEdgesProcessor.cpp
 )
 
 
@@ -32,4 +43,4 @@ nebula_add_library(
     StorageServer.cpp
 )
 
-# nebula_add_subdirectory(test)
+nebula_add_subdirectory(test)

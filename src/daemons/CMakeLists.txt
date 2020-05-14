@@ -65,14 +65,14 @@ nebula_add_executable(
         ${THRIFT_LIBRARIES}
 )
 
-#install(
-#    TARGETS
-#        nebula-storaged
-#    DESTINATION
-#        bin
-#    COMPONENT
-#        storage
-#)
+install(
+    TARGETS
+        nebula-storaged
+    DESTINATION
+        bin
+    COMPONENT
+        storage
+)
 
 install(
     TARGETS
