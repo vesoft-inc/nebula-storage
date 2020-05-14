@@ -97,6 +97,8 @@ protected:
     collectIndexValues(RowReader* reader, const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 >>>>>>> index insert and delete
 
+    StatusOr<bool> isNullValue(const Value& v, bool isNullable);
+
 protected:
     StorageEnv*                                     env_{nullptr};
     stats::Stats*                                   stats_{nullptr};

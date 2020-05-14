@@ -753,7 +753,6 @@ MockData::mockTypicaIndexColumns() {
     col_date_null.type = meta::cpp2::PropertyType::DATE;
     col_date_null.set_nullable(true);
     cols.emplace_back(std::move(col_date_null));
-
     return cols;
 }
 

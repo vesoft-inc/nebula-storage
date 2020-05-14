@@ -107,15 +107,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-<<<<<<< HEAD
         simple_dag_test
     SOURCES
         SimpleDAGTest.cpp
-=======
-        index_write_test
-    SOURCES
-        IndexWriteTest.cpp
->>>>>>> add testcase
     OBJECTS
         ${storage_test_deps}
     LIBRARIES

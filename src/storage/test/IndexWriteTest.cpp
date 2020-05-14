@@ -19,11 +19,8 @@
 #include "interface/gen-cpp2/common_types.h"
 #include "storage/test/TestUtils.h"
 #include "common/NebulaKeyUtils.h"
-<<<<<<< HEAD
 #include "mock/AdHocIndexManager.h"
 #include "mock/AdHocSchemaManager.h"
-=======
->>>>>>> add testcase
 
 namespace nebula {
 namespace storage {
@@ -499,7 +496,6 @@ TEST(IndexTest, AlterTagIndexTest) {
             EXPECT_EQ(1, retNum);
         }
     }
-}
 }  // namespace storage
 }  // namespace nebula
 

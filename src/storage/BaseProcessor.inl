@@ -205,6 +205,7 @@ BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
 <<<<<<< HEAD
+<<<<<<< HEAD
         auto isNullable = col.__isset.nullable && *(col.get_nullable());
         if (isNullable && !haveNullCol) {
             haveNullCol = true;
@@ -225,6 +226,22 @@ BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
         auto nullVal = v.type() == Value::Type::NULLVALUE;
         auto val = isNullable && nullVal ?
                    IndexKeyUtils::encodeNullValue(v.type()) :
+=======
+        auto isNullable = col.__isset.nullable && *(col.get_nullable());
+        bool nullVal = false;
+        if (v.isNull()) {
+            auto ret = isNullValue(v, isNullable);
+            if (ret.ok()) {
+                nullVal = ret.value();
+            } else {
+                LOG(ERROR) << "prop error by : " << col.get_name()
+                           << ". status : " << ret.status();
+                return ret.status();
+            }
+        }
+        auto val = nullVal ?
+                   IndexKeyUtils::encodeNullValue(IndexKeyUtils::toValueType(col.get_type())) :
+>>>>>>> add testcases
                    IndexKeyUtils::encodeValue(std::move(v));
         values.emplace_back(IndexKeyUtils::toValueType(col.get_type()),
                             std::move(val), isNullable, nullVal);
@@ -234,12 +251,17 @@ BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 template <typename RESP>
 Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
     if (!v.isNull()) {
         return Status::OK();
     }
 
+=======
+template <typename RESP>
+StatusOr<bool> BaseProcessor<RESP>::isNullValue(const Value& v, bool isNullable) {
+>>>>>>> add testcases
     switch (v.getNull()) {
         case nebula::NullType::UNKNOWN_PROP : {
             return Status::Error("Unknown prop");
@@ -247,8 +269,14 @@ Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
         case nebula::NullType::__NULL__ : {
             if (!isNullable) {
                 return Status::Error("Not allowed to be null");
+<<<<<<< HEAD
             }
             return Status::OK();
+=======
+            } else {
+                return true;
+            }
+>>>>>>> add testcases
         }
         case nebula::NullType::BAD_DATA : {
             return Status::Error("Bad data");
@@ -266,10 +294,16 @@ Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
             return Status::Error("NaN");
         }
     }
+<<<<<<< HEAD
     return Status::OK();
 }
 
 =======
 >>>>>>> index insert and delete
+=======
+    return Status::Error("Unknown error");
+}
+
+>>>>>>> add testcases
 }  // namespace storage
 }  // namespace nebula
