@@ -7,7 +7,7 @@
 #include "base/Base.h"
 #include "thread/GenericWorker.h"
 #include "time/Duration.h"
-#include "storage/client/StorageClient.h"
+#include "clients/storage/GraphStorageClient.h"
 
 DEFINE_int32(threads, 2, "Total threads for perf");
 DEFINE_int32(qps, 1000, "Total qps for the perf tool");
@@ -94,14 +94,33 @@ public:
         }
         tagId_ = tagResult.value();
 
+        auto tagSchemaRes = mClient_->getTagSchemaFromCache(spaceId_, tagId_);
+        if (!tagSchemaRes.ok()) {
+            LOG(ERROR) << "TagID not exist: " << tagSchemaRes.status();
+            return EXIT_FAILURE;
+        }
+        auto tagSchema = tagSchemaRes.value();
+        for (size_t i = 0; i < tagSchema->getNumFields(); i++) {
+            tagProps_[tagId_].emplace_back(tagSchema->getFieldName(i));
+        }
+
         auto edgeResult = mClient_->getEdgeTypeByNameFromCache(spaceId_, FLAGS_edge_name);
         if (!edgeResult.ok()) {
             LOG(ERROR) << "EdgeType not exist: " << edgeResult.status();
             return EXIT_FAILURE;
         }
         edgeType_ = edgeResult.value();
+        auto edgeSchemaRes = mClient_->getEdgeSchemaFromCache(spaceId_, std::abs(edgeType_));
+        if (!edgeSchemaRes.ok()) {
+            LOG(ERROR) << "Edge not exist: " << edgeSchemaRes.status();
+            return EXIT_FAILURE;
+        }
+        auto edgeSchema = edgeSchemaRes.value();
+        for (size_t i = 0; i < edgeSchema->getNumFields(); i++) {
+            edgeProps_.emplace_back(edgeSchema->getFieldName(i));
+        }
 
-        client_ = std::make_unique<StorageClient>(threadPool_, mClient_.get());
+        graphStorageClient_ = std::make_unique<GraphStorageClient>(threadPool_, mClient_.get());
         time::Duration duration;
         static uint32_t interval = 1;
         for (auto& t : threads) {
@@ -136,76 +155,73 @@ public:
 
 private:
     std::vector<VertexID> randomVertices() {
-        return {FLAGS_min_vertex_id
-                + folly::Random::rand32(FLAGS_max_vertex_id - FLAGS_min_vertex_id)};
+        return {std::to_string(FLAGS_min_vertex_id
+                              + folly::Random::rand32(FLAGS_max_vertex_id - FLAGS_min_vertex_id))};
     }
 
-    std::vector<storage::cpp2::PropDef> randomCols() {
-        std::vector<storage::cpp2::PropDef> props;
-        {
-            storage::cpp2::PropDef prop;
-            prop.set_name(folly::stringPrintf("tag_%d_col_1", tagId_));
-            prop.set_owner(storage::cpp2::PropOwner::SOURCE);
-            prop.id.set_tag_id(tagId_);
-            props.emplace_back(std::move(prop));
-        }
-        {
-            storage::cpp2::PropDef prop;
-            prop.set_name("col_1");
-            prop.set_owner(storage::cpp2::PropOwner::EDGE);
-            props.emplace_back(std::move(prop));
-        }
+    std::vector<std::string> vertexProps() {
+        std::vector<std::string> props;
+        props.emplace_back(folly::stringPrintf("tag_%d_col_1", tagId_));
         return props;
     }
 
-    std::string genData(int32_t size) {
+    std::vector<std::string> edgeProps() {
+        std::vector<std::string> props;
+        props.emplace_back("col_1");
+        return props;
+    }
+
+    std::vector<Value> genData(int32_t size) {
+        std::vector<Value> values;
         if (FLAGS_random_message) {
-            std::stringstream stream;
             for (int32_t index = 0; index < size;) {
-                const char *array = folly::to<std::string>(folly::Random::rand32(128)).c_str();
-                int32_t length = sizeof(array) / sizeof(char);
-                for (int32_t i = 0; i < length; i++) {
-                    stream << array[i];
-                    index++;
-                }
+                Value val(folly::to<std::string>(folly::Random::rand32(128)));
+                values.emplace_back(val);
+                index++;
             }
-            return stream.str();
         } else {
-            return std::string(size, ' ');
+            for (int32_t index = 0; index < size;) {
+                Value val("");
+                values.emplace_back(val);
+                index++;
+            }
         }
+        return values;
     }
 
-    std::vector<storage::cpp2::Vertex> genVertices() {
+    std::vector<storage::cpp2::NewVertex> genVertices() {
+        std::vector<storage::cpp2::NewVertex> newVertices;
         static int32_t size = sizeof(slots_) / sizeof(int32_t);
-        std::vector<storage::cpp2::Vertex> vertices;
-        static VertexID vId = FLAGS_min_vertex_id;
+        static int vintId = FLAGS_min_vertex_id;
         position = (position + 1) % size;
+
         for (int32_t i = 0; i < slots_[position]; i++) {
-            storage::cpp2::Vertex v;
-            v.set_id(vId++);
-            decltype(v.tags) tags;
-            storage::cpp2::Tag tag;
-            tag.set_tag_id(tagId_);
+            storage::cpp2::NewVertex v;
+            v.set_id(std::to_string(vintId));
+            vintId++;
+            decltype(v.tags) newTags;
+            storage::cpp2::NewTag newTag;
+            newTag.set_tag_id(tagId_);
             auto props = genData(FLAGS_size);
-            tag.set_props(std::move(props));
-            tags.emplace_back(std::move(tag));
-            v.set_tags(std::move(tags));
-            vertices.emplace_back(std::move(v));
+            newTag.set_props(std::move(props));
+            newTags.emplace_back(std::move(newTag));
+            v.set_tags(std::move(newTags));
+            newVertices.emplace_back(std::move(v));
         }
-        return vertices;
+        return newVertices;
     }
 
-    std::vector<storage::cpp2::Edge> genEdges() {
+    std::vector<storage::cpp2::NewEdge> genEdges() {
         static int32_t size = sizeof(slots_) / sizeof(int32_t);
-        std::vector<storage::cpp2::Edge> edges;
-        static VertexID vId = FLAGS_min_vertex_id;
+        std::vector<storage::cpp2::NewEdge> edges;
+        static int vintId = FLAGS_min_vertex_id;
         position = (position + 1) % size;
         for (int32_t i = 0; i< slots_[position]; i++) {
-            storage::cpp2::Edge edge;
+            storage::cpp2::NewEdge edge;
             storage::cpp2::EdgeKey eKey;
-            eKey.set_src(vId);
+            eKey.set_src(std::to_string(vintId));
             eKey.set_edge_type(edgeType_);
-            eKey.set_dst(vId + 1);
+            eKey.set_dst(std::to_string(vintId + 1));
             eKey.set_ranking(0);
             edge.set_key(std::move(eKey));
             auto props = genData(FLAGS_size);
@@ -217,9 +233,25 @@ private:
 
     void getNeighborsTask() {
         auto* evb = threadPool_->getEventBase();
+        std::vector<std::string> colNames;
+        colNames.emplace_back("_vid");
+        std::vector<Row> vertices;
+        for (auto& vertex : randomVertices()) {
+            nebula::Row  row;
+            row.columns.emplace_back(vertex);
+            vertices.emplace_back(row);
+        }
+
         std::vector<EdgeType> e(edgeType_);
+
+        cpp2::EdgeDirection edgeDire = cpp2::EdgeDirection::BOTH;
+        std::vector<cpp2::StatProp> statProps;
+        std::vector<std::string> vProps = std::move(vertexProps());
+        std::vector<std::string> eProps = std::move(edgeProps());
         auto f =
-          client_->getNeighbors(spaceId_, randomVertices(), std::move(e), "", randomCols())
+          graphStorageClient_->getNeighbors(spaceId_, colNames, vertices,
+                                            std::move(e), edgeDire,  &statProps,
+                                            &vProps, &eProps)
                 .via(evb)
                 .thenValue([this](auto&& resps) {
                     if (!resps.succeeded()) {
@@ -235,7 +267,7 @@ private:
 
     void addVerticesTask() {
         auto* evb = threadPool_->getEventBase();
-        auto f = client_->addVertices(spaceId_, genVertices(), true)
+        auto f = graphStorageClient_->addVertices(spaceId_, genVertices(), tagProps_, true)
                     .via(evb).thenValue([this](auto&& resps) {
                         if (!resps.succeeded()) {
                             for (auto& entry : resps.failedParts()) {
@@ -246,14 +278,13 @@ private:
                             VLOG(3) << "request successed!";
                         }
                         this->finishedRequests_++;
-                     }).thenError([](auto&&) {
-//                        LOG(ERROR) << "Request failed, e = " << e.what();
-                     });
+                     })
+                     .thenError([](auto&&) {LOG(ERROR) << "Request failed!"; });
     }
 
     void addEdgesTask() {
         auto* evb = threadPool_->getEventBase();
-        auto f = client_->addEdges(spaceId_, genEdges(), true)
+        auto f = graphStorageClient_->addEdges(spaceId_, genEdges(), edgeProps_, true)
                     .via(evb).thenValue([this](auto&& resps) {
                         if (!resps.succeeded()) {
                             LOG(ERROR) << "Request failed!";
@@ -268,8 +299,10 @@ private:
     }
 
     void getVerticesTask() {
+        return;
+        /*
         auto* evb = threadPool_->getEventBase();
-        auto f = client_->getVertexProps(spaceId_, randomVertices(), randomCols())
+        auto f = graphStorageClient_->getVertexProps(spaceId_, randomVertices(), randomCols())
                     .via(evb).thenValue([this](auto&& resps) {
                         if (!resps.succeeded()) {
                             LOG(ERROR) << "Request failed!";
@@ -281,17 +314,20 @@ private:
                      }).thenError([](auto&&) {
                         LOG(ERROR) << "Request failed!";
                      });
+        */
     }
 
 private:
-    std::atomic_long finishedRequests_{0};
-    std::unique_ptr<StorageClient> client_;
-    std::unique_ptr<meta::MetaClient> mClient_;
-    std::shared_ptr<folly::IOThreadPoolExecutor> threadPool_;
-    GraphSpaceID spaceId_;
-    TagID tagId_;
-    EdgeType edgeType_;
-    int32_t slots_[10];
+    std::atomic_long                                    finishedRequests_{0};
+    std::unique_ptr<GraphStorageClient>                 graphStorageClient_;
+    std::unique_ptr<meta::MetaClient>                   mClient_;
+    std::shared_ptr<folly::IOThreadPoolExecutor>        threadPool_;
+    GraphSpaceID                                        spaceId_;
+    TagID                                               tagId_;
+    EdgeType                                            edgeType_;
+    std::unordered_map<TagID, std::vector<std::string>> tagProps_;
+    std::vector<std::string>                            edgeProps_;
+    int32_t                                             slots_[10];
 };
 
 }  // namespace storage

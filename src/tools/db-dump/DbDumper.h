@@ -10,12 +10,12 @@
 #include "base/Base.h"
 #include <rocksdb/db.h>
 #include "base/Status.h"
-#include "meta/client/MetaClient.h"
+#include "clients/meta/MetaClient.h"
 #include "meta/ServerBasedSchemaManager.h"
 #include "kvstore/RocksEngine.h"
-#include "dataman/RowReader.h"
+#include "codec/RowReader.h"
 
-DECLARE_string(space);
+DECLARE_string(space_name);
 DECLARE_string(db_path);
 DECLARE_string(meta_server);
 DECLARE_string(parts);
@@ -63,17 +63,20 @@ private:
 
     void printValue(const RowReader* reader);
 
+    bool isValidVidLen(VertexID vid);
+
 private:
     std::unique_ptr<rocksdb::DB>                                   db_;
     rocksdb::Options                                               options_;
     std::unique_ptr<meta::MetaClient>                              metaClient_;
     std::unique_ptr<meta::ServerBasedSchemaManager>                schemaMng_;
     GraphSpaceID                                                   spaceId_;
+    int32_t                                                        spaceVidLen_;
     int32_t                                                        partNum_;
     std::unordered_set<PartitionID>                                parts_;
     std::unordered_set<VertexID>                                   vids_;
-    std::unordered_set<TagID>                                      tags_;
-    std::unordered_set<EdgeType>                                   edges_;
+    std::unordered_set<TagID>                                      tagIds_;
+    std::unordered_set<EdgeType>                                   edgeTypes_;
     std::vector<std::function<bool(const folly::StringPiece&)>>    beforePrintVertex_;
     std::vector<std::function<bool(const folly::StringPiece&)>>    beforePrintEdge_;
 
