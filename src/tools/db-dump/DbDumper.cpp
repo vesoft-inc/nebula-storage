@@ -6,7 +6,7 @@
 
 #include "base/Base.h"
 #include "DbDumper.h"
-#include "base/NebulaKeyUtils.h"
+#include "common/NebulaKeyUtils.h"
 #include "fs/FileUtils.h"
 #include "kvstore/RocksEngine.h"
 #include "time/Duration.h"
@@ -23,6 +23,7 @@ DEFINE_int64(limit, 1000, "Limit to output.");
 
 namespace nebula {
 namespace storage {
+
 Status DbDumper::init() {
     auto status = initMeta();
     if (!status.ok()) {

@@ -27,6 +27,7 @@ DECLARE_int64(limit);
 
 namespace nebula {
 namespace storage {
+
 class DbDumper {
 public:
     DbDumper() = default;
@@ -75,6 +76,7 @@ private:
     std::unordered_set<EdgeType>                                   edges_;
     std::vector<std::function<bool(const folly::StringPiece&)>>    beforePrintVertex_;
     std::vector<std::function<bool(const folly::StringPiece&)>>    beforePrintEdge_;
+
     // For statistics
     std::unordered_map<TagID, uint32_t>                            tagStat_;
     std::unordered_map<EdgeType, uint32_t>                         edgeStat_;
@@ -82,6 +84,7 @@ private:
     int64_t                                                        vertexCount_{0};
     int64_t                                                        edgeCount_{0};
 };
+
 }  // namespace storage
 }  // namespace nebula
 #endif  // TOOLS_DBDUMPER_H_
