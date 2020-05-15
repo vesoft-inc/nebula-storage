@@ -16,34 +16,17 @@ VertexID getStringId(int64_t vId) {
     return id;
 }
 
-IndexValues getIndexValues() {
-    IndexValues values;
-    values.emplace_back(Value::Type::STRING,
-                        IndexKeyUtils::encodeValue(Value("str")), false, false);
-    values.emplace_back(Value::Type::BOOL,
-                        IndexKeyUtils::encodeValue(Value(true)), false, false);
-    values.emplace_back(Value::Type::INT,
-                        IndexKeyUtils::encodeValue(Value(12L)), false, false);
-    values.emplace_back(Value::Type::FLOAT,
-                        IndexKeyUtils::encodeValue(Value(12.12f)), false, false);
-    nebula::Date d;
-    d.year = 2020;
-    d.month = 4;
-    d.day = 11;
-    values.emplace_back(Value::Type::DATE,
-                        IndexKeyUtils::encodeValue(Value(std::move(d))), false, false);
+std::vector<Value> getIndexValues() {
+    std::vector<Value> values;
+    values.emplace_back(Value("str"));
+    values.emplace_back(Value(true));
+    values.emplace_back(Value(12L));
+    values.emplace_back(Value(12.12f));
+    Date d = {2020, 1, 20};
+    values.emplace_back(Value(std::move(d)));
 
-    nebula::DateTime dt;
-    dt.year = 2020;
-    dt.month = 4;
-    dt.day = 11;
-    dt.hour = 12;
-    dt.minute = 30;
-    dt.sec = 22;
-    dt.microsec = 1111;
-    dt.timezone = 2222;
-    values.emplace_back(Value::Type::DATE,
-                        IndexKeyUtils::encodeValue(Value(std::move(dt))), false, false);
+    DateTime dt = {2020, 4, 11, 12, 30, 22, 1111, 2222};
+    values.emplace_back(std::move(dt));
     return values;
 }
 
@@ -203,59 +186,132 @@ TEST(IndexKeyUtilsTest, edgeIndexKeyV2) {
 }
 
 TEST(IndexKeyUtilsTest, nullableValue) {
+    // total columns number is 6, all are null. the nullable byte should be '11111100'.
     {
         std::string raw;
-        IndexValues values;
+        std::vector<Value> values;
+        NullCols nullCols;
         for (int64_t j = 2; j <= 7; j++) {
             auto type = Value::Type(j);
-            values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
+            values.emplace_back(Value(NullType::__NULL__));
+            nullCols.emplace_back(type, true);
         }
-        IndexKeyUtils::indexRaw(std::move(values), raw);
+        IndexKeyUtils::encodeValuesWithNull(std::move(values), std::move(nullCols), raw);
         char c = 0xfc; /* the binary is '11111100'*/
         std::string expected;
         expected.append(reinterpret_cast<const char*>(&c), sizeof(char));
         auto result = raw.substr(raw.size() - sizeof(int32_t) - sizeof(char), sizeof(char));
         ASSERT_EQ(expected, result);
     }
+    // total columns bumber is 2.
+    // the first column is nullable, and the value is not null. the bit should be '0'
+    // the second column is nullable too, and the value is null. the bit should be '1'
+    // expected binary is '01000000'.
     {
         std::string raw;
-        IndexValues values;
+        std::vector<Value> values;
+        NullCols nullCols;
         auto type = Value::Type::BOOL;
-        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, false);
-        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
-        IndexKeyUtils::indexRaw(std::move(values), raw);
+        values.emplace_back(Value(true));
+        nullCols.emplace_back(type, true);
+        values.emplace_back(Value(NullType::__NULL__));
+        nullCols.emplace_back(type, true);
+        IndexKeyUtils::encodeValuesWithNull(std::move(values), std::move(nullCols), raw);
         char c = 0x40; /* the binary is '01000000'*/
         std::string expected;
         expected.append(reinterpret_cast<const char*>(&c), sizeof(char));
         auto result = raw.substr(raw.size() - sizeof(char), sizeof(char));
         ASSERT_EQ(expected, result);
     }
+    // total columns number is 2, all are not nullable.
+    // do not need to set nullable byte.
     {
         std::string raw;
-        IndexValues values;
-        auto type = Value::Type::BOOL;
-        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), false, false);
-        values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), false, false);
-        IndexKeyUtils::indexRaw(std::move(values), raw);
+        std::vector<Value> values;
+        values.emplace_back(Value(true));
+        values.emplace_back(Value(false));
+        IndexKeyUtils::encodeValues(std::move(values), raw);
         ASSERT_EQ(2, raw.size());
     }
+    // total columns number is 12, all are nullable. here need two byte.
+    // The last four bit are useless of second byte.
     {
         std::string raw;
-        IndexValues values;
+        std::vector<Value> values;
+        NullCols nullCols;
         for (int64_t i = 0; i <2; i++) {
             for (int64_t j = 2; j <= 7; j++) {
-            auto type = Value::Type(j);
-            values.emplace_back(type, IndexKeyUtils::encodeNullValue(type), true, true);
+                auto type = Value::Type(j);
+                values.emplace_back(Value(NullType::__NULL__));
+                nullCols.emplace_back(type, true);
             }
         }
 
-        IndexKeyUtils::indexRaw(std::move(values), raw);
+        IndexKeyUtils::encodeValuesWithNull(std::move(values), std::move(nullCols), raw);
         char c1 = 0xff; /* the binary is '11111111'*/
         char c2 = 0xf0; /* the binary is '11110000'*/
         std::string expected;
         expected.append(reinterpret_cast<const char*>(&c1), sizeof(char))
                 .append(reinterpret_cast<const char*>(&c2), sizeof(char));
         auto result = raw.substr(raw.size() - sizeof(int32_t) * 2 - sizeof(char) * 2,
+                                 sizeof(char) * 2);
+        ASSERT_EQ(expected, result);
+    }
+    //  total columns number is 12, Half of the columns are nullable.
+    //  expected binary is '11111100'.
+    {
+        std::string raw;
+        std::vector<Value> values;
+        std::unordered_map<Value::Type, Value> mockValues;
+        {
+            mockValues[Value::Type::BOOL] = Value(true);
+            mockValues[Value::Type::INT] = Value(4L);
+            mockValues[Value::Type::FLOAT] = Value(1.5f);
+            mockValues[Value::Type::STRING] = Value("str");
+            Date d = {2020, 1, 20};
+            mockValues[Value::Type::DATE] = Value(d);
+            DateTime dt = {2020, 4, 11, 12, 30, 22, 1111, 2222};
+            mockValues[Value::Type::DATETIME] = Value(dt);
+        }
+        NullCols nullCols;
+        for (int64_t i = 0; i <2; i++) {
+            for (int64_t j = 2; j <= 7; j++) {
+                auto type = Value::Type(j);
+                if (j%2 == 0) {
+                    values.emplace_back(Value(NullType::__NULL__));
+                    nullCols.emplace_back(type, true);
+                } else {
+                    values.emplace_back(mockValues[type]);
+                    nullCols.emplace_back(type, false);
+                }
+            }
+        }
+
+        IndexKeyUtils::encodeValuesWithNull(std::move(values), std::move(nullCols), raw);
+        char c1 = 0xfc; /* the binary is '11111100'*/
+        std::string expected;
+        expected.append(reinterpret_cast<const char*>(&c1), sizeof(char));
+        auto result = raw.substr(raw.size() - sizeof(int32_t) * 2 - sizeof(char),
+                                 sizeof(char));
+        ASSERT_EQ(expected, result);
+    }
+    // If a byte is completely filled, a new byte should be create.
+    // test 9 nullable columns , should be two byte : '11111111 10000000'
+    {
+        std::string raw;
+        std::vector<Value> values;
+        NullCols nullCols;
+        for (int64_t i = 0; i <9; i++) {
+            values.emplace_back(Value(NullType::__NULL__));
+            nullCols.emplace_back(Value::Type::BOOL, true);
+        }
+        IndexKeyUtils::encodeValuesWithNull(std::move(values), std::move(nullCols), raw);
+        char c1 = 0xff; /* the binary is '11111111'*/
+        char c2 = 0x80; /* the binary is '10000000'*/
+        std::string expected;
+        expected.append(reinterpret_cast<const char*>(&c1), sizeof(char))
+                .append(reinterpret_cast<const char*>(&c2), sizeof(char));
+        auto result = raw.substr(raw.size() - sizeof(char) * 2,
                                  sizeof(char) * 2);
         ASSERT_EQ(expected, result);
     }
