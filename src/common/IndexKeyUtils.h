@@ -28,42 +28,37 @@ public:
 
     static std::string encodeNullValue(Value::Type type) {
         std::string raw;
+        size_t len = 0;
         switch (type) {
             case Value::Type::INT : {
-                raw.reserve(sizeof(int64_t));
-                raw.append(sizeof(int64_t), '\0');
+                len = sizeof(int64_t);
                 break;
             }
             case Value::Type::FLOAT : {
-                raw.reserve(sizeof(double));
-                raw.append(sizeof(double), '\0');
+                len = sizeof(double);
                 break;
             }
             case Value::Type::BOOL: {
-                raw.reserve(sizeof(bool));
-                raw.append(sizeof(bool), '\0');
+                len = sizeof(bool);
                 break;
             }
             case Value::Type::STRING : {
-                raw.reserve(1);
-                raw.append(1, '\0');
+                len = 1;
                 break;
             }
             case Value::Type::DATE : {
-                std::string buf;
-                buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
-                raw.append(sizeof(int8_t) * 2 + sizeof(int16_t), '\0');
+                len = sizeof(int8_t) * 2 + sizeof(int16_t);
                 break;
             }
             case Value::Type::DATETIME : {
-                std::string buf;
-                buf.reserve(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5);
-                raw.append(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5, '\0');
+                len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
                 break;
             }
             default :
                 LOG(ERROR) << "Unsupported default value type";
         }
+        raw.reserve(len);
+        raw.append(len, '\0');
         return raw;
     }
 
