@@ -194,4 +194,3 @@ std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
 
 }  // namespace storage
 }  // namespace nebula
-

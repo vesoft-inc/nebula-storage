@@ -66,6 +66,7 @@ private:
 
 private:
     bool                                                            insertable_{false};
+
     std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
 
     // TODO return props expression

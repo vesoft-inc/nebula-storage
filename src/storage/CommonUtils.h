@@ -14,7 +14,6 @@
 #include "kvstore/KVStore.h"
 #include "meta/SchemaManager.h"
 #include "meta/IndexManager.h"
-#include "meta/SchemaManager.h"
 
 namespace nebula {
 namespace storage {

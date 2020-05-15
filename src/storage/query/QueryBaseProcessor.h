@@ -49,7 +49,6 @@ public:
     cpp2::StatType statType_;
 };
 
-
 const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKey_ = {
     {"_src", PropContext::PropInKeyType::SRC},
     {"_type", PropContext::PropInKeyType::TYPE},
@@ -119,11 +118,9 @@ protected:
     nebula::DataSet resultDataSet_;
 };
 
-
 }  // namespace storage
 }  // namespace nebula
 
 #include "storage/query/QueryBaseProcessor.inl"
 
 #endif  // STORAGE_QUERY_QUERYBASEPROCESSOR_H_
-
