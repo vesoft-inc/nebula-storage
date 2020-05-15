@@ -135,8 +135,10 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                 return folly::none;
                             }
                         }
+                        std::vector<Value::Type> colsType;
                         auto values = collectIndexValues(reader.get(),
-                                                         index->get_fields());
+                                                         index->get_fields(),
+                                                         colsType);
                         if (!values.ok()) {
                             continue;
                         }
@@ -145,7 +147,8 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                     srcId,
                                                                     rank,
                                                                     dstId,
-                                                                    values.value());
+                                                                    values.value(),
+                                                                    colsType);
                         batchHolder->remove(std::move(indexKey));
                     }
                 }

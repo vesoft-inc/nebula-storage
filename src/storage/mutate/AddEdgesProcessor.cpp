@@ -142,7 +142,11 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                  * step 1 , Delete old version index if exists.
                  */
                 if (val.empty()) {
-                    val = findObsoleteIndex(partId, e.first);
+                    auto obsIdx = findObsoleteIndex(partId, e.first);
+                    if (obsIdx == folly::none) {
+                        return folly::none;
+                    }
+                    val = std::move(obsIdx).value();
                 }
                 if (!val.empty()) {
                     auto reader = RowReader::getEdgePropReader(this->env_->schemaMan_,
@@ -188,8 +192,8 @@ AddEdgesProcessor::addEdges(PartitionID partId,
     return encodeBatchValue(batchHolder->getBatch());
 }
 
-std::string AddEdgesProcessor::findObsoleteIndex(PartitionID partId,
-                                                 const folly::StringPiece& rawKey) {
+folly::Optional<std::string>
+AddEdgesProcessor::findObsoleteIndex(PartitionID partId, const folly::StringPiece& rawKey) {
     auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_,
                                              partId,
                                              NebulaKeyUtils::getSrcId(spaceVidLen_, rawKey).str(),
@@ -201,19 +205,20 @@ std::string AddEdgesProcessor::findObsoleteIndex(PartitionID partId,
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
                    << ", spaceId " << this->spaceId_;
-        return "";
+        return folly::none;
     }
     if (iter && iter->valid()) {
         return iter->val().str();
     }
-    return "";
+    return std::string();
 }
 
 std::string AddEdgesProcessor::indexKey(PartitionID partId,
                                         RowReader* reader,
                                         const folly::StringPiece& rawKey,
                                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
-    auto values = collectIndexValues(reader, index->get_fields());
+    std::vector<Value::Type> colsType;
+    auto values = collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }
@@ -222,7 +227,7 @@ std::string AddEdgesProcessor::indexKey(PartitionID partId,
                                        NebulaKeyUtils::getSrcId(spaceVidLen_, rawKey).str(),
                                        NebulaKeyUtils::getRank(spaceVidLen_, rawKey),
                                        NebulaKeyUtils::getDstId(spaceVidLen_, rawKey).str(),
-                                       values.value());
+                                       values.value(), colsType);
 }
 
 }  // namespace storage

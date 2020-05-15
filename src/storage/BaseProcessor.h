@@ -85,10 +85,12 @@ protected:
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);
 
-    StatusOr<IndexValues>
-    collectIndexValues(RowReader* reader, const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
+    StatusOr<std::vector<Value>>
+    collectIndexValues(RowReader* reader,
+                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
+                       std::vector<Value::Type>& colsType);
 
-    StatusOr<bool> isNullValue(const Value& v, bool isNullable);
+    Status checkValue(const Value& v, bool isNullable);
 
 protected:
     StorageEnv*                                     env_{nullptr};

@@ -31,8 +31,8 @@ private:
     folly::Optional<std::string> addEdges(PartitionID partId,
                                           const std::vector<kvstore::KV>& edges);
 
-    std::string findObsoleteIndex(PartitionID partId,
-                                  const folly::StringPiece& rawKey);
+    folly::Optional<std::string> findObsoleteIndex(PartitionID partId,
+                                                   const folly::StringPiece& rawKey);
 
     std::string indexKey(PartitionID partId,
                          RowReader* reader,

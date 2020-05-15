@@ -151,7 +151,11 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                  * step 1 , Delete old version index if exists.
                  */
                 if (val.empty()) {
-                    val = findObsoleteIndex(partId, vId.str(), tagId);
+                    auto obsIdx = findObsoleteIndex(partId, vId.str(), tagId);
+                    if (obsIdx == folly::none) {
+                        return folly::none;
+                    }
+                    val = std::move(obsIdx).value();
                 }
                 if (!val.empty()) {
                     auto reader = RowReader::getTagPropReader(this->env_->schemaMan_,
@@ -196,34 +200,35 @@ AddVerticesProcessor::addVertices(PartitionID partId,
     return encodeBatchValue(batchHolder->getBatch());
 }
 
-std::string AddVerticesProcessor::findObsoleteIndex(PartitionID partId,
-                                                    VertexID vId,
-                                                    TagID tagId) {
+folly::Optional<std::string>
+AddVerticesProcessor::findObsoleteIndex(PartitionID partId, VertexID vId, TagID tagId) {
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = this->env_->kvstore_->prefix(this->spaceId_, partId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
                    << ", spaceId " << this->spaceId_;
-        return "";
+        return folly::none;
     }
     if (iter && iter->valid()) {
         return iter->val().str();
     }
-    return "";
+    return std::string();
 }
 
 std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                            VertexID vId,
                                            RowReader* reader,
                                            std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
-    auto values = collectIndexValues(reader, index->get_fields());
+    std::vector<Value::Type> colsType;
+    auto values = collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }
     return IndexKeyUtils::vertexIndexKey(spaceVidLen_, partId,
                                          index->get_index_id(),
-                                         vId, values.value());
+                                         vId, values.value(),
+                                         colsType);
 }
 
 }  // namespace storage

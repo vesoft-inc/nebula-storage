@@ -694,55 +694,65 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
 std::vector<nebula::meta::cpp2::ColumnDef>
 MockData::mockTypicaIndexColumns() {
     std::vector<nebula::meta::cpp2::ColumnDef> cols;
-    meta::cpp2::ColumnDef col;
-    col.name = "col_bool";
-    col.type = meta::cpp2::PropertyType::BOOL;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_bool;
+    col_bool.name = "col_bool";
+    col_bool.type = meta::cpp2::PropertyType::BOOL;
+    cols.emplace_back(std::move(col_bool));
 
-    col.name = "col_bool_null";
-    col.type = meta::cpp2::PropertyType::BOOL;
-    col.set_nullable(true);
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_bool_null;
+    col_bool_null.name = "col_bool_null";
+    col_bool_null.type = meta::cpp2::PropertyType::BOOL;
+    col_bool_null.set_nullable(true);
+    cols.emplace_back(std::move(col_bool_null));
 
-    col.name = "col_bool_default";
-    col.type = meta::cpp2::PropertyType::BOOL;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_bool_default;
+    col_bool_default.name = "col_bool_default";
+    col_bool_default.type = meta::cpp2::PropertyType::BOOL;
+    cols.emplace_back(std::move(col_bool_default));
 
-    col.name = "col_int";
-    col.type = meta::cpp2::PropertyType::INT64;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_int;
+    col_int.name = "col_int";
+    col_int.type = meta::cpp2::PropertyType::INT64;
+    cols.emplace_back(std::move(col_int));
 
-    col.name = "col_int_null";
-    col.type = meta::cpp2::PropertyType::INT64;
-    col.set_nullable(true);
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_int_null;
+    col_int_null.name = "col_int_null";
+    col_int_null.type = meta::cpp2::PropertyType::INT64;
+    col_int_null.set_nullable(true);
+    cols.emplace_back(std::move(col_int_null));
 
-    col.name = "col_float";
-    col.type = meta::cpp2::PropertyType::FLOAT;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_float;
+    col_float.name = "col_float";
+    col_float.type = meta::cpp2::PropertyType::FLOAT;
+    cols.emplace_back(std::move(col_float));
 
-    col.name = "col_float_null";
-    col.type = meta::cpp2::PropertyType::FLOAT;
-    col.set_nullable(true);
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_float_null;
+    col_float_null.name = "col_float_null";
+    col_float_null.type = meta::cpp2::PropertyType::FLOAT;
+    col_float_null.set_nullable(true);
+    cols.emplace_back(std::move(col_float_null));
 
-    col.name = "col_str";
-    col.type = meta::cpp2::PropertyType::STRING;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_str;
+    col_str.name = "col_str";
+    col_str.type = meta::cpp2::PropertyType::STRING;
+    cols.emplace_back(std::move(col_str));
 
-    col.name = "col_str_null";
-    col.type = meta::cpp2::PropertyType::STRING;
-    col.set_nullable(true);
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_str_null;
+    col_str_null.name = "col_str_null";
+    col_str_null.type = meta::cpp2::PropertyType::STRING;
+    col_str_null.set_nullable(true);
+    cols.emplace_back(std::move(col_str_null));
 
-    col.name = "col_date";
-    col.type = meta::cpp2::PropertyType::DATE;
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_date;
+    col_date.name = "col_date";
+    col_date.type = meta::cpp2::PropertyType::DATE;
+    cols.emplace_back(std::move(col_date));
 
-    col.name = "col_date_null";
-    col.type = meta::cpp2::PropertyType::DATE;
-    col.set_nullable(true);
-    cols.emplace_back(std::move(col));
+    meta::cpp2::ColumnDef col_date_null;
+    col_date_null.name = "col_date_null";
+    col_date_null.type = meta::cpp2::PropertyType::DATE;
+    col_date_null.set_nullable(true);
+    cols.emplace_back(std::move(col_date_null));
 
     return cols;
 }

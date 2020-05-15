@@ -152,15 +152,17 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                 return folly::none;
                             }
                         }
+                        std::vector<Value::Type> colsType;
                         const auto& cols = index->get_fields();
-                        auto values = collectIndexValues(reader.get(), cols);
+                        auto values = collectIndexValues(reader.get(), cols, colsType);
                         if (!values.ok()) {
                             continue;
                         }
                         auto indexKey = IndexKeyUtils::vertexIndexKey(spaceVidLen_, partId,
                                                                       indexId,
                                                                       vertex,
-                                                                      values.value());
+                                                                      values.value(),
+                                                                      colsType);
                         batchHolder->remove(std::move(indexKey));
                     }
                 }

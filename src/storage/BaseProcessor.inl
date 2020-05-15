@@ -186,38 +186,42 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
 }
 
 template <typename RESP>
-StatusOr<IndexValues>
+StatusOr<std::vector<Value>>
 BaseProcessor<RESP>::collectIndexValues(RowReader* reader,
-                                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols) {
-    IndexValues values;
+                                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
+                                        std::vector<Value::Type>& colsType) {
+    std::vector<Value> values;
+    bool haveNullCol = false;
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
     }
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
         auto isNullable = col.__isset.nullable && *(col.get_nullable());
-        bool nullVal = false;
-        if (v.isNull()) {
-            auto ret = isNullValue(v, isNullable);
-            if (ret.ok()) {
-                nullVal = ret.value();
-            } else {
-                LOG(ERROR) << "prop error by : " << col.get_name()
-                           << ". status : " << ret.status();
-                return ret.status();
-            }
+        if (isNullable && !haveNullCol) {
+            haveNullCol = true;
         }
-        auto val = nullVal ?
-                   IndexKeyUtils::encodeNullValue(IndexKeyUtils::toValueType(col.get_type())) :
-                   IndexKeyUtils::encodeValue(std::move(v));
-        values.emplace_back(IndexKeyUtils::toValueType(col.get_type()),
-                            std::move(val), isNullable, nullVal);
+        colsType.emplace_back(IndexKeyUtils::toValueType(col.get_type()));
+        auto ret = checkValue(v, isNullable);
+        if (!ret.ok()) {
+            LOG(ERROR) << "prop error by : " << col.get_name()
+                       << ". status : " << ret;
+            return ret;
+        }
+        values.emplace_back(std::move(v));
+    }
+    if (!haveNullCol) {
+        colsType.clear();
     }
     return values;
 }
 
 template <typename RESP>
-StatusOr<bool> BaseProcessor<RESP>::isNullValue(const Value& v, bool isNullable) {
+Status BaseProcessor<RESP>::checkValue(const Value& v, bool isNullable) {
+    if (!v.isNull()) {
+        return Status::OK();
+    }
+
     switch (v.getNull()) {
         case nebula::NullType::UNKNOWN_PROP : {
             return Status::Error("Unknown prop");
@@ -225,9 +229,8 @@ StatusOr<bool> BaseProcessor<RESP>::isNullValue(const Value& v, bool isNullable)
         case nebula::NullType::__NULL__ : {
             if (!isNullable) {
                 return Status::Error("Not allowed to be null");
-            } else {
-                return true;
             }
+            return Status::OK();
         }
         case nebula::NullType::BAD_DATA : {
             return Status::Error("Bad data");
@@ -245,7 +248,7 @@ StatusOr<bool> BaseProcessor<RESP>::isNullValue(const Value& v, bool isNullable)
             return Status::Error("NaN");
         }
     }
-    return Status::Error("Unknown error");
+    return Status::OK();
 }
 
 }  // namespace storage
