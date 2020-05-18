@@ -15,82 +15,57 @@ namespace nebula {
 namespace storage {
 
 /*
+Origined from folly::FutureDAG, not thread-safe.
+
 The StorageDAG defines a simple dag, all you need to do is define a RelNode, add it to dag by
 calling addNode, which will return the index of the RelNode in this dag. The denpendencies
 between different nodes is defined by calling addDependency in RelNode.
 
-To run the dag, run the go method, you could get the Future of result. 
+To run the dag, call the go method, you could get the final result.
 
-For simplicity, StorageDAG has not detect if has cycle in it for now, user must make sure no
-cycle in it. And re-run StorageDAG is meaningless.
+For simplicity, StorageDAG has not detect if has cycle in it for now, user must make sure no cycle
+dependency in it.
+
+For this version, if there are more than one node depends on the same node, that node will be
+executed **more than once**. If you want to make sure each node would be executed exactly once,
+StorageDAG would be inappropriate. In that case, please refer to the previous implement,
+FutureDAG in StorageDAGBenchmark.cpp
 */
+template<typename T>
 class StorageDAG {
 public:
-    folly::Future<kvstore::ResultCode> go() {
-        // find the root nodes and leaf nodes. All root nodes depends on a dummy input node,
-        // and a dummy output node depends on all leaf node.
-        auto output = std::make_unique<RelNode>();
-        for (const auto& node : nodes_) {
-            if (node->dependencies_.empty()) {
-                // add dependency of root node
-                node->addDependency(&input_);
+    kvstore::ResultCode go(PartitionID partId, const T& input) {
+        // find all leaf nodes, and a dummy output node depends on all leaf node.
+        if (firstLoop_) {
+            auto output = std::make_unique<RelNode<T>>();
+            for (const auto& node : nodes_) {
+                if (!node->hasDependents_) {
+                    // add dependency of output node
+                    output->addDependency(node.get());
+                }
             }
-            if (!node->hasDependents_) {
-                // add dependency of output node
-                output->addDependency(node.get());
-            }
+            outputIdx_ = addNode(std::move(output));
+            firstLoop_ = false;
         }
-        addNode(std::move(output));
-
-        for (size_t i = 0; i < nodes_.size(); i++) {
-            auto* node = nodes_[i].get();
-            std::vector<folly::Future<kvstore::ResultCode>> futures;
-            for (auto dep : node->dependencies_) {
-                futures.emplace_back(dep->promise_.getFuture());
-            }
-
-            folly::collectAll(futures)
-                .via(workers_[i])
-                .thenTry([node] (auto&& t) {
-                    CHECK(!t.hasException());
-                    for (const auto& codeTry : t.value()) {
-                        if (codeTry.hasException()) {
-                            node->promise_.setException(std::move(codeTry.exception()));
-                            return;
-                        } else if (codeTry.value() != kvstore::ResultCode::SUCCEEDED) {
-                            node->promise_.setValue(codeTry.value());
-                            return;
-                        }
-                    }
-                    node->execute().thenValue([node] (auto&& code) {
-                        node->promise_.setValue(code);
-                    }).thenError([node] (auto&& ex) {
-                        LOG(ERROR) << "Exception occurs, perhaps should not reach here: "
-                                    << ex.what();
-                        node->promise_.setException(std::move(ex));
-                    });
-                });
-        }
-
-        input_.promise_.setValue(kvstore::ResultCode::SUCCEEDED);
-        return nodes_.back()->promise_.getFuture();
+        CHECK_GE(outputIdx_, 0);
+        CHECK_LT(outputIdx_, nodes_.size());
+        return nodes_[outputIdx_]->execute(partId, input);
     }
 
-    size_t addNode(std::unique_ptr<RelNode> node, folly::Executor* executor = nullptr) {
-        workers_.emplace_back(executor);
+    int32_t addNode(std::unique_ptr<RelNode<T>> node) {
         nodes_.emplace_back(std::move(node));
         return nodes_.size() - 1;
     }
 
-    RelNode* getNode(size_t idx) {
+    RelNode<T>* getNode(size_t idx) {
         CHECK_LT(idx, nodes_.size());
         return nodes_[idx].get();
     }
 
 private:
-    RelNode input_;
-    std::vector<folly::Executor*> workers_;
-    std::vector<std::unique_ptr<RelNode>> nodes_;
+    bool firstLoop_ = true;
+    int32_t outputIdx_ = -1;
+    std::vector<std::unique_ptr<RelNode<T>>> nodes_;
 };
 
 }  // namespace storage
