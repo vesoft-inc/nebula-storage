@@ -10,7 +10,6 @@
 #include "common/base/Base.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
-#include "storage/exec/FilterContext.h"
 
 namespace nebula {
 namespace storage {
@@ -47,6 +46,7 @@ public:
         VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tagId_
                 << ", prop size " << props_->size();
 
+        // when update, has already evicted
         if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
             auto result = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_), partId);
             if (result.ok()) {
@@ -68,7 +68,7 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    kvstore::ResultCode collectTagPropsIfValid(NullHandler nullHandler,
+    kvstore::ResultCode collectTagPropsIfValid(TagNullHandler nullHandler,
                                                TagPropHandler valueHandler) {
         if (!iter_ || !iter_->valid()) {
             return nullHandler(props_);
@@ -101,12 +101,14 @@ public:
     }
 
 protected:
-    PlanContext* planContext_;
-    TagContext* tagContext_;
-    TagID tagId_;
-    const std::vector<PropContext>* props_;
-    ExpressionContext* expCtx_;
-    Expression* exp_;
+    PlanContext                                                          *planContext_;
+    TagContext                                                           *tagContext_;
+    StorageEnv                                                           *env_;
+    GraphSpaceID                                                          spaceId_;
+    size_t                                                                vIdLen_;
+    TagID                                                                 tagId_;
+    const std::vector<PropContext>                                       *props_;
+    const Expression                                                     *exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
     std::string tagName_;

@@ -17,21 +17,16 @@ namespace storage {
 // EdgeNode will return a StorageIterator which iterates over the specified
 // edgeType of given vertexId
 template<typename T>
-<<<<<<< HEAD
 class EdgeNode : public IterateNode<T> {
-=======
-class EdgeNode : public RelNode<T> {
->>>>>>> modify node ctor
 public:
     SingleEdgeIterator* iter() {
         return iter_.get();
     }
 
-
     kvstore::ResultCode collectEdgePropsIfValid(NullHandler nullHandler,
                                                 EdgePropHandler valueHandler) {
         if (!iter_ || !iter_->valid()) {
-            return nullHandler(props_);
+            return nullHandler(edgeType_, props_);
         }
         return valueHandler(edgeType_, iter_->key(), iter_->reader(), props_);
     }

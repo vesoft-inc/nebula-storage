@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 vesoft inc. All rights reserved.
+/* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -8,9 +8,9 @@
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 #include "common/expression/Expression.h"
-#include "common/context/ExpressionContext.h"
+#include "storage/context/UpdateExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -33,30 +33,37 @@ private:
 
     cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req) override;
 
-    StorageDAG buildDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildPlan(nebula::DataSet* result);
 
     // Get the schema of all versions of all tags in the spaceId
     cpp2::ErrorCode buildTagSchema();
 
-    // Build TagContext by parsing return prop expressions,
-    // filter expression, update prop expression
+    // Build TagContext by parsing return props expressions,
+    // filter expression, update props expression
     cpp2::ErrorCode buildTagContext(const cpp2::UpdateVertexRequest& req);
 
     void onProcessFinished() override;
 
+    std::vector<Expression*> getReturnPropsExp() {
+        std::vector<Expression*> result;
+        result.resize(returnPropsExp_.size());
+        auto get = [] (auto &ptr) {return ptr.get(); };
+        std::transform(returnPropsExp_.begin(), returnPropsExp_.end(), result.begin(), get);
+        return result;
+    }
+
 private:
     bool                                                            insertable_{false};
 
-    // updatedVertexProps_ will update tagId
-    std::unordered_set<TagID>                                       updateTagIds_;
+    // update tagId
+    TagID                                                           tagId_;
 
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
 
-    // TODO implement  expression contex
-    std::unique_ptr<ExpressionContext>                              expCtx_;
+    std::unique_ptr<UpdateExpressionContext>                        expCtx_;
 
-    // update <tagID, prop name, new value expression>
-    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
+    // update <prop name, new value expression>
+    std::vector<storage::cpp2::UpdatedProp>                         updatedProps_;
 
     // return props expression
     std::vector<std::unique_ptr<Expression>>                        returnPropsExp_;

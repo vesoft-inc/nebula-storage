@@ -20,6 +20,14 @@
 #include "common/expression/UUIDExpression.h"
 #include "common/expression/UnaryExpression.h"
 #include "storage/BaseProcessor.h"
+#include "common/expression/BinaryExpression.h"
+#include "common/expression/ArithmeticExpression.h"
+#include "common/expression/RelationalExpression.h"
+#include "common/expression/LogicalExpression.h"
+#include "common/expression/UnaryExpression.h"
+#include "common/expression/TypeCastingExpression.h"
+#include "common/expression/FunctionCallExpression.h"
+#include "common/expression/SymbolPropertyExpression.h"
 
 namespace nebula {
 namespace storage {

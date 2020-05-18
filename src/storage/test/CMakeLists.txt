@@ -121,6 +121,20 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
+        update_edge_test
+    SOURCES
+        UpdateEdgeTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
         storage_dag_test
     SOURCES
         StorageDAGTest.cpp
@@ -174,21 +188,6 @@ nebula_add_test(
         ${THRIFT_LIBRARIES}
         wangle
         gtest
-)
-
-nebula_add_executable(
-    NAME
-        storage_dag_bm
-    SOURCES
-        StorageDAGBenchmark.cpp
-    OBJECTS
-        ${storage_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        wangle
-        follybenchmark
-        boost_regex
 )
 
 nebula_add_test(

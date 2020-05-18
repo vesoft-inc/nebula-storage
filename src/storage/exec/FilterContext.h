@@ -18,13 +18,24 @@ public:
         tagFilters_[std::make_pair(tagId, prop)] = value;
     }
 
+    void fillEdgeProp(EdgeType edgeType, const std::string& prop, const nebula::Value& value) {
+        edgeFilters_[std::make_pair(edgeType, prop)] = value;
+    }
+
     std::unordered_map<std::pair<TagID, std::string>, nebula::Value> getTagFilter() {
         return tagFilters_;
+    }
+
+    std::unordered_map<std::pair<EdgeType, std::string>, nebula::Value> getEdgeFilter() {
+        return edgeFilters_;
     }
 
 private:
     // key: <tagId, propName> -> propValue
     std::unordered_map<std::pair<TagID, std::string>, nebula::Value> tagFilters_;
+
+    // key: <EdgeType, propName> -> propValue
+    std::unordered_map<std::pair<EdgeType, std::string>, nebula::Value> edgeFilters_;
 };
 
 }  // namespace storage

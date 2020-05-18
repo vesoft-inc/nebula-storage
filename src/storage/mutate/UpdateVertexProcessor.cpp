@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 vesoft inc. All rights reserved.
+/* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -7,12 +7,10 @@
 #include "common/base/Base.h"
 #include "storage/mutate/UpdateVertexProcessor.h"
 #include "utils/NebulaKeyUtils.h"
-#include "kvstore/LogEncoder.h"
-#include "codec/RowWriterV2.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
 #include "storage/exec/UpdateNode.h"
-#include "storage/exec/CatenateNode.h"
+#include "storage/exec/UpdateResultNode.h"
 
 namespace nebula {
 namespace storage {
@@ -21,7 +19,8 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
     spaceId_ = req.get_space_id();
     auto partId = req.get_part_id();
     auto vId = req.get_vertex_id();
-    updatedVertexProps_ = req.get_updated_props();
+    tagId_ = req.get_tag_id();
+    updatedProps_ = req.get_updated_props();
     if (req.__isset.insertable) {
         insertable_ = *req.get_insertable();
     }
@@ -59,11 +58,15 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
             << ", partId: " << partId << ", vId: " << vId;
 
     // Now, the index is not considered
-    auto dag = buildDAG(&resultDataSet_);
+    auto plan = buildPlan(&resultDataSet_);
 
-    auto ret = dag.go(partId, vId).get();
+    auto ret = plan.go(partId, vId);
+
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         handleErrorCode(ret, spaceId_, partId);
+        if (ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
+            onProcessFinished();
+        }
     } else {
         onProcessFinished();
     }
@@ -91,53 +94,71 @@ UpdateVertexProcessor::checkAndBuildContexts(const cpp2::UpdateVertexRequest& re
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-StorageDAG UpdateVertexProcessor::buildDAG(nebula::DataSet* result) {
-    StorageDAG dag;
-    std::vector<TagUpdateNode*> tagUpdates;
-    // TODO now, return prop, filter prop, update prop on same tagId
+/*
+The storage plan of update(upsert) vertex looks like this:
+             +--------+---------+
+             | UpdateTagResNode |
+             +--------+---------+
+                      |
+             +--------+---------+
+             |   UpdateTagNode  |
+             +--------+---------+
+                      |
+             +--------+---------+
+             |   TagFilterNode  |
+             +--------+---------+
+                      |
+             +--------+---------+
+             |     TagNode      |
+             +------------------+
+*/
+StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) {
+    StoragePlan<VertexID> plan;
+    std::vector<TagNode*> tagUpdates;
+    // handle tag props, return prop, filter prop, update prop
     for (const auto& tc : tagContext_.propContexts_) {
         // Process all need attributes of one tag at a time
-        auto tagUpdate = std::make_unique<TagUpdateNode>(&tagContext_,
-                                                         env_,
-                                                         spaceId_,
-                                                         spaceVidLen_,
-                                                         tc.first,
-                                                         &tc.second,
-                                                         insertable_,
-                                                         updateTagIds_,
-                                                         updatedVertexProps_);
-        tagUpdates.emplace_back(TagUpdate.get());
-        dag.addNode(std::move(TagUpdate));
+        auto tagUpdate = std::make_unique<TagNode>(&tagContext_,
+                                                   env_,
+                                                   spaceId_,
+                                                   spaceVidLen_,
+                                                   tc.first,
+                                                   &tc.second,
+                                                   nullptr);
+        tagUpdates.emplace_back(tagUpdate.get());
+        plan.addNode(std::move(tagUpdate));
     }
 
-    auto filterNode = std::make_unique<TagFilterNode>(env_,
-                                                      spaceId_,
+    auto filterNode = std::make_unique<TagFilterNode>(tagUpdates,
+                                                      &tagContext_,
                                                       filterExp_.get(),
-                                                      tagUpdates,
-                                                      &tagContext_);
+                                                      env_,
+                                                      spaceId_,
+                                                      expCtx_.get(),
+                                                      insertable_,
+                                                      tagId_,
+                                                      spaceVidLen_);
 
-    for (atuo* tagUpdate : tagUpdates) {
+    for (auto* tagUpdate : tagUpdates) {
         filterNode->addDependency(tagUpdate);
     }
-    dag.addNode(std::move(filterNode));
 
-    auto updateNode = std::make_unique<UpdateNode>(env_,
-                                                   spaceId_,
-                                                   updatedVertexProps_,
-                                                   filterNode.get(),
-                                                   expCtx_.get());
+    auto updateNode = std::make_unique<UpdateTagNode>(env_,
+                                                      spaceId_,
+                                                      spaceVidLen_,
+                                                      indexes_,
+                                                      updatedProps_,
+                                                      filterNode.get());
     updateNode->addDependency(filterNode.get());
-    dag.addNode(std::move(updateNode));
 
-    auto catNode = std::make_unique<CatenateUpdateNode>(env_,
-                                                        spaceId_,
-                                                        UpdateNode.get(),
-                                                        returnPropsExp_,
-                                                        result);
-    catNode->addDependency(updateNode.get());
-    dag.addNode(std::move(catNode));
-
-    return dag;
+    auto resultNode = std::make_unique<UpdateTagResNode>(updateNode.get(),
+                                                         getReturnPropsExp(),
+                                                         result);
+    resultNode->addDependency(updateNode.get());
+    plan.addNode(std::move(filterNode));
+    plan.addNode(std::move(updateNode));
+    plan.addNode(std::move(resultNode));
+    return plan;
 }
 
 // Get all tag schema in spaceID
@@ -150,96 +171,89 @@ cpp2::ErrorCode UpdateVertexProcessor::buildTagSchema() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-// tagContext_.propContexts has return prop, filter prop, update prop
+// tagContext_.propContexts_ has return prop, filter prop, update prop
 // returnPropsExp_ has return expression
 // filterExp_      has filter expression
 // updatedVertexProps_  has update expression
 cpp2::ErrorCode
 UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
-    // TODO QueryBaseProcessor::checkExp to implement
     if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<ExpressionContext>();
+        expCtx_ = std::make_unique<UpdateExpressionContext>();
     }
 
     // Return props
     if (req.__isset.return_props) {
         for (auto& prop : *req.get_return_props()) {
-            auto colExpRet = Expression::decode(prop);
-            if (!colExpRet.ok()) {
-                return cpp2::ErrorCode::E_INVALID_UPDATER;
+            auto colExp = Expression::decode(prop);
+            if (!colExp) {
+                VLOG(1) << "Can't decode the return expression";
+                return cpp2::ErrorCode::E_INVALID_FILTER;
             }
-            auto colExp = std::move(colExpRet).value();
-            colExp->setContext(expCtx_.get());
-            auto status = colExp->prepare();
-            if (!status.ok() || !checkExp(colExp.get())) {
+            if (!checkExp(colExp.get())) {
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
             returnPropsExp_.emplace_back(std::move(colExp));
         }
     }
 
-    // Condition(where)
+    // Condition
     if (req.__isset.condition) {
         const auto& filterStr = *req.get_condition();
         if (!filterStr.empty()) {
-            // Todo Expression::decode
-            auto expRet = Expression::decode(filterStr);
-            if (!expRet.ok()) {
+            filterExp_ = Expression::decode(filterStr);
+            if (!filterExp_) {
                 VLOG(1) << "Can't decode the filter " << filterStr;
                 return cpp2::ErrorCode::E_INVALID_FILTER;
             }
-            filterExp_ = std::move(expRet).value();
-            filterExp_->setContext(expCtx_.get());
-            auto status = filterExp_->prepare();
-            if (!status.ok() || !checkExp(filterExp_.get())) {
+            if (!checkExp(filterExp_.get())) {
                 return cpp2::ErrorCode::E_INVALID_FILTER;
             }
         }
     }
 
+    // Build context of the update vertex tag props
     auto partId = req.get_part_id();
     auto vId = req.get_vertex_id();
-    // Build context of the update vertex prop
-    for (auto& vertexProp : updatedVertexProps_) {
-        auto tagId = vertexProp.get_tag_id();
+    auto tagNameRet = env_->schemaMan_->toTagName(spaceId_, tagId_);
+    if (!tagNameRet.ok()) {
+        VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId_;
+        return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+    }
+    auto tagName = tagNameRet.value();
 
-        auto tagName = env_->schemaMan_->toTagName(spaceId_, tagId);
-        if (!tagName.ok()) {
-            VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-        }
+    // update, evict the old elements
+    if (FLAGS_enable_vertex_cache && tagContext_.vertexCache_ != nullptr) {
+        VLOG(1) << "Evict cache for vId " << vId << ", tagId " << tagId_;
+        tagContext_.vertexCache_->evict(std::make_pair(vId, tagId_), partId);
+    }
 
-        SourcePropertyExpression sourcePropExp(new std::string(tagName.value()),
-                                               new std::string(vertexProp.get_name()));
-        sourcePropExp.setContext(expCtx_.get());
-        auto status = sourcePropExp.prepare();
-        if (!status.ok() || !checkExp(&sourcePropExp)) {
+    for (auto& prop : updatedProps_) {
+        SourcePropertyExpression sourcePropExp(new std::string(tagName),
+                                               new std::string(prop.get_name()));
+        if (!checkExp(&sourcePropExp)) {
+            VLOG(1) << "Invalid update vertex expression!";
             return cpp2::ErrorCode::E_INVALID_UPDATER;
         }
-        if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-            VLOG(1) << "Evict cache for vId " << vId << ", tagId " << tagId;
-            vertexCache_->evict(std::make_pair(vId, tagId), partId);
-        }
 
-        updateTagIds_.emplace(tagId);
-        auto exp = Expression::decode(vertexProp.get_value());
-        if (!exp.ok()) {
-            VLOG(1) << "Can't decode the prop's value " << vertexProp.get_value();
+        auto updateExp = Expression::decode(prop.get_value());
+        if (!updateExp) {
+            VLOG(1) << "Can't decode the prop's value " << prop.get_value();
             return cpp2::ErrorCode::E_INVALID_UPDATER;
         }
-        auto vexp = std::move(exp).value();
-        vexp->setContext(expCtx_.get());
-        status = vexp->prepare();
-        if (!status.ok() || !checkExp(vexp.get())) {
+        if (!checkExp(updateExp.get())) {
             return cpp2::ErrorCode::E_INVALID_UPDATER;
         }
     }
 
-    if (expCtx_->hasDstTagProp() || expCtx_->hasEdgeProp()
-        || expCtx_->hasVariableProp() || expCtx_->hasInputProp()) {
-        LOG(ERROR) << "should only contain SrcTagProp expression!";
+    // update vertex only handle one tagId
+    // maybe no updated prop, filter prop, return prop
+    if (this->tagContext_.propContexts_.size() != 1 ||
+        this->tagContext_.propContexts_[0].first != tagId_) {
+        VLOG(1) << "should only contain one tag in update vertex!";
         return cpp2::ErrorCode::E_INVALID_UPDATER;
     }
+
+    return cpp2::ErrorCode::SUCCEEDED;
 }
 
 void UpdateVertexProcessor::onProcessFinished() {

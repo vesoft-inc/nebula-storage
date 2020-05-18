@@ -19,16 +19,21 @@
 namespace nebula {
 namespace storage {
 
-using NullHandler = std::function<kvstore::ResultCode(const std::vector<PropContext>*)>;
+using TagNullHandler = std::function<kvstore::ResultCode(TagID,
+                                                         const std::vector<PropContext>*)>;
+
+using EdgeNullHandler = std::function<kvstore::ResultCode(EdgeType,
+                                                          const std::vector<PropContext>*)>;
 
 using TagPropHandler = std::function<kvstore::ResultCode(TagID,
                                                          RowReader*,
-                                                         const std::vector<PropContext>* props)>;
+                                                         const std::vector<PropContext>* props,
+                                                         const folly::StringPiece& key)>;
 
 using EdgePropHandler = std::function<kvstore::ResultCode(EdgeType,
-                                                          folly::StringPiece,
                                                           RowReader*,
-                                                          const std::vector<PropContext>* props)>;
+                                                          const std::vector<PropContext>* props,
+                                                          folly::StringPiece& key)>;
 
 template<typename T> class StoragePlan;
 
@@ -56,10 +61,6 @@ public:
     RelNode() = default;
 
     virtual ~RelNode() = default;
-
-    RelNode(const RelNode&) = delete;
-
-    RelNode(RelNode&&) = default;
 
     explicit RelNode(const std::string& name): name_(name) {}
 
