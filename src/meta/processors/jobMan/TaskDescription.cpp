@@ -95,7 +95,6 @@ std::string TaskDescription::taskVal() {
  * int64_t                         startTime_;
  * int64_t                         stopTime_;
  * */
-// std::tuple<Host, Status, int64_t, int64_t>
 std::tuple<HostAddr, Status, int64_t, int64_t>
 TaskDescription::parseVal(const folly::StringPiece& rawVal) {
     size_t offset = 0;

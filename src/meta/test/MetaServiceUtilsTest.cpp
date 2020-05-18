@@ -181,6 +181,14 @@ TEST(MetaServiceUtilsTest, TagTest) {
     ASSERT_EQ(parsedSchema, schema);
 }
 
+TEST(MetaServiceUtilsTest, decodeEncodeTest) {
+    HostAddr host("hp-server", 9527);
+    auto encoded = MetaServiceUtils::serializeHostAddr(host);
+    auto host1 = MetaServiceUtils::deserializeHostAddr(encoded);
+    ASSERT_EQ(host1.host, host.host);
+    ASSERT_EQ(host1.port, host.port);
+}
+
 }  // namespace meta
 }  // namespace nebula
 

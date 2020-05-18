@@ -76,10 +76,8 @@ TEST(ShuffleIpTest, setupData) {
     // cluster.startMeta(metaPort, rootPath.path(), metaName);
     // cluster.initMetaClient(options);
     // cluster.startStorage(storageAddr, rootPath2.path());
-    // // auto* env = cluster.storageEnv_.get();
 
     // auto storageClient = cluster.initStorageClient();
-    // // CHECK_NE(storageClient, nullptr);
 
     // GraphSpaceID spaceId = 1;
     // std::vector<cpp2::NewVertex> newVertexes;  //  =
