@@ -87,6 +87,7 @@ private:
                                          folly::StringPiece key,
                                          RowReader* reader,
                                          const std::vector<PropContext>* props,
+                                         nebula::Row& result,
                                          size_t idx,
                                          std::vector<PropStat>* stats = nullptr) {
         nebula::List row;
