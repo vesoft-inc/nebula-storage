@@ -13,7 +13,6 @@
 #include "common/base/ConcurrentLRUCache.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "codec/RowReader.h"
-#include "kvstore/KVStore.h"
 
 namespace nebula {
 namespace storage {
