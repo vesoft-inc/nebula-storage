@@ -92,7 +92,7 @@ public:
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, FLAGS_vertex_id)) {
                 LOG(FATAL) << "Vertex id length is illegal.";
             }
-            auto partId = STRID_HASH(FLAGS_vertex_id, partNum_);
+            auto partId = std::hash<VertexID>()(FLAGS_vertex_id) % partNum_  + 1;
             auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_, partId, FLAGS_vertex_id);
             iter->Seek(prefix);
         } else {
