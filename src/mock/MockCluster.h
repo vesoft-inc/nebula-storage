@@ -21,6 +21,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <thrift/lib/cpp/concurrency/ThreadManager.h>
 
+#include "clients/storage/GraphStorageClient.h"
 
 namespace nebula {
 namespace mock {
@@ -29,7 +30,7 @@ class MockCluster {
 public:
     void startAll();
 
-    void startMeta(int32_t port, const std::string& rootPath);
+    void startMeta(int32_t port, const std::string& rootPath, std::string hostname = "");
 
     void startStorage(HostAddr addr, const std::string& rootPath, SchemaVer schemaVerCount = 1);
 
@@ -38,6 +39,12 @@ public:
      * The meta server should be started before calling this method.
      * */
     void initMetaClient(meta::MetaClientOptions options = meta::MetaClientOptions());
+
+    /*
+     * Init a storage client connect to graphStorageServer
+     * The meta server, and meta client must started first
+     * */
+    storage::GraphStorageClient* initStorageClient();
 
 
     std::unique_ptr<meta::SchemaManager> memSchemaMan(SchemaVer schemaVerCount = 1);
@@ -70,6 +77,7 @@ public:
 public:
     std::unique_ptr<RpcServer>                      metaServer_{nullptr};
     std::unique_ptr<meta::MetaClient>               metaClient_{nullptr};
+    std::unique_ptr<storage::GraphStorageClient>    storageClient_{nullptr};
     std::unique_ptr<kvstore::NebulaStore>           metaKV_{nullptr};
 
     std::unique_ptr<RpcServer>                      storageAdminServer_{nullptr};

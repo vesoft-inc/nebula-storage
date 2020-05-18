@@ -9,6 +9,7 @@
 #include "meta/processors/jobMan/JobStatus.h"
 #include "meta/processors/jobMan/JobUtils.h"
 #include "time/WallClock.h"
+#include "meta/MetaServiceUtils.h"
 
 namespace nebula {
 namespace meta {
@@ -81,7 +82,7 @@ std::string TaskDescription::archiveKey() {
 std::string TaskDescription::taskVal() {
     std::string str;
     str.reserve(128);
-    str.append(serializeHostAddr(dest_));
+    str.append(MetaServiceUtils::serializeHostAddr(dest_));
     str.append(reinterpret_cast<const char*>(&status_), sizeof(Status));
     str.append(reinterpret_cast<const char*>(&startTime_), sizeof(startTime_));
     str.append(reinterpret_cast<const char*>(&stopTime_), sizeof(stopTime_));
@@ -100,7 +101,7 @@ TaskDescription::parseVal(const folly::StringPiece& rawVal) {
     size_t offset = 0;
 
     folly::StringPiece raw = rawVal;
-    HostAddr host = deserializeHostAddr(raw);
+    HostAddr host = MetaServiceUtils::deserializeHostAddr(raw);
     offset += sizeof(size_t);
     offset += host.host.size();
     offset += sizeof(uint32_t);

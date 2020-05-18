@@ -1059,7 +1059,8 @@ private:
 
 TEST(MetaClientTest, SimpleTest) {
     FLAGS_heartbeat_interval_secs = 3600;
-    std::string localIp("127.0.0.1");
+    auto localIp = network::NetworkUtils::getHostname();
+
 
     auto mockMetad = std::make_unique<mock::RpcServer>();
     auto handler = std::make_shared<TestMetaService>();

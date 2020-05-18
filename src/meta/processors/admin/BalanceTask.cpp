@@ -250,8 +250,8 @@ std::string BalanceTask::taskKey() {
     str.append(reinterpret_cast<const char*>(&balanceId_), sizeof(balanceId_));
     str.append(reinterpret_cast<const char*>(&spaceId_), sizeof(spaceId_));
     str.append(reinterpret_cast<const char*>(&partId_), sizeof(partId_));
-    str.append(serializeHostAddr(src_));
-    str.append(serializeHostAddr(dst_));
+    str.append(MetaServiceUtils::serializeHostAddr(src_));
+    str.append(MetaServiceUtils::serializeHostAddr(dst_));
     return str;
 }
 
@@ -282,9 +282,9 @@ BalanceTask::parseKey(const folly::StringPiece& rawKey) {
     offset += sizeof(GraphSpaceID);
     auto partId = *reinterpret_cast<const PartitionID*>(rawKey.begin() + offset);
     offset += sizeof(PartitionID);
-    auto src = deserializeHostAddr({rawKey, offset});
+    auto src = MetaServiceUtils::deserializeHostAddr({rawKey, offset});
     offset += src.host.size() + sizeof(size_t) + sizeof(uint32_t);
-    auto dst = deserializeHostAddr({rawKey, offset});
+    auto dst = MetaServiceUtils::deserializeHostAddr({rawKey, offset});
     return std::make_tuple(balanceId, spaceId, partId, src, dst);
 }
 

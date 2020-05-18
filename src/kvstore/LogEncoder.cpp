@@ -8,6 +8,9 @@
 #include "time/WallClock.h"
 #include "kvstore/LogEncoder.h"
 
+#include <thrift/lib/cpp2/protocol/Serializer.h>
+#include <thrift/lib/cpp2/protocol/CompactProtocol.h>
+
 namespace nebula {
 namespace kvstore {
 
@@ -223,9 +226,12 @@ std::string encodeHost(LogType type, const HostAddr& host) {
     // 15 refers to "255.255.255.255"
     encoded.reserve(sizeof(int64_t) + 1 + 15 + sizeof(int));
     int64_t ts = time::WallClock::fastNowInMilliSec();
+    std::string encodedHost;
+    apache::thrift::CompactSerializer::serialize(host, &encodedHost);
+
     encoded.append(reinterpret_cast<char*>(&ts), sizeof(int64_t))
            .append(reinterpret_cast<char*>(&type), 1)
-           .append(serializeHostAddr(host));
+           .append(encodedHost);
     return encoded;
 }
 
@@ -237,7 +243,10 @@ HostAddr decodeHost(LogType type, const folly::StringPiece& encoded) {
 
     folly::StringPiece raw = encoded;
     raw.advance(sizeof(int64_t) + 1);
-    return deserializeHostAddr(raw);
+
+    HostAddr host;
+    apache::thrift::CompactSerializer::deserialize(raw, host);
+    return host;
 }
 
 int64_t getTimestamp(const folly::StringPiece& command) {

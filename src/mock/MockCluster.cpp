@@ -53,10 +53,7 @@ MockCluster::memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& pa
 
 // static
 std::string MockCluster::localIP() {
-    // IPv4 localIp;
-    // network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
-    // return localIp;
-    return "127.0.0.1";
+    return network::NetworkUtils::getHostname();
 }
 
 // static
@@ -94,8 +91,10 @@ MockCluster::initMetaKV(const char* dataPath, HostAddr addr) {
     return kv;
 }
 
-void MockCluster::startMeta(int32_t port, const std::string& rootPath) {
-    metaKV_ = initMetaKV(rootPath.c_str(), {"", port});
+void MockCluster::startMeta(int32_t port,
+                            const std::string& rootPath,
+                            std::string hostname) {
+    metaKV_ = initMetaKV(rootPath.c_str(), {hostname, port});
     metaServer_ = std::make_unique<RpcServer>();
     auto handler = std::make_shared<meta::MetaServiceHandler>(metaKV_.get(),
                                                               clusterId_);
@@ -107,10 +106,16 @@ void MockCluster::initStorageKV(const char* dataPath,
                                 HostAddr addr,
                                 SchemaVer schemaVerCount) {
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
-    totalParts_ = 6;
     kvstore::KVOptions options;
     if (metaClient_ != nullptr) {
         LOG(INFO) << "Pull meta information from meta server";
+        nebula::meta::SpaceDesc spaceDesc("test_space", 6, 1, "utf8", "utf8_bin");
+        auto ret = metaClient_->createSpace(spaceDesc).get();
+        if (!ret.ok()) {
+            LOG(FATAL) << "can't create space";
+        }
+        GraphSpaceID spaceId = ret.value();
+        LOG(INFO) << "spaceId = " << spaceId;
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,
                                             metaClient_.get());
@@ -187,6 +192,12 @@ void MockCluster::initMetaClient(meta::MetaClientOptions options) {
     metaClient_ = std::make_unique<meta::MetaClient>(threadPool, localhosts, options);
     metaClient_->waitForMetadReady();
     LOG(INFO) << "Meta client has been ready!";
+}
+
+storage::GraphStorageClient* MockCluster::initStorageClient() {
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
+    storageClient_ = std::make_unique<storage::GraphStorageClient>(threadPool, metaClient_.get());
+    return storageClient_.get();
 }
 
 }  // namespace mock

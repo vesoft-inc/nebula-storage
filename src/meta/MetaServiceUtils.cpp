@@ -169,7 +169,7 @@ std::string MetaServiceUtils::hostKeyV2(std::string addr, Port port) {
     std::string key;
     HostAddr h(addr, port);
     key.append(kHostsTable.data(), kHostsTable.size())
-       .append(serializeHostAddr(h));
+       .append(MetaServiceUtils::serializeHostAddr(h));
     return key;
 }
 
@@ -203,7 +203,7 @@ HostAddr MetaServiceUtils::parseHostKeyV1(folly::StringPiece key) {
 
 HostAddr MetaServiceUtils::parseHostKeyV2(folly::StringPiece key) {
     key.advance(kHostsTable.size());
-    return deserializeHostAddr(key);
+    return MetaServiceUtils::deserializeHostAddr(key);
 }
 
 std::string MetaServiceUtils::leaderKey(std::string addr, Port port) {
@@ -216,7 +216,7 @@ std::string MetaServiceUtils::leaderKeyV2(std::string addr, Port port) {
 
     key.reserve(kLeadersTable.size() + kMaxIpAddrLen + sizeof(Port));
     key.append(kLeadersTable.data(), kLeadersTable.size());
-    key.append(serializeHostAddr(h));
+    key.append(MetaServiceUtils::serializeHostAddr(h));
     return key;
 }
 
@@ -259,7 +259,7 @@ HostAddr MetaServiceUtils::parseLeaderKeyV1(folly::StringPiece key) {
 
 HostAddr MetaServiceUtils::parseLeaderKeyV2(folly::StringPiece key) {
     key.advance(kLeadersTable.size());
-    return deserializeHostAddr(key);
+    return MetaServiceUtils::deserializeHostAddr(key);
 }
 
 LeaderParts MetaServiceUtils::parseLeaderVal(folly::StringPiece val) {
@@ -899,6 +899,18 @@ void MetaServiceUtils::upgradeMetaDataV1toV2(nebula::kvstore::KVStore* kv) {
             });
         baton.wait();
     }
+}
+
+std::string MetaServiceUtils::serializeHostAddr(const HostAddr& host) {
+    std::string ret;
+    apache::thrift::CompactSerializer::serialize(host, &ret);
+    return ret;
+}
+
+HostAddr MetaServiceUtils::deserializeHostAddr(folly::StringPiece raw) {
+    HostAddr host;
+    apache::thrift::CompactSerializer::deserialize(raw, host);
+    return host;
 }
 
 }  // namespace meta
