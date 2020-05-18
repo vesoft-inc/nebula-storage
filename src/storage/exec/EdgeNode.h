@@ -23,6 +23,7 @@ public:
         return iter_.get();
     }
 
+
     kvstore::ResultCode collectEdgePropsIfValid(NullHandler nullHandler,
                                                 EdgePropHandler valueHandler) {
         if (!iter_ || !iter_->valid()) {
