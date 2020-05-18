@@ -11,14 +11,30 @@
 namespace nebula {
 namespace storage {
 
-TEST(SimpleDAGTest, SimpleTest) {
+class StorageDAGTest : public ::testing::Test {
+protected:
+    PartitionID partId_ = 0;
+    VertexID vId_ = "nebula";
+
+    const nebula::Row& result() {
+        resultRow_.columns.emplace_back(vId_);
+        resultRow_.columns.emplace_back(NullType::__NULL__);
+        return resultRow_;
+    }
+
+private:
+    nebula::Row resultRow_;
+};
+
+TEST_F(StorageDAGTest, SimpleTest) {
     StorageDAG dag;
     auto out = std::make_unique<RelNode>("leaf");
     dag.addNode(std::move(out));
-    dag.go().get();
+    auto ret = dag.go(partId_, vId_).get();
+    ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
 }
 
-TEST(SimpleDAGTest, ChainTest) {
+TEST_F(StorageDAGTest, ChainTest) {
     StorageDAG dag;
     size_t lastIdx;
     for (size_t i = 0; i < 10; i++) {
@@ -31,10 +47,11 @@ TEST(SimpleDAGTest, ChainTest) {
     auto out = std::make_unique<RelNode>("leaf");
     out->addDependency(dag.getNode(lastIdx));
     dag.addNode(std::move(out));
-    dag.go().get();
+    auto ret = dag.go(partId_, vId_).get();
+    ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
 }
 
-TEST(SimpleDAGTest, FanOutInTest) {
+TEST_F(StorageDAGTest, FanOutInTest) {
     StorageDAG dag;
     auto out = std::make_unique<RelNode>("leaf");
     for (size_t i = 0; i < 10; i++) {
@@ -43,7 +60,25 @@ TEST(SimpleDAGTest, FanOutInTest) {
         out->addDependency(dag.getNode(idx));
     }
     dag.addNode(std::move(out));
-    dag.go().get();
+    auto ret = dag.go(partId_, vId_).get();
+    ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+}
+
+TEST_F(StorageDAGTest, RerunTest) {
+    StorageDAG dag;
+    auto out = std::make_unique<RelNode>("leaf");
+    for (size_t i = 0; i < 10; i++) {
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
+        auto idx = dag.addNode(std::move(node));
+        out->addDependency(dag.getNode(idx));
+    }
+    dag.addNode(std::move(out));
+
+    // re-run the dag
+    for (size_t i = 0; i < 10; i++) {
+        auto ret = dag.go(partId_, vId_).get();
+        ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+    }
 }
 
 }  // namespace storage

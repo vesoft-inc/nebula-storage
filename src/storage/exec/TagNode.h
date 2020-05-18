@@ -9,74 +9,68 @@
 
 #include "base/Base.h"
 #include "storage/exec/RelNode.h"
+#include "storage/exec/FilterContext.h"
 
 namespace nebula {
 namespace storage {
 
+// TagNode will return a DataSet of specified props of tagId
+// todo(doodle): return a iterator
 class TagNode final : public RelNode {
 public:
     TagNode(TagContext* ctx,
             StorageEnv* env,
             GraphSpaceID spaceId,
-            PartitionID partId,
             size_t vIdLen,
-            const VertexID& vId,
-            FilterNode* filter,
-            nebula::Row* row)
+            TagID tagId,
+            const std::vector<PropContext>* props)
         : tagContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
-        , partId_(partId)
         , vIdLen_(vIdLen)
-        , vId_(vId)
-        , filter_(filter)
-        , resultRow_(row) {}
-
-    folly::Future<kvstore::ResultCode> execute() override {
-        for (auto& tc : tagContext_->propContexts_) {
-            nebula::DataSet dataSet;
-            VLOG(1) << "partId " << partId_ << ", vId " << vId_ << ", tagId " << tc.first
-                    << ", prop size " << tc.second.size();
-            auto ret = processTagProps(tc.first, tc.second, dataSet);
-            if (ret == kvstore::ResultCode::SUCCEEDED) {
-                resultRow_->columns.emplace_back(std::move(dataSet));
-                continue;
-            } else if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-                resultRow_->columns.emplace_back(NullType::__NULL__);
-                continue;
-            } else {
-                return ret;
-            }
-        }
-        return kvstore::ResultCode::SUCCEEDED;
+        , tagId_(tagId)
+        , props_(props) {
+        auto schemaIter = tagContext_->schemas_.find(tagId_);
+        CHECK(schemaIter != tagContext_->schemas_.end());
+        CHECK(!schemaIter->second.empty());
+        schemas_ = &(schemaIter->second);
     }
 
-    kvstore::ResultCode processTagProps(TagID tagId,
-                                        const std::vector<PropContext>& returnProps,
-                                        nebula::DataSet& dataSet) {
-        // use latest schema to check if value is expired for ttl
-        auto schemaIter = tagContext_->schemas_.find(tagId);
-        CHECK(schemaIter != tagContext_->schemas_.end());
-        const auto* latestSchema = schemaIter->second.back().get();
+    folly::Future<kvstore::ResultCode> execute(PartitionID partId, const VertexID& vId) override {
+        VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tagId_
+                << ", prop size " << props_->size();
+        auto ret = processTagProps(partId, vId);
+        if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+            result_ = NullType::__NULL__;
+            ret = kvstore::ResultCode::SUCCEEDED;
+        }
+        return ret;
+    }
+
+    const Value& result() {
+        return result_;
+    }
+
+private:
+    kvstore::ResultCode processTagProps(PartitionID partId, const VertexID& vId) {
         if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
-            auto result = tagContext_->vertexCache_->get(std::make_pair(vId_, tagId), partId_);
+            auto result = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_), partId);
             if (result.ok()) {
                 auto value = std::move(result).value();
-                auto ret = collectTagPropIfValid(latestSchema, value, tagId,
-                                                 returnProps, dataSet);
+                auto ret = collectTagPropIfValid(value);
                 if (ret != kvstore::ResultCode::SUCCEEDED) {
-                    VLOG(1) << "Evict from cache vId " << vId_ << ", tagId " << tagId;
-                    tagContext_->vertexCache_->evict(std::make_pair(vId_, tagId), partId_);
+                    VLOG(1) << "Evict from cache vId " << vId << ", tagId " << tagId_;
+                    tagContext_->vertexCache_->evict(std::make_pair(vId, tagId_), partId);
                 }
                 return ret;
             } else {
-                VLOG(1) << "Miss cache for vId " << vId_ << ", tagId " << tagId;
+                VLOG(1) << "Miss cache for vId " << vId << ", tagId " << tagId_;
             }
         }
 
-        auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen_, partId_, vId_, tagId);
+        auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId, tagId_);
         std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = env_->kvstore_->prefix(spaceId_, partId_, prefix, &iter);
+        auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             VLOG(1) << "Error! ret = " << static_cast<int32_t>(ret) << ", spaceId " << spaceId_;
             return ret;
@@ -84,72 +78,65 @@ public:
         if (iter && iter->valid()) {
             // Will decode the properties according to the schema version
             // stored along with the properties
-            ret = collectTagPropIfValid(latestSchema, iter->val(), tagId,
-                                        returnProps, dataSet);
+            ret = collectTagPropIfValid(iter->val());
             if (ret == kvstore::ResultCode::SUCCEEDED &&
                 FLAGS_enable_vertex_cache &&
                 tagContext_->vertexCache_ != nullptr) {
-                tagContext_->vertexCache_->insert(std::make_pair(vId_, tagId),
-                                                  iter->val().str(), partId_);
-                VLOG(1) << "Insert cache for vId " << vId_ << ", tagId " << tagId;
+                tagContext_->vertexCache_->insert(std::make_pair(vId, tagId_),
+                                                  iter->val().str(), partId);
+                VLOG(1) << "Insert cache for vId " << vId << ", tagId " << tagId_;
             }
             return ret;
         } else {
-            VLOG(1) << "Missed partId " << partId_ << ", vId " << vId_ << ", tagId " << tagId;
+            VLOG(1) << "Missed partId " << partId << ", vId " << vId << ", tagId " << tagId_;
             return kvstore::ResultCode::ERR_KEY_NOT_FOUND;
         }
     }
 
-    kvstore::ResultCode collectTagPropIfValid(const meta::NebulaSchemaProvider* schema,
-                                              folly::StringPiece value,
-                                              TagID tagId,
-                                              const std::vector<PropContext>& returnProps,
-                                              nebula::DataSet& dataSet) {
-        auto reader = RowReader::getTagPropReader(env_->schemaMan_, spaceId_, tagId, value);
+    kvstore::ResultCode collectTagPropIfValid(folly::StringPiece value) {
+        auto reader = RowReader::getRowReader(*schemas_, value);
         if (!reader) {
-            VLOG(1) << "Can't get tag reader of " << tagId;
+            VLOG(1) << "Can't get tag reader of " << tagId_;
             return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
         }
-        auto ttl = getTagTTLInfo(tagId);
+        auto ttl = getTagTTLInfo();
         if (ttl.hasValue()) {
             auto ttlValue = ttl.value();
-            if (CommonUtils::checkDataExpiredForTTL(schema, reader.get(),
+            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader.get(),
                                                     ttlValue.first, ttlValue.second)) {
                 return kvstore::ResultCode::ERR_KEY_NOT_FOUND;
             }
         }
-        return collectTagProps(tagId, reader.get(), returnProps, dataSet);
+        return collectTagProps(reader.get());
     }
 
-    kvstore::ResultCode collectTagProps(TagID tagId,
-                                        RowReader* reader,
-                                        const std::vector<PropContext>& props,
-                                        nebula::DataSet& dataSet) {
+    kvstore::ResultCode collectTagProps(RowReader* reader) {
         nebula::Row row;
-        for (auto& prop : props) {
-            VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
+        for (auto& prop : *props_) {
+            VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId_;
             if (reader != nullptr) {
                 auto status = readValue(reader, prop);
                 if (!status.ok()) {
                     return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
                 }
                 auto value = std::move(status.value());
-
                 if (prop.tagFiltered_) {
-                    filter_->fillTagProp(tagId, prop.name_, value);
+                    filter_->fillTagProp(tagId_, prop.name_, value);
                 }
                 if (prop.returned_) {
                     row.columns.emplace_back(std::move(value));
                 }
             }
         }
+        nebula::DataSet dataSet;
         dataSet.rows.emplace_back(std::move(row));
+        result_ = std::move(dataSet);
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    folly::Optional<std::pair<std::string, int64_t>> getTagTTLInfo(TagID tagId) {
+    folly::Optional<std::pair<std::string, int64_t>> getTagTTLInfo() {
         folly::Optional<std::pair<std::string, int64_t>> ret;
-        auto tagFound = tagContext_->ttlInfo_.find(tagId);
+        auto tagFound = tagContext_->ttlInfo_.find(tagId_);
         if (tagFound != tagContext_->ttlInfo_.end()) {
             ret.emplace(tagFound->second.first, tagFound->second.second);
         }
@@ -160,11 +147,13 @@ private:
     TagContext* tagContext_;
     StorageEnv* env_;
     GraphSpaceID spaceId_;
-    PartitionID partId_;
     size_t vIdLen_;
-    VertexID vId_;
-    FilterNode* filter_;
-    nebula::Row* resultRow_;
+    TagID tagId_;
+    const std::vector<PropContext>* props_;
+    FilterContext* filter_;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
+
+    Value result_ = NullType::__NULL__;
 };
 
 }  // namespace storage

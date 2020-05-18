@@ -10,7 +10,7 @@
 #include "base/Base.h"
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/FilterNode.h"
+#include "storage/exec/FilterContext.h"
 #include "storage/exec/StorageDAG.h"
 
 namespace nebula {
@@ -18,6 +18,7 @@ namespace storage {
 
 class GetNeighborsProcessor
     : public QueryBaseProcessor<cpp2::GetNeighborsRequest, cpp2::GetNeighborsResponse> {
+    FRIEND_TEST(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan);
 
 public:
     static GetNeighborsProcessor* instance(StorageEnv* env,
@@ -35,10 +36,7 @@ protected:
         : QueryBaseProcessor<cpp2::GetNeighborsRequest,
                              cpp2::GetNeighborsResponse>(env, stats, cache) {}
 
-    std::unique_ptr<StorageDAG> buildDAG(PartitionID partId,
-                                         const VertexID& vId,
-                                         FilterNode* filter,
-                                         nebula::Row* row);
+    StorageDAG buildDAG(nebula::DataSet* result);
 
     void onProcessFinished() override;
 

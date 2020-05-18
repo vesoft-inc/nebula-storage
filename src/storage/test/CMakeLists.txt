@@ -110,7 +110,7 @@ nebula_add_test(
     NAME
         simple_dag_test
     SOURCES
-        SimpleDAGTest.cpp
+        StorageDAGTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES

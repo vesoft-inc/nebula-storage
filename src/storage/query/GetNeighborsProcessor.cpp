@@ -6,9 +6,11 @@
 
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/StorageFlags.h"
-#include "storage/exec/FilterNode.h"
+#include "storage/exec/FilterContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/EdgeNode.h"
+#include "storage/exec/FilterNode.h"
+#include "storage/exec/CatenateNode.h"
 
 namespace nebula {
 namespace storage {
@@ -33,6 +35,7 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
         return;
     }
 
+    auto dag = buildDAG(&resultDataSet_);
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
@@ -40,23 +43,13 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
             CHECK_GE(input.columns.size(), 1);
             auto vId = input.columns[0].getStr();
 
-            FilterNode filter;
-            nebula::Row resultRow;
-            // vertexId is the first column
-            resultRow.columns.emplace_back(vId);
-            // reserve second column for stat
-            resultRow.columns.emplace_back(NullType::__NULL__);
-
             // the first column of each row would be the vertex id
-            auto dag = buildDAG(partId, vId, &filter, &resultRow);
-            auto ret = dag->go().get();
+            auto ret = dag.go(partId, vId).get();
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 if (failedParts.find(partId) == failedParts.end()) {
                     failedParts.emplace(partId);
                     handleErrorCode(ret, spaceId_, partId);
                 }
-            } else {
-                resultDataSet_.rows.emplace_back(std::move(resultRow));
             }
         }
     }
@@ -64,18 +57,35 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-std::unique_ptr<StorageDAG> GetNeighborsProcessor::buildDAG(PartitionID partId,
-                                                            const VertexID& vId,
-                                                            FilterNode* filter,
-                                                            nebula::Row* row) {
-    auto dag = std::make_unique<StorageDAG>();
-    auto tag = std::make_unique<TagNode>(
-            &tagContext_, env_, spaceId_, partId, spaceVidLen_, vId, filter, row);
-    auto tagIdx = dag->addNode(std::move(tag));
-    auto edge = std::make_unique<EdgeTypePrefixScanNode>(
-            &edgeContext_, env_, spaceId_, partId, spaceVidLen_, vId, exp_.get(), filter, row);
-    edge->addDependency(dag->getNode(tagIdx));
-    dag->addNode(std::move(edge));
+StorageDAG GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
+    StorageDAG dag;
+    std::vector<TagNode*> tags;
+    for (const auto& tc : tagContext_.propContexts_) {
+        auto tag = std::make_unique<TagNode>(
+                &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second);
+        tags.emplace_back(tag.get());
+        dag.addNode(std::move(tag));
+    }
+    std::vector<EdgeNode*> edges;
+    for (const auto& ec : edgeContext_.propContexts_) {
+        auto edge = std::make_unique<EdgeTypePrefixScanNode>(
+                &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second);
+        edges.emplace_back(edge.get());
+        dag.addNode(std::move(edge));
+    }
+    auto filter = std::make_unique<FilterNode>(
+            exp_.get(), tags, edges, &tagContext_, &edgeContext_);
+    for (auto* tag : tags) {
+        filter->addDependency(tag);
+    }
+    for (auto* edge : edges) {
+        filter->addDependency(edge);
+    }
+    auto cat = std::make_unique<CatenateNode>(
+            tags, filter.get(), &tagContext_, &edgeContext_, spaceVidLen_, result);
+    cat->addDependency(filter.get());
+    dag.addNode(std::move(filter));
+    dag.addNode(std::move(cat));
     return dag;
 }
 
@@ -166,6 +176,7 @@ cpp2::ErrorCode GetNeighborsProcessor::prepareVertexProps(
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighborsRequest& req) {
+    edgeContext_.offset_ = tagContext_.propContexts_.size() + 2;
     std::vector<ReturnProp> returnProps;
     // If no edgeType specified, get all property of all edge type in space
     if (!req.__isset.edge_props) {

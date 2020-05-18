@@ -14,10 +14,12 @@
 namespace nebula {
 namespace storage {
 
+// RelNode is shortcut for relational algebra node, each RelNode has an execute method,
+// which will be invoked in dag when all its dependencies have finished
 class RelNode {
     friend class StorageDAG;
 public:
-    virtual folly::Future<kvstore::ResultCode> execute() {
+    virtual folly::Future<kvstore::ResultCode> execute(PartitionID, const VertexID&) {
         DVLOG(1) << name_;
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -30,6 +32,10 @@ public:
     RelNode() = default;
 
     virtual ~RelNode() = default;
+
+    RelNode(const RelNode&) = delete;
+
+    RelNode(RelNode&&) = default;
 
     explicit RelNode(const std::string& name): name_(name) {}
 
