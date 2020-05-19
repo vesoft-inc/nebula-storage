@@ -106,6 +106,35 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        simple_dag_test
+    SOURCES
+        SimpleDAGTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        shuffle_ip_test
+    SOURCES
+        ShuffleIpTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        storage_service_handler_test
@@ -120,22 +149,34 @@ nebula_add_test(
 #        gtest
 #)
 #
-##
-#nebula_add_test(
-#    NAME
-#        query_bound_test
-#    SOURCES
-#        QueryBoundTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
+nebula_add_test(
+    NAME
+        get_neighbors_test
+    SOURCES
+        GetNeighborsTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_executable(
+    NAME
+        scan_edge_prop_bm
+    SOURCES
+        ScanEdgePropBenchmark.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        vertex_props_test
@@ -276,22 +317,6 @@ nebula_add_test(
 #        ${THRIFT_LIBRARIES}
 #        wangle
 #        gtest
-#)
-#
-#
-#nebula_add_executable(
-#    NAME
-#        query_bound_bm
-#    SOURCES
-#        QueryBoundBenchmark.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        follybenchmark
-#        wangle
-#        boost_regex
 #)
 #
 #

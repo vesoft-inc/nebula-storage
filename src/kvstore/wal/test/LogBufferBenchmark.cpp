@@ -167,7 +167,7 @@ void runInMemoryLogBufferReadLatestN(int32_t total,
     while (loopTimes-- > 0) {
         auto iter = inMemoryLogBuffer->iterator(start, end);
         if (!FLAGS_only_seek) {
-            for (;iter->valid(); ++(*iter)) {
+            for (; iter->valid(); ++(*iter)) {
                 auto log = iter->logMsg();
                 folly::doNotOptimizeAway(log);
             }
@@ -191,7 +191,7 @@ void runAtomicLogBufferReadLatestN(int32_t total,
     while (loopTimes-- > 0) {
         auto iter = logBuffer->iterator(start, end);
         if (!FLAGS_only_seek) {
-            for (;iter->valid(); ++(*iter)) {
+            for (; iter->valid(); ++(*iter)) {
                 auto log = iter->logMsg();
                 folly::doNotOptimizeAway(log);
             }
@@ -273,7 +273,7 @@ runSingleWriterMultiReadersInBackground(LogBufferPtr logBuffer,
     std::vector<std::unique_ptr<std::thread>> threads;
     if (startWriter) {
         auto writer = std::make_unique<std::thread>([logBuffer, &writePoint, &stop] {
-            LogID logId = 1000; // start from 1000
+            LogID logId = 1000;  // start from 1000
             while (!stop) {
                 logBuffer->push(logId, 0, 0, folly::stringPrintf("str_%ld", logId));
                 writePoint.store(logId, std::memory_order_release);
@@ -305,8 +305,7 @@ runSingleWriterMultiReadersInBackground(LogBufferPtr logBuffer,
                         // The background reader qps about 10K
                         usleep(100);
                     }
-                })
-        );
+                }));
     }
     return threads;
 }
@@ -326,7 +325,7 @@ void runRWMixedTestRead(LogBufferPtr logBuffer) {
     int32_t loopTimes = 1000000;
     while (loopTimes-- > 0) {
         auto iter = logBuffer->iterator(start, end);
-        for (;iter->valid(); ++(*iter)) {
+        for (; iter->valid(); ++(*iter)) {
             auto log = iter->logMsg();
             folly::doNotOptimizeAway(log);
         }
