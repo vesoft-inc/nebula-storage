@@ -150,27 +150,25 @@ bool StorageServer::start() {
 
     storageThread_.reset(new std::thread([this, &env] {
         auto handler = std::make_shared<GraphStorageServiceHandler>(&env);
-        tfServer_ = std::make_unique<apache::thrift::ThriftServer>();
-        tfServer_->setPort(FLAGS_port);
-        tfServer_->setReusePort(FLAGS_reuse_port);
-        tfServer_->setIdleTimeout(std::chrono::seconds(0));  // No idle timeout on client connection
-        tfServer_->setIOThreadPool(ioThreadPool_);
-        tfServer_->setThreadManager(workers_);
-        tfServer_->setInterface(std::move(handler));
-        tfServer_->setStopWorkersOnStopListening(false);
-        tfServer_->setup();
-        // tfServer_->serve();  // Will wait until the server shuts down
+        storageServer_ = std::make_unique<apache::thrift::ThriftServer>();
+        storageServer_->setPort(FLAGS_port);
+        storageServer_->setReusePort(FLAGS_reuse_port);
+        storageServer_->setIdleTimeout(std::chrono::seconds(0));
+        storageServer_->setIOThreadPool(ioThreadPool_);
+        storageServer_->setThreadManager(workers_);
+        storageServer_->setInterface(std::move(handler));
+        storageServer_->setStopWorkersOnStopListening(false);
 
-        storageReady_.store(STATUS_RUNNING);
+        storageSvcStatus_.store(STATUS_RUNNING);
         LOG(INFO) << "The storage service start on " << localHost_;
-        tfServer_->getEventBaseManager()->getEventBase()->loopForever();
+        storageServer_->serve();  // Will wait until the server shuts down
 
-        storageReady_.store(STATUS_STTOPED);
+        storageSvcStatus_.store(STATUS_STTOPED);
         LOG(INFO) << "The storage service stopped";
     }));
 
     adminThread_.reset(new std::thread([this, &env] {
-        auto adminHandler = std::make_shared<StorageAdminServiceHandler>(&env);
+        auto handler = std::make_shared<StorageAdminServiceHandler>(&env);
         auto adminAddr = kvstore::NebulaStore::getAdminAddr(localHost_);
         adminServer_ = std::make_unique<apache::thrift::ThriftServer>();
         adminServer_->setPort(adminAddr.port);
@@ -178,28 +176,31 @@ bool StorageServer::start() {
         adminServer_->setIdleTimeout(std::chrono::seconds(0));
         adminServer_->setIOThreadPool(ioThreadPool_);
         adminServer_->setThreadManager(workers_);
-        adminServer_->setInterface(std::move(adminHandler));
+        adminServer_->setInterface(std::move(handler));
         adminServer_->setStopWorkersOnStopListening(false);
-        adminServer_->setup();
-        // adminServer_->serve();  // Will wait until the server shuts down
 
-        adminReady_.store(STATUS_RUNNING);
+        adminSvcStatus_.store(STATUS_RUNNING);
         LOG(INFO) << "The admin service start on " << adminAddr;
-        adminServer_->getEventBaseManager()->getEventBase()->loopForever();
+        adminServer_->serve();  // Will wait until the server shuts down
 
-        adminReady_.store(STATUS_STTOPED);
+        adminSvcStatus_.store(STATUS_STTOPED);
         LOG(INFO) << "The admin service stopped";
     }));
 
-    while (storageReady_.load() == STATUS_UNINITIALIZED &&
-           adminReady_.load() == STATUS_UNINITIALIZED) {
+    while (storageSvcStatus_.load() == STATUS_UNINITIALIZED &&
+           adminSvcStatus_.load() == STATUS_UNINITIALIZED) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
-    if (storageReady_.load() != STATUS_RUNNING || adminReady_.load() != STATUS_RUNNING) {
+    if (storageSvcStatus_.load() != STATUS_RUNNING || adminSvcStatus_.load() != STATUS_RUNNING) {
         return false;
     }
     return true;
+}
+
+void StorageServer::waitUntilStop() {
+    adminThread_->join();
+    storageThread_->join();
 }
 
 void StorageServer::stop() {
@@ -221,11 +222,11 @@ void StorageServer::stop() {
     if (kvstore_) {
         kvstore_.reset();
     }
-    if (tfServer_) {
-        tfServer_->stop();
-    }
     if (adminServer_) {
         adminServer_->stop();
+    }
+    if (storageServer_) {
+        storageServer_->stop();
     }
 }
 

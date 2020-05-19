@@ -36,6 +36,8 @@ public:
 
     void stop();
 
+    void waitUntilStop();
+
 private:
     enum ServiceStatus {
         STATUS_UNINITIALIZED = 0,
@@ -53,10 +55,10 @@ private:
 
     std::unique_ptr<std::thread> storageThread_;
     std::unique_ptr<std::thread> adminThread_;
-    std::atomic_int storageReady_{STATUS_UNINITIALIZED};
-    std::atomic_int adminReady_{STATUS_UNINITIALIZED};
+    std::atomic_int storageSvcStatus_{STATUS_UNINITIALIZED};
+    std::atomic_int adminSvcStatus_{STATUS_UNINITIALIZED};
 
-    std::unique_ptr<apache::thrift::ThriftServer> tfServer_;
+    std::unique_ptr<apache::thrift::ThriftServer> storageServer_;
     std::unique_ptr<apache::thrift::ThriftServer> adminServer_;
     std::unique_ptr<nebula::WebService> webSvc_;
     std::unique_ptr<meta::MetaClient> metaClient_;
