@@ -211,7 +211,6 @@ private:
     EdgeType edgeType_ = 0;
     EdgeRanking lastRank_ = 0;
     VertexID lastDstId_ = "";
-    bool firstLoop_ = true;
 };
 
 

@@ -74,7 +74,7 @@ StorageDAG GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
         dag.addNode(std::move(edge));
     }
     auto filter = std::make_unique<FilterNode>(
-            exp_.get(), tags, edges, &tagContext_, &edgeContext_);
+            filterExp_.get(), tags, edges, &tagContext_, &edgeContext_);
     for (auto* tag : tags) {
         filter->addDependency(tag);
     }

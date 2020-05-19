@@ -62,16 +62,16 @@ private:
 
     std::string updateAndWriteBack(const PartitionID partId, const VertexID vId);
 
+    // Get the schema of all versions of all tags in the spaceId
     cpp2::ErrorCode buildTagSchema();
+
+    // Build TagContext by parsing return prop expressions, filter expression, update prop expression
+    cpp2::ErrorCode buildTagContext(const cpp2::UpdateVertexRequest& req);
 
 private:
     bool                                                            insertable_{false};
 
-    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
-
-    // TODO return props expression
-    std::vector<std::unique_ptr<Expression>>                        returnPropsExp_;
-
+    // updatedVertexProps_ will update tagId
     std::set<TagID>                                                 updateTagIds_;
 
     // <tagID, prop_name>-> prop_value because only updae one vertex
@@ -88,12 +88,19 @@ private:
 
     std::atomic<cpp2::ErrorCode>                    filterResult_{cpp2::ErrorCode::SUCCEEDED};
 
-    // TODO  add
-    std::unique_ptr<ExpressionContext>                              expCtx_;
-    // TODO Condition expression
-    std::unique_ptr<Expression>                                     exp_;
-
     bool                                                            insert_{false};
+
+    // TODO implement  expression contex
+    std::unique_ptr<ExpressionContext>                              expCtx_;
+
+    // update <tagID, prop name, new value expression>
+    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
+
+    // return props expression
+    std::vector<std::unique_ptr<Expression>>                        returnPropsExp_;
+
+    // condition expression
+    std::unique_ptr<Expression>                                     filterExp_;
 };
 
 }  // namespace storage
