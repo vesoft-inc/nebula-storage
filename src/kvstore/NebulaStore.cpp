@@ -221,7 +221,7 @@ ErrorOr<ResultCode, HostAddr> NebulaStore::partLeader(GraphSpaceID spaceId, Part
     if (UNLIKELY(partIt == parts.end())) {
         return ResultCode::ERR_PART_NOT_FOUND;
     }
-    return getStoreAddr(partIt->second->leader());
+    return getStoreAddrFromRaftAddr(partIt->second->leader());
 }
 
 void NebulaStore::addSpace(GraphSpaceID spaceId) {

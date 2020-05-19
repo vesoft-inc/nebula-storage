@@ -37,6 +37,13 @@ public:
     void stop();
 
 private:
+    enum ServiceStatus {
+        STATUS_UNINITIALIZED = 0,
+        STATUS_RUNNING       = 1,
+        STATUS_STTOPED       = 2
+    };
+
+private:
     std::unique_ptr<kvstore::KVStore> getStoreInstance();
 
     bool initWebService();
@@ -44,7 +51,13 @@ private:
     std::shared_ptr<folly::IOThreadPoolExecutor> ioThreadPool_;
     std::shared_ptr<apache::thrift::concurrency::ThreadManager> workers_;
 
+    std::unique_ptr<std::thread> storageThread_;
+    std::unique_ptr<std::thread> adminThread_;
+    std::atomic_int storageReady_{STATUS_UNINITIALIZED};
+    std::atomic_int adminReady_{STATUS_UNINITIALIZED};
+
     std::unique_ptr<apache::thrift::ThriftServer> tfServer_;
+    std::unique_ptr<apache::thrift::ThriftServer> adminServer_;
     std::unique_ptr<nebula::WebService> webSvc_;
     std::unique_ptr<meta::MetaClient> metaClient_;
     std::unique_ptr<kvstore::KVStore> kvstore_;

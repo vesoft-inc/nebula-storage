@@ -8,6 +8,7 @@
 #include "network/NetworkUtils.h"
 #include "storage/StorageFlags.h"
 #include "storage/StorageAdminServiceHandler.h"
+#include "storage/GraphStorageServiceHandler.h"
 #include "storage/http/StorageHttpDownloadHandler.h"
 #include "storage/http/StorageHttpIngestHandler.h"
 #include "storage/http/StorageHttpAdminHandler.h"
@@ -147,10 +148,8 @@ bool StorageServer::start() {
     env.indexMan_ = indexMan_.get();
     env.schemaMan_ = schemaMan_.get();
 
-    // TODO
-    auto handler = std::make_shared<StorageAdminServiceHandler>(&env);
-    try {
-        LOG(INFO) << "The storage deamon start on " << localHost_;
+    storageThread_.reset(new std::thread([this, &env] {
+        auto handler = std::make_shared<GraphStorageServiceHandler>(&env);
         tfServer_ = std::make_unique<apache::thrift::ThriftServer>();
         tfServer_->setPort(FLAGS_port);
         tfServer_->setReusePort(FLAGS_reuse_port);
@@ -159,9 +158,45 @@ bool StorageServer::start() {
         tfServer_->setThreadManager(workers_);
         tfServer_->setInterface(std::move(handler));
         tfServer_->setStopWorkersOnStopListening(false);
-        tfServer_->serve();  // Will wait until the server shuts down
-    } catch (const std::exception& e) {
-        LOG(ERROR) << "Start thrift server failed, error:" << e.what();
+        tfServer_->setup();
+        // tfServer_->serve();  // Will wait until the server shuts down
+
+        storageReady_.store(STATUS_RUNNING);
+        LOG(INFO) << "The storage service start on " << localHost_;
+        tfServer_->getEventBaseManager()->getEventBase()->loopForever();
+
+        storageReady_.store(STATUS_STTOPED);
+        LOG(INFO) << "The storage service stopped";
+    }));
+
+    adminThread_.reset(new std::thread([this, &env] {
+        auto adminHandler = std::make_shared<StorageAdminServiceHandler>(&env);
+        auto adminAddr = kvstore::NebulaStore::getAdminAddr(localHost_);
+        adminServer_ = std::make_unique<apache::thrift::ThriftServer>();
+        adminServer_->setPort(adminAddr.port);
+        adminServer_->setReusePort(FLAGS_reuse_port);
+        adminServer_->setIdleTimeout(std::chrono::seconds(0));
+        adminServer_->setIOThreadPool(ioThreadPool_);
+        adminServer_->setThreadManager(workers_);
+        adminServer_->setInterface(std::move(adminHandler));
+        adminServer_->setStopWorkersOnStopListening(false);
+        adminServer_->setup();
+        // adminServer_->serve();  // Will wait until the server shuts down
+
+        adminReady_.store(STATUS_RUNNING);
+        LOG(INFO) << "The admin service start on " << adminAddr;
+        adminServer_->getEventBaseManager()->getEventBase()->loopForever();
+
+        adminReady_.store(STATUS_STTOPED);
+        LOG(INFO) << "The admin service stopped";
+    }));
+
+    while (storageReady_.load() == STATUS_UNINITIALIZED &&
+           adminReady_.load() == STATUS_UNINITIALIZED) {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+
+    if (storageReady_.load() != STATUS_RUNNING || adminReady_.load() != STATUS_RUNNING) {
         return false;
     }
     return true;
@@ -188,6 +223,9 @@ void StorageServer::stop() {
     }
     if (tfServer_) {
         tfServer_->stop();
+    }
+    if (adminServer_) {
+        adminServer_->stop();
     }
 }
 

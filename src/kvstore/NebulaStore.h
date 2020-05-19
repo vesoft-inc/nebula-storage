@@ -65,11 +65,26 @@ public:
         return HostAddr(srvcAddr.host, srvcAddr.port + 1);
     }
 
-    static HostAddr getStoreAddr(HostAddr raftAddr) {
+    static HostAddr getStoreAddrFromRaftAddr(HostAddr raftAddr) {
         if (raftAddr == HostAddr("", 0)) {
             return raftAddr;
         }
         return HostAddr(raftAddr.host, raftAddr.port - 1);
+    }
+
+    // Calculate the admin service address based on the storage service address
+    static HostAddr getAdminAddr(HostAddr srvcAddr) {
+        if (srvcAddr == HostAddr("", 0)) {
+            return srvcAddr;
+        }
+        return HostAddr(srvcAddr.host, srvcAddr.port - 1);
+    }
+
+    static HostAddr getStoreAddrFromAdminAddr(HostAddr adminAddr) {
+        if (adminAddr == HostAddr("", 0)) {
+            return adminAddr;
+        }
+        return HostAddr(adminAddr.host, adminAddr.port + 1);
     }
 
     // Pull meta information from the PartManager and initiate
