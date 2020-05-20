@@ -65,7 +65,7 @@ public:
         return HostAddr(srvcAddr.host, srvcAddr.port + 1);
     }
 
-    static HostAddr getStoreAddrFromRaftAddr(HostAddr raftAddr) {
+    static HostAddr getStoreAddr(HostAddr raftAddr) {
         if (raftAddr == HostAddr("", 0)) {
             return raftAddr;
         }
@@ -73,7 +73,7 @@ public:
     }
 
     // Calculate the admin service address based on the storage service address
-    static HostAddr getAdminAddr(HostAddr srvcAddr) {
+    static HostAddr getAdminAddrFromStoreAddr(HostAddr srvcAddr) {
         if (srvcAddr == HostAddr("", 0)) {
             return srvcAddr;
         }

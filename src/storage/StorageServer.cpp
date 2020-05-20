@@ -174,7 +174,7 @@ bool StorageServer::start() {
     adminThread_.reset(new std::thread([this] {
         try {
             auto handler = std::make_shared<StorageAdminServiceHandler>(env_.get());
-            auto adminAddr = kvstore::NebulaStore::getAdminAddr(localHost_);
+            auto adminAddr = CommonUtils::getAdminAddrFromStoreAddr(localHost_);
             adminServer_ = std::make_unique<apache::thrift::ThriftServer>();
             adminServer_->setPort(adminAddr.port);
             adminServer_->setReusePort(FLAGS_reuse_port);
@@ -208,7 +208,6 @@ bool StorageServer::start() {
 void StorageServer::waitUntilStop() {
     adminThread_->join();
     storageThread_->join();
-    LOG(ERROR) << "????????";
 }
 
 void StorageServer::stop() {
