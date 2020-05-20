@@ -59,16 +59,17 @@ void IndexKeyUtils::encodeValuesWithNull(const std::vector<Value>& values,
 std::string IndexKeyUtils::vertexIndexKey(size_t vIdLen, PartitionID partId,
                                           IndexID indexId, VertexID vId,
                                           const std::vector<Value>& values,
-                                          const std::vector<Value::Type>& withNullValueTypes) {
+                                          const std::vector<Value::Type>& valueTypes) {
     int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
     std::string key;
     key.reserve(256);
     key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
        .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
-    if (withNullValueTypes.empty()) {
+    // If have not nullable columns in the index, the valueTypes is empty.
+    if (valueTypes.empty()) {
         encodeValues(values, key);
     } else {
-         encodeValuesWithNull(values, withNullValueTypes, key);
+        encodeValuesWithNull(values, valueTypes, key);
     }
     key.append(vId.data(), vId.size())
        .append(vIdLen - vId.size(), '\0');
@@ -80,16 +81,17 @@ std::string IndexKeyUtils::edgeIndexKey(size_t vIdLen, PartitionID partId,
                                         IndexID indexId, VertexID srcId,
                                         EdgeRanking rank, VertexID dstId,
                                         const std::vector<Value>& values,
-                                        const std::vector<Value::Type>& withNullValueTypes) {
+                                        const std::vector<Value::Type>& valueTypes) {
     int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
     std::string key;
     key.reserve(256);
     key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
        .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
-    if (withNullValueTypes.empty()) {
+    // If have not nullable columns in the index, the valueTypes is empty.
+    if (valueTypes.empty()) {
         encodeValues(values, key);
     } else {
-         encodeValuesWithNull(values, withNullValueTypes, key);
+        encodeValuesWithNull(values, valueTypes, key);
     }
     key.append(srcId.data(), srcId.size())
        .append(vIdLen - srcId.size(), '\0')

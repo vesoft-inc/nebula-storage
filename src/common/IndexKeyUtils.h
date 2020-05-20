@@ -305,16 +305,24 @@ public:
                                      const std::vector<Value::Type>& colsType,
                                      std::string& raw);
 
+    /**
+     * param valueTypes ： column type of each index column. If there are no nullable columns 
+     *                     in the index, the parameter can be empty.
+     **/
     static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
                                       IndexID indexId, VertexID vId,
                                       const std::vector<Value>& values,
-                                      const std::vector<Value::Type>& withNullValueTypes = {});
+                                      const std::vector<Value::Type>& valueTypes = {});
 
+    /**
+     * param valueTypes ： column type of each index column. If there are no nullable columns 
+     *                     in the index, the parameter can be empty.
+     **/
     static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
                                     IndexID indexId, VertexID srcId,
                                     EdgeRanking rank, VertexID dstId,
                                     const std::vector<Value>& values,
-                                    const std::vector<Value::Type>& withNullValueTypes = {});
+                                    const std::vector<Value::Type>& valueTypes = {});
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
