@@ -188,12 +188,6 @@ protected:
     StatusOr<TagID> getTagId(GraphSpaceID spaceId, const std::string& name);
 
     /**
-     * Fetch the latest version tag's fields.
-     */
-    std::unordered_map<std::string, cpp2::PropertyType>
-    getLatestTagFields(const cpp2::Schema& latestTagSchema);
-
-    /**
      * Fetch the latest version tag's schema.
      */
     StatusOr<cpp2::Schema>
@@ -208,13 +202,6 @@ protected:
      * Return the edgeType for name.
      */
     StatusOr<EdgeType> getEdgeType(GraphSpaceID spaceId, const std::string& name);
-
-    /**
-     * Fetch the latest version edge's fields.
-     */
-    std::unordered_map<std::string, cpp2::PropertyType>
-    getLatestEdgeFields(const cpp2::Schema& latestEdgeSchema);
-
 
     /**
      * Fetch the latest version edge's schema.
@@ -233,13 +220,16 @@ protected:
     void doSyncMultiRemoveAndUpdate(std::vector<std::string> keys);
 
     /**
-     * check if the edge or tag contains indexes when alter edge or tag.
+     * Check the edge or tag contains indexes when alter it.
      **/
     cpp2::ErrorCode indexCheck(const std::vector<cpp2::IndexItem>& items,
                                const std::vector<cpp2::AlterSchemaItem>& alterItems);
 
     StatusOr<std::vector<cpp2::IndexItem>>
     getIndexes(GraphSpaceID spaceId, int32_t tagOrEdge);
+
+    bool checkIndexExist(const std::vector<std::string>& fields,
+                         const cpp2::IndexItem& item);
 
 protected:
     kvstore::KVStore* kvstore_ = nullptr;

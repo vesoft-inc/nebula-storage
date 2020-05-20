@@ -51,14 +51,41 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     }
 
     auto tagID = tagIDRet.value();
-    auto retSchema = getLatestTagSchema(space, tagID);
-    if (!retSchema.ok()) {
+    auto prefix = MetaServiceUtils::indexPrefix(space);
+    std::unique_ptr<kvstore::KVIterator> checkIter;
+    auto checkRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &checkIter);
+    if (checkRet != kvstore::ResultCode::SUCCEEDED) {
+        resp_.set_code(MetaCommon::to(checkRet));
+        onFinished();
+        return;
+    }
+
+    while (checkIter->valid()) {
+        auto val = checkIter->val();
+        auto item = MetaServiceUtils::parseIndex(val);
+        if (item.get_schema_id().getType() != cpp2::SchemaID::Type::tag_id ||
+            fieldNames.size() > item.get_fields().size() ||
+            tagID != item.get_schema_id().get_tag_id()) {
+            checkIter->next();
+            continue;
+        }
+
+        if (checkIndexExist(fieldNames, item)) {
+            resp_.set_code(cpp2::ErrorCode::E_EXISTED);
+            onFinished();
+            return;
+        }
+        checkIter->next();
+    }
+
+    auto schemaRet = getLatestTagSchema(space, tagID);
+    if (!schemaRet.ok()) {
         handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
         onFinished();
         return;
     }
 
-    auto latestTagSchema = retSchema.value();
+    auto latestTagSchema = schemaRet.value();
     if (tagOrEdgeHasTTL(latestTagSchema)) {
        LOG(ERROR) << "Tag: " << tagName << " has ttl, not create index";
        handleErrorCode(cpp2::ErrorCode::E_INDEX_WITH_TTL);
@@ -66,22 +93,18 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
        return;
     }
 
-    auto fields = getLatestTagFields(latestTagSchema);
+    const auto& schemaCols = latestTagSchema.get_columns();
     std::vector<cpp2::ColumnDef> columns;
     for (auto &field : fieldNames) {
-        auto iter = std::find_if(std::begin(fields), std::end(fields),
-                                 [field](const auto& pair) { return field == pair.first; });
-        if (iter == fields.end()) {
+        auto iter = std::find_if(schemaCols.begin(), schemaCols.end(),
+                                 [field](const auto& col) { return field == col.get_name(); });
+        if (iter == schemaCols.end()) {
             LOG(ERROR) << "Field " << field << " not found in Tag " << tagName;
             handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
             onFinished();
             return;
         } else {
-            auto type = fields[field];
-            cpp2::ColumnDef column;
-            column.set_name(std::move(field));
-            column.set_type(std::move(type));
-            columns.emplace_back(std::move(column));
+            columns.emplace_back(*iter);
         }
     }
 

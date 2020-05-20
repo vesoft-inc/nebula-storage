@@ -21,6 +21,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <thrift/lib/cpp/concurrency/ThreadManager.h>
 
+#include "clients/storage/GraphStorageClient.h"
 
 namespace nebula {
 namespace mock {
@@ -29,9 +30,9 @@ class MockCluster {
 public:
     void startAll();
 
-    void startMeta(int32_t port, const std::string& rootPath);
+    void startMeta(int32_t port, const std::string& rootPath, std::string hostname = "");
 
-    void startStorage(HostAddr addr, const std::string& rootPath);
+    void startStorage(HostAddr addr, const std::string& rootPath, SchemaVer schemaVerCount = 1);
 
     /**
      * Init a meta client connect to current meta server.
@@ -39,34 +40,44 @@ public:
      * */
     void initMetaClient(meta::MetaClientOptions options = meta::MetaClientOptions());
 
+    /*
+     * Init a storage client connect to graphStorageServer
+     * The meta server, and meta client must started first
+     * */
+    storage::GraphStorageClient* initStorageClient();
 
-    std::unique_ptr<meta::SchemaManager>
-    memSchemaMan();
 
-    std::unique_ptr<meta::IndexManager>
-    memIndexMan();
+    std::unique_ptr<meta::SchemaManager> memSchemaMan(SchemaVer schemaVerCount = 1);
 
-    static
-    void waitUntilAllElected(kvstore::NebulaStore* kvstore,
-                             GraphSpaceID spaceId,
-                             const std::vector<PartitionID>& partIds);
+    std::unique_ptr<meta::IndexManager> memIndexMan();
+
+    static void waitUntilAllElected(kvstore::NebulaStore* kvstore,
+                                    GraphSpaceID spaceId,
+                                    const std::vector<PartitionID>& partIds);
 
     static std::unique_ptr<kvstore::MemPartManager>
     memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& parts);
 
     static std::unique_ptr<kvstore::NebulaStore>
-    initKV(kvstore::KVOptions options, HostAddr localHost = HostAddr(0, 0));
+    initKV(kvstore::KVOptions options, HostAddr localHost = HostAddr("", 0));
 
     static std::unique_ptr<kvstore::NebulaStore>
-    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr(0, 0));
+    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr("", 0));
 
-    void initStorageKV(const char* dataPath, HostAddr localHost = HostAddr(0, 0));
+    void initStorageKV(const char* dataPath,
+                       HostAddr localHost = HostAddr("", 0),
+                       SchemaVer schemaVerCount = 1);
 
-    static IPv4 localIP();
+    static std::string localIP();
+
+    int32_t getTotalParts() {
+        return totalParts_;
+    }
 
 public:
     std::unique_ptr<RpcServer>                      metaServer_{nullptr};
     std::unique_ptr<meta::MetaClient>               metaClient_{nullptr};
+    std::unique_ptr<storage::GraphStorageClient>    storageClient_{nullptr};
     std::unique_ptr<kvstore::NebulaStore>           metaKV_{nullptr};
 
     std::unique_ptr<RpcServer>                      storageAdminServer_{nullptr};
@@ -77,6 +88,7 @@ public:
     std::unique_ptr<meta::SchemaManager>            schemaMan_;
     std::unique_ptr<meta::IndexManager>             indexMan_;
     nebula::ClusterID                               clusterId_ = 10;
+    int32_t                                         totalParts_;
 };
 
 }  // namespace mock
