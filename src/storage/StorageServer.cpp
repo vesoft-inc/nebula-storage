@@ -143,51 +143,58 @@ bool StorageServer::start() {
         LOG(ERROR) << "Init task manager failed!";
         return false;
     }
-    StorageEnv env;
-    env.kvstore_ = kvstore_.get();
-    env.indexMan_ = indexMan_.get();
-    env.schemaMan_ = schemaMan_.get();
 
-    storageThread_.reset(new std::thread([this, &env] {
-        auto handler = std::make_shared<GraphStorageServiceHandler>(&env);
-        storageServer_ = std::make_unique<apache::thrift::ThriftServer>();
-        storageServer_->setPort(FLAGS_port);
-        storageServer_->setReusePort(FLAGS_reuse_port);
-        storageServer_->setIdleTimeout(std::chrono::seconds(0));
-        storageServer_->setIOThreadPool(ioThreadPool_);
-        storageServer_->setThreadManager(workers_);
-        storageServer_->setInterface(std::move(handler));
-        storageServer_->setStopWorkersOnStopListening(false);
+    env_ = std::make_unique<storage::StorageEnv>();
+    env_->kvstore_ = kvstore_.get();
+    env_->indexMan_ = indexMan_.get();
+    env_->schemaMan_ = schemaMan_.get();
 
-        storageSvcStatus_.store(STATUS_RUNNING);
-        LOG(INFO) << "The storage service start on " << localHost_;
-        storageServer_->serve();  // Will wait until the server shuts down
+    storageThread_.reset(new std::thread([this] {
+        try {
+            auto handler = std::make_shared<GraphStorageServiceHandler>(env_.get());
+            storageServer_ = std::make_unique<apache::thrift::ThriftServer>();
+            storageServer_->setPort(FLAGS_port);
+            storageServer_->setReusePort(FLAGS_reuse_port);
+            storageServer_->setIdleTimeout(std::chrono::seconds(0));
+            storageServer_->setIOThreadPool(ioThreadPool_);
+            storageServer_->setThreadManager(workers_);
+            storageServer_->setStopWorkersOnStopListening(false);
+            storageServer_->setInterface(std::move(handler));
 
+            storageSvcStatus_.store(STATUS_RUNNING);
+            LOG(INFO) << "The storage service start on " << localHost_;
+            storageServer_->serve();  // Will wait until the server shuts down
+        } catch (const std::exception& e) {
+            LOG(ERROR) << "Start storage service failed, error:" << e.what();
+        }
         storageSvcStatus_.store(STATUS_STTOPED);
         LOG(INFO) << "The storage service stopped";
     }));
 
-    adminThread_.reset(new std::thread([this, &env] {
-        auto handler = std::make_shared<StorageAdminServiceHandler>(&env);
-        auto adminAddr = kvstore::NebulaStore::getAdminAddr(localHost_);
-        adminServer_ = std::make_unique<apache::thrift::ThriftServer>();
-        adminServer_->setPort(adminAddr.port);
-        adminServer_->setReusePort(FLAGS_reuse_port);
-        adminServer_->setIdleTimeout(std::chrono::seconds(0));
-        adminServer_->setIOThreadPool(ioThreadPool_);
-        adminServer_->setThreadManager(workers_);
-        adminServer_->setInterface(std::move(handler));
-        adminServer_->setStopWorkersOnStopListening(false);
+    adminThread_.reset(new std::thread([this] {
+        try {
+            auto handler = std::make_shared<StorageAdminServiceHandler>(env_.get());
+            auto adminAddr = kvstore::NebulaStore::getAdminAddr(localHost_);
+            adminServer_ = std::make_unique<apache::thrift::ThriftServer>();
+            adminServer_->setPort(adminAddr.port);
+            adminServer_->setReusePort(FLAGS_reuse_port);
+            adminServer_->setIdleTimeout(std::chrono::seconds(0));
+            adminServer_->setIOThreadPool(ioThreadPool_);
+            adminServer_->setThreadManager(workers_);
+            adminServer_->setStopWorkersOnStopListening(false);
+            adminServer_->setInterface(std::move(handler));
 
-        adminSvcStatus_.store(STATUS_RUNNING);
-        LOG(INFO) << "The admin service start on " << adminAddr;
-        adminServer_->serve();  // Will wait until the server shuts down
-
+            adminSvcStatus_.store(STATUS_RUNNING);
+            LOG(INFO) << "The admin service start on " << adminAddr;
+            adminServer_->serve();  // Will wait until the server shuts down
+        } catch (const std::exception& e) {
+            LOG(ERROR) << "Start admin service failed, error:" << e.what();
+        }
         adminSvcStatus_.store(STATUS_STTOPED);
         LOG(INFO) << "The admin service stopped";
     }));
 
-    while (storageSvcStatus_.load() == STATUS_UNINITIALIZED &&
+    while (storageSvcStatus_.load() == STATUS_UNINITIALIZED ||
            adminSvcStatus_.load() == STATUS_UNINITIALIZED) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
@@ -201,6 +208,7 @@ bool StorageServer::start() {
 void StorageServer::waitUntilStop() {
     adminThread_->join();
     storageThread_->join();
+    LOG(ERROR) << "????????";
 }
 
 void StorageServer::stop() {

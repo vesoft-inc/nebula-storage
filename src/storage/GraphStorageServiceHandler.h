@@ -26,13 +26,10 @@ public:
         : env_(env)
         , vertexCache_(FLAGS_vertex_cache_num, FLAGS_vertex_cache_bucket_exp)
         , readerPool_(std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_reader_handlers)) {
-        // todo(doodle): why?
-        /*
         addVerticesQpsStat_ = stats::Stats("storage", "add_vertices");
         addEdgesQpsStat_ = stats::Stats("storage", "add_edges");
         delVerticesQpsStat_ = stats::Stats("storage", "del_vertices");
         delEdgesQpsStat_ = stats::Stats("storage", "del_edges");
-        */
     }
 
     // Vertice section

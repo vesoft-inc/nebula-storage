@@ -15,6 +15,7 @@
 #include "clients/meta/MetaClient.h"
 #include "meta/ClientBasedGflagsManager.h"
 #include "hdfs/HdfsHelper.h"
+#include "storage/CommonUtils.h"
 #include "storage/admin/AdminTaskManager.h"
 
 namespace nebula {
@@ -69,6 +70,7 @@ private:
     std::unique_ptr<meta::ClientBasedGflagsManager> gFlagsMan_;
     std::unique_ptr<meta::SchemaManager> schemaMan_;
     std::unique_ptr<meta::IndexManager> indexMan_;
+    std::unique_ptr<storage::StorageEnv> env_;
 
     std::atomic_bool stopped_{false};
     HostAddr localHost_;
