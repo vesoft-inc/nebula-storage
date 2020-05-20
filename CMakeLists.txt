@@ -34,6 +34,7 @@ option(ENABLE_TESTING "Whether to turn unit test ON or OFF" ON)
 option(ENABLE_UBSAN "Whether to turn Undefined Behavior Sanitizer ON or OFF" OFF)
 option(ENABLE_FUZZ_TEST "Whether to turn Fuzz Test ON or OFF" OFF)
 option(ENABLE_UPDATE "Whether to update common" OFF)
+option(ENABLE_STRICT_ALIASING "Whether to turn strict-aliasing ON or OFF" OFF)
 
 message(STATUS "ENABLE_ASAN: ${ENABLE_ASAN}")
 message(STATUS "ENABLE_TESTING: ${ENABLE_TESTING}")
@@ -220,9 +221,14 @@ find_package(GPERF 2.8 REQUIRED)
 find_package(Libunwind REQUIRED)
 find_package(LZ4 MODULE)
 find_package(LibLZMA MODULE)
+
 if(NOT ENABLE_ASAN AND NOT ENABLE_NATIVE)
     find_package(PCHSupport)
     add_compile_options(-Winvalid-pch)
+endif()
+
+if(NOT ENABLE_STRICT_ALIASING)
+    add_compile_options(-fno-strict-aliasing)
 endif()
 
 find_package(nebula-common REQUIRED)
