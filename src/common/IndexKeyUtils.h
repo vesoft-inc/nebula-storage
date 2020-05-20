@@ -17,11 +17,6 @@ namespace nebula {
 using PropertyType = nebula::meta::cpp2::PropertyType;
 
 /**
- *  NullCols vector<std::pair<original_col_type, nullable>>
- */
-using NullCols = std::vector<std::pair<Value::Type, bool>>;
-
-/**
  * This class supply some utils for index in kvstore.
  * */
 class IndexKeyUtils final {
@@ -307,19 +302,19 @@ public:
     static void encodeValues(const std::vector<Value>& values, std::string& raw);
 
     static void encodeValuesWithNull(const std::vector<Value>& values,
-                                     const NullCols& nullableCols,
+                                     const std::vector<Value::Type>& colsType,
                                      std::string& raw);
 
     static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
                                       IndexID indexId, VertexID vId,
                                       const std::vector<Value>& values,
-                                      const NullCols& nullableCols = {});
+                                      const std::vector<Value::Type>& withNullValueTypes = {});
 
     static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
                                     IndexID indexId, VertexID srcId,
                                     EdgeRanking rank, VertexID dstId,
                                     const std::vector<Value>& values,
-                                    const NullCols& nullableCols = {});
+                                    const std::vector<Value::Type>& withNullValueTypes = {});
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
