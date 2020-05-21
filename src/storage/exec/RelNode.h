@@ -18,7 +18,7 @@ class RelNode {
     friend class StorageDAG;
 public:
     virtual folly::Future<kvstore::ResultCode> execute() {
-        DVLOG(1) << name_;
+        VLOG(1) << name_;
         return kvstore::ResultCode::SUCCEEDED;
     }
 
