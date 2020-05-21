@@ -72,21 +72,6 @@ public:
         return HostAddr(raftAddr.host, raftAddr.port - 1);
     }
 
-    // Calculate the admin service address based on the storage service address
-    static HostAddr getAdminAddrFromStoreAddr(HostAddr srvcAddr) {
-        if (srvcAddr == HostAddr("", 0)) {
-            return srvcAddr;
-        }
-        return HostAddr(srvcAddr.host, srvcAddr.port - 1);
-    }
-
-    static HostAddr getStoreAddrFromAdminAddr(HostAddr adminAddr) {
-        if (adminAddr == HostAddr("", 0)) {
-            return adminAddr;
-        }
-        return HostAddr(adminAddr.host, adminAddr.port + 1);
-    }
-
     // Pull meta information from the PartManager and initiate
     // the current store instance
     bool init();
