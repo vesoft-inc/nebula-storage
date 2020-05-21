@@ -106,7 +106,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
         if (indexes_.empty()) {
             doPut(spaceId_, partId, std::move(data));
         } else {
-            auto atomic = [version, partId, vertices = std::move(data), this]()
+            auto atomic = [partId, vertices = std::move(data), this]()
                           -> folly::Optional<std::string> {
                 return addVertices(partId, vertices);
             };
