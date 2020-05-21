@@ -161,7 +161,7 @@ void RowWriterV2::processV2EncodedStr() noexcept {
 }
 
 
-void RowWriterV2::setNullBit(ssize_t pos) noexcept {
+void RowWriterV2::setNullBit(size_t pos) noexcept {
     static const uint8_t orBits[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
     size_t offset = headerLen_ + (pos >> 3);
@@ -169,7 +169,7 @@ void RowWriterV2::setNullBit(ssize_t pos) noexcept {
 }
 
 
-void RowWriterV2::clearNullBit(ssize_t pos) noexcept {
+void RowWriterV2::clearNullBit(size_t pos) noexcept {
     static const uint8_t andBits[] = {0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFD, 0xFE};
 
     size_t offset = headerLen_ + (pos >> 3);
@@ -177,7 +177,7 @@ void RowWriterV2::clearNullBit(ssize_t pos) noexcept {
 }
 
 
-bool RowWriterV2::checkNullBit(ssize_t pos) const noexcept {
+bool RowWriterV2::checkNullBit(size_t pos) const noexcept {
     static const uint8_t bits[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
 
     size_t offset = headerLen_ + (pos >> 3);
@@ -186,7 +186,7 @@ bool RowWriterV2::checkNullBit(ssize_t pos) const noexcept {
 }
 
 
-WriteResult RowWriterV2::setValue(ssize_t index, const Value& val) noexcept {
+WriteResult RowWriterV2::setValue(size_t index, const Value& val) noexcept {
     CHECK(!finished_) << "You have called finish()";
     if (index < 0 || static_cast<size_t>(index) >= schema_->getNumFields()) {
         return WriteResult::UNKNOWN_FIELD;
@@ -220,7 +220,7 @@ WriteResult RowWriterV2::setValue(folly::StringPiece name, const Value& val) noe
 }
 
 
-WriteResult RowWriterV2::setNull(ssize_t index) noexcept {
+WriteResult RowWriterV2::setNull(size_t index) noexcept {
     CHECK(!finished_) << "You have called finish()";
     if (index < 0 || static_cast<size_t>(index) >= schema_->getNumFields()) {
         return WriteResult::UNKNOWN_FIELD;
@@ -245,7 +245,7 @@ WriteResult RowWriterV2::setNull(folly::StringPiece name) noexcept {
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, bool v) noexcept {
+WriteResult RowWriterV2::write(size_t index, bool v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -276,7 +276,7 @@ WriteResult RowWriterV2::write(ssize_t index, bool v) noexcept {
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
+WriteResult RowWriterV2::write(size_t index, float v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -332,7 +332,7 @@ WriteResult RowWriterV2::write(ssize_t index, float v) noexcept {
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
+WriteResult RowWriterV2::write(size_t index, double v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -387,183 +387,31 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
     return WriteResult::SUCCEEDED;
 }
 
-
-WriteResult RowWriterV2::write(ssize_t index, uint8_t v) noexcept {
-    return write(index, static_cast<int8_t>(v));
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, int8_t v) noexcept {
-    auto field = schema_->field(index);
-    auto offset = headerLen_ + numNullBytes_ + field->offset();
-    switch (field->type()) {
-        case meta::cpp2::PropertyType::BOOL: {
-            buf_[offset] = v == 0 ? 0x00 : 0x01;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT8: {
-            buf_[offset] = v;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT16: {
-            int16_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int16_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::INT32: {
-            int32_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int32_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::INT64: {
-            int64_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int64_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::FLOAT: {
-            float fv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&fv), sizeof(float));
-            break;
-        }
-        case meta::cpp2::PropertyType::DOUBLE: {
-            double dv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&dv), sizeof(double));
-            break;
-        }
-        default:
-            return WriteResult::TYPE_MISMATCH;
-    }
-    if (field->nullable()) {
-        clearNullBit(field->nullFlagPos());
-    }
-    isSet_[index] = true;
-    return WriteResult::SUCCEEDED;
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, uint16_t v) noexcept {
-    return write(index, static_cast<int16_t>(v));
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, int16_t v) noexcept {
-    auto field = schema_->field(index);
-    auto offset = headerLen_ + numNullBytes_ + field->offset();
-    switch (field->type()) {
-        case meta::cpp2::PropertyType::BOOL: {
-            buf_[offset] = v == 0 ? 0x00 : 0x01;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT8: {
-            if (v > 0x7F || v < -0x7F) {
-                return WriteResult::OUT_OF_RANGE;
-            }
-            int8_t iv = v;
-            buf_[offset] = iv;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT16: {
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&v), sizeof(int16_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::INT32: {
-            int32_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int32_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::INT64: {
-            int64_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int64_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::FLOAT: {
-            float fv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&fv), sizeof(float));
-            break;
-        }
-        case meta::cpp2::PropertyType::DOUBLE: {
-            double dv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&dv), sizeof(double));
-            break;
-        }
-        default:
-            return WriteResult::TYPE_MISMATCH;
-    }
-    if (field->nullable()) {
-        clearNullBit(field->nullFlagPos());
-    }
-    isSet_[index] = true;
-    return WriteResult::SUCCEEDED;
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, uint32_t v) noexcept {
-    return write(index, static_cast<int32_t>(v));
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
-    auto field = schema_->field(index);
-    auto offset = headerLen_ + numNullBytes_ + field->offset();
-    switch (field->type()) {
-        case meta::cpp2::PropertyType::BOOL: {
-            buf_[offset] = v == 0 ? 0x00 : 0x01;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT8: {
-            if (v > 0x7F || v < -0x7F) {
-                return WriteResult::OUT_OF_RANGE;
-            }
-            int8_t iv = v;
-            buf_[offset] = iv;
-            break;
-        }
-        case meta::cpp2::PropertyType::INT16: {
-            if (v > 0x7FFF || v < -0x7FFF) {
-                return WriteResult::OUT_OF_RANGE;
-            }
-            int16_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int16_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::INT32: {
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&v), sizeof(int32_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::TIMESTAMP:
-            // 32-bit timestamp can only support upto 2038-01-19
-        case meta::cpp2::PropertyType::INT64: {
-            int64_t iv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int64_t));
-            break;
-        }
-        case meta::cpp2::PropertyType::FLOAT: {
-            float fv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&fv), sizeof(float));
-            break;
-        }
-        case meta::cpp2::PropertyType::DOUBLE: {
-            double dv = v;
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&dv), sizeof(double));
-            break;
-        }
-        default:
-            return WriteResult::TYPE_MISMATCH;
-    }
-    if (field->nullable()) {
-        clearNullBit(field->nullFlagPos());
-    }
-    isSet_[index] = true;
-    return WriteResult::SUCCEEDED;
-}
-
-
-WriteResult RowWriterV2::write(ssize_t index, uint64_t v) noexcept {
+WriteResult RowWriterV2::write(size_t index, int8_t v) noexcept {
     return write(index, static_cast<int64_t>(v));
 }
 
+WriteResult RowWriterV2::write(size_t index, uint8_t v) noexcept {
+    return write(index, static_cast<int64_t>(v));
+}
 
-WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
+WriteResult RowWriterV2::write(size_t index, int16_t v) noexcept {
+    return write(index, static_cast<int64_t>(v));
+}
+
+WriteResult RowWriterV2::write(size_t index, uint16_t v) noexcept {
+    return write(index, static_cast<int64_t>(v));
+}
+
+WriteResult RowWriterV2::write(size_t index, int32_t v) noexcept {
+    return write(index, static_cast<int64_t>(v));
+}
+
+WriteResult RowWriterV2::write(size_t index, uint32_t v) noexcept {
+    return write(index, static_cast<int64_t>(v));
+}
+
+WriteResult RowWriterV2::write(size_t index, int64_t v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -572,7 +420,7 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT8: {
-            if (v > 0x7F || v < -0x7F) {
+            if (v > std::numeric_limits<int8_t>::max() || v < std::numeric_limits<int8_t>::min()) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int8_t iv = v;
@@ -580,7 +428,8 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT16: {
-            if (v > 0x7FFF || v < -0x7FFF) {
+            if (v > std::numeric_limits<int16_t>::max() ||
+                v < std::numeric_limits<int16_t>::min()) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int16_t iv = v;
@@ -588,7 +437,8 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::INT32: {
-            if (v > 0x7FFFFFFF || v < -0x7FFFFFFF) {
+            if (v > std::numeric_limits<int32_t>::max() ||
+                v < std::numeric_limits<int32_t>::min()) {
                 return WriteResult::OUT_OF_RANGE;
             }
             int32_t iv = v;
@@ -621,18 +471,17 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
     return WriteResult::SUCCEEDED;
 }
 
-
-WriteResult RowWriterV2::write(ssize_t index, const std::string& v) noexcept {
+WriteResult RowWriterV2::write(size_t index, const std::string& v) noexcept {
     return write(index, folly::StringPiece(v));
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, const char* v) noexcept {
+WriteResult RowWriterV2::write(size_t index, const char* v) noexcept {
     return write(index, folly::StringPiece(v));
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
+WriteResult RowWriterV2::write(size_t index, folly::StringPiece v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -684,7 +533,7 @@ WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, const Date& v) noexcept {
+WriteResult RowWriterV2::write(size_t index, const Date& v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
@@ -712,7 +561,7 @@ WriteResult RowWriterV2::write(ssize_t index, const Date& v) noexcept {
 }
 
 
-WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
+WriteResult RowWriterV2::write(size_t index, const DateTime& v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
