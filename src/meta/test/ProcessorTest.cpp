@@ -59,6 +59,7 @@ TEST(ProcessorTest, ListHostsTest) {
         // after received heartbeat, host status will become online
         meta::TestUtils::registerHB(kv.get(), hosts);
         cpp2::ListHostsReq req;
+        req.set_type(cpp2::ListHostType::STORAGE);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -74,6 +75,7 @@ TEST(ProcessorTest, ListHostsTest) {
         // host info expired
         sleep(FLAGS_expired_threshold_sec + 1);
         cpp2::ListHostsReq req;
+        req.set_type(cpp2::ListHostType::STORAGE);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -99,18 +101,17 @@ TEST(ProcessorTest, ListSpecficHostsTest) {
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     std::vector<HostAddr> graphHosts;
     for (auto i = 0; i < 3; ++i) {
-        graphHosts.emplace_back(i, i);
+        graphHosts.emplace_back(std::to_string(i), i);
     }
     std::vector<HostAddr> metaHosts;
     for (auto i = 3; i < 4; ++i) {
-        metaHosts.emplace_back(i, i);
+        metaHosts.emplace_back(std::to_string(i), i);
     }
     std::vector<HostAddr> storageHosts;
     for (auto i = 4; i < 10; ++i) {
-        storageHosts.emplace_back(i, i);
+        storageHosts.emplace_back(std::to_string(i), i);
     }
     meta::TestUtils::setupHB(kv.get(), graphHosts, roleVec[0], gitInfoShaVec[0]);
-    meta::TestUtils::setupHB(kv.get(), metaHosts, roleVec[1], gitInfoShaVec[1]);
     meta::TestUtils::setupHB(kv.get(), storageHosts, roleVec[2], gitInfoShaVec[2]);
     {
         cpp2::ListHostsReq req;
@@ -122,29 +123,13 @@ TEST(ProcessorTest, ListSpecficHostsTest) {
         auto resp = std::move(f).get();
         ASSERT_EQ(graphHosts.size(), resp.hosts.size());
         for (auto i = 0U; i < resp.hosts.size(); ++i) {
-            ASSERT_EQ(i, resp.hosts[i].hostAddr.ip);
+            ASSERT_EQ(std::to_string(i), resp.hosts[i].hostAddr.host);
             ASSERT_EQ(i, resp.hosts[i].hostAddr.port);
             ASSERT_EQ(cpp2::HostStatus::ONLINE, resp.hosts[i].status);
             ASSERT_EQ(gitInfoShaVec[0], resp.hosts[i].git_info_sha);
         }
     }
-    {
-        cpp2::ListHostsReq req;
-        req.set_type(cpp2::ListHostType::META);
-        auto* processor = ListHostsProcessor::instance(kv.get());
-        auto f = processor->getFuture();
-        processor->process(req);
-        f.wait();
-        auto resp = std::move(f).get();
-        ASSERT_EQ(metaHosts.size(), resp.hosts.size());
-        auto b = graphHosts.size();
-        for (auto i = 0U; i < resp.hosts.size(); ++i) {
-            ASSERT_EQ(i+b, resp.hosts[i].hostAddr.ip);
-            ASSERT_EQ(i+b, resp.hosts[i].hostAddr.port);
-            ASSERT_EQ(cpp2::HostStatus::ONLINE, resp.hosts[i].status);
-            ASSERT_EQ(gitInfoShaVec[1], resp.hosts[i].git_info_sha);
-        }
-    }
+
     {
         cpp2::ListHostsReq req;
         req.set_type(cpp2::ListHostType::STORAGE);
@@ -156,7 +141,7 @@ TEST(ProcessorTest, ListSpecficHostsTest) {
         ASSERT_EQ(storageHosts.size(), resp.hosts.size());
         auto b = graphHosts.size() + metaHosts.size();
         for (auto i = 0U; i < resp.hosts.size(); ++i) {
-            ASSERT_EQ(i+b, resp.hosts[i].hostAddr.ip);
+            ASSERT_EQ(std::to_string(i+b), resp.hosts[i].hostAddr.host);
             ASSERT_EQ(i+b, resp.hosts[i].hostAddr.port);
             ASSERT_EQ(cpp2::HostStatus::ONLINE, resp.hosts[i].status);
             ASSERT_EQ(gitInfoShaVec[2], resp.hosts[i].git_info_sha);
@@ -197,7 +182,7 @@ TEST(ProcessorTest, ListPartsTest) {
     // register HB with leader distribution
     {
         auto now = time::WallClock::fastNowInMilliSec();
-        HostInfo info(now);
+        HostInfo info(now, cpp2::HostRole::STORAGE, NEBULA_STRINGIFY(GIT_INFO_SHA));
 
         LeaderParts leaderParts;
         leaderParts[1] = {1, 2, 3, 4, 5};

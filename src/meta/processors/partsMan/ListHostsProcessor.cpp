@@ -25,8 +25,8 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             onFinished();
             return;
         }
-        Status status = req.get_type() == cpp2::ListHostType::META ?
-                        allMetaHostsStatus() : allHostsWithStatus(req.get_type());
+        bool isMeta = req.get_type() == cpp2::ListHostType::META;
+        Status status = isMeta ? allMetaHostsStatus() : allHostsWithStatus(req.get_type());
 
         if (!status.ok()) {
             onFinished();
@@ -94,7 +94,7 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
         cpp2::HostItem item;
         auto host = MetaServiceUtils::parseHostKey(iter->key());
         item.set_hostAddr(std::move(host));
-        HostInfo info = HostInfo::decodeV2(iter->val());
+        HostInfo info = HostInfo::decode(iter->val());
         if (!match(type, info.role_)) {
             iter->next();
             continue;

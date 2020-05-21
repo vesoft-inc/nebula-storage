@@ -38,55 +38,68 @@ struct HostInfo {
     cpp2::HostRole  role_{cpp2::HostRole::UNKNOWN};
     std::string     gitInfoSha_;
 
-    static std::string encode(const HostInfo& info) {
-        std::string encode;
-        encode.reserve(sizeof(int64_t));
-        encode.append(reinterpret_cast<const char*>(&info.lastHBTimeInMilliSec_), sizeof(int64_t));
-        return encode;
-    }
 
     static HostInfo decode(const folly::StringPiece& data) {
+        if (data.size() == sizeof(int64_t)) {
+            return decodeV1(data);
+        }
+        return decodeV2(data);
+    }
+
+    static HostInfo decodeV1(const folly::StringPiece& data) {
         HostInfo info;
         info.lastHBTimeInMilliSec_ = *reinterpret_cast<const int64_t*>(data.data());
         return info;
     }
 
+    /*
+     * int8_t           dataVer
+     * int64_t          timestamp
+     * sizeof(HostRole) hostRole
+     * size_t           lenth of gitInfoSha
+     * string           gitInfoSha
+     * */
     static std::string encodeV2(const HostInfo& info) {
         std::string encode;
-        encode.reserve(sizeof(int64_t)+sizeof(cpp2::HostRole));
+        int8_t dataVer = 2;
+        encode.append(reinterpret_cast<const char*>(&dataVer), sizeof(int8_t));
         encode.append(reinterpret_cast<const char*>(&info.lastHBTimeInMilliSec_), sizeof(int64_t));
-        if (info.role_ != cpp2::HostRole::UNKNOWN) {
-            encode.append(reinterpret_cast<const char*>(&info.role_), sizeof(cpp2::HostRole));
-            if (!info.gitInfoSha_.empty()) {
-                int len = info.gitInfoSha_.size();
-                encode.append(reinterpret_cast<const char*>(&len), sizeof(len));
-                encode.append(info.gitInfoSha_.c_str(), len);
-            }
+
+        encode.append(reinterpret_cast<const char*>(&info.role_), sizeof(cpp2::HostRole));
+
+        size_t len = info.gitInfoSha_.size();
+        encode.append(reinterpret_cast<const char*>(&len), sizeof(size_t));
+
+        if (!info.gitInfoSha_.empty()) {
+            encode.append(info.gitInfoSha_.data(), len);
         }
         return encode;
     }
 
     static HostInfo decodeV2(const folly::StringPiece& data) {
         HostInfo info;
-        info.lastHBTimeInMilliSec_ = *reinterpret_cast<const int64_t*>(data.data());
-        auto offset = sizeof(int64_t);
-        if (offset + sizeof(cpp2::HostRole) <= data.size()) {
-            info.role_ = *reinterpret_cast<const cpp2::HostRole*>(data.data() + offset);
+        size_t offset = sizeof(int8_t);
+
+        info.lastHBTimeInMilliSec_ = *reinterpret_cast<const int64_t*>(data.data() + offset);
+        offset += sizeof(int64_t);
+
+        if (data.size() - offset < sizeof(cpp2::HostRole)) {
+            FLOG_FATAL("decode out of range, offset=%zu, actual=%zu", offset, data.size());
         }
+        info.role_ = *reinterpret_cast<const cpp2::HostRole*>(data.data() + offset);
         offset += sizeof(cpp2::HostRole);
-        if (offset + sizeof(int) <= data.size()) {
-            int len = *reinterpret_cast<const int*>(data.data() + offset);
-            offset += sizeof(int);
-            if (offset + len <= data.size()) {
-                info.gitInfoSha_ = std::string(data.data() + offset, len);
-            } else {
-                LOG(ERROR) << folly::format("trying to decode SHA from data, size = {0}",
-                                            data.size());
-            }
-        } else {
-            LOG(ERROR) << folly::format("trying to decode role from data, size = {0}",
-                                        data.size());
+
+        if (offset + sizeof(size_t) > data.size()) {
+            FLOG_FATAL("decode out of range, offset=%zu, actual=%zu", offset, data.size());
         }
+        size_t len = *reinterpret_cast<const size_t*>(data.data() + offset);
+        offset += sizeof(size_t);
+
+        if (offset + len > data.size()) {
+            FLOG_FATAL("decode out of range, offset=%zu, actual=%zu", offset, data.size());
+        }
+
+        info.gitInfoSha_ = std::string(data.data() + offset, len);
         return info;
     }
 };

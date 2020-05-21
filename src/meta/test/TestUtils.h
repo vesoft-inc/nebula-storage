@@ -140,11 +140,7 @@ public:
     }
 
     static void registerHB(kvstore::KVStore* kv, const std::vector<HostAddr>& hosts) {
-        auto now = time::WallClock::fastNowInMilliSec();
-        for (auto& h : hosts) {
-            auto ret = ActiveHostsMan::updateHostInfo(kv, h, HostInfo(now));
-            CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
-        }
+        return setupHB(kv, hosts, cpp2::HostRole::STORAGE, NEBULA_STRINGIFY(GIT_INFO_SHA));
      }
 
     static void setupHB(kvstore::KVStore* kv,
@@ -165,13 +161,14 @@ public:
         registerHB(kv, hosts);
         {
             cpp2::ListHostsReq req;
+            req.set_type(cpp2::ListHostType::STORAGE);
             auto* processor = ListHostsProcessor::instance(kv);
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            EXPECT_EQ(hosts.size(), resp.hosts.size());
+            CHECK_EQ(hosts.size(), resp.hosts.size());
             for (decltype(hosts.size()) i = 0; i < hosts.size(); i++) {
-                EXPECT_EQ(hosts[i], resp.hosts[i].hostAddr);
+                CHECK_EQ(hosts[i], resp.hosts[i].hostAddr);
             }
         }
         return hosts.size();
