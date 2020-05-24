@@ -15,7 +15,11 @@ namespace storage {
 class FilterContext {
 public:
     void fillTagProp(TagID tagId, const std::string& prop, const nebula::Value& value) {
-        tagFilters_.emplace(std::make_pair(tagId, prop), value);
+        tagFilters_[std::make_pair(tagId, prop)] = value;
+    }
+
+    std::unordered_map<std::pair<TagID, std::string>, nebula::Value> getTagFilter() {
+        return tagFilters_;
     }
 
 private:

@@ -183,6 +183,74 @@ private:
     nebula::DataSet* result_;
 };
 
+
+class CatenateUpdateNode : public RelNode {
+public:
+    CatenateNode(StorageEnv* env,
+                 GraphSpaceID spaceId,
+                 UpdateNode* updateNode,
+                 std::vector<std::unique_ptr<Expression>>& returnPropsExp,
+                 nebula::DataSet* result)
+        : env_(env)
+        , spaceId_(spaceId)
+        , updateNode_(updateNode)
+        , returnPropsExp_(returnPropsExp);
+        , result_(result) {
+            filter_ = updateNode_->getFilterCont();
+            insert_ = updateNode_-getInsert();
+        }
+
+    folly::Future<kvstore::ResultCode> execute(PartitionID, const VertexID& vId) override {
+        Getters getters;
+        getters.getSrcTagProp = [this] (const std::string& tagName,
+                                        const std::string& prop) -> OptValue {
+            auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, tagName);
+            if (!tagRet.ok()) {
+                VLOG(1) << "Can't find tag " << tagName << ", in space " << this->spaceId_;
+                return Status::Error("Invalid Filter Tag: " + tagName);
+            }
+            auto tagId = tagRet.value();
+            auto tagFilters = this->filter_->getTagFilter();
+            auto it = tagFilters.find(std::make_pair(tagId, prop));
+            if (it == tagFilters.end()) {
+                return Status::Error("Invalid Tag Filter");
+            }
+            VLOG(1) << "Hit srcProp filter for tag: " << tagName
+                    << ", prop: " << prop;
+            return it->second;
+        };
+    
+        result_->colNames.emplace_back("_inserted");
+        nebula::Row row;
+        row.columns.emplace_back(insert_);
+    
+        for (auto& exp : returnPropsExp_) {
+            auto value = exp->eval(getters);
+            if (!value.ok()) {
+                LOG(ERROR) << value.status();
+                return kvstore::ResultCode::ERR_INVALID_RETURN_EXP;
+            }
+            result_->colNames.emplace_back(folly::stringPrintf("%s:%s", exp->alias()->c_str(),
+                                                                        exp->prop()->c_str()));
+            row.columns.emplace_back(std::move(value.value());
+        }
+        result_->rows.emplace_back(std::move(row));
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+private:
+    // ================= input =========================================================
+    StorageEnv                                                                     *env_;
+    UpdateNode                                                                     *updateNode_;
+    GraphSpaceID                                                                    spaceId_;
+    FilterContext                                                                  *filter_;
+    bool                                                                            insert_{false};
+    std::vector<std::unique_ptr<Expression>>                                        returnPropsExp_;
+    // ===================output========================================================
+    nebula::DataSet                                                                *result_;
+};
+
+
 }  // namespace storage
 }  // namespace nebula
 

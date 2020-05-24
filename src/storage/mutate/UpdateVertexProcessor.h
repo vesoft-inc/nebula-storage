@@ -12,8 +12,6 @@
 namespace nebula {
 namespace storage {
 
-using OptValue = StatusOr<Value>;
-
 class UpdateVertexProcessor
     : public QueryBaseProcessor<cpp2::UpdateVertexRequest, cpp2::UpdateResponse> {
 public:
@@ -86,9 +84,6 @@ private:
 
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
 
-    std::atomic<cpp2::ErrorCode>                    filterResult_{cpp2::ErrorCode::SUCCEEDED};
-
-    bool                                                            insert_{false};
 
     // TODO implement  expression contex
     std::unique_ptr<ExpressionContext>                              expCtx_;

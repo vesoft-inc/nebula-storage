@@ -108,21 +108,30 @@ StorageDAG UpdateVertexProcessor::buildDAG(nebula::DataSet* result) {
         dag.addNode(std::move(TagUpdate));
     }
 
-    auto filterNode = std::make_unique<FilterNode>(
-            filterExp_.get(), tagUpdates, &tagContext_);
+    auto filterNode = std::make_unique<TagFilterNode>(env_,
+                                                      spaceId_,
+                                                      filterExp_.get(),
+                                                      tagUpdates,
+                                                      &tagContext_);
 
     for (atuo* tagUpdate : tagUpdates) {
         filterNode->addDependency(tagUpdate);
     }
     dag.addNode(std::move(filterNode));
 
-    auto updateNode = std::make_unique<UpdateNode>(
-            tags, filter.get(), &tagContext_, nullptr, spaceVidLen_, result);
+    auto updateNode = std::make_unique<UpdateNode>(env_,
+                                                   spaceId_,
+                                                   updatedVertexProps_,
+                                                   filterNode.get(),
+                                                   expCtx_.get());
     updateNode->addDependency(filterNode.get());
     dag.addNode(std::move(updateNode));
 
-    auto catNode = std::make_unique<CatenateNode>(
-            tags, filter.get(), &tagContext_, &edgeContext_, spaceVidLen_, result);
+    auto catNode = std::make_unique<CatenateUpdateNode>(env_,
+                                                        spaceId_,
+                                                        UpdateNode.get(),
+                                                        returnPropsExp_,
+                                                        result);
     catNode->addDependency(updateNode.get());
     dag.addNode(std::move(catNode));
 
@@ -229,217 +238,10 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         LOG(ERROR) << "should only contain SrcTagProp expression!";
         return cpp2::ErrorCode::E_INVALID_UPDATER;
     }
-
 }
 
-
-cpp2::ErrorCode UpdateVertexProcessor::checkFilter(const PartitionID partId, const VertexID vId) {
-    // TODO QueryBaseProcessor::checkExp build tagContexts_
-    for (auto& tc : tagContexts_) {
-        VLOG(3) << "partId " << partId << ", vId " << vId
-                << ", tagId " << tc.first << ", prop size " << tc.second.size();
-        auto ret = processTagProps(partId, vId, tc.first, tc.second);
-        if (ret == kvstore::ResultCode::ERR_CORRUPT_DATA) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-        } else if (ret != kvstore::ResultCode::SUCCEEDED) {
-            return to(ret);
-        }
-    }
-
-    Getters getters;
-    getters.getSrcTagProp = [&, this] (const std::string& tagName,
-                                       const std::string& prop) -> OptValue {
-        auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, tagName);
-        if (!tagRet.ok()) {
-            VLOG(1) << "Can't find tag " << tagName << ", in space " << this->spaceId_;
-            return Status::Error("Invalid Filter Tag: " + tagName);
-        }
-        auto tagId = tagRet.value();
-        auto it = this->tagFilters_.find(std::make_pair(tagId, prop));
-        if (it == this->tagFilters_.end()) {
-            return Status::Error("Invalid Tag Filter");
-        }
-        VLOG(1) << "Hit srcProp filter for tag: " << tagName
-                << ", prop: " << prop;
-        return it->second;
-    };
-
-    if (this->exp_ != nullptr) {
-        // When insert, default where condition is true
-        auto ret = this->isInsert(*(this->exp_->alias()));
-        if (!ret.ok()) {
-            return to(ret);
-        }
-        if (ret.value()) {
-            this->insert_ = true;
-            return cpp2::ErrorCode::SUCCEEDED;
-        }
-
-        auto filterResult = this->exp_->eval(getters);
-        if (!filterResult.ok()) {
-            return cpp2::ErrorCode::E_INVALID_FILTER;
-        }
-        if (!Expression::asBool(filterResult.value())) {
-            VLOG(1) << "Filter skips the update";
-            return cpp2::ErrorCode::E_FILTER_OUT;
-        }
-    }
-    return cpp2::ErrorCode::SUCCEEDED;
-}
-
-
-StatusOr<bool> UpdateVertexProcessor::isInsert(const std::string& tagName) {
-    auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, tagName);
-    if (!tagRet.ok()) {
-        VLOG(1) << "Can't find tag " << tagName << ", in space " << this->spaceId_;
-        return Status::Error("Invalid Filter Tag: " + tagName);
-    }
-    auto tagId = tagRet.value();
-    auto it = this->tagPropInsert_.find(tagId);
-    if (it == this->tagPropInsert_.end()) {
-        return Status::Error("Invalid Tag Filter");
-    }
-    return it->second;
-}
-
-std::string UpdateVertexProcessor::updateAndWriteBack(const PartitionID partId,
-                                                      const VertexID vId) {
-    UNUSED(partId);
-    UNUSED(vId);
-    Getters getters;
-    getters.getSrcTagProp = [this] (const std::string& tagName,
-                                       const std::string& prop) -> OptValue {
-        auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, tagName);
-        if (!tagRet.ok()) {
-            VLOG(1) << "Can't find tag " << tagName << ", in space " << this->spaceId_;
-            return Status::Error("Invalid Filter Tag: " + tagName);
-        }
-        auto tagId = tagRet.value();
-        auto it = tagFilters_.find(std::make_pair(tagId, prop));
-        if (it == tagFilters_.end()) {
-            return Status::Error("Invalid Tag Filter");
-        }
-        VLOG(1) << "Hit srcProp filter for tag: " << tagName
-                << ", prop: " << prop;
-        return it->second;
-    };
-
-    for (auto& updateProp : updatedVertexProps_) {
-        auto tagId = updateProp.get_tag_id();
-        auto propName = updateProp.get_name();
-        auto exp = Expression::decode(updateProp.get_value());
-        if (!exp.ok()) {
-            return std::string("");
-        }
-        auto vexp = std::move(exp).value();
-        vexp->setContext(this->expCtx_.get());
-        auto value = vexp->eval(getters);
-        if (!value.ok()) {
-            return std::string("");
-        }
-        auto expValue = value.value();
-        tagFilters_[std::make_pair(tagId, propName)] = expValue;
-
-        // update old value -> new value
-        auto wRet = tagUpdaters_[tagId].second->setValue(propName, expValue);
-        if (wRet != WriteResult::SUCCEEDED) {
-            VLOG(1) << "Add field faild ";
-            return std::string("");
-        }
-    }
-
-    std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
-    for (const auto& u : tagUpdaters_) {
-        auto nKey = u.second.first;
-        auto wRet = u.second.second->finish();
-        if (wRet != WriteResult::SUCCEEDED) {
-            VLOG(1) << "Add field faild ";
-            return std::string("");
-        }
-        auto nVal = std::move(u.second.second->moveEncodedStr());
-
-        /*
-        if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> reader, oReader;
-            for (auto &index : indexes_) {
-                if (index->get_schema_id().get_tag_id() == u.first) {
-                    if (!(u.second->kv.second.empty())) {
-                        if (oReader == nullptr) {
-                            oReader = RowReader::getTagPropReader(this->schemaMan_,
-                                                                  u.second->kv.second,
-                                                                  spaceId_,
-                                                                  u.first);
-                        }
-                        const auto &oCols = index->get_fields();
-                        auto oValues = collectIndexValues(oReader.get(), oCols);
-                        auto oIndexKey = NebulaKeyUtils::vertexIndexKey(partId,
-                                                                        index->index_id,
-                                                                        vId,
-                                                                        oValues);
-                        batchHolder->remove(std::move(oIndexKey));
-                    }
-                    if (reader == nullptr) {
-                        reader = RowReader::getTagPropReader(this->schemaMan_,
-                                                             nVal,
-                                                             spaceId_,
-                                                             u.first);
-                    }
-                    const auto &cols = index->get_fields();
-                    auto values = collectIndexValues(reader.get(), cols);
-                    auto indexKey = NebulaKeyUtils::vertexIndexKey(partId,
-                                                                   index->get_index_id(),
-                                                                   vId,
-                                                                   values);
-                    batchHolder->put(std::move(indexKey), "");
-                }
-            }
-        }
-        */
-
-        batchHolder->put(std::move(nKey), std::move(nVal));
-    }
-    return encodeBatchValue(batchHolder->getBatch());
-}
-
-
-
-
-
-    CHECK_NOTNULL(env_->kvstore_);
-    auto atomic = [partId, vId, this] () -> folly::Optional<std::string> {
-        filterResult_ = checkFilter(partId, vId);
-        if (filterResult_ == cpp2::ErrorCode::SUCCEEDED) {
-                return updateAndWriteBack(partId, vId);
-            } else {
-                return folly::none;
-            }
-    };
-
-    auto callback = [this, partId, vId, req] (kvstore::ResultCode code) {
-        while (true) {
-            if (code == kvstore::ResultCode::SUCCEEDED) {
-                onProcessFinished();
-                break;
-            }
-            LOG(ERROR) << "Fail to update vertex, spaceId: " << this->spaceId_
-                       << ", partId: " << partId << ", vId: " << vId;
-            if (code == kvstore::ResultCode::ERR_LEADER_CHANGED) {
-                handleLeaderChanged(this->spaceId_, partId);
-                break;
-            }
-            if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED) {
-                if (filterResult_ == cpp2::ErrorCode::E_FILTER_OUT) {
-                    onProcessFinished();
-                }
-                this->pushResultCode(filterResult_, partId);
-            } else {
-                this->pushResultCode(to(code), partId);
-            }
-            break;
-        }
-        this->onFinished();
-    };
-    env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+void UpdateVertexProcessor::onProcessFinished() {
+    resp_.set_props(std::move(resultDataSet_));
 }
 
 }  // namespace storage

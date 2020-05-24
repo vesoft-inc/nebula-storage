@@ -152,7 +152,6 @@ private:
 
     // props_ is props of tagId_
     const std::vector<PropContext>* props_;
-    // <tagID, prop_name>-> prop_value because only updae one vertex
     FilterContext* filter_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
 
@@ -178,6 +177,7 @@ public:
              // use newest scheam version
             const auto& schema_ = schemas_->back().get();
             CHECK_NOTNULL(schema_);
+            filter_ = std::make_unique<FilterContext>();
         }
 
     // Only process this tag, collect all need attributes of this tag
@@ -194,7 +194,7 @@ public:
 
 private:
     // update newest version
-    kvstore::ResultCode processTagProps(PartitionID partId, const VertexID& vId) {       
+    kvstore::ResultCode processTagProps(PartitionID partId, const VertexID& vId) {
         // use key and value, so do not use vertexCache_
         auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId, tagId_);
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -257,11 +257,11 @@ private:
             }
             auto cloValue = std::move(retVal.value());
 
-            // This is different from others node 
+            // This is different from others node
             // all prop fields of this tag  new value puts filter_
             filter_->fillTagProp(tagId_, prop.name_, cloValue);
         }
-        
+
         // Whether to insert
         insert_ = false;
 
@@ -273,13 +273,46 @@ private:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
+    StatusOr<Value> getDefaultProp(const nebula::cpp2::PropertyType& type) {
+          switch (type) {
+              case nebula::cpp2::PropertyType::BOOL: {
+                  return Value(false);
+              }
+              case nebula::cpp2::SupportedType::TIMESTAMP:
+              case nebula::cpp2::PropertyType::INT64:
+              case nebula::cpp2::PropertyType::INT32:
+              case nebula::cpp2::PropertyType::INT16:
+              case nebula::cpp2::PropertyType::INT8: {
+                  return Value(0);
+              }
+              case nebula::cpp2::PropertyType::FLOAT:
+              case nebula::cpp2::PropertyType::DOUBLE: {
+                  return Value(0.0);
+              }
+              case nebula::cpp2::PropertyType::STRING: {
+                  return Value("");
+              }
+              case nebula::cpp2::PropertyType::DATE:
+                   Date date;
+                   return Value(date);
+              }
+              // TODO datatime FIXED_STRING
+              default:
+                  auto msg = folly::sformat("Unknown type: {}", static_cast<int32_t>(type));
+                  LOG(ERROR) << msg;
+                  return Status::Error(msg);
+          }
+      }
+
     // This tagId needs insert props row
     // Failed when the props neither updated value nor has default value
     kvstore::ResultCode insertTagProps(const PartitionID partId,
                                        const VertexID vId) {
         insert_ = true;
 
-        // When insert, the filter condition is always true
+        //  ?    When insert, the filter condition is always true
+        //  upsert，first use default value， then use type default
+
         // the tagId props of props_ need default value or update value
         for (auto& prop : *props_) {
             // first check whether is updated field, then use default value
@@ -293,8 +326,13 @@ private:
                     auto propName = updateProp.get_name();
                     if (tagId_ == toTagId && !prop.name_.compare(propName)) {
                         isUpdateProp = true;
-                        // Insert a null value temporarily, it will be updated when update later
-                        filter_->fillTagProp(tagId_, prop.name_, NullType::__NULL__);
+                        // Insert a type default value temporarily, it will be updated when update later
+                        auto& pType = schema_->getFieldType(prop.name_);
+                        auto defaultValue = getDefaultProp(pType);
+                        if (!defaultValue.ok()) {
+                            return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                         }
+                        filter_->fillTagProp(tagId_, prop.name_, defaultValue.value());
                         break;
                     }
                 }
@@ -311,7 +349,19 @@ private:
         auto now = std::numeric_limits<int64_t>::max() - ms;
         key_ = NebulaKeyUtils::vertexKey(vIdLen_, partId, vId, tagId_, now);
         rowWriter_ = std::make_unique<RowWriterV2>(schema_);
-   }
+    }
+
+    bool getInsert () {
+        return insert_;
+    }
+
+    std::pair<std::string, std::unique_ptr<RowWriterV2>> getUpdateKV() {
+        return std::make_pair(key_, rowWriter_);
+    }
+
+    FilterContext* getFilter() {
+        return filter_.get();
+    }
 
 
 private:
@@ -334,6 +384,15 @@ private:
     std::string                                                     key_;
     // RowWriterV2(schema, old row values)
     std::unique_ptr<RowWriterV2>                                    rowWriter_;
+
+    // <tagID, prop_name>-> prop_value because only updae one vertex
+    // when update, prop value is old prop value
+    // when udpate, only update one vertex
+    // one tagId of one vertex,  prop value has one at most
+    // std::unordered_map<std::pair<TagID, std::string>, nebula::Value> tagFilters_;
+
+    // only collect oneself prop value
+    std::unique_ptr<FilterContext>                                  filter_;
 };
 
 
