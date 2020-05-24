@@ -7,7 +7,11 @@
 #ifndef STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
+#include "base/Base.h"
 #include "storage/query/QueryBaseProcessor.h"
+#include "storage/exec/StorageDAG.h"
+#include "expression/Expression.h"
+#include "context/ExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -35,17 +39,18 @@ private:
     // Get the schema of all versions of all tags in the spaceId
     cpp2::ErrorCode buildTagSchema();
 
-    // Build TagContext by parsing return prop expressions, filter expression, update prop expression
+    // Build TagContext by parsing return prop expressions,
+    // filter expression, update prop expression
     cpp2::ErrorCode buildTagContext(const cpp2::UpdateVertexRequest& req);
 
     void onProcessFinished() override;
 
 private:
     bool                                                            insertable_{false};
-    
+
     // updatedVertexProps_ will update tagId
-    std::set<TagID>                                                 updateTagIds_;
-    
+    std::unordered_set<TagID>                                       updateTagIds_;
+
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
 
     // TODO implement  expression contex

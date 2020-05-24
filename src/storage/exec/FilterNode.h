@@ -157,8 +157,8 @@ class TagFilterNode : public RelNode {
 public:
     TagFilterNode(StorageEnv* env,
                   GraphSpaceID spaceId,
-                  const Expression* filterExp,
-                  const std::vector<TagUpdateNode*>& tagUpdates,
+                  Expression* filterExp,
+                  std::vector<TagUpdateNode*>& tagUpdates,
                   TagContext* tagContext)
         : env_(env)
         , spaceId_(spaceId)
@@ -169,6 +169,8 @@ public:
         }
 
     folly::Future<kvstore::ResultCode> execute(PartitionID partId, const VertexID& vId) override {
+        UNUSED(partId);
+        UNUSED(vId);
         std::vector<StorageIterator*> iters;
         // collect tags results
 
@@ -177,19 +179,19 @@ public:
                 insert_ = true;
             }
             auto updateKV = tagUpdate->getUpdateKV();
-            tagUpdateKV_.emplace(tagUpdate->tagId_, updateKV);
+            tagUpdateKV_.emplace(tagUpdate->getTagID(), updateKV);
 
 
             auto tagFilter = tagUpdate->getFilter();
-            for (auto &e : tagFilter->getTagFilter) {
-                filter_->fillTagProp(e.first.first,e.first.second, e.second);
+            for (auto &e : tagFilter->getTagFilter()) {
+                filter_->fillTagProp(e.first.first, e.first.second, e.second);
             }
         }
 
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    kvstore::ResultCode checkFilter() const override {
+    kvstore::ResultCode checkFilter() {
         Getters getters;
         getters.getSrcTagProp = [&, this] (const std::string& tagName,
                                            const std::string& prop) -> OptValue {
@@ -201,7 +203,7 @@ public:
             auto tagId = tagRet.value();
             auto tagFilters = this->filter_->getTagFilter();
             auto it = tagFilters.find(std::make_pair(tagId, prop));
-            if (it == tagFilterss_.end()) {
+            if (it == tagFilters.end()) {
                 return Status::Error("Invalid Tag Filter");
             }
             VLOG(1) << "Hit srcProp filter for tag: " << tagName
@@ -223,7 +225,7 @@ public:
     }
 
     FilterContext* getFilterCont() {
-        return filter_;
+        return filter_.get();
     }
 
     std::unordered_map<TagID, std::pair<std::string, std::unique_ptr<RowWriterV2>>> getUpdateKV() {
@@ -236,16 +238,16 @@ public:
 
 private:
     // ============== input ====================================================================
+    StorageEnv                                                                     *env_;
+    GraphSpaceID                                                                    spaceId_;
     // filter expression
-    const Expression                                                               *filterExp_;
+    Expression                                                                     *filterExp_;
     // Dependent node
     std::vector<TagUpdateNode*>                                                     tagUpdates_;
     TagContext                                                                     *tagContext_;
-    StorageEnv                                                                     *env_;
-    GraphSpaceID                                                                    spaceId_;
 
     // ==================output ==============================================================
-    FilterContext                                                                  *filter_;
+    std::unique_ptr<FilterContext>                                                  filter_;
     bool                                                                            insert_{false};
     std::unordered_map<TagID, std::pair<std::string, std::unique_ptr<RowWriterV2>>> tagUpdateKV_;
 };

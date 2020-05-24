@@ -51,7 +51,7 @@ public:
         return result_;
     }
 
-private:
+protected:
     kvstore::ResultCode processTagProps(PartitionID partId, const VertexID& vId) {
         if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
             auto result = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_), partId);
@@ -143,7 +143,7 @@ private:
         return ret;
     }
 
-private:
+protected:
     TagContext* tagContext_;
     StorageEnv* env_;
     GraphSpaceID spaceId_;
@@ -164,18 +164,20 @@ private:
 class TagUpdateNode final : public TagNode {
 public:
     TagUpdateNode(TagContext* ctx,
-            StorageEnv* env,
-            GraphSpaceID spaceId,
-            size_t vIdLen,
-            TagID tagId,
-            const std::vector<PropContext>* props,
-            bool insertable,
-            std::set<TagID> updateTagIds)
-        : TagNode(env, spaceId, vIdLen, tagId, props)
+                  StorageEnv* env,
+                  GraphSpaceID spaceId,
+                  size_t vIdLen,
+                  TagID tagId,
+                  const std::vector<PropContext>* props,
+                  bool insertable,
+                  std::unordered_set<TagID>& updateTagIds,
+                  std::vector<storage::cpp2::UpdatedVertexProp>& updatedVertexProps)
+        : TagNode(ctx, env, spaceId, vIdLen, tagId, props)
         , insertable_(insertable)
-        , updateTagIds_(updateTagIds) {
-             // use newest scheam version
-            const auto& schema_ = schemas_->back().get();
+        , updateTagIds_(updateTagIds)
+        , updatedVertexProps_(updatedVertexProps) {
+            // use newest scheam version
+            schema_ = schemas_->back().get();
             CHECK_NOTNULL(schema_);
             filter_ = std::make_unique<FilterContext>();
         }
@@ -192,7 +194,6 @@ public:
         return ret;
     }
 
-private:
     // update newest version
     kvstore::ResultCode processTagProps(PartitionID partId, const VertexID& vId) {
         // use key and value, so do not use vertexCache_
@@ -273,36 +274,37 @@ private:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    StatusOr<Value> getDefaultProp(const nebula::cpp2::PropertyType& type) {
-          switch (type) {
-              case nebula::cpp2::PropertyType::BOOL: {
-                  return Value(false);
-              }
-              case nebula::cpp2::SupportedType::TIMESTAMP:
-              case nebula::cpp2::PropertyType::INT64:
-              case nebula::cpp2::PropertyType::INT32:
-              case nebula::cpp2::PropertyType::INT16:
-              case nebula::cpp2::PropertyType::INT8: {
-                  return Value(0);
-              }
-              case nebula::cpp2::PropertyType::FLOAT:
-              case nebula::cpp2::PropertyType::DOUBLE: {
-                  return Value(0.0);
-              }
-              case nebula::cpp2::PropertyType::STRING: {
-                  return Value("");
-              }
-              case nebula::cpp2::PropertyType::DATE:
-                   Date date;
-                   return Value(date);
-              }
-              // TODO datatime FIXED_STRING
-              default:
-                  auto msg = folly::sformat("Unknown type: {}", static_cast<int32_t>(type));
-                  LOG(ERROR) << msg;
-                  return Status::Error(msg);
-          }
-      }
+    StatusOr<Value> getDefaultProp(const nebula::meta::cpp2::PropertyType& type) {
+        switch (type) {
+            case nebula::meta::cpp2::PropertyType::BOOL: {
+                return Value(false);
+            }
+            case nebula::meta::cpp2::PropertyType::TIMESTAMP:
+            case nebula::meta::cpp2::PropertyType::INT64:
+            case nebula::meta::cpp2::PropertyType::INT32:
+            case nebula::meta::cpp2::PropertyType::INT16:
+            case nebula::meta::cpp2::PropertyType::INT8: {
+                return Value(0);
+            }
+            case nebula::meta::cpp2::PropertyType::FLOAT:
+            case nebula::meta::cpp2::PropertyType::DOUBLE: {
+                return Value(0.0);
+            }
+            case nebula::meta::cpp2::PropertyType::STRING: {
+                return Value("");
+            }
+            case nebula::meta::cpp2::PropertyType::DATE: {
+                Date date;
+                return Value(date);
+            }
+            // TODO datatime FIXED_STRING
+            default: {
+                auto msg = folly::sformat("Unknown type: {}", static_cast<int32_t>(type));
+                LOG(ERROR) << msg;
+                return Status::Error(msg);
+            }
+        }
+    }
 
     // This tagId needs insert props row
     // Failed when the props neither updated value nor has default value
@@ -326,8 +328,9 @@ private:
                     auto propName = updateProp.get_name();
                     if (tagId_ == toTagId && !prop.name_.compare(propName)) {
                         isUpdateProp = true;
-                        // Insert a type default value temporarily, it will be updated when update later
-                        auto& pType = schema_->getFieldType(prop.name_);
+                        // Insert a type default value temporarily,
+                        // it will be updated when update later
+                        auto pType = schema_->getFieldType(prop.name_);
                         auto defaultValue = getDefaultProp(pType);
                         if (!defaultValue.ok()) {
                             return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
@@ -351,7 +354,7 @@ private:
         rowWriter_ = std::make_unique<RowWriterV2>(schema_);
     }
 
-    bool getInsert () {
+    bool getInsert() {
         return insert_;
     }
 
@@ -363,18 +366,23 @@ private:
         return filter_.get();
     }
 
+    TagID getTagID() {
+        return tagId_;
+    }
 
 private:
     // Whether to allow insert
     bool                                                            insertable_{false};
 
     // buildTagContext set this, only update tagId
-    std::set<TagID>                                                 updateTagIds_;
+    std::unordered_set<TagID>                                       updateTagIds_;
 
     // the newest schema of this tagId
     const meta::NebulaSchemaProvider                               *schema_{nullptr};
 
-    //##############################out result###########################
+    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
+
+    // ##############################out result###########################
     // Whether an insert has occurred
     // Because update one vid, so every tagId of one vertex has one row data at most
     // A tagUpdateNode process one row data, either update or insert
@@ -394,8 +402,6 @@ private:
     // only collect oneself prop value
     std::unique_ptr<FilterContext>                                  filter_;
 };
-
-
 
 }  // namespace storage
 }  // namespace nebula

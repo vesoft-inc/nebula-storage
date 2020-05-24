@@ -122,20 +122,6 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        update_edge_test
-    SOURCES
-        UpdateEdgeTest.cpp
-    OBJECTS
-        ${storage_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        wangle
-        gtest
-)
-
-nebula_add_test(
-    NAME
         simple_dag_test
     SOURCES
         StorageDAGTest.cpp

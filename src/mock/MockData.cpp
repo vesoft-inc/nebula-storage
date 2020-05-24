@@ -523,12 +523,13 @@ std::vector<VertexData> MockData::mockVertices() {
     return ret;
 }
 
-std::unorder_map<PartitionID, std::vector<VertexData>>  mockVerticesofPart(int32_t parts) {
-    std::unorder_map<PartitionID, std::vector<VertexData>> ret;
+std::unordered_map<PartitionID, std::vector<VertexData>>
+MockData::mockVerticesofPart(int32_t parts) {
+    std::unordered_map<PartitionID, std::vector<VertexData>> ret;
     auto verticesVec = mockVertices();
-    for (vertexData : verticesVec) {
-         auto partId = std::hash<std::string>()(vertexData.vId_) % parts + 1;
-         ret[partId].push_back(vertexData);
+    for (auto& vertexData : verticesVec) {
+        auto partId = std::hash<std::string>()(vertexData.vId_) % parts + 1;
+        ret[partId].emplace_back(std::move(vertexData));
     }
     return ret;
 }
@@ -621,12 +622,13 @@ std::vector<EdgeData> MockData::mockMultiEdges() {
     return ret;
 }
 
-std::unorder_map<PartitionID, std::vector<EdgeData>>  mockEdgesofPart(int32_t parts) {
-    std::unorder_map<PartitionID, std::vector<EdgeData>> ret;
+std::unordered_map<PartitionID, std::vector<EdgeData>>
+MockData::mockEdgesofPart(int32_t parts) {
+    std::unordered_map<PartitionID, std::vector<EdgeData>> ret;
     auto edgesVec = mockEdges();
-    for (EdgeData : edgesVec) {
-         auto partId = std::hash<std::string>()(EdgeData.srcId_) % parts + 1;
-         ret[partId].push_back(EdgeData);
+    for (auto& EdgeData : edgesVec) {
+        auto partId = std::hash<std::string>()(EdgeData.srcId_) % parts + 1;
+        ret[partId].emplace_back(std::move(EdgeData));
     }
     return ret;
 }

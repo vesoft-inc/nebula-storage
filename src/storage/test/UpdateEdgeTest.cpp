@@ -5,841 +5,351 @@
  */
 
 #include "base/Base.h"
-#include "common/NebulaKeyUtils.h"
+#include "base/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include <limits>
 #include "fs/TempDir.h"
 #include "storage/test/TestUtils.h"
 #include "storage/mutate/UpdateEdgeProcessor.h"
-#include "mock/MockCluster."
-#include "mock/MockData.h"
+#include "dataman/RowSetReader.h"
+#include "dataman/RowReader.h"
 
 namespace nebula {
 namespace storage {
 
-static bool mockEdgeData(storage::StorageEnv* env, int32_t totalParts， int32_t spaceVidLen) {
-    GraphSpaceID spaceId = 1;
-    auto edgesPart = mock::MockData::mockEdgesofPart();
-       
-    folly::Baton<true, std::atomic> baton;
-    std::atomic<size_t> count(edges.size());
-       
-    for (const auto& part : edgesPart) {
-        std::vector<kvstore::KV> data;
-        data.clear();
-        auto size = part.second.size();
-
-        for (const auto& edge : part.second) {
-            auto key = NebulaKeyUtils::edgeKey(spaceVidLen, part.first, edge.srcId_, edge.type_,
-                                               edge.rank_, edge.dstId_, 0L);
-            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
-            if (!schema) {
-                LOG(ERROR) << "Invalid edge " << edge.type_;
-                return false;
+void mockData(kvstore::KVStore* kv) {
+    LOG(INFO) << "Prepare data...";
+    std::vector<kvstore::KV> data;
+    for (PartitionID partId = 0; partId < 3; partId++) {
+        for (VertexID vertexId = partId * 10; vertexId < (partId + 1) * 10; vertexId++) {
+            for (TagID tagId = 3001; tagId < 3010; tagId++) {
+                // Write multi versions, we should get/update the latest version
+                for (TagVersion version = 0; version < 3; version++) {
+                    auto key = NebulaKeyUtils::vertexKey(partId, vertexId, tagId,
+                            std::numeric_limits<int32_t>::max() - version);
+                    RowWriter writer;
+                    for (int64_t numInt = 0; numInt < 3; numInt++) {
+                        writer << partId + tagId + version + numInt;
+                    }
+                    for (int32_t numString = 3; numString < 6; numString++) {
+                        writer << folly::stringPrintf("tag_string_col_%d_%ld", numString, version);
+                    }
+                    auto val = writer.encode();
+                    data.emplace_back(std::move(key), std::move(val));
+                }
             }
-               
-            auto ret = encode(schema.get(), key, edge.props_, data);
-            if (!ret) {
-                LOG(ERROR) << "Write field failed";
-                return false;
+
+            // Generate 7 out-edges for each edgeType.
+            for (VertexID dstId = 10001; dstId <= 10007; dstId++) {
+                VLOG(3) << "Write part " << partId << ", vertex " << vertexId << ", dst " << dstId;
+                // Write multi versions,  we should get the latest version.
+                for (EdgeVersion version = 0; version < 3; version++) {
+                    auto key = NebulaKeyUtils::edgeKey(partId, vertexId, 101, 0, dstId,
+                                                       std::numeric_limits<int>::max() - version);
+                    RowWriter writer(nullptr);
+                    for (uint64_t numInt = 0; numInt < 10; numInt++) {
+                        writer << (dstId + numInt);
+                    }
+                    for (auto numString = 10; numString < 20; numString++) {
+                        writer << folly::stringPrintf("string_col_%d_%ld", numString, version);
+                    }
+                    auto val = writer.encode();
+                    data.emplace_back(std::move(key), std::move(val));
+                }
+            }
+            // Generate 5 in-edges for each edgeType, the edgeType is negative
+            for (VertexID srcId = 10001; srcId <= 10005; srcId++) {
+                VLOG(3) << "Write part " << partId << ", vertex " << vertexId << ", src " << srcId;
+                for (EdgeVersion version = 0; version < 3; version++) {
+                    auto key = NebulaKeyUtils::edgeKey(partId, vertexId, -101, 0, srcId,
+                                                       std::numeric_limits<int>::max() - version);
+                    data.emplace_back(std::move(key), "");
+                }
             }
         }
-        env->kvstore_->asyncMultiPut(spaceId, part.first, std::move(data),
-                                     [&](kvstore::ResultCode code) {
-                                         EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
-                                         count.fetch_sub(size);
-                                         if (count.load() == 0) {
-                                             baton.post();
-                                         }
-                                     });
+        folly::Baton<true, std::atomic> baton;
+        kv->asyncMultiPut(0, partId, std::move(data),
+            [&](kvstore::ResultCode code) {
+                CHECK_EQ(code, kvstore::ResultCode::SUCCEEDED);
+                baton.post();
+            });
+        baton.wait();
     }
-    baton.wait();
-    return true;
 }
 
-static bool encode(const meta::NebulaSchemaProvider* schema,
-                   const std::string& key,
-                   const std::vector<Value>& props,
-                   std::vector<kvstore::KV>& data) {
-    RowWriterV2 writer(schema);
-    for (size_t i = 0; i < props.size(); i++) {
-        auto r = writer.setValue(i, props[i]);
-        if (r != WriteResult::SUCCEEDED) {
-            LOG(ERROR) << "Invalid prop " << i;
-            return false;
-        }   
-    }   
-    auto ret = writer.finish();
-    if (ret != WriteResult::SUCCEEDED) {
-        LOG(ERROR) << "Failed to write data";
-        return false;
-    }                                                                                                 
-    auto encode = std::move(writer).moveEncodedStr();
-    data.emplace_back(std::move(key), std::move(encode));
-    return true;
-}
 
-TEST(UpdateEdgeTest, No_Filter_Yield_Test) {
+TEST(UpdateEdgeTest, Set_Filter_Yield_Test) {
     fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
+    std::unique_ptr<kvstore::KVStore> kv = TestUtils::initKV(rootPath.path());
 
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    EXPECT_TRUE(mockEdgeData(env, 6, spaceVidLen));
+    LOG(INFO) << "Prepare meta...";
+    auto schemaMan = TestUtils::mockSchemaMan();
+    auto indexMan = TestUtils::mockIndexMan();
+    mockData(kv.get());
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    VertexID srcId = "Tim Duncan";
-    VertexID dstId = "Spurs";
-    EdgeRanking rank = 1997;
-    EdgeType edgeType = 101;
-    // src = Tim Duncan, edge_type = 101, ranking = 1997, dst = Spurs
+    GraphSpaceID spaceId = 0;
+    PartitionID partId = 0;
+    VertexID srcId = 1;
+    VertexID dstId = 10001;
+    // src = 1, edge_type = 101, ranking = 0, dst = 10001
     storage::cpp2::EdgeKey edgeKey;
     edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
+    edgeKey.set_edge_type(101);
+    edgeKey.set_ranking(0);
     edgeKey.set_dst(dstId);
-    req.set_edge_key(edgeKey);
-   
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    // int: 101.teamCareer = 20 
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("teamCareer");
-    PrimaryExpression val1(20);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // bool: 101.starting = false
-    cpp2::UpdatedEdgeProp prop2;
-    prop1.set_name("starting");
-    bool isStart = false;
-    PrimaryExpression val2(isStart);
-    prop1.set_value(Expression::encode(&val2));
-    props.emplace_back(prop1);
-    req.set_updated_props(std::move(props));
-
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("starting");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
-    req.set_insertable(false);
-
-    LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
-    auto f = processor->getFuture();
-    processor->process(req);
-    auto resp = std::move(f).get();
-
-    LOG(INFO) << "Check the results...";
-    EXPECT_EQ(0, resp.result.failed_parts.size());
-    EXPECT_EQ(5, resp.props.column_names.size());
-    EXPECT_EQ("_inserted", resp.props.column_names[0]);
-    EXPECT_EQ("101:playerName", resp.props.column_names[1]);
-    EXPECT_EQ("101:teamName", resp.props.column_names[2]);
-    EXPECT_EQ("101:teamCareer", resp.props.column_names[3]);
-    EXPECT_EQ("101:starting", resp.props.column_names[4]);
-
-    EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(5, resp.props.rows[0].columns.size());
-
-    EXPECT_EQ(false, resp.props.rows[0].columns[0]);
-    EXPECT_EQ("Tim Duncan", resp.props.rows[0]column_names[1]);
-    EXPECT_EQ("Spurs", resp.props.rows[0].column_names[2]);
-    EXPECT_EQ(20, resp.props.rows[0].column_names[3]);   
-    EXPECT_EQ(false, resp.props.rows[0].column_names[4]);  
-
-    // get serve from kvstore directly
-    auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen, partId, srcId, edgeType, rank, dstId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-    EXPECT_TRUE(iter && iter->valid());
-    
-    auto edgeReader = RowReader::getEdgePropReader(env->schemaMan_, spaceId, std::abs(edgeType), iter->val());
-    auto val = edgeReader->getValueByName("playerName");
-    auto val  = RowReader::getPropByName(edgeReader.get(), "playerName");
-    EXPECT_EQ("Tim Duncan", val.getStr());
-
-    val = reader->getValueByName("teamName");
-    EXPECT_EQ("Spurs", val.getStr());
-
-    val = reader->getValueByName("teamCareer");
-    EXPECT_EQ(20, val.getInt());
-
-    val = reader->getValueByName("starting");
-    EXPECT_EQ(false, val.getBool());
-}
-
-TEST(UpdateEdgeTest, Filter_Yield_Test) {
-    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    EXPECT_TRUE(mockEdgeData(env, 6, spaceVidLen));
-
-    LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
+    cpp2::UpdateEdgeRequest req;
     req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    VertexID srcId = "Tim Duncan";
-    VertexID dstId = "Spurs";
-    EdgeRanking rank = 1997;
-    EdgeType edgeType = 101;
-    // src = Tim Duncan, edge_type = 101, ranking = 1997, dst = Spurs
-    storage::cpp2::EdgeKey edgeKey;
-    edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
-    edgeKey.set_dst(dstId);
     req.set_edge_key(edgeKey);
-
-    LOG(INFO) << "Build condition...";
-    std::string alias("101");
-    // left int:  101.startYear = 1997
-    std::string propName1("startYear");
-    auto* srcExp1 = new SourcePropertyExpression(&alias, &propName1);
-    auto* priExp1 = new PrimaryExpression(1997L);
+    req.set_part_id(partId);
+    LOG(INFO) << "Build filter...";
+    // left int: $^.3001.tag_3001_col_0 >= 0
+    auto* tag1 = new std::string("3001");
+    auto* prop1 = new std::string("tag_3001_col_0");
+    auto* srcExp1 = new SourcePropertyExpression(tag1, prop1);
+    auto* priExp1 = new PrimaryExpression(0L);
     auto* left = new RelationalExpression(srcExp1,
-                                          RelationalExpression::Operator::EQ,                              
+                                          RelationalExpression::Operator::GE,
                                           priExp1);
- 
-    // right int: 101.endYear = 2017
-    std::string propName2("endYear");
-    auto* srcExp2 = new SourcePropertyExpression(&alias, &propName2);
-    auto* priExp2 = new PrimaryExpression(2017L);
+    // right string: $^.3003.tag_3003_col_3 == tag_string_col_3_2;
+    auto* tag2 = new std::string("3003");
+    auto* prop2 = new std::string("tag_3003_col_3");
+    auto* srcExp2 = new SourcePropertyExpression(tag2, prop2);
+    std::string col3("tag_string_col_3_2");
+    auto* priExp2 = new PrimaryExpression(col3);
     auto* right = new RelationalExpression(srcExp2,
                                            RelationalExpression::Operator::EQ,
                                            priExp2);
     // left AND right is ture
     auto logExp = std::make_unique<LogicalExpression>(left, LogicalExpression::AND, right);
-    req.set_condition(Expression::encode(logExp.get()));
-    
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    // int: 101.teamCareer = 20 
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("teamCareer");
-    PrimaryExpression val1(20);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // bool: 101.starting = false
-    cpp2::UpdatedEdgeProp prop2;
-    prop1.set_name("starting");
-    bool isStart = false;
-    PrimaryExpression val2(isStart);
-    prop1.set_value(Expression::encode(&val2));
-    props.emplace_back(prop1);
-    req.set_updated_props(std::move(props));
+    req.set_filter(Expression::encode(logExp.get()));
+    LOG(INFO) << "Build update items...";
+    std::vector<cpp2::UpdateItem> items;
+    // int: 101.col_0 = 101.col_2 = 10001 + 2 = 10003
+    cpp2::UpdateItem item1;
+    item1.set_name("101");
+    item1.set_prop("col_0");
+    auto* edge101 = new std::string("101");
+    auto* propCol2 = new std::string("col_2");
+    AliasPropertyExpression val1(new std::string(""), edge101, propCol2);
+    item1.set_value(Expression::encode(&val1));
+    items.emplace_back(item1);
+    // string: 101.col_10 = string_col_10_2_new
+    cpp2::UpdateItem item2;
+    item2.set_name("101");
+    item2.set_prop("col_10");
+    std::string col10new("string_col_10_2_new");
+    PrimaryExpression val2(col10new);
+    item2.set_value(Expression::encode(&val2));
+    items.emplace_back(item2);
+    req.set_update_items(std::move(items));
+    decltype(req.return_columns) tmpColumns;
+    tmpColumns.emplace_back(Expression::encode(&val1));
+    tmpColumns.emplace_back(Expression::encode(&val2));
+    SourcePropertyExpression sourcePropExp(new std::string(folly::to<std::string>(3002)),
+                                           new std::string("tag_3002_col_2"));
+    tmpColumns.emplace_back(Expression::encode(&sourcePropExp));
 
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("starting");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
+    req.set_return_columns(std::move(tmpColumns));
     req.set_insertable(false);
-
     LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
+    auto* processor = UpdateEdgeProcessor::instance(kv.get(),
+                                                    schemaMan.get(),
+                                                    indexMan.get(),
+                                                    nullptr);
     auto f = processor->getFuture();
     processor->process(req);
     auto resp = std::move(f).get();
 
     LOG(INFO) << "Check the results...";
-    EXPECT_EQ(0, resp.result.failed_parts.size());
-    EXPECT_EQ(5, resp.props.column_names.size());
-    EXPECT_EQ("_inserted", resp.props.column_names[0]);
-    EXPECT_EQ("101:playerName", resp.props.column_names[1]);
-    EXPECT_EQ("101:teamName", resp.props.column_names[2]);
-    EXPECT_EQ("101:teamCareer", resp.props.column_names[3]);
-    EXPECT_EQ("101:starting", resp.props.column_names[4]);
-
-    EXPECT_EQ(0, resp.props.rows.size());
-
-    // get serve from kvstore directly
-    // Because no update, the value is old
-    auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen, partId, srcId, edgeType, rank, dstId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-    EXPECT_TRUE(iter && iter->valid());
-    
-    auto edgeReader = RowReader::getEdgePropReader(env->schemaMan_, spaceId, std::abs(edgeType), iter->val());
-    auto val = edgeReader->getValueByName("playerName");
-    auto val  = RowReader::getPropByName(edgeReader.get(), "playerName");
-    EXPECT_EQ("Tim Duncan", val.getStr());
-
-    val = reader->getValueByName("teamName");
-    EXPECT_EQ("Spurs", val.getStr());
-
-    val = reader->getValueByName("teamCareer");
-    EXPECT_EQ(19, val.getInt());
-
-    val = reader->getValueByName("starting");
-    EXPECT_EQ(true, val.getBool());
+    EXPECT_EQ(0, resp.result.failed_codes.size());
+    EXPECT_FALSE(resp.get_upsert());
+    ASSERT_TRUE(resp.__isset.schema);
+    auto provider = std::make_shared<ResultSchemaProvider>(resp.schema);
+    auto reader = RowReader::getRowReader(resp.data, provider);
+    EXPECT_EQ(3, reader->numFields());
+    for (int i = 0; i < 3; i++) {
+        auto res = RowReader::getPropByIndex(reader.get(), i);
+        if (ok(res)) {
+            switch (i) {
+                case 0: {
+                    auto&& v0 = value(std::move(res));
+                    EXPECT_EQ(10003, boost::get<int64_t>(v0));
+                    break;
+                }
+                case 1: {
+                    auto&& v1 = value(std::move(res));
+                    EXPECT_STREQ("string_col_10_2_new", boost::get<std::string>(v1).c_str());
+                    break;
+                }
+                case 2: {
+                    auto&& v2 = value(std::move(res));
+                    EXPECT_EQ(3006, boost::get<int64_t>(v2));
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+    // check the kvstore
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    auto lastVersion = std::numeric_limits<int32_t>::max() - 2;
+    auto kvstoreEdgeKey = NebulaKeyUtils::edgeKey(partId, srcId, 101, 0, dstId, lastVersion);
+    keys.emplace_back(kvstoreEdgeKey);
+    auto ret = kv->multiGet(spaceId, partId, std::move(keys), &values);
+    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret.first);
+    EXPECT_EQ(1, values.size());
+    auto edgeSchema = schemaMan->getEdgeSchema(spaceId, 101);
+    auto edgeReader = RowReader::getRowReader(values[0], edgeSchema);
+    auto res = RowReader::getPropByName(edgeReader.get(), "col_0");
+    CHECK(ok(res));
+    auto&& v1 = value(std::move(res));
+    EXPECT_EQ(10003, boost::get<int64_t>(v1));
+    res = RowReader::getPropByName(edgeReader.get(), "col_10");
+    CHECK(ok(res));
+    auto&& v2 = value(std::move(res));
+    EXPECT_STREQ("string_col_10_2_new", boost::get<std::string>(v2).c_str());
 }
 
 
 TEST(UpdateEdgeTest, Insertable_Test) {
     fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
+    std::unique_ptr<kvstore::KVStore> kv = TestUtils::initKV(rootPath.path());
 
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    EXPECT_TRUE(mockEdgeData(env, 6, spaceVidLen));
+    LOG(INFO) << "Prepare meta...";
+    auto schemaMan = TestUtils::mockSchemaMan();
+    auto indexMan = TestUtils::mockIndexMan();
+    mockData(kv.get());
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    auto partId = std::hash<std::string>()("Brandon Ingram") % parts + 1;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    VertexID srcId = "Brandon Ingram";
-    VertexID dstId = "Lakers";
-    EdgeRanking rank = 2016;
-    EdgeType edgeType = 101;
-    // src = Brandon Ingram, edge_type = 101, ranking = 2016, dst = Lakers
+    GraphSpaceID spaceId = 0;
+    PartitionID partId = 0;
+    VertexID srcId = 1;
+    VertexID dstId = 10008;
+    // src = 1, edge_type = 101, ranking = 0, dst = 10008
     storage::cpp2::EdgeKey edgeKey;
     edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
+    edgeKey.set_edge_type(101);
+    edgeKey.set_ranking(0);
     edgeKey.set_dst(dstId);
+    cpp2::UpdateEdgeRequest req;
+    req.set_space_id(spaceId);
     req.set_edge_key(edgeKey);
-    
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    
-    // Because not default value and no nullable, so provide values
-    // string: 101.playerName = Brandon Ingram
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("playerName");
-    std::string col1new("Brandon Ingram");
-    PrimaryExpression val1(col1new);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // string: 101.starting = Lakers
-    cpp2::UpdatedEdgeProp prop2;
-    prop2.set_name("teamName");
-    std::string col2new("Lakers");
-    PrimaryExpression val2(col2new);
-    prop1.set_value(Expression::encode(&val2));
-    props.emplace_back(prop2);
-
-    // int: 101.startYear = 2016
-    cpp2::UpdatedEdgeProp prop3;
-    prop3.set_name("startYear");
-    PrimaryExpression val3(2016);
-    prop3.set_value(Expression::encode(&val3));
-    props.emplace_back(prop3);
-
-    // int: 101.endYear = 2019
-    cpp2::UpdatedEdgeProp prop4;
-    prop4.set_name("endYear");
-    PrimaryExpression val4(2019);
-    prop4.set_value(Expression::encode(&val4));
-    props.emplace_back(prop4);
-
-    // int: 101.teamCareer = 3
-    cpp2::UpdatedEdgeProp prop5;
-    prop5.set_name("teamCareer");
-    PrimaryExpression val5(3);
-    prop5.set_value(Expression::encode(&val5));
-    props.emplace_back(prop5);
-
-    // int: 101.teamGames = 190
-    cpp2::UpdatedEdgeProp prop6;
-    prop6.set_name("teamGames");
-    PrimaryExpression val6(190);
-    prop6.set_value(Expression::encode(&val6));
-    props.emplace_back(prop6);
-
-    // int: 101.teamAvgScore = 24.3
-    cpp2::UpdatedEdgeProp prop7;
-    prop7.set_name("teamAvgScore");
-    PrimaryExpression val7(24.3);
-    prop7.set_value(Expression::encode(&val7));
-    props.emplace_back(prop7);
-    
-    req.set_updated_props(std::move(props));
-
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("starting");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
+    req.set_part_id(partId);
+    req.set_filter("");
+    LOG(INFO) << "Build update items...";
+    std::vector<cpp2::UpdateItem> items;
+    // int: 101.col_0 = $^.3002.tag_3002_col_2
+    cpp2::UpdateItem item1;
+    item1.set_name("101");
+    item1.set_prop("col_0");
+    auto* tag3002 = new std::string("3002");
+    auto* propCol2 = new std::string("tag_3002_col_2");
+    SourcePropertyExpression val1(tag3002, propCol2);
+    item1.set_value(Expression::encode(&val1));
+    items.emplace_back(item1);
+    // string: 101.col_10 = string_col_10_2_new
+    cpp2::UpdateItem item2;
+    item2.set_name("101");
+    item2.set_prop("col_10");
+    std::string col10new("string_col_10_2_new");
+    PrimaryExpression val2(col10new);
+    item2.set_value(Expression::encode(&val2));
+    items.emplace_back(item2);
+    req.set_update_items(std::move(items));
+    decltype(req.return_columns) tmpColumns;
+    AliasPropertyExpression edgePropExp(
+        new std::string(""), new std::string("101"), new std::string("col_0"));
+    tmpColumns.emplace_back(Expression::encode(&edgePropExp));
+    edgePropExp = AliasPropertyExpression(
+        new std::string(""), new std::string("101"), new std::string("col_1"));
+    tmpColumns.emplace_back(Expression::encode(&edgePropExp));
+    edgePropExp = AliasPropertyExpression(
+        new std::string(""), new std::string("101"), new std::string("col_10"));
+    tmpColumns.emplace_back(Expression::encode(&edgePropExp));
+    edgePropExp = AliasPropertyExpression(
+        new std::string(""), new std::string("101"), new std::string("col_11"));
+    tmpColumns.emplace_back(Expression::encode(&edgePropExp));
+    tmpColumns.emplace_back(Expression::encode(&val1));
+    req.set_return_columns(std::move(tmpColumns));
     req.set_insertable(true);
 
     LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
+    auto* processor = UpdateEdgeProcessor::instance(kv.get(),
+                                                    schemaMan.get(),
+                                                    indexMan.get(),
+                                                    nullptr);
     auto f = processor->getFuture();
     processor->process(req);
     auto resp = std::move(f).get();
 
     LOG(INFO) << "Check the results...";
-    EXPECT_EQ(0, resp.result.failed_parts.size());
-    EXPECT_EQ(5, resp.props.column_names.size());
-    EXPECT_EQ("_inserted", resp.props.column_names[0]);
-    EXPECT_EQ("101:playerName", resp.props.column_names[1]);
-    EXPECT_EQ("101:teamName", resp.props.column_names[2]);
-    EXPECT_EQ("101:teamCareer", resp.props.column_names[3]);
-    EXPECT_EQ("101:starting", resp.props.column_names[4]);
-
-    EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(5, resp.props.rows[0].columns.size());
-
-    EXPECT_EQ(true, resp.props.rows[0].columns[0]);
-    EXPECT_EQ("Brandon Ingram", resp.props.rows[0]column_names[1]);
-    EXPECT_EQ("Lakers", resp.props.rows[0].column_names[2]);
-    EXPECT_EQ(3, resp.props.rows[0].column_names[3]);   
-    EXPECT_EQ(false, resp.props.rows[0].column_names[4]);  
-
-    // get serve from kvstore directly
-    auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen, partId, srcId, edgeType, rank, dstId);
+    EXPECT_EQ(0, resp.result.failed_codes.size());
+    EXPECT_TRUE(resp.get_upsert());
+    ASSERT_TRUE(resp.__isset.schema);
+    auto provider = std::make_shared<ResultSchemaProvider>(resp.schema);
+    auto reader = RowReader::getRowReader(resp.data, provider);
+    EXPECT_EQ(5, reader->numFields());
+    for (int i = 0; i < 5; i++) {
+        auto res = RowReader::getPropByIndex(reader.get(), i);
+        if (ok(res)) {
+            switch (i) {
+                case 0: {
+                    auto&& v0 = value(std::move(res));
+                    EXPECT_EQ(3006, boost::get<int64_t>(v0));
+                    break;
+                }
+                case 1: {
+                    auto&& v1 = value(std::move(res));
+                    EXPECT_EQ(0, boost::get<int64_t>(v1));
+                    break;
+                }
+                case 2: {
+                    auto&& v2 = value(std::move(res));
+                    EXPECT_STREQ("string_col_10_2_new", boost::get<std::string>(v2).c_str());
+                    break;
+                }
+                case 3: {
+                    auto&& v3 = value(std::move(res));
+                    EXPECT_STREQ("", boost::get<std::string>(v3).c_str());
+                    break;
+                }
+                case 4: {
+                    auto&& v4 = value(std::move(res));
+                    EXPECT_EQ(3006, boost::get<int64_t>(v4));
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+    // get inserted edge from kvstore directly
+    auto prefix = NebulaKeyUtils::prefix(partId, srcId, 101, 0, dstId);
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
+    auto ret = kv->prefix(spaceId, partId, prefix, &iter);
     EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
     EXPECT_TRUE(iter && iter->valid());
-    
-    auto edgeReader = RowReader::getEdgePropReader(env->schemaMan_, spaceId, std::abs(edgeType), iter->val());
-    auto val = edgeReader->getValueByName("playerName");
-    auto val  = RowReader::getPropByName(edgeReader.get(), "playerName");
-    EXPECT_EQ("Brandon Ingram", val.getStr());
-
-    val = reader->getValueByName("teamName");
-    EXPECT_EQ("Lakers", val.getStr());
-
-    val = reader->getValueByName("teamCareer");
-    EXPECT_EQ(3, val.getInt());
-
-    val = reader->getValueByName("starting");
-    EXPECT_EQ(false, val.getBool());
-}
-
-TEST(UpdateEdgeTest, Invalid_Update_Prop_Test) {
-    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    EXPECT_TRUE(mockEdgeData(env, 6, spaceVidLen));
-
-    LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    VertexID srcId = "Tim Duncan";
-    VertexID dstId = "Spurs";
-    EdgeRanking rank = 1997;
-    EdgeType edgeType = 101;
-    // src = Tim Duncan, edge_type = 101, ranking = 1997, dst = Spurs
-    storage::cpp2::EdgeKey edgeKey;
-    edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
-    edgeKey.set_dst(dstId);
-    req.set_edge_key(edgeKey);
-    
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    // int: 101.teamCareer = 20 
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("teamCareer");
-    PrimaryExpression val1(30);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // bool: 101.birth = 1997
-    cpp2::UpdatedEdgeProp prop2;
-    prop2.set_name("birth");
-    PrimaryExpression val2(1997);
-    prop2.set_value(Expression::encode(&val2));
-    props.emplace_back(prop2);
-    req.set_updated_props(std::move(props));
-
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("birth");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
-    req.set_insertable(false);
-
-    LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
-    auto f = processor->getFuture();
-    processor->process(req);
-    auto resp = std::move(f).get();
-
-    LOG(INFO) << "Check the results...";
-    EXPECT_EQ(1, resp.result.failed_parts.size());
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::E_INVALID_UPDATER
-                    == resp.result.failed_parts[0].code);
-
-    // get serve from kvstore directly
-    // Because no update, the value is old
-    auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen, partId, srcId, edgeType, rank, dstId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-    EXPECT_TRUE(iter && iter->valid());
-    
-    auto edgeReader = RowReader::getEdgePropReader(env->schemaMan_, spaceId, std::abs(edgeType), iter->val());
-    auto val = edgeReader->getValueByName("playerName");
-    auto val  = RowReader::getPropByName(edgeReader.get(), "playerName");
-    EXPECT_EQ("Tim Duncan", val.getStr());
-
-    val = reader->getValueByName("teamName");
-    EXPECT_EQ("Spurs", val.getStr());
-
-    val = reader->getValueByName("teamCareer");
-    EXPECT_EQ(19, val.getInt());
-
-    val = reader->getValueByName("starting");
-    EXPECT_EQ(true, val.getBool());
-}
-
-TEST(UpdateEdgeTest, Invalid_Filter_Test) {
-    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    EXPECT_TRUE(mockEdgeData(env, 6, spaceVidLen));
-
-    LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    VertexID srcId = "Tim Duncan";
-    VertexID dstId = "Spurs";
-    EdgeRanking rank = 1997;
-    EdgeType edgeType = 101;
-    // src = Tim Duncan, edge_type = 101, ranking = 1997, dst = Spurs
-    storage::cpp2::EdgeKey edgeKey;
-    edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
-    edgeKey.set_dst(dstId);
-    req.set_edge_key(edgeKey);
-
-    LOG(INFO) << "Build condition...";
-     std::string alias("101");
-    // left int:  101.startYear = 1997
-    std::string propName1("startYear");
-    auto* srcExp1 = new SourcePropertyExpression(&alias, &propName1);
-    auto* priExp1 = new PrimaryExpression(1997L);
-    auto* left = new RelationalExpression(srcExp1,
-                                          RelationalExpression::Operator::EQ,                              
-                                          priExp1);
- 
-    // right int: 101.birth = 1990
-    std::string propName2("birth");
-    auto* srcExp2 = new SourcePropertyExpression(&alias, &propName2);
-    auto* priExp2 = new PrimaryExpression(1990);
-    auto* right = new RelationalExpression(srcExp2,
-                                           RelationalExpression::Operator::EQ,
-                                           priExp2);
-    // left AND right is ture
-    auto logExp = std::make_unique<LogicalExpression>(left, LogicalExpression::AND, right);
-    req.set_condition(Expression::encode(logExp.get()));
-    
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    // int: 101.teamCareer = 20 
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("teamCareer");
-    PrimaryExpression val1(30);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // bool: 101.starting = false
-    cpp2::UpdatedEdgeProp prop2;
-    prop1.set_name("starting");
-    bool isStart = false;
-    PrimaryExpression val2(isStart);
-    prop1.set_value(Expression::encode(&val2));
-    props.emplace_back(prop1);
-    req.set_updated_props(std::move(props));
-
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("starting");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
-    req.set_insertable(false);
-
-    LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
-    auto f = processor->getFuture();
-    processor->process(req);
-    auto resp = std::move(f).get();
-
-    LOG(INFO) << "Check the results...";
-    EXPECT_EQ(1, resp.result.failed_parts.size());
-
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::E_INVALID_FILTER
-                   == resp.result.failed_parts[0].code);
-
-    // get serve from kvstore directly
-    // Because no update, the value is old
-    auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen, partId, srcId, edgeType, rank, dstId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-    EXPECT_TRUE(iter && iter->valid());
-    
-    auto edgeReader = RowReader::getEdgePropReader(env->schemaMan_, spaceId, std::abs(edgeType), iter->val());
-    auto val = edgeReader->getValueByName("playerName");
-    auto val  = RowReader::getPropByName(edgeReader.get(), "playerName");
-    EXPECT_EQ("Tim Duncan", val.getStr());
-
-    val = reader->getValueByName("teamName");
-    EXPECT_EQ("Spurs", val.getStr());
-
-    val = reader->getValueByName("teamCareer");
-    EXPECT_EQ(19, val.getInt());
-
-    val = reader->getValueByName("starting");
-    EXPECT_EQ(true, val.getBool());
-}
-
-TEST(UpdateEdgeTest, CorruptDataTest) {
-    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-
-    GraphSpaceID spaceId = 1;
-    TagID tagId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    if (!status.ok()) {
-        LOG(ERROR) << "Get space vid length failed";
-        return false;
-    }              
-    auto spaceVidLen = status.value();
-
-    LOG(INFO) << "Write a vertex with empty value!";
-    auto partId = std::hash<std::string>()("Lonzo Ball") % parts + 1;
-    VertexID srcId = "Lonzo Ball";
-    VertexID dstId = "Lakers";
-    EdgeRanking rank = 2017;
-    EdgeType edgeType = 101;
-    auto key = NebulaKeyUtils::edgeKey(spaceVidLen,
-                                       partId,
-                                       srcId,
-                                       edgeType,
-                                       rank,
-                                       dstId,
-                                       0L);
-
-    std::vector<kvstore::KV> data;
-    data.emplace_back(std::make_pair(key, ""));
-    folly::Baton<> baton;
-    env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
-        [&](kvstore::ResultCode code) {
-            CHECK_EQ(code, kvstore::ResultCode::SUCCEEDED);
-            baton.post();
-        }); 
-    baton.wait();
-
-    LOG(INFO) << "Build UpdateEdgeRequest...";
-    cpp::UpdateEdgeRequest req;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    // src = Lonzo Ball, edge_type = 101, ranking = 2017, dst = Lakers
-    storage::cpp2::EdgeKey edgeKey;
-    edgeKey.set_src(srcId);
-    edgeKey.set_edge_type(edgeType);
-    edgeKey.set_ranking(rank);
-    edgeKey.set_dst(dstId);
-    req.set_edge_key(edgeKey);
-    
-    LOG(INFO) << "Build updated props...";
-    std::vector<cpp2::UpdatedEdgeProp> props;
-    // int: 101.teamCareer = 2 
-    cpp2::UpdatedEdgeProp prop1;
-    prop1.set_name("teamCareer");
-    PrimaryExpression val1(2);
-    prop1.set_value(Expression::encode(&val1));
-    props.emplace_back(prop1);
-    
-    // bool: 101.starting = false
-    cpp2::UpdatedEdgeProp prop2;
-    prop1.set_name("starting");
-    bool isStart = true;
-    PrimaryExpression val2(isStart);
-    prop1.set_value(Expression::encode(&val2));
-    props.emplace_back(prop1);
-    req.set_updated_props(std::move(props));
-
-    LOG(INFO) << "Build yield...";
-    // Return player props: playerName, teamName, teamCareer, starting
-    decltype(req.return_props) tmpProps;
-    std::string alias("101");
-    std::string propName1("playerName");
-    SourcePropertyExpression sourcePropExp1(&alias, &propName1);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp1));
-
-    std::string propName2("teamName");
-    SourcePropertyExpression sourcePropExp2(&alias, &propName2);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp2));
-
-    std::string propName3("teamCareer");
-    SourcePropertyExpression sourcePropExp3(&alias, &propName3);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp3));
-
-    std::string propName4("starting");
-    SourcePropertyExpression sourcePropExp4(&alias, &propName4);
-    tmpProps.emplace_back(Expression::encode(&sourcePropExp4));
-
-    req.set_return_props(std::move(tmpProps));
-    req.set_insertable(false);
-
-    LOG(INFO) << "Test UpdateEdgeRequest...";
-    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
-    auto f = processor->getFuture();
-    processor->process(req);
-    auto resp = std::move(f).get();
-
-    LOG(INFO) << "Check the results...";
-    EXPECT_EQ(1, resp.result.failed_parts.size());
-
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::E_EDGE_NOT_FOUND
-                   == resp.result.failed_parts[0].code);
+    reader = RowReader::getEdgePropReader(schemaMan.get(), iter->val(), spaceId, 101);
+    auto res = RowReader::getPropByName(reader.get(), "col_0");
+    EXPECT_TRUE(ok(res));
+    auto&& v0 = value(std::move(res));
+    EXPECT_EQ(3006L, boost::get<int64_t>(v0));
+    res = RowReader::getPropByName(reader.get(), "col_1");
+    EXPECT_TRUE(ok(res));
+    auto&& v1 = value(std::move(res));
+    EXPECT_EQ(0L, boost::get<int64_t>(v1));
+    res = RowReader::getPropByName(reader.get(), "col_10");
+    EXPECT_TRUE(ok(res));
+    auto&& v2 = value(std::move(res));
+    EXPECT_STREQ("string_col_10_2_new", boost::get<std::string>(v2).c_str());
+    res = RowReader::getPropByName(reader.get(), "col_11");
+    EXPECT_TRUE(ok(res));
+    auto&& v3 = value(std::move(res));
+    EXPECT_STREQ("", boost::get<std::string>(v3).c_str());
 }
 
 }  // namespace storage

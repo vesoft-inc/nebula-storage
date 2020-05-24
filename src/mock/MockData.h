@@ -127,9 +127,11 @@ public:
 
     static std::vector<EdgeData> mockEdgesSpecifiedOrder();
 
-    static std::unorder_map<PartitionID, std::vector<VertexData>> mockVerticesofPart(int32_t parts);
+    static std::unordered_map<PartitionID, std::vector<VertexData>>
+    mockVerticesofPart(int32_t parts = 6);
 
-    static std::unorder_map<PartitionID, std::vector<EdgeData>> mockEdgesofPart(int32_t parts);
+    static std::unordered_map<PartitionID, std::vector<EdgeData>>
+    mockEdgesofPart(int32_t parts = 6);
 
     /*
      * Mock request

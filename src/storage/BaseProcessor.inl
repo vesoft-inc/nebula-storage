@@ -30,8 +30,12 @@ cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
         return cpp2::ErrorCode::E_CHECKPOINT_BLOCKED;
     case kvstore::ResultCode::ERR_PARTIAL_RESULT:
         return cpp2::ErrorCode::E_PARTIAL_RESULT;
-	case kvstore::ResultCode::ERR_INVALID_FIELD_VALUE:
-		return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
+    case kvstore::ResultCode::ERR_INVALID_FIELD_VALUE:
+        return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
+    case kvstore::ResultCode::ERR_INVALID_FILTER:
+        return cpp2::ErrorCode::E_INVALID_FILTER;
+    case kvstore::ResultCode::ERR_INVALID_UPDATER:
+        return cpp2::ErrorCode::E_INVALID_UPDATER;
     default:
         return cpp2::ErrorCode::E_UNKNOWN;
     }

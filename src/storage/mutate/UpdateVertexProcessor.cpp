@@ -103,7 +103,8 @@ StorageDAG UpdateVertexProcessor::buildDAG(nebula::DataSet* result) {
                                                          tc.first,
                                                          &tc.second,
                                                          insertable_,
-                                                         updateTagIds_);
+                                                         updateTagIds_,
+                                                         updatedVertexProps_);
         tagUpdates.emplace_back(TagUpdate.get());
         dag.addNode(std::move(TagUpdate));
     }

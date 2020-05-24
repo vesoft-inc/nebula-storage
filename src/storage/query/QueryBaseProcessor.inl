@@ -45,11 +45,11 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
             PropContext ctx(name.c_str());
             ctx.returned_ = true;
             ctx.field_ = field;
-            tagContext_.tagIdProps.emplace(std::make_pair(tagId, name));
+            tagContext_.tagIdProps_.emplace(std::make_pair(tagId, name));
             ctxs.emplace_back(std::move(ctx));
         }
         this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
-        this->tagContext_.indexMap_.emplace(tagId, this->tagContext_.propContexts_.size() - 1);   
+        this->tagContext_.indexMap_.emplace(tagId, this->tagContext_.propContexts_.size() - 1);
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -196,6 +196,8 @@ std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
 
 template<typename REQ, typename RESP>
 bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
+    return true;
+    /*
     switch (exp->kind()) {
         case Expression::kPrimary:
             return true;
@@ -262,7 +264,7 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
                 // Use newest version
                 const auto& tagSchema = iter->second.back();
                 CHECK_NOTNULL(tagSchema);
-                
+
                 auto field = tagSchema->field(*propName);
                 if (field == nullptr) {
                     VLOG(1) << "Can't find related prop " << *propName << " on tag " << tagName;
@@ -332,6 +334,7 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             return false;
         }
     }
+    */
 }
 
 }  // namespace storage

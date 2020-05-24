@@ -9,6 +9,7 @@
 
 #include "base/Base.h"
 #include "storage/exec/FilterNode.h"
+#include "storage/exec/UpdateNode.h"
 
 namespace nebula {
 namespace storage {
@@ -186,15 +187,15 @@ private:
 
 class CatenateUpdateNode : public RelNode {
 public:
-    CatenateNode(StorageEnv* env,
-                 GraphSpaceID spaceId,
-                 UpdateNode* updateNode,
-                 std::vector<std::unique_ptr<Expression>>& returnPropsExp,
-                 nebula::DataSet* result)
+    CatenateUpdateNode(StorageEnv* env,
+                       GraphSpaceID spaceId,
+                       UpdateNode* updateNode,
+                       std::vector<std::unique_ptr<Expression>>& returnPropsExp,
+                       nebula::DataSet* result)
         : env_(env)
         , spaceId_(spaceId)
         , updateNode_(updateNode)
-        , returnPropsExp_(returnPropsExp);
+        , returnPropsExp_(returnPropsExp)
         , result_(result) {
             filter_ = updateNode_->getFilterCont();
             insert_ = updateNode_-getInsert();
@@ -219,11 +220,11 @@ public:
                     << ", prop: " << prop;
             return it->second;
         };
-    
+
         result_->colNames.emplace_back("_inserted");
         nebula::Row row;
         row.columns.emplace_back(insert_);
-    
+
         for (auto& exp : returnPropsExp_) {
             auto value = exp->eval(getters);
             if (!value.ok()) {
@@ -241,13 +242,14 @@ public:
 private:
     // ================= input =========================================================
     StorageEnv                                                                     *env_;
-    UpdateNode                                                                     *updateNode_;
     GraphSpaceID                                                                    spaceId_;
-    FilterContext                                                                  *filter_;
-    bool                                                                            insert_{false};
+    UpdateNode                                                                     *updateNode_;
     std::vector<std::unique_ptr<Expression>>                                        returnPropsExp_;
     // ===================output========================================================
     nebula::DataSet                                                                *result_;
+
+    FilterContext                                                                  *filter_;
+    bool                                                                            insert_{false};
 };
 
 

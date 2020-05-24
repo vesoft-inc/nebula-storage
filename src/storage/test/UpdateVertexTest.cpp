@@ -23,12 +23,11 @@ bool mockVertexData(storage::StorageEnv* env, int32_t totalParts, int32_t spaceV
     auto verticesPart = mock::MockData::mockVerticesofPart();
 
     folly::Baton<true, std::atomic> baton;
-    std::atomic<size_t> count(vertices.size());
+    std::atomic<size_t> count(verticesPart.size());
 
     for (const auto& part : verticesPart) {
         std::vector<kvstore::KV> data;
         data.clear();
-        auto size = part.second.size();
         for (const auto& vertex : part.second) {
             TagID tagId = vertex.tId_;
             auto key = NebulaKeyUtils::vertexKey(spaceVidLen, part.first, vertex.vId_, tagId, 0L);
@@ -48,7 +47,7 @@ bool mockVertexData(storage::StorageEnv* env, int32_t totalParts, int32_t spaceV
         env->kvstore_->asyncMultiPut(spaceId, part.first, std::move(data),
                                     [&](kvstore::ResultCode code) {
                                         CHECK_EQ(code, kvstore::ResultCode::SUCCEEDED);
-                                        count.fetch_sub(size);
+                                        count.fetch_sub(1);
                                         if (count.load() == 0) {
                                             baton.post();
                                         }
