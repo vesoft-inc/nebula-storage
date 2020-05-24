@@ -38,6 +38,8 @@ enum ResultCode {
     ERR_RESULT_FILTERED     = -18,
     ERR_CORRUPT_DATA        = -19,
     ERR_INVALID_FIELD_VALUE = -20,
+    ERR_INVALID_FILTERED    = -21,
+    ERR_INVALID_RETURN_EXP  = -22,
     ERR_USER_CANCELLED      = -98,
     ERR_PARTIAL_RESULT      = -99,
     ERR_UNKNOWN             = -100,

@@ -9,8 +9,8 @@
 #include "common/NebulaKeyUtils.h"
 #include "codec/RowWriterV2.h"
 #include "storage/exec/TagNode.h"
-#include "storage/exec/EdgeNode.h"
 #include "storage/exec/FilterNode.h"
+#include "storage/exec/UpdateNode.h"
 #include "storage/exec/CatenateNode.h"
 
 namespace nebula {

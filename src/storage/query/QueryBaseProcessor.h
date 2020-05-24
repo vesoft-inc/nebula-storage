@@ -116,13 +116,13 @@ protected:
     bool checkExp(const Expression* exp);
 
 protected:
-    GraphSpaceID spaceId_;
+    GraphSpaceID                                        spaceId_;
 
-    TagContext tagContext_;
-    EdgeContext edgeContext_;
-    std::unique_ptr<Expression> filterExp_;
+    TagContext                                          tagContext_;
+    EdgeContext                                         edgeContext_;
+    std::unique_ptr<Expression>                         filterExp_;
 
-    nebula::DataSet resultDataSet_;
+    nebula::DataSet                                     resultDataSet_;
 };
 
 }  // namespace storage
