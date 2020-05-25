@@ -8,9 +8,9 @@
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 #include "common/expression/Expression.h"
-#include "common/context/ExpressionContext.h"
+#include "storage/context/UpdateExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -33,7 +33,7 @@ private:
 
     cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req) override;
 
-    StorageDAG buildDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildPlan(nebula::DataSet* result);
 
     // Get the schema of all versions of all tags in the spaceId
     cpp2::ErrorCode buildTagSchema();
@@ -44,6 +44,14 @@ private:
 
     void onProcessFinished() override;
 
+    std::vector<Expression*> getReturnPropsExp() {
+        std::vector<Expression*> result;
+        result.resize(returnPropsExp_.size());
+        auto get = [] (auto &ptr) {return ptr.get(); };
+        std::transform(returnPropsExp_.begin(), returnPropsExp_.end(), result.begin(), get);
+        return result;
+    }
+
 private:
     bool                                                            insertable_{false};
 
@@ -52,8 +60,7 @@ private:
 
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
 
-    // TODO implement  expression contex
-    std::unique_ptr<ExpressionContext>                              expCtx_;
+    std::unique_ptr<UpdateExpressionContext>                        expCtx_;
 
     // update <tagID, prop name, new value expression>
     std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;

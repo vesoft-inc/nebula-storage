@@ -104,6 +104,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
             auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
             auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
             auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
@@ -287,6 +288,7 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         plan.addNode(std::move(filter));
         plan.addNode(std::move(output));
         plan.addNode(std::move(aggrNode));
+
         folly::stop_watch<std::chrono::microseconds> watch;
         auto code = plan.go(partId, vId);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);

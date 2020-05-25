@@ -78,13 +78,10 @@ public:
             }
         }
 
-        // doodle
-        /*
         if (edgeContext_->statCount_ > 0) {
             auto stats = statProcessor_.calculateStat(stats_);
             result.values[1].setList(std::move(stats));
         }
-        */
 
         DVLOG(1) << vId << " process " << edgeRowCount << " edges in total.";
         return kvstore::ResultCode::SUCCEEDED;
@@ -92,6 +89,7 @@ public:
 
 private:
     GetNeighborsNode() = default;
+
     FilterNode* filterNode_;
     EdgeContext* edgeContext_;
     StatCollector statProcessor_;

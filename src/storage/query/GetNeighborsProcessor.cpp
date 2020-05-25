@@ -75,7 +75,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
         plan.addNode(std::move(edge));
     }
     auto filter = std::make_unique<FilterNode>(
-            tags, edges, &tagContext_, &edgeContext_, exp_.get());
+            tags, edges, &tagContext_, &edgeContext_, filterExp_.get());
     for (auto* tag : tags) {
         filter->addDependency(tag);
     }

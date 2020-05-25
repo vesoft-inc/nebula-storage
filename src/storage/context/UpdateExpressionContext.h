@@ -44,6 +44,12 @@ public:
     const Value& getSrcProp(const std::string& tagName,
                             const std::string& prop) const override;
 
+
+    void setVar(const std::string& var, Value val) override {
+        UNUSED(var);
+        UNUSED(val);
+    }
+
     // Set edge prop and value
     bool setEdgeProp(const std::string& edgeName, const std::string& prop, Value val);
 

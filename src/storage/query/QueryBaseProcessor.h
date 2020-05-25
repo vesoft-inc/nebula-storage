@@ -10,6 +10,14 @@
 #include "common/base/Base.h"
 #include "common/expression/Expression.h"
 #include "storage/BaseProcessor.h"
+#include "common/expression/BinaryExpression.h"
+#include "common/expression/ArithmeticExpression.h"
+#include "common/expression/RelationalExpression.h"
+#include "common/expression/LogicalExpression.h"
+#include "common/expression/UnaryExpression.h"
+#include "common/expression/TypeCastingExpression.h"
+#include "common/expression/FunctionCallExpression.h"
+#include "common/expression/SymbolPropertyExpression.h"
 
 namespace nebula {
 namespace storage {
@@ -70,7 +78,7 @@ struct TagContext {
 
 struct EdgeContext {
     std::vector<std::pair<EdgeType, std::vector<PropContext>>>          propContexts_;
-    std::unordered_map<TagID, size_t>                                   indexMap_;
+    std::unordered_map<EdgeType, size_t>                                indexMap_;
     std::unordered_map<EdgeType,
         std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     std::unordered_map<EdgeType, std::pair<std::string, int64_t>>       ttlInfo_;

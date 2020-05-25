@@ -23,10 +23,10 @@ public:
         return iter_.get();
     }
 
-    kvstore::ResultCode collectEdgePropsIfValid(NullHandler nullHandler,
+    kvstore::ResultCode collectEdgePropsIfValid(EdgeNullHandler nullHandler,
                                                 EdgePropHandler valueHandler) {
         if (!iter_ || !iter_->valid()) {
-            return nullHandler(props_);
+            return nullHandler(edgeType_, props_);
         }
         auto key = iter_->key();
         auto val = iter_->val();
@@ -43,7 +43,7 @@ public:
             auto ttlValue = ttl.value();
             if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
                                                     ttlValue.first, ttlValue.second)) {
-                return nullHandler(props_);
+                return nullHandler(edgeType_, props_);
             }
         }
         if (exp_ != nullptr) {

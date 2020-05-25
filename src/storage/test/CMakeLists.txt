@@ -31,6 +31,7 @@ set(storage_test_deps
     $<TARGET_OBJECTS:common_conf_obj>
     $<TARGET_OBJECTS:common_datatypes_obj>
     $<TARGET_OBJECTS:common_base_obj>
+    $<TARGET_OBJECTS:common_expression_obj>
 )
 
 nebula_add_test(
@@ -172,21 +173,6 @@ nebula_add_test(
         ${THRIFT_LIBRARIES}
         wangle
         gtest
-)
-
-nebula_add_executable(
-    NAME
-        storage_dag_bm
-    SOURCES
-        StorageDAGBenchmark.cpp
-    OBJECTS
-        ${storage_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        wangle
-        follybenchmark
-        boost_regex
 )
 
 nebula_add_test(

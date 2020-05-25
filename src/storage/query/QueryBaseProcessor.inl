@@ -279,55 +279,70 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceEdgeSchema() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+template <typename REQ, typename RESP>
 bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
-    return true;
-    /*
     switch (exp->kind()) {
-        case Expression::kPrimary:
+        // TODO constant expression
+        case Expression::Kind::kConstant:
             return true;
-        case Expression::kFunctionCall: {
-            auto* funcExp = static_cast<FunctionCallExpression*>(
-                                const_cast<Expression*>(exp));
-            auto* name = funcExp->name();
+        case Expression::Kind::kAdd:
+        case Expression::Kind::kMinus:
+        case Expression::Kind::kMultiply:
+        case Expression::Kind::kDivision:
+        case Expression::Kind::kMod: {
+            auto* ariExp = static_cast<const ArithmeticExpression*>(exp);
+            return checkExp(ariExp->left()) && checkExp(ariExp->right());
+        }
+        case Expression::Kind::kRelEQ:
+        case Expression::Kind::kRelNE:
+        case Expression::Kind::kRelLT:
+        case Expression::Kind::kRelLE:
+        case Expression::Kind::kRelGT:
+        case Expression::Kind::kRelGE:
+        case Expression::Kind::kRelIn: {
+            auto* relExp = static_cast<const RelationalExpression*>(exp);
+            return checkExp(relExp->left()) && checkExp(relExp->right());
+        }
+        case Expression::Kind::kLogicalAnd:
+        case Expression::Kind::kLogicalOr:
+        case Expression::Kind::kLogicalXor: {
+            auto* logExp = static_cast<const LogicalExpression*>(exp);
+            return checkExp(logExp->left()) && checkExp(logExp->right());
+        }
+        case Expression::Kind::kUnaryPlus:
+        case Expression::Kind::kUnaryNegate:
+        case Expression::Kind::kUnaryNot:
+        case Expression::Kind::kUnaryIncr:
+        case Expression::Kind::kUnaryDecr: {
+            auto* unaExp = static_cast<const UnaryExpression*>(exp);
+            return checkExp(unaExp->operand());
+        }
+        case Expression::Kind::kTypeCasting: {
+            auto* typExp = static_cast<const TypeCastingExpression*>(exp);
+            return checkExp(typExp->operand());
+        }
+        case Expression::Kind::kFunctionCall: {
+            auto* funcExp = static_cast<const FunctionCallExpression*>(exp);
+            // auto* name = funcExp->name();
             auto args = funcExp->args();
-            auto func = FunctionManager::get(*name, args.size());
-            if (!func.ok()) {
-                return false;
-            }
+            // auto func = FunctionManager::get(*name, args.size());
+            // if (!func.ok()) {
+            //     return false;
+            // }
             for (auto& arg : args) {
                 if (!checkExp(arg)) {
                     return false;
                 }
             }
-            funcExp->setFunc(std::move(func).value());
+            // funcExp->setFunc(std::move(func).value());
             return true;
         }
-        case Expression::kUnary: {
-            auto* unaExp = static_cast<const UnaryExpression*>(exp);
-            return checkExp(unaExp->operand());
-        }
-        case Expression::kTypeCasting: {
-            auto* typExp = static_cast<const TypeCastingExpression*>(exp);
-            return checkExp(typExp->operand());
-        }
-        case Expression::kArithmetic: {
-            auto* ariExp = static_cast<const ArithmeticExpression*>(exp);
-            return checkExp(ariExp->left()) && checkExp(ariExp->right());
-        }
-        case Expression::kRelational: {
-            auto* relExp = static_cast<const RelationalExpression*>(exp);
-            return checkExp(relExp->left()) && checkExp(relExp->right());
-        }
-        case Expression::kLogical: {
-            auto* logExp = static_cast<const LogicalExpression*>(exp);
-            return checkExp(logExp->left()) && checkExp(logExp->right());
-        }
-        case Expression::kSourceProp: {
+        case Expression::Kind::kSrcProperty: {
             auto* sourceExp = static_cast<const SourcePropertyExpression*>(exp);
-            const auto* tagName = sourceExp->alias();
+            const auto* tagName = sourceExp->sym();
             const auto* propName = sourceExp->prop();
 
-            auto tagRet = env_->schemaMan_->toTagID(spaceId_, *tagName);
+            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, *tagName);
             if (!tagRet.ok()) {
                 VLOG(1) << "Can't find tag " << *tagName << ", in space " << spaceId_;
                 return false;
@@ -336,7 +351,7 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
 
             auto propIter = tagContext_.tagIdProps_.find(std::make_pair(tagId, *propName));
             if (propIter == tagContext_.tagIdProps_.end()) {
-                VLOG(1) << "There is no related tag  prop existed in tagContexts!";
+                VLOG(1) << "There is no related tag prop existed in tagContexts!";
                 PropContext ctx(propName->c_str());
                 auto iter = tagContext_.schemas_.find(tagId);
                 if (iter == tagContext_.schemas_.end()) {
@@ -355,7 +370,7 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
                     return false;
                 }
                 ctx.field_ = field;
-                auto indexIter = tagContext_.indexMap_.find(tagId));
+                auto indexIter = tagContext_.indexMap_.find(tagId);
                 if (indexIter != tagContext_.indexMap_.end()) {
                     // add tag prop
                     auto index = indexIter->second;
@@ -370,29 +385,38 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             }
             return true;
         }
-        case Expression::kEdgeRank:
-        case Expression::kEdgeDstId:
-        case Expression::kEdgeSrcId:
-        case Expression::kEdgeType: {
+        case Expression::Kind::kEdgeRank:
+        case Expression::Kind::kEdgeDst:
+        case Expression::Kind::kEdgeSrc:
+        case Expression::Kind::kEdgeType: {
             return true;
         }
-        case Expression::kAliasProp: {
-            if (edgeContexts_.empty()) {
+        case Expression::Kind::kEdgeProperty: {
+            if (edgeContext_.propContexts_.empty()) {
                 VLOG(1) << "No edge requested!";
                 return false;
             }
 
-            auto* edgeExp = static_cast<const AliasPropertyExpression*>(exp);
+            auto* edgeExp = static_cast<const EdgePropertyExpression*>(exp);
 
             // TODO(simon.liu) we need handle rename.
-            auto edgeStatus = this->schemaMan_->toEdgeType(spaceId_, *edgeExp->alias());
+            auto edgeStatus = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeExp->sym());
             if (!edgeStatus.ok()) {
-                VLOG(1) << "Can't find edge " << *(edgeExp->alias());
+                VLOG(1) << "Can't find edge " << *(edgeExp->sym());
                 return false;
             }
 
             auto edgeType = edgeStatus.value();
-            auto schema = this->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
+            auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
+            if (iter == edgeContext_.schemas_.end()) {
+                VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);
+                return false;
+            }
+            CHECK(!iter->second.empty());
+            // Use newest version
+            const auto& edgeSchema = iter->second.back();
+            CHECK_NOTNULL(edgeSchema);
+            auto schema = this->env_->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
             if (!schema) {
                 VLOG(1) << "Cant find edgeType " << edgeType;
                 return false;
@@ -402,14 +426,14 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             auto field = schema->field(*propName);
             if (field == nullptr) {
                 VLOG(1) << "Can't find related prop " << *propName << " on edge "
-                        << *(edgeExp->alias());
+                        << *(edgeExp->sym());
                 return false;
             }
             return true;
         }
-        case Expression::kVariableProp:
-        case Expression::kDestProp:
-        case Expression::kInputProp: {
+        case Expression::Kind::kVarProperty:
+        case Expression::Kind::kDstProperty:
+        case Expression::Kind::kInputProperty: {
             return false;
         }
         default: {
@@ -418,7 +442,6 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             return false;
         }
     }
-    */
 }
 
 }  // namespace storage

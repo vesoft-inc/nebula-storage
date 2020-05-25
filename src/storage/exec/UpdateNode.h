@@ -7,9 +7,9 @@
 #ifndef STORAGE_EXEC_UPDATENODE_H_
 #define STORAGE_EXEC_UPDATENODE_H_
 
-#include "base/Base.h"
-#include "expression/Expression.h"
-#include "context/ExpressionContext.h"
+#include "common/base/Base.h"
+#include "common/expression/Expression.h"
+#include "storage/context/UpdateExpressionContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
 #include "kvstore/LogEncoder.h"
@@ -17,79 +17,78 @@
 namespace nebula {
 namespace storage {
 
-class UpdateNode : public RelNode {
+// Only use for update vertex
+// Update records, write to kvstore
+class UpdateTagNode : public RelNode<VertexID> {
 public:
-    UpdateNode(StorageEnv* env,
-               GraphSpaceID spaceId,
-               std::vector<storage::cpp2::UpdatedVertexProp>& updatedVertexProps,
-               TagFilterNode* filterNode,
-               ExpressionContext* expCtx)
+    UpdateTagNode(StorageEnv* env,
+                  GraphSpaceID spaceId,
+                  std::vector<storage::cpp2::UpdatedVertexProp>& updatedVertexProps,
+                  UpdateFilterNode* filterNode)
         : env_(env)
         , spaceId_(spaceId)
         , updatedVertexProps_(updatedVertexProps)
         , filterNode_(filterNode) {
-            expCtx_.reset(expCtx);
-            filter_ = filterNode_->getFilterCont();
-            insert_ = filterNode_->getInsert();
-            tagUpdates_ = filterNode_->getUpdateKV();
         }
 
-    folly::Future<kvstore::ResultCode> execute(PartitionID partId, const VertexID& vId) override {
+    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         CHECK_NOTNULL(env_->kvstore_);
-        auto atomic = [partId, vId, this] () -> folly::Optional<std::string> {
-            return updateAndWriteBack(partId, vId);
-        };
 
-        auto callback = [this, partId, vId] (kvstore::ResultCode code) {
-            return code;
-        };
+        folly::Baton<true, std::atomic> baton;
+        auto ret = kvstore::ResultCode::SUCCEEDED;
 
-        env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+        env_->kvstore_->asyncAtomicOp(spaceId_, partId,
+            [partId, vId, this] ()
+            -> folly::Optional<std::string> {
+                auto exeRet = RelNode::execute(partId, vId);
+                if (exeRet == kvstore::ResultCode::SUCCEEDED) {
+                    this->tagId_ = filterNode_->getTagId();
+                    this->key_ = filterNode_->getKey();
+                    this->rowWriter_ = filterNode_->getRowWriter();
+                    this->filter_ = filterNode_->getFilterCont();
+                    this->insert_ = filterNode_->getInsert();
+                    this->expCtx_ = filterNode_->getExpressionContext();
+                    return this->updateAndWriteBack(partId, vId);
+                } else {
+                    return folly::none;
+                }
+            },
+            [this, partId, vId, &ret, &baton] (kvstore::ResultCode code) {
+                ret = code;
+                baton.post();
+            });
+        baton.wait();
 
-        // TODO need to return
+        return ret;
     }
 
     std::string updateAndWriteBack(const PartitionID partId, const VertexID vId) {
-        UNUSED(partId);
-        UNUSED(vId);
-        Getters getters;
-        getters.getSrcTagProp = [this] (const std::string& tagName,
-                                           const std::string& prop) -> OptValue {
-            auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, tagName);
-            if (!tagRet.ok()) {
-                VLOG(1) << "Can't find tag " << tagName << ", in space " << this->spaceId_;
-                return Status::Error("Invalid Filter Tag: " + tagName);
-            }
-            auto tagId = tagRet.value();
-            auto tagFilters = this->filter_->getTagFilter();
-            auto it = tagFilters.find(std::make_pair(tagId, prop));
-            if (it == tagFilters.end()) {
-                return Status::Error("Invalid Tag Filter");
-            }
-            VLOG(1) << "Hit srcProp filter for tag: " << tagName
-                    << ", prop: " << prop;
-            return it->second;
-        };
-
-        for (auto& updateProp : updatedVertexProps_) {
+        for (auto& updateProp : this->updatedVertexProps_) {
             auto tagId = updateProp.get_tag_id();
             auto propName = updateProp.get_name();
-            auto exp = Expression::decode(updateProp.get_value());
-            if (!exp.ok()) {
+            auto updateExp = Expression::decode(updateProp.get_value());
+            if (!updateExp) {
                 return std::string("");
             }
-            auto vexp = std::move(exp).value();
-            vexp->setContext(this->expCtx_.get());
-            auto value = vexp->eval(getters);
-            if (!value.ok()) {
+            auto updateVal = updateExp->eval(*(this->expCtx_));
+            // update prop value to filter_
+            this->filter_->fillTagProp(tagId, propName, updateVal);
+
+            // update expression context
+            auto tagName = this->env_->schemaMan_->toTagName(this->spaceId_, tagId);
+            if (!tagName.ok()) {
+                VLOG(1) << "Can't find spaceId " << this->spaceId_ << " tagId " << tagId;
                 return std::string("");
             }
-            auto expValue = value.value();
-            // update prop value
-            filter_->fillTagProp(tagId, propName, expValue);
+            this->expCtx_->setSrcProp(tagName.value(), propName, updateVal);
+
 
             // update RowWriterV2 old value -> new value
-            auto wRet = tagUpdates_[tagId].second->setValue(propName, expValue);
+            if (tagId_ != tagId) {
+                VLOG(1) << "Update field faild ";
+                return std::string("");
+            }
+            auto wRet = rowWriter_->setValue(propName, updateVal);
             if (wRet != WriteResult::SUCCEEDED) {
                 VLOG(1) << "Add field faild ";
                 return std::string("");
@@ -98,15 +97,17 @@ public:
 
         std::unique_ptr<kvstore::BatchHolder> batchHolder
             = std::make_unique<kvstore::BatchHolder>();
-        for (const auto& u : tagUpdates_) {
-            auto nKey = u.second.first;
-            auto wRet = u.second.second->finish();
-            if (wRet != WriteResult::SUCCEEDED) {
-                VLOG(1) << "Add field faild ";
-                return std::string("");
-            }
-            auto nVal = std::move(u.second.second->moveEncodedStr());
 
+        auto wRet = rowWriter_->finish();
+        if (wRet != WriteResult::SUCCEEDED) {
+            VLOG(1) << "Add field faild ";
+            return std::string("");
+        }
+
+        auto nVal = std::move(rowWriter_->moveEncodedStr());
+
+        UNUSED(partId);
+        UNUSED(vId);
             /*
             if (!indexes_.empty()) {
                 std::unique_ptr<RowReader> reader, oReader;
@@ -145,33 +146,42 @@ public:
             }
             */
 
-            batchHolder->put(std::move(nKey), std::move(nVal));
-        }
+        batchHolder->put(std::move(key_), std::move(nVal));
         return encodeBatchValue(batchHolder->getBatch());
     }
 
-     FilterContext* getFilterCont() {
-         return filter_;
-     }
+    FilterContext* getFilterCont() {
+        return filter_;
+    }
 
-     bool getInsert() {
-         return insert_;
-     }
+    bool getInsert() {
+        return insert_;
+    }
+
+    UpdateExpressionContext* getExpressionContext() {
+        return expCtx_;
+    }
+
 
 private:
-    // ================= input ========================================================
+    // ============================ input =====================================================
     StorageEnv                                                                     *env_;
     GraphSpaceID                                                                    spaceId_;
     // update <tagID, prop name, new value expression>
     std::vector<storage::cpp2::UpdatedVertexProp>                           updatedVertexProps_;
-    TagFilterNode                                                                  *filterNode_;
-    std::unique_ptr<ExpressionContext>                                              expCtx_;
+    UpdateFilterNode                                                               *filterNode_;
 
-    // ===============out==========================
+    // To update tagid，key, old row value
+    // std::unordered_map<std::string, std::unique_ptr<RowWriterV2>>                tagUpdateKVs_;
+    TagID                                                                           tagId_;
+    std::string                                                                     key_;
+
+    RowWriterV2*                                                                    rowWriter_;
+    // ============================ output ====================================================
     // input and update, then output
     FilterContext                                                                  *filter_;
     bool                                                                            insert_{false};
-    std::unordered_map<TagID, std::pair<std::string, std::unique_ptr<RowWriterV2>>> tagUpdates_;
+    UpdateExpressionContext                                                        *expCtx_;
 };
 
 }  // namespace storage
