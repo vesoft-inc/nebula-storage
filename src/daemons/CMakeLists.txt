@@ -37,6 +37,7 @@ nebula_add_executable(
         StorageDaemon.cpp
     OBJECTS
         $<TARGET_OBJECTS:storage_server>
+        $<TARGET_OBJECTS:graph_storage_service_handler>
         $<TARGET_OBJECTS:storage_admin_service_handler>
         $<TARGET_OBJECTS:storage_http_handler>
         $<TARGET_OBJECTS:storage_common_obj>
