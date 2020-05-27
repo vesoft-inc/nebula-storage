@@ -83,7 +83,6 @@ private:
     RowReaderV1 readerV1_;
     RowReaderV2 readerV2_;
     RowReader* currReader_;
-
 };
 
 }  // namespace nebula

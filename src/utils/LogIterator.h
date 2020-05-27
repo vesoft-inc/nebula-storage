@@ -31,4 +31,3 @@ public:
 
 }  // namespace nebula
 #endif  // UTILS_LOGITERATOR_H_
-

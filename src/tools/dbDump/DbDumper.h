@@ -4,8 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef TOOLS_DBDUMPER_H_
-#define TOOLS_DBDUMPER_H_
+#ifndef TOOLS_DBDUMP_DBDUMPER_H_
+#define TOOLS_DBDUMP_DBDUMPER_H_
 
 #include "common/base/Base.h"
 #include "common/base/Status.h"
@@ -90,4 +90,4 @@ private:
 
 }  // namespace storage
 }  // namespace nebula
-#endif  // TOOLS_DBDUMPER_H_
+#endif  // TOOLS_DBDUMP_DBDUMPER_H_

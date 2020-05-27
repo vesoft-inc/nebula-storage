@@ -82,7 +82,6 @@ private:
     folly::RWSpinLock partsLock_;
     std::unordered_map<std::pair<GraphSpaceID, PartitionID>,
                        std::shared_ptr<RaftPart>> parts_;
-
 };
 
 }  // namespace raftex

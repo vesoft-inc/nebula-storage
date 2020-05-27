@@ -102,6 +102,7 @@ public:
     class Iterator : public LogIterator{
         friend class AtomicLogBuffer;
         FRIEND_TEST(AtomicLogBufferTest, SingleWriterMultiReadersTest);
+
     public:
         ~Iterator() {
             logBuffer_->releaseRef();
@@ -213,7 +214,7 @@ public:
      * */
     ~AtomicLogBuffer() {
         auto refs = refs_.load(std::memory_order_acquire);
-        CHECK(refs == 0);
+        CHECK_EQ(0, refs);
         auto* curr = head_.load(std::memory_order_relaxed);
         auto* prev = curr;
         while (curr != nullptr) {
@@ -309,7 +310,7 @@ public:
     }
 
 private:
-    AtomicLogBuffer(int32_t capacity)
+    explicit AtomicLogBuffer(int32_t capacity)
         : capacity_(capacity) {}
 
     /*
@@ -351,7 +352,6 @@ private:
     }
 
     void releaseRef() {
-
         // All operations following SHOULD NOT reordered before tail.load()
         // so we could ensure the tail used in GC is older than new coming readers.
         auto* tail = tail_.load(std::memory_order_acquire);

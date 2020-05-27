@@ -16,9 +16,8 @@ namespace storage {
 class StorageEnv;
 
 class StorageAdminServiceHandler final : public cpp2::StorageAdminServiceSvIf {
-
 public:
-    StorageAdminServiceHandler(StorageEnv* env)
+    explicit StorageAdminServiceHandler(StorageEnv* env)
         : env_(env) {
     }
 

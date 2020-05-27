@@ -133,7 +133,6 @@ Value RowReaderV2::getValueByIndex(const int64_t index) const noexcept {
                    &data_[offset + sizeof(int16_t) + sizeof(int8_t)],
                    sizeof(int8_t));
             return std::move(dt);
-
         }
         case meta::cpp2::PropertyType::DATETIME: {
             DateTime dt;
