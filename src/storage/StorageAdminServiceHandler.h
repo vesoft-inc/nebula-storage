@@ -7,8 +7,8 @@
 #ifndef STORAGE_STORAGEADMINSERVICEHANDLER_H_
 #define STORAGE_STORAGEADMINSERVICEHANDLER_H_
 
-#include "base/Base.h"
-#include "interface/gen-cpp2/StorageAdminService.h"
+#include "common/base/Base.h"
+#include "common/interface/gen-cpp2/StorageAdminService.h"
 
 namespace nebula {
 namespace storage {

@@ -7,11 +7,11 @@
 #ifndef TOOLS_DBDUMPER_H_
 #define TOOLS_DBDUMPER_H_
 
-#include "base/Base.h"
+#include "common/base/Base.h"
+#include "common/base/Status.h"
+#include "common/clients/meta/MetaClient.h"
+#include "common/meta/ServerBasedSchemaManager.h"
 #include <rocksdb/db.h>
-#include "base/Status.h"
-#include "clients/meta/MetaClient.h"
-#include "meta/ServerBasedSchemaManager.h"
 #include "kvstore/RocksEngine.h"
 #include "codec/RowReader.h"
 

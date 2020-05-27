@@ -4,11 +4,10 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "base/Base.h"
+#include "common/fs/FileUtils.h"
+#include "common/time/Duration.h"
 #include "DbDumper.h"
-#include "common/NebulaKeyUtils.h"
-#include "fs/FileUtils.h"
-#include "time/Duration.h"
+#include "utils/NebulaKeyUtils.h"
 
 DEFINE_string(space_name, "", "The space name.");
 DEFINE_string(db_path, "./", "Path to rocksdb.");

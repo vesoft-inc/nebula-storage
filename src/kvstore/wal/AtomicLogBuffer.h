@@ -7,8 +7,8 @@
 #ifndef WAL_ATOMICLOGBUFFER_H_
 #define WAL_ATOMICLOGBUFFER_H_
 
-#include "thrift/ThriftTypes.h"
-#include "common/LogIterator.h"
+#include "common/thrift/ThriftTypes.h"
+#include "utils/LogIterator.h"
 #include <gtest/gtest_prod.h>
 #include <folly/CachelinePadded.h>
 
