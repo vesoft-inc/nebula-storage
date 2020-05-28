@@ -3,16 +3,15 @@
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
+
+#include "common/base/Base.h"
+#include "common/fs/TempDir.h"
+#include "common/webservice/WebService.h"
 #include <gtest/gtest.h>
 #include <folly/synchronization/Baton.h>
-
-#include "base/Base.h"
 #include "meta/ActiveHostsMan.h"
-#include "fs/TempDir.h"
 #include "meta/test/TestUtils.h"
 #include "kvstore/Common.h"
-#include "webservice/WebService.h"
-
 #include "meta/processors/jobMan/JobUtils.h"
 #include "meta/processors/jobMan/TaskDescription.h"
 #include "meta/processors/jobMan/JobManager.h"
@@ -152,7 +151,7 @@ TEST_F(JobManagerTest, showJob) {
 
     int32_t iJob = jd.id_;
     int32_t task1 = 0;
-    auto host1 = toHost("192.168.8.5");
+    auto host1 = toHost("127.0.0.1");
 
     TaskDescription td1(iJob, task1, host1);
     td1.setStatus(Status::RUNNING);
@@ -160,7 +159,7 @@ TEST_F(JobManagerTest, showJob) {
     jobMgr->save(td1.taskKey(), td1.taskVal());
 
     int32_t task2 = 1;
-    auto host2 = toHost("192.168.8.5");
+    auto host2 = toHost("127.0.0.1");
     TaskDescription td2(iJob, task2, host2);
     td2.setStatus(Status::RUNNING);
     td2.setStatus(Status::FAILED);
@@ -288,7 +287,7 @@ TEST(JobDescriptionTest, parseVal) {
 TEST(TaskDescriptionTest, ctor) {
     int32_t iJob = std::pow(2, 4);
     int32_t iTask = 0;
-    auto dest = toHost("192.168.8.5");
+    auto dest = toHost("");
     TaskDescription td(iJob, iTask, dest);
     auto status = Status::RUNNING;
 
@@ -302,7 +301,7 @@ TEST(TaskDescriptionTest, ctor) {
 TEST(TaskDescriptionTest, parseKey) {
     int32_t iJob = std::pow(2, 5);
     int32_t iTask = 0;
-    std::string dest{"192.168.8.5"};
+    std::string dest{"127.0.0.1"};
     TaskDescription td(iJob, iTask, toHost(dest));
 
     std::string strKey = td.taskKey();
@@ -315,7 +314,7 @@ TEST(TaskDescriptionTest, parseKey) {
 TEST(TaskDescriptionTest, parseVal) {
     int32_t iJob = std::pow(2, 5);
     int32_t iTask = 0;
-    std::string dest{"192.168.8.5"};
+    std::string dest{"127.0.0.1"};
 
     TaskDescription td(iJob, iTask, toHost(dest));
     td.setStatus(Status::RUNNING);
@@ -335,7 +334,7 @@ TEST(TaskDescriptionTest, parseVal) {
 TEST(TaskDescriptionTest, ctor2) {
     int32_t iJob = std::pow(2, 6);
     int32_t iTask = 0;
-    auto dest = toHost("192.168.8.5");
+    auto dest = toHost("127.0.0.1");
 
     TaskDescription td1(iJob, iTask, dest);
     ASSERT_EQ(td1.status_, Status::RUNNING);

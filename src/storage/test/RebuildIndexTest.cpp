@@ -4,8 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "base/Base.h"
-#include "fs/TempDir.h"
+#include "common/base/Base.h"
+#include "common/fs/TempDir.h"
 #include <gtest/gtest.h>
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
@@ -85,7 +85,7 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
 
-    auto appendVertices = [env = env] () mutable {
+    auto appendVertices = [&] () mutable {
         LOG(INFO) << "Start Background Writer";
         {
             LOG(INFO) << "Append is Running";
@@ -144,6 +144,7 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
+    writer->stop();
     manager->shutdown();
 }
 
@@ -156,7 +157,7 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
 
-    auto deleteVertices = [env = env] () mutable {
+    auto deleteVertices = [&] () mutable {
         LOG(INFO) << "Start Background Writer & Delete is Running";
         cpp2::DeleteVerticesRequest req = mock::MockData::mockDeleteVerticesReq();
         auto* processor = DeleteVerticesProcessor::instance(env, nullptr);
@@ -212,6 +213,7 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
 
+    writer->stop();
     manager->shutdown();
 }
 
@@ -331,6 +333,7 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
+    writer->stop();
     manager->shutdown();
 }
 
@@ -395,16 +398,12 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";
     for (auto& key : mock::MockData::mockServeIndexKeys()) {
-        LOG(INFO) << "Check " << key.second;
         std::string value;
         auto code = env->kvstore_->get(1, key.first, key.second, &value);
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
-        // if (code == kvstore::ResultCode::SUCCEEDED) {
-        //     EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
-        //     break;
-        // }
     }
 
+    writer->stop();
     manager->shutdown();
 }
 

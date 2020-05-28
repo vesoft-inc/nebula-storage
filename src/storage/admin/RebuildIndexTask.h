@@ -8,9 +8,9 @@
 #define STORAGE_ADMIN_REBUILDINDEXTASK_H_
 
 #include "kvstore/LogEncoder.h"
-#include "meta/IndexManager.h"
+#include "common/meta/IndexManager.h"
+#include "common/interface/gen-cpp2/storage_types.h"
 #include "storage/admin/AdminTask.h"
-#include "interface/gen-cpp2/storage_types.h"
 
 namespace nebula {
 namespace storage {

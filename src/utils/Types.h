@@ -4,16 +4,15 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef COMMON_TYPES_H_
-#define COMMON_TYPES_H_
+#ifndef UTILS_TYPES_H_
+#define UTILS_TYPES_H_
 
-#include "base/Base.h"
-#include "thrift/ThriftTypes.h"
-#include "interface/gen-cpp2/meta_types.h"
+#include "common/base/Base.h"
+#include "common/thrift/ThriftTypes.h"
 
 namespace nebula {
 
-using IndexValues = std::vector<std::pair<Value::Type, std::string>>;
+// using IndexValues = std::vector<std::pair<nebula::Value::Type, std::string>>;
 
 enum class NebulaKeyType : uint32_t {
     kData              = 0x00000001,
@@ -72,9 +71,9 @@ static constexpr uint32_t kTagMaskSet       = ~kTagEdgeMask;
 
 static constexpr int32_t kVertexIndexLen = sizeof(PartitionID) + sizeof(IndexID);
 
-static constexpr int32_t kEdgeIndexLen = sizeof(PartitionID) + sizeof(IndexID) + 
+static constexpr int32_t kEdgeIndexLen = sizeof(PartitionID) + sizeof(IndexID) +
                                          sizeof(EdgeRanking);
 
 }  // namespace nebula
-#endif  // COMMON_TYPES_H_
+#endif  // UTILS_TYPES_H_
 

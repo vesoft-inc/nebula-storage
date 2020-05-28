@@ -4,10 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "base/Base.h"
-#include "common/IndexKeyUtils.h"
 #include "storage/BaseProcessor.h"
-#include "codec/RowWriterV2.h"
 
 namespace nebula {
 namespace storage {

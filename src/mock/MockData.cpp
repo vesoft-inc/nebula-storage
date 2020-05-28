@@ -5,8 +5,9 @@
  */
 
 #include "mock/MockData.h"
-#include "time/WallClock.h"
-#include "common/IndexKeyUtils.h"
+#include "common/interface/gen-cpp2/meta_types.h"
+#include "common/time/WallClock.h"
+#include "utils/IndexKeyUtils.h"
 
 DEFINE_bool(mock_ttl_col, false, "Will use a column as ttl_col if set to true");
 DEFINE_int32(mock_ttl_duration, 5, "Ttl duration for ttl col");
@@ -753,11 +754,6 @@ std::vector<std::pair<PartitionID, std::string>> MockData::mockServeIndexKeys() 
                                                serve.teamName_,
                                                values,
                                                colsType);
-        LOG(INFO) << "mockServeIndexKeys " << part << " "
-                  << serve.playerName_ << " "
-                  << serve.startYear_ << ""
-                  << serve.teamName_ << "";
-        LOG(INFO) << "Key " << key;
         auto pair = std::make_pair(part, std::move(key));
         keys.emplace_back(std::move(pair));
     }

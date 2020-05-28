@@ -7,6 +7,7 @@
 #include "storage/StorageFlags.h"
 #include "storage/index/IndexUtils.h"
 #include "storage/admin/RebuildEdgeIndexTask.h"
+#include "utils/IndexKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -90,8 +91,6 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         std::vector<Value::Type> colsType;
         auto valuesRet = IndexUtils::collectIndexValues(reader.get(), cols, colsType);
 
-        LOG(INFO) << "Part" << part << "Source " << source
-                << " Rank " << ranking << " Des " << destination;
         auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
                                                     part,
                                                     indexID,
@@ -101,7 +100,6 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                     valuesRet.value(),
                                                     colsType);
         data.emplace_back(std::move(indexKey), "");
-        LOG(INFO) << "Append Edge Index";
         batchNum += 1;
         iter->next();
     }

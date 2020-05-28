@@ -7,13 +7,12 @@
 #ifndef STORAGE_GRAPHSTORAGESERVICEHANDLER_H_
 #define STORAGE_GRAPHSTORAGESERVICEHANDLER_H_
 
-#include "CommonUtils.h"
-#include "base/Base.h"
-#include "storage/StorageFlags.h"
-#include "interface/gen-cpp2/GraphStorageService.h"
-#include "stats/Stats.h"
+#include "common/base/Base.h"
+#include "common/stats/Stats.h"
+#include "common/stats/StatsManager.h"
+#include "common/interface/gen-cpp2/GraphStorageService.h"
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include "storage/CommonUtils.h"
-#include "stats/StatsManager.h"
 #include "storage/StorageFlags.h"
 
 namespace nebula {

@@ -4,8 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "time/WallClock.h"
-#include "common/OperationKeyUtils.h"
+#include "common/time/WallClock.h"
+#include "utils/OperationKeyUtils.h"
 
 namespace nebula {
 

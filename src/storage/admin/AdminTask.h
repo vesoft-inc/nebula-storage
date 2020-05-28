@@ -7,12 +7,12 @@
 #ifndef STORAGE_ADMIN_ADMINTASK_H_
 #define STORAGE_ADMIN_ADMINTASK_H_
 
-#include "storage/admin/TaskUtils.h"
-#include "storage/BaseProcessor.h"
-#include "interface/gen-cpp2/storage_types.h"
+#include "common/interface/gen-cpp2/storage_types.h"
+#include "common/thrift/ThriftTypes.h"
 #include "kvstore/Common.h"
 #include "kvstore/NebulaStore.h"
-#include "thrift/ThriftTypes.h"
+#include "storage/admin/TaskUtils.h"
+#include "storage/CommonUtils.h"
 #include <folly/AtomicHashMap.h>
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 

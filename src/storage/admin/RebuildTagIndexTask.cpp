@@ -88,7 +88,6 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
 
         std::vector<Value::Type> colsType;
         auto valuesRet = IndexUtils::collectIndexValues(reader.get(), cols, colsType);
-        LOG(INFO) << "Part " << part << " vertex " << vertex.data();
         auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
                                                       part,
                                                       indexID,

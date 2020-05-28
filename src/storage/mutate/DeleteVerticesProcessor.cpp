@@ -4,11 +4,12 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "common/NebulaKeyUtils.h"
-#include "common/OperationKeyUtils.h"
+#include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/StorageFlags.h"
 #include "storage/index/IndexUtils.h"
 #include "storage/mutate/DeleteVerticesProcessor.h"
+#include "utils/NebulaKeyUtils.h"
+#include "utils/OperationKeyUtils.h"
 
 namespace nebula {
 namespace storage {

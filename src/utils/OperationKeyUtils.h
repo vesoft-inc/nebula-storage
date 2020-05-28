@@ -7,7 +7,7 @@
 #ifndef COMMON_BASE_OPERATIONKEYUTILS_H_
 #define COMMON_BASE_OPERATIONKEYUTILS_H_
 
-#include "common/Types.h"
+#include "utils/Types.h"
 
 namespace nebula {
 

@@ -4,10 +4,10 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef COMMON_BASE_NEBULAKEYUTILS_H_
-#define COMMON_BASE_NEBULAKEYUTILS_H_
+#ifndef UTILS_NEBULAKEYUTILS_H_
+#define UTILS_NEBULAKEYUTILS_H_
 
-#include "common/Types.h"
+#include "utils/Types.h"
 
 namespace nebula {
 
@@ -57,7 +57,7 @@ public:
     static std::string kvKey(PartitionID partId, const folly::StringPiece& name);
 
     static std::string prefix(PartitionID partId);
-    
+
     /**
      * Prefix for vertex
      * */
@@ -223,5 +223,5 @@ private:
 };
 
 }  // namespace nebula
-#endif  // COMMON_BASE_NEBULAKEYUTILS_H_
+#endif  // UTILS_NEBULAKEYUTILS_H_
 

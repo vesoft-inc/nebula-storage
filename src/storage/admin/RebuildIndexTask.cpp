@@ -5,9 +5,9 @@
  */
 
 #include "kvstore/Common.h"
-#include "common/OperationKeyUtils.h"
 #include "storage/StorageFlags.h"
 #include "storage/admin/RebuildIndexTask.h"
+#include "utils/OperationKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -131,7 +131,6 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                     return ret;
                 }
             } else if (OperationKeyUtils::isDeleteOperation(opKey)) {
-                LOG(INFO) << "Delete " << opVal;
                 auto ret = processRemoveOperation(space, part,
                                                   std::move(opVal).data(),
                                                   env_->kvstore_);
@@ -167,7 +166,6 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             LOG(ERROR) << "Delete Operation Failed";
             return ret;
         }
-        LOG(INFO) << "lastProcessedOperationsNum: " << lastProcessedOperationsNum;
         if (lastProcessedOperationsNum == 0 && processed) {
             break;
         } else {
