@@ -6,7 +6,7 @@
 
 #include "common/base/Base.h"
 #include <gtest/gtest.h>
-#include "storage/exec/StoragePlan.h"
+#include "storage/exec/StorageDAG.h"
 
 namespace nebula {
 namespace storage {
@@ -18,24 +18,24 @@ protected:
 };
 
 TEST_F(StorageDAGTest, SimpleTest) {
-    StoragePlan<VertexID> dag;
-    auto out = std::make_unique<RelNode<VertexID>>("leaf");
+    StorageDAG dag;
+    auto out = std::make_unique<RelNode>("leaf");
     dag.addNode(std::move(out));
     auto ret = dag.go(partId_, vId_);
     ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
 }
 
 TEST_F(StorageDAGTest, ChainTest) {
-    StoragePlan<VertexID> dag;
+    StorageDAG dag;
     size_t lastIdx;
     for (size_t i = 0; i < 10; i++) {
-        auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
         if (i != 0) {
             node->addDependency(dag.getNode(lastIdx));
         }
         lastIdx = dag.addNode(std::move(node));
     }
-    auto out = std::make_unique<RelNode<VertexID>>("leaf");
+    auto out = std::make_unique<RelNode>("leaf");
     out->addDependency(dag.getNode(lastIdx));
     dag.addNode(std::move(out));
     auto ret = dag.go(partId_, vId_);
@@ -43,10 +43,10 @@ TEST_F(StorageDAGTest, ChainTest) {
 }
 
 TEST_F(StorageDAGTest, FanOutInTest) {
-    StoragePlan<VertexID> dag;
-    auto out = std::make_unique<RelNode<VertexID>>("leaf");
+    StorageDAG dag;
+    auto out = std::make_unique<RelNode>("leaf");
     for (size_t i = 0; i < 10; i++) {
-        auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
         auto idx = dag.addNode(std::move(node));
         out->addDependency(dag.getNode(idx));
     }
@@ -56,10 +56,10 @@ TEST_F(StorageDAGTest, FanOutInTest) {
 }
 
 TEST_F(StorageDAGTest, RerunTest) {
-    StoragePlan<VertexID> dag;
-    auto out = std::make_unique<RelNode<VertexID>>("leaf");
+    StorageDAG dag;
+    auto out = std::make_unique<RelNode>("leaf");
     for (size_t i = 0; i < 10; i++) {
-        auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));
+        auto node = std::make_unique<RelNode>(folly::to<std::string>(i));
         auto idx = dag.addNode(std::move(node));
         out->addDependency(dag.getNode(idx));
     }

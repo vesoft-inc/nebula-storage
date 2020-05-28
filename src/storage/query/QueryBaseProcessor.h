@@ -90,36 +90,40 @@ public:
 };
 
 struct TagContext {
-    std::vector<std::pair<TagID, std::vector<PropContext>>> propContexts_;
+    std::vector<std::pair<TagID, std::vector<PropContext>>>             propContexts_;
     // indicates whether TagID is in propContxts_
-    std::unordered_map<TagID, size_t> indexMap_;
+    std::unordered_map<TagID, size_t>                                   indexMap_;
     // tagId -> tagName
-    std::unordered_map<TagID, std::string> tagNames_;
+    std::unordered_map<TagID, std::string>                              tagNames_;
     // tagId -> tag schema
     std::unordered_map<TagID,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     // tagId -> tag ttl info
-    std::unordered_map<TagID, std::pair<std::string, int64_t>> ttlInfo_;
-    VertexCache* vertexCache_ = nullptr;
+    std::unordered_map<TagID, std::pair<std::string, int64_t>>          ttlInfo_;
+    // To find prop faster, std::pair<TagID, prop_name>
+    std::unordered_set<std::pair<TagID, std::string>>                   tagIdProps_;
+    VertexCache                                                        *vertexCache_ = nullptr;
 };
 
 struct EdgeContext {
     // propContexts_, indexMap_, edgeNames_ will contain both +/- edges
     std::vector<std::pair<EdgeType, std::vector<PropContext>>> propContexts_;
     // indicates whether EdgeType is in propContxts_
-    std::unordered_map<EdgeType, size_t> indexMap_;
+    std::unordered_map<EdgeType, size_t>                                indexMap_;
     // EdgeType -> edgeName
     std::unordered_map<EdgeType, std::string> edgeNames_;
 
     // schemas_ and ttlInfo_ will contains only + edges
-    // EdgeType -> edge schema
     std::unordered_map<EdgeType,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     // EdgeType -> edge ttl info
-    std::unordered_map<EdgeType, std::pair<std::string, int64_t>> ttlInfo_;
+    std::unordered_map<EdgeType, std::pair<std::string, int64_t>>       ttlInfo_;
+
+    // To find prop faster, std::pair<EdgeType, prop_name>
+    std::unordered_set<std::pair<EdgeType, std::string>>                edgeTypeProps_;
     // offset is the start index of first edge type in a response row
-    size_t offset_;
-    size_t statCount_ = 0;
+    size_t                                                              offset_;
+    size_t                                                              statCount_ = 0;
 };
 
 template<typename REQ, typename RESP>
@@ -175,16 +179,17 @@ protected:
                                    bool filtered,
                                    const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);
 
+    bool checkExp(const Expression* exp);
+
 protected:
-    GraphSpaceID spaceId_;
+    GraphSpaceID                                        spaceId_;
 
-    TagContext tagContext_;
-    EdgeContext edgeContext_;
-    std::unique_ptr<Expression> filter_;
+    TagContext                                          tagContext_;
+    EdgeContext                                         edgeContext_;
+    std::unique_ptr<Expression>                         filterExp_;
 
-    nebula::DataSet resultDataSet_;
+    nebula::DataSet                                     resultDataSet_;
 };
-
 
 }  // namespace storage
 }  // namespace nebula

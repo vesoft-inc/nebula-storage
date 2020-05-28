@@ -30,6 +30,7 @@ public:
         addEdgesQpsStat_ = stats::Stats("storage", "add_edges");
         delVerticesQpsStat_ = stats::Stats("storage", "del_vertices");
         delEdgesQpsStat_ = stats::Stats("storage", "del_edges");
+        updateVertexQpsStat_ = stats::Stats("storage", "update_vertex");
         getNeighborsQpsStat_ = stats::Stats("storage", "get_neighbors");
         getPropQpsStat_ = stats::Stats("storage", "get_prop");
     }
@@ -40,6 +41,9 @@ public:
 
     folly::Future<cpp2::ExecResponse>
     future_deleteVertices(const cpp2::DeleteVerticesRequest& req) override;
+
+    folly::Future<cpp2::UpdateResponse>
+    future_updateVertex(const cpp2::UpdateVertexRequest& req) override;
 
     // Edge section
     folly::Future<cpp2::ExecResponse>
@@ -63,6 +67,7 @@ private:
     stats::Stats                                    addEdgesQpsStat_;
     stats::Stats                                    delVerticesQpsStat_;
     stats::Stats                                    delEdgesQpsStat_;
+    stats::Stats                                    updateVertexQpsStat_;
     stats::Stats                                    getNeighborsQpsStat_;
     stats::Stats                                    getPropQpsStat_;
 };

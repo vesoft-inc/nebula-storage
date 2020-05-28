@@ -9,6 +9,7 @@
 #include "storage/mutate/AddEdgesProcessor.h"
 #include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/mutate/DeleteEdgesProcessor.h"
+#include "storage/mutate/UpdateVertexProcessor.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/query/GetPropProcessor.h"
 
@@ -30,6 +31,12 @@ GraphStorageServiceHandler::future_addVertices(const cpp2::AddVerticesRequest& r
 folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_deleteVertices(const cpp2::DeleteVerticesRequest& req) {
     auto* processor = DeleteVerticesProcessor::instance(env_, &delVerticesQpsStat_, &vertexCache_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::UpdateResponse>
+GraphStorageServiceHandler::future_updateVertex(const cpp2::UpdateVertexRequest& req) {
+    auto* processor = UpdateVertexProcessor::instance(env_, &updateVertexQpsStat_, &vertexCache_);
     RETURN_FUTURE(processor);
 }
 
