@@ -57,20 +57,25 @@ const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKe
 };
 
 struct TagContext {
-    std::vector<std::pair<TagID, std::vector<PropContext>>> propContexts_;
-    std::unordered_map<TagID, size_t> indexMap_;
+    std::vector<std::pair<TagID, std::vector<PropContext>>>             propContexts_;
+    std::unordered_map<TagID, size_t>                                   indexMap_;
     std::unordered_map<TagID,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
-    std::unordered_map<TagID, std::pair<std::string, int64_t>> ttlInfo_;
-    VertexCache* vertexCache_ = nullptr;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    std::unordered_map<TagID, std::pair<std::string, int64_t>>          ttlInfo_;
+
+    // To find prop faster, std::pair<TagID, prop_name>
+    std::unordered_set<std::pair<TagID, std::string>>                   tagIdProps_;
+    VertexCache                                                        *vertexCache_ = nullptr;
 };
 
 struct EdgeContext {
-    std::vector<std::pair<EdgeType, std::vector<PropContext>>> propContexts_;
-    std::unordered_map<EdgeType, size_t> indexMap_;
+    std::vector<std::pair<EdgeType, std::vector<PropContext>>>          propContexts_;
+    std::unordered_map<TagID, size_t>                                   indexMap_;
     std::unordered_map<EdgeType,
-                       std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
-    std::unordered_map<EdgeType, std::pair<std::string, int64_t>> ttlInfo_;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    std::unordered_map<EdgeType, std::pair<std::string, int64_t>>       ttlInfo_;
+    // To find prop faster, std::pair<EdgeType, prop_name>
+    std::unordered_set<std::pair<EdgeType, std::string>>                edgeTypeProps_;
     // offset is the start index of first edge type in a response row
     size_t offset_;
     size_t statCount_ = 0;
@@ -119,16 +124,17 @@ protected:
     std::vector<ReturnProp> buildAllTagProps();
     std::vector<ReturnProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
+    bool checkExp(const Expression* exp);
+
 protected:
-    GraphSpaceID spaceId_;
+    GraphSpaceID                                        spaceId_;
 
-    TagContext tagContext_;
-    EdgeContext edgeContext_;
-    std::unique_ptr<Expression> exp_;
+    TagContext                                          tagContext_;
+    EdgeContext                                         edgeContext_;
+    std::unique_ptr<Expression>                         filterExp_;
 
-    nebula::DataSet resultDataSet_;
+    nebula::DataSet                                     resultDataSet_;
 };
-
 
 }  // namespace storage
 }  // namespace nebula

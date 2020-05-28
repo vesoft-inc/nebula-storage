@@ -8,67 +8,61 @@
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
 #include "storage/query/QueryBaseProcessor.h"
+#include "storage/exec/StorageDAG.h"
+#include "common/expression/Expression.h"
+#include "common/context/ExpressionContext.h"
 
 namespace nebula {
 namespace storage {
 
-struct KeyUpdaterPair {
-    std::pair<std::string, std::string> kv;
-    std::unique_ptr<RowUpdater> updater;
-};
-
 class UpdateVertexProcessor
     : public QueryBaseProcessor<cpp2::UpdateVertexRequest, cpp2::UpdateResponse> {
 public:
-    static UpdateVertexProcessor* instance(kvstore::KVStore* kvstore,
-                                           meta::SchemaManager* schemaMan,
-                                           meta::IndexManager* indexMan,
+    static UpdateVertexProcessor* instance(StorageEnv* env,
                                            stats::Stats* stats,
                                            VertexCache* cache = nullptr) {
-        return new UpdateVertexProcessor(kvstore, schemaMan, indexMan, stats, cache);
+        return new UpdateVertexProcessor(env, stats, cache);
     }
 
-    void process(const cpp2::UpdateVertexRequest& req);
+    void process(const cpp2::UpdateVertexRequest& req) override;
 
 private:
-    explicit UpdateVertexProcessor(kvstore::KVStore* kvstore,
-                                   meta::SchemaManager* schemaMan,
-                                   meta::IndexManager* indexMan,
-                                   stats::Stats* stats,
-                                   VertexCache* cache)
+    UpdateVertexProcessor(StorageEnv* env, stats::Stats* stats, VertexCache* cache)
         : QueryBaseProcessor<cpp2::UpdateVertexRequest,
-                             cpp2::UpdateResponse>(kvstore, schemaMan, stats, nullptr, cache)
-        , indexMan_(indexMan) {}
+                             cpp2::UpdateResponse>(env, stats, cache) {}
 
-    kvstore::ResultCode processVertex(PartitionID, VertexID) override {
-        LOG(FATAL) << "Unimplement!";
-        return kvstore::ResultCode::SUCCEEDED;
-    }
+    cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req) override;
 
-    void onProcessFinished(int32_t retNum) override;
+    StorageDAG buildDAG(nebula::DataSet* result);
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateVertexRequest& req);
+    // Get the schema of all versions of all tags in the spaceId
+    cpp2::ErrorCode buildTagSchema();
 
-    kvstore::ResultCode collectVertexProps(
-                            const PartitionID partId,
-                            const VertexID vId,
-                            const TagID tagId,
-                            const std::vector<PropContext>& props);
+    // Build TagContext by parsing return prop expressions,
+    // filter expression, update prop expression
+    cpp2::ErrorCode buildTagContext(const cpp2::UpdateVertexRequest& req);
 
-    FilterResult checkFilter(const PartitionID partId, const VertexID vId);
-
-    std::string updateAndWriteBack(const PartitionID partId, const VertexID vId);
+    void onProcessFinished() override;
 
 private:
     bool                                                            insertable_{false};
-    std::vector<storage::cpp2::UpdateItem>                          updateItems_;
-    std::vector<std::unique_ptr<Expression>>                        returnColumnsExp_;
-    std::set<TagID>                                                 updateTagIds_;
-    std::unordered_map<std::pair<TagID, std::string>, VariantType>  tagFilters_;
-    std::unordered_map<TagID, std::unique_ptr<KeyUpdaterPair>>      tagUpdaters_;
-    meta::IndexManager*                                             indexMan_{nullptr};
-    std::vector<std::shared_ptr<nebula::cpp2::IndexItem>>           indexes_;
-    std::atomic<FilterResult>                                  filterResult_{FilterResult::E_ERROR};
+
+    // updatedVertexProps_ will update tagId
+    std::unordered_set<TagID>                                       updateTagIds_;
+
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
+
+    // TODO implement  expression contex
+    std::unique_ptr<ExpressionContext>                              expCtx_;
+
+    // update <tagID, prop name, new value expression>
+    std::vector<storage::cpp2::UpdatedVertexProp>                   updatedVertexProps_;
+
+    // return props expression
+    std::vector<std::unique_ptr<Expression>>                        returnPropsExp_;
+
+    // condition expression
+    std::unique_ptr<Expression>                                     filterExp_;
 };
 
 }  // namespace storage

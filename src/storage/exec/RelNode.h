@@ -55,6 +55,10 @@ public:
 
     virtual ~RelNode() = default;
 
+    RelNode(const RelNode&) = delete;
+
+    RelNode(RelNode&&) = default;
+
     explicit RelNode(const std::string& name): name_(name) {}
 
 protected:

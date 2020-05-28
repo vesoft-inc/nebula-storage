@@ -104,7 +104,6 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
-            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
             auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
             auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
             auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);

@@ -19,7 +19,6 @@ public:
 
     virtual bool valid() const = 0;
 
-    // next will skip invalid data, until it points to a valid data or it is invalid
     virtual void next() = 0;
 
     virtual folly::StringPiece key() const = 0;

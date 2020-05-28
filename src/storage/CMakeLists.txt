@@ -10,8 +10,6 @@ nebula_add_library(
     admin/CreateCheckpointProcessor.cpp
     admin/DropCheckpointProcessor.cpp
     admin/SendBlockSignProcessor.cpp
-    # admin/RebuildTagIndexProcessor.cpp
-    # admin/RebuildEdgeIndexProcessor.cpp
     admin/AdminTaskProcessor.cpp
     admin/StopAdminTaskProcessor.cpp
     admin/AdminTaskManager.cpp
@@ -29,6 +27,7 @@ nebula_add_library(
     mutate/DeleteVerticesProcessor.cpp
     mutate/AddEdgesProcessor.cpp
     mutate/DeleteEdgesProcessor.cpp
+    mutate/UpdateVertexProcessor.cpp
     query/GetNeighborsProcessor.cpp
     query/GetPropProcessor.cpp
 )
