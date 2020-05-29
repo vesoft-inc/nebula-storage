@@ -17,15 +17,9 @@ namespace storage {
 class GetTagPropNode : public QueryNode<VertexID> {
 public:
     GetTagPropNode(std::vector<TagNode*> tagNodes,
-                   TagContext* tagContext,
-                   size_t vIdLen,
                    nebula::DataSet* result)
-        : QueryNode(vIdLen)
-        , tagNodes_(std::move(tagNodes))
-        , tagContext_(tagContext)
-        , result_(result) {
-        UNUSED(tagContext_);
-    }
+        : tagNodes_(std::move(tagNodes))
+        , result_(result) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -67,7 +61,6 @@ public:
 
 private:
     std::vector<TagNode*> tagNodes_;
-    TagContext* tagContext_;
     nebula::DataSet* result_;
 
     std::unique_ptr<RowReader> reader_;
@@ -76,14 +69,11 @@ private:
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
 public:
     GetEdgePropNode(std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
-                    EdgeContext* edgeContext,
                     size_t vIdLen,
                     nebula::DataSet* result)
-        : QueryNode(vIdLen)
-        , edgeNodes_(std::move(edgeNodes))
-        , edgeContext_(edgeContext)
+        : edgeNodes_(std::move(edgeNodes))
+        , vIdLen_(vIdLen)
         , result_(result) {
-        UNUSED(edgeContext_);
     }
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
@@ -107,7 +97,11 @@ public:
                               RowReader* reader, const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     nebula::List list;
-                    auto code = collectEdgeProps(edgeType, key, reader, props, list);
+                    auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key);
+                    auto edgeRank = NebulaKeyUtils::getRank(vIdLen_, key);
+                    auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
+                    auto code = collectEdgeProps(srcId, edgeType, edgeRank, dstId,
+                                                 reader, props, list);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
@@ -123,7 +117,7 @@ public:
 
 private:
     std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes_;
-    EdgeContext* edgeContext_;
+    size_t vIdLen_;
     nebula::DataSet* result_;
 
     std::unique_ptr<RowReader> reader_;

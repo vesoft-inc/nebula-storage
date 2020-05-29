@@ -23,10 +23,10 @@ public:
             size_t vIdLen,
             TagID tagId,
             const std::vector<PropContext>* props)
-        : QueryNode(vIdLen)
-        , tagContext_(ctx)
+        : tagContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
+        , vIdLen_(vIdLen)
         , tagId_(tagId)
         , props_(props) {
         auto schemaIter = tagContext_->schemas_.find(tagId_);
@@ -97,6 +97,7 @@ private:
     TagContext* tagContext_;
     StorageEnv* env_;
     GraphSpaceID spaceId_;
+    size_t vIdLen_;
     TagID tagId_;
     const std::vector<PropContext>* props_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;

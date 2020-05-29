@@ -77,7 +77,8 @@ StoragePlan<VertexID> GetPropProcessor::buildTagDAG(nebula::DataSet* result) {
         tags.emplace_back(tag.get());
         dag.addNode(std::move(tag));
     }
-    auto output = std::make_unique<GetTagPropNode>(tags, &tagContext_, spaceVidLen_, result);
+    // todo(doodle): add filter
+    auto output = std::make_unique<GetTagPropNode>(tags, result);
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
@@ -94,7 +95,8 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgeDAG(nebula::DataSet* resul
         edges.emplace_back(edge.get());
         dag.addNode(std::move(edge));
     }
-    auto output = std::make_unique<GetEdgePropNode>(edges, &edgeContext_, spaceVidLen_, result);
+    // todo(doodle): add filter
+    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_, result);
     for (auto* edge : edges) {
         output->addDependency(edge);
     }

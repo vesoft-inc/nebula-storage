@@ -48,7 +48,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         }
     }
 
-    GetNeighborsNode node(vIdLen);
+    GetNeighborsNode node;
     auto prefix = NebulaKeyUtils::edgePrefix(vIdLen, partId, vId, edgeType);
     {
         // mock the process in 1.0, each time we get the schema from SchemaMan
@@ -67,6 +67,10 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+            auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
+            auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+            auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
 
             SchemaVer schemaVer;
             int32_t readerVer;
@@ -75,7 +79,8 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             ASSERT_TRUE(schema != nullptr);
             auto wrapper = std::make_unique<RowReaderWrapper>();
             ASSERT_TRUE(wrapper->reset(schema.get(), val, readerVer));
-            auto code = node.collectEdgeProps(edgeType, key, wrapper.get(), &props, list);
+            auto code = node.collectEdgeProps(srcId, type, edgeRank, dstId,
+                                              wrapper.get(), &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
         }
@@ -98,10 +103,15 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+            auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
+            auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+            auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
             reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
                                                   std::abs(edgeType), val);
             ASSERT_TRUE(reader.get() != nullptr);
-            auto code = node.collectEdgeProps(edgeType, key, reader.get(), &props, list);
+            auto code = node.collectEdgeProps(srcId, type, edgeRank, dstId,
+                                              reader.get(), &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
         }
@@ -124,6 +134,10 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+            auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
+            auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+            auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
             if (reader.get() == nullptr) {
                 reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
                                                       std::abs(edgeType), val);
@@ -132,7 +146,8 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
                 ASSERT_TRUE(reader->resetEdgePropReader(env->schemaMan_, spaceId,
                                                         std::abs(edgeType), val));
             }
-            auto code = node.collectEdgeProps(edgeType, key, reader.get(), &props, list);
+            auto code = node.collectEdgeProps(srcId, type, edgeRank, dstId,
+                                              reader.get(), &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
         }
@@ -164,13 +179,18 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+            auto type = NebulaKeyUtils::getEdgeType(vIdLen, key);
+            auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+            auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
             if (reader.get() == nullptr) {
                 reader = RowReader::getRowReader(schemas, val);
                 ASSERT_TRUE(reader.get() != nullptr);
             } else {
                 ASSERT_TRUE(reader->reset(schemas, val));
             }
-            auto code = node.collectEdgeProps(edgeType, key, reader.get(), &props, list);
+            auto code = node.collectEdgeProps(srcId, type, edgeRank, dstId,
+                                              reader.get(), &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
         }
@@ -256,12 +276,11 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         auto edgeNode = std::make_unique<VertexPrefixScanNode>(&edgeContext, env, spaceId, vIdLen);
         edges.emplace_back(edgeNode.get());
         dag.addNode(std::move(edgeNode));
-        auto filter = std::make_unique<FilterNode>(tags, edges, nullptr, &edgeContext,
-                                                   vIdLen, nullptr);
+        auto filter = std::make_unique<FilterNode>(tags, edges, nullptr, &edgeContext, nullptr);
         for (auto* edge : edges) {
             filter->addDependency(edge);
         }
-        auto cat = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext, vIdLen, &result);
+        auto cat = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext, &result);
         cat->addDependency(filter.get());
         dag.addNode(std::move(filter));
         dag.addNode(std::move(cat));

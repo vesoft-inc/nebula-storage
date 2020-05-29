@@ -97,7 +97,7 @@ protected:
 template<typename T>
 class QueryNode : public RelNode<T> {
 public:
-    explicit QueryNode(size_t vIdLen) : vIdLen_(vIdLen) {}
+    // explicit QueryNode(size_t vIdLen) : vIdLen_(vIdLen) {}
 
 protected:
     StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx) {
@@ -124,8 +124,10 @@ protected:
         return value;
     }
 
-    kvstore::ResultCode collectEdgeProps(EdgeType edgeType,
-                                         folly::StringPiece key,
+    kvstore::ResultCode collectEdgeProps(VertexIDSlice srcId,
+                                         EdgeType edgeType,
+                                         EdgeRanking edgeRank,
+                                         VertexIDSlice dstId,
                                          RowReader* reader,
                                          const std::vector<PropContext>* props,
                                          nebula::List& list,
@@ -147,25 +149,29 @@ protected:
                     break;
                 }
                 case PropContext::PropInKeyType::SRC: {
-                    value = NebulaKeyUtils::getSrcId(vIdLen_, key);
+                    value = srcId.str();
                     break;
                 }
                 case PropContext::PropInKeyType::DST: {
-                    value = NebulaKeyUtils::getDstId(vIdLen_, key);
+                    value = dstId.str();
                     break;
                 }
                 case PropContext::PropInKeyType::TYPE: {
-                    value = NebulaKeyUtils::getEdgeType(vIdLen_, key);
+                    value = edgeType;
                     break;
                 }
                 case PropContext::PropInKeyType::RANK: {
-                    value = NebulaKeyUtils::getRank(vIdLen_, key);
+                    value = edgeRank;
                     break;
                 }
             }
+            // doodle
+            UNUSED(stats);
+            /*
             if (prop.hasStat_ && stats != nullptr) {
                 addStatValue(value, (*stats)[prop.statIndex_]);
             }
+            */
             if (prop.returned_) {
                 list.values.emplace_back(std::move(value));
             }
@@ -203,8 +209,6 @@ protected:
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
-
-    size_t vIdLen_;
 };
 
 }  // namespace storage

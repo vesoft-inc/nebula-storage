@@ -56,10 +56,10 @@ protected:
              size_t vIdLen,
              EdgeType edgeType,
              const std::vector<PropContext>* props)
-        : QueryNode<T>(vIdLen)
-        , edgeContext_(ctx)
+        : edgeContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
+        , vIdLen_(vIdLen)
         , edgeType_(edgeType)
         , props_(props) {
         auto schemaIter = edgeContext_->schemas_.find(std::abs(edgeType_));
@@ -72,14 +72,15 @@ protected:
              StorageEnv* env,
              GraphSpaceID spaceId,
              size_t vIdLen)
-        : QueryNode<T>(vIdLen)
-        , edgeContext_(ctx)
+        : edgeContext_(ctx)
         , env_(env)
-        , spaceId_(spaceId) {}
+        , spaceId_(spaceId)
+        , vIdLen_(vIdLen) {}
 
     EdgeContext* edgeContext_;
     StorageEnv* env_;
     GraphSpaceID spaceId_;
+    size_t vIdLen_;
     EdgeType edgeType_;
     const std::vector<PropContext>* props_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
@@ -109,11 +110,11 @@ public:
                 << ", prop size " << props_->size();
         if (edgeKey.edge_type == edgeType_) {
             prefix_ = NebulaKeyUtils::edgePrefix(vIdLen_,
-                                                partId,
-                                                edgeKey.src,
-                                                edgeKey.edge_type,
-                                                edgeKey.ranking,
-                                                edgeKey.dst);
+                                                 partId,
+                                                 edgeKey.src,
+                                                 edgeKey.edge_type,
+                                                 edgeKey.ranking,
+                                                 edgeKey.dst);
             std::unique_ptr<kvstore::KVIterator> iter;
             auto code = env_->kvstore_->prefix(spaceId_, partId, prefix_, &iter);
             if (code == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {

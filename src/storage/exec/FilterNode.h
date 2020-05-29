@@ -25,10 +25,8 @@ public:
                const std::vector<EdgeNode<VertexID>*>& edgeNodes,
                TagContext* tagContext,
                EdgeContext* edgeContext,
-               size_t vIdLen,
                const Expression* exp)
-        : QueryNode(vIdLen)
-        , tagNodes_(tagNodes)
+        : tagNodes_(tagNodes)
         , edgeNodes_(edgeNodes)
         , tagContext_(tagContext)
         , edgeContext_(edgeContext)

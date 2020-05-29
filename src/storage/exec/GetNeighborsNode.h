@@ -19,10 +19,8 @@ class GetNeighborsNode : public QueryNode<VertexID> {
 public:
     GetNeighborsNode(FilterNode* filterNode,
                      EdgeContext* edgeContext,
-                     size_t vIdLen,
                      nebula::DataSet* result)
-        : QueryNode(vIdLen)
-        , filterNode_(filterNode)
+        : filterNode_(filterNode)
         , edgeContext_(edgeContext)
         , result_(result) {}
 
@@ -59,15 +57,17 @@ public:
         int64_t edgeRowCount = 0;
         nebula::List list;
         for (; filterNode_->valid(); filterNode_->next(), ++edgeRowCount) {
+            auto srcId = filterNode_->srcId();
             auto edgeType = filterNode_->edgeType();
-            auto key = filterNode_->key();
+            auto edgeRank = filterNode_->edgeRank();
+            auto dstId = filterNode_->dstId();
             auto reader = filterNode_->reader();
             auto props = filterNode_->props();
             auto columnIdx = filterNode_->idx();
 
             // doodle
             // ret = collectEdgeProps(edgeType, key, reader, props, list, stats);
-            ret = collectEdgeProps(edgeType, key, reader, props, list);
+            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
@@ -94,7 +94,7 @@ public:
     }
 
 private:
-    explicit GetNeighborsNode(size_t vIdLen) : QueryNode(vIdLen) {}
+    GetNeighborsNode() = default;
 
     std::vector<PropStat> initStatValue() {
         // initialize all stat value of all edgeTypes
