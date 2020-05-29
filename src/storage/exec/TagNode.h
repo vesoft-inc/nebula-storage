@@ -59,7 +59,7 @@ public:
         prefix_ = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId, tagId_);
         ret = env_->kvstore_->prefix(spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            iter_.reset(new SingleEdgeIterator(std::move(iter), tagId_, vIdLen_));
+            iter_.reset(new SingleTagIterator(std::move(iter), tagId_, vIdLen_));
         } else {
             iter_.reset();
         }

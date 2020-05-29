@@ -38,13 +38,13 @@ struct PropStat {
 };
 
 
-template<typename T> class StorageDAG;
+template<typename T> class StoragePlan;
 
 // RelNode is shortcut for relational algebra node, each RelNode has an execute method,
 // which will be invoked in dag when all its dependencies have finished
 template<typename T>
 class RelNode {
-    friend class StorageDAG<T>;
+    friend class StoragePlan<T>;
 public:
     virtual kvstore::ResultCode execute(PartitionID partId, const T& input) {
         DVLOG(1) << name_;

@@ -19,20 +19,21 @@ namespace storage {
 // FilterNode has input of serveral TagNode and EdgeNode, the EdgeNode could be either several
 // EdgeTypePrefixScanNode of different edge types, or a single VertexPrefixScanNode which scan
 // all edges of a vertex
-class FilterNode : public RelNode<VertexID>, public StorageIterator {
+class FilterNode : public QueryNode<VertexID>, public EdgeIterator {
 public:
-    FilterNode(const Expression* exp,
-               const std::vector<TagNode*>& tagNodes,
+    FilterNode(const std::vector<TagNode*>& tagNodes,
                const std::vector<EdgeNode<VertexID>*>& edgeNodes,
                TagContext* tagContext,
-               EdgeContext* edgeContext)
-        : exp_(exp)
+               EdgeContext* edgeContext,
+               size_t vIdLen,
+               const Expression* exp)
+        : QueryNode(vIdLen)
         , tagNodes_(tagNodes)
         , edgeNodes_(edgeNodes)
         , tagContext_(tagContext)
-        , edgeContext_(edgeContext) {
+        , edgeContext_(edgeContext)
+        , exp_(exp) {
         UNUSED(tagContext_);
-        UNUSED(filter_);
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -41,7 +42,32 @@ public:
             return ret;
         }
 
-        std::vector<StorageIterator*> iters;
+        tagResult_.setList(nebula::List());
+        auto& result = tagResult_.mutableList();
+        // add result of each tag node to tagResult
+        for (auto* tagNode : tagNodes_) {
+            ret = tagNode->collectTagPropsIfValid(
+                [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
+                    result.values.emplace_back(NullType::__NULL__);
+                    return kvstore::ResultCode::SUCCEEDED;
+                },
+                [this, &result] (TagID tagId,
+                                 RowReader* reader,
+                                 const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                    nebula::List list;
+                    auto code = collectTagProps(tagId, reader, props, list, &filter_);
+                    if (code != kvstore::ResultCode::SUCCEEDED) {
+                        return code;
+                    }
+                    result.values.emplace_back(std::move(list));
+                    return kvstore::ResultCode::SUCCEEDED;
+                });
+            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                return ret;
+            }
+        }
+
+        std::vector<EdgeIterator*> iters;
         for (auto* edgeNode : edgeNodes_) {
             iters.emplace_back(edgeNode->iter());
         }
@@ -71,25 +97,41 @@ public:
         return iter_->val();
     }
 
+    VertexID srcId() const override {
+        return iter_->srcId();
+    }
+
     EdgeType edgeType() const override {
         return edgeType_;
     }
 
+    EdgeRanking edgeRank() const override {
+        return iter_->edgeRank();
+    }
+
+    VertexID dstId() const override {
+        return iter_->dstId();
+    }
+
+    // return the column index in result row
     size_t idx() {
         return columnIdx_;
     }
 
+    // return the edge row reader which could pass filter
     RowReader* reader() {
         return reader_.get();
     }
 
+    // return the edge props need to return
     const std::vector<PropContext>* props() {
         return props_;
     }
 
-    FilterContext* filterCtx() {
-        // todo(doodle): need to clean whenever switch to another vId
-        return filter_;
+    // return the result of tag, it is a List, each cell save a list of property values,
+    // if tag not found, it will be a NullType::__NULL__
+    Value& tagResult() {
+        return tagResult_;
     }
 
 private:
@@ -138,21 +180,22 @@ private:
     }
 
 private:
-    const Expression* exp_;
     std::vector<TagNode*> tagNodes_;
     std::vector<EdgeNode<VertexID>*> edgeNodes_;
     TagContext* tagContext_;
     EdgeContext* edgeContext_;
-    FilterContext* filter_;
+    const Expression* exp_;
 
+    FilterContext filter_;
     EdgeType edgeType_ = 0;
     size_t columnIdx_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     const std::vector<PropContext>* props_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
 
+    nebula::Value tagResult_;
     std::unique_ptr<RowReader> reader_;
-    std::unique_ptr<StorageIterator> iter_;
+    std::unique_ptr<EdgeIterator> iter_;
 };
 
 }  // namespace storage

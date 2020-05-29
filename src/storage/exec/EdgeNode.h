@@ -19,7 +19,7 @@ namespace storage {
 template<typename T>
 class EdgeNode : public QueryNode<T> {
 public:
-    StorageIterator* iter() {
+    EdgeIterator* iter() {
         return iter_.get();
     }
 
@@ -85,7 +85,7 @@ protected:
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
-    std::unique_ptr<StorageIterator> iter_;
+    std::unique_ptr<EdgeIterator> iter_;
     std::string prefix_;
 };
 

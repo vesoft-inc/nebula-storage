@@ -68,8 +68,8 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
     onFinished();
 }
 
-StorageDAG<VertexID> GetPropProcessor::buildTagDAG(nebula::DataSet* result) {
-    StorageDAG<VertexID> dag;
+StoragePlan<VertexID> GetPropProcessor::buildTagDAG(nebula::DataSet* result) {
+    StoragePlan<VertexID> dag;
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
@@ -85,8 +85,8 @@ StorageDAG<VertexID> GetPropProcessor::buildTagDAG(nebula::DataSet* result) {
     return dag;
 }
 
-StorageDAG<cpp2::EdgeKey> GetPropProcessor::buildEdgeDAG(nebula::DataSet* result) {
-    StorageDAG<cpp2::EdgeKey> dag;
+StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgeDAG(nebula::DataSet* result) {
+    StoragePlan<cpp2::EdgeKey> dag;
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(

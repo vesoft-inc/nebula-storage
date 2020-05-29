@@ -17,16 +17,12 @@ class GetNeighborsNode : public QueryNode<VertexID> {
     FRIEND_TEST(ScanEdgePropBench, ProcessEdgeProps);
 
 public:
-    GetNeighborsNode(std::vector<TagNode*> tagNodes,
-                     FilterNode* filterNode,
-                     TagContext* tagContext,
+    GetNeighborsNode(FilterNode* filterNode,
                      EdgeContext* edgeContext,
                      size_t vIdLen,
                      nebula::DataSet* result)
         : QueryNode(vIdLen)
-        , tagNodes_(std::move(tagNodes))
         , filterNode_(filterNode)
-        , tagContext_(tagContext)
         , edgeContext_(edgeContext)
         , result_(result) {}
 
@@ -42,33 +38,20 @@ public:
 
         // reserve second column for stat
         row.columns.emplace_back(NullType::__NULL__);
+        // doodle
+        /*
         std::vector<PropStat>* stats = nullptr;
         if (edgeContext_->statCount_ > 0) {
             *stats = initStatValue();
         }
+        */
 
-        // add result of each tag node
-        for (auto* tagNode : tagNodes_) {
-            ret = tagNode->collectTagPropsIfValid(
-                [&row] (const std::vector<PropContext>*) -> kvstore::ResultCode {
-                    row.columns.emplace_back(NullType::__NULL__);
-                    return kvstore::ResultCode::SUCCEEDED;
-                },
-                [this, &row, filterCtx = filterNode_->filterCtx()]
-                (TagID tagId, RowReader* reader, const std::vector<PropContext>* props)
-                -> kvstore::ResultCode {
-                    nebula::List list;
-                    auto code = collectTagProps(tagId, reader, props, list, filterCtx);
-                    if (code != kvstore::ResultCode::SUCCEEDED) {
-                        return code;
-                    }
-                    row.columns.emplace_back(std::move(list));
-                    return kvstore::ResultCode::SUCCEEDED;
-                });
-            if (ret != kvstore::ResultCode::SUCCEEDED) {
-                return ret;
-            }
+        auto tagResult = filterNode_->tagResult().moveList();
+        LOG(INFO) << tagResult.values.size();
+        for (auto& value : tagResult.values) {
+            row.columns.emplace_back(std::move(value));
         }
+        LOG(INFO) << tagResult.values.size();
 
         // add default null for each edge node
         row.columns.resize(row.columns.size() + edgeContext_->propContexts_.size(),
@@ -82,7 +65,9 @@ public:
             auto props = filterNode_->props();
             auto columnIdx = filterNode_->idx();
 
-            ret = collectEdgeProps(edgeType, key, reader, props, list, stats);
+            // doodle
+            // ret = collectEdgeProps(edgeType, key, reader, props, list, stats);
+            ret = collectEdgeProps(edgeType, key, reader, props, list);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
@@ -95,10 +80,13 @@ public:
             cell.values.emplace_back(std::move(list));
         }
 
+        // doodle
+        /*
         if (edgeContext_->statCount_ > 0) {
             // set the stat result to column[1]
             row.columns[1].setList(calculateStat(*stats));
         }
+        */
 
         DVLOG(1) << vId << " process " << edgeRowCount << " edges in total.";
         result_->rows.emplace_back(std::move(row));
@@ -143,7 +131,6 @@ private:
         return result;
     }
 
-    std::vector<TagNode*> tagNodes_;
     FilterNode* filterNode_;
     TagContext* tagContext_;
     EdgeContext* edgeContext_;

@@ -6,7 +6,7 @@
 
 #include "common/base/Base.h"
 #include <gtest/gtest.h>
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 
 namespace nebula {
 namespace storage {
@@ -18,7 +18,7 @@ protected:
 };
 
 TEST_F(StorageDAGTest, SimpleTest) {
-    StorageDAG<VertexID> dag;
+    StoragePlan<VertexID> dag;
     auto out = std::make_unique<RelNode<VertexID>>("leaf");
     dag.addNode(std::move(out));
     auto ret = dag.go(partId_, vId_);
@@ -26,7 +26,7 @@ TEST_F(StorageDAGTest, SimpleTest) {
 }
 
 TEST_F(StorageDAGTest, ChainTest) {
-    StorageDAG<VertexID> dag;
+    StoragePlan<VertexID> dag;
     size_t lastIdx;
     for (size_t i = 0; i < 10; i++) {
         auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));
@@ -43,7 +43,7 @@ TEST_F(StorageDAGTest, ChainTest) {
 }
 
 TEST_F(StorageDAGTest, FanOutInTest) {
-    StorageDAG<VertexID> dag;
+    StoragePlan<VertexID> dag;
     auto out = std::make_unique<RelNode<VertexID>>("leaf");
     for (size_t i = 0; i < 10; i++) {
         auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));
@@ -56,7 +56,7 @@ TEST_F(StorageDAGTest, FanOutInTest) {
 }
 
 TEST_F(StorageDAGTest, RerunTest) {
-    StorageDAG<VertexID> dag;
+    StoragePlan<VertexID> dag;
     auto out = std::make_unique<RelNode<VertexID>>("leaf");
     for (size_t i = 0; i < 10; i++) {
         auto node = std::make_unique<RelNode<VertexID>>(folly::to<std::string>(i));

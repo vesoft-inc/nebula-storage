@@ -19,17 +19,73 @@ public:
 
     virtual bool valid() const = 0;
 
+    // next will skip invalid data, until it points to a valid data or it is invalid
     virtual void next() = 0;
-
-    virtual EdgeType edgeType() const = 0;
 
     virtual folly::StringPiece key() const = 0;
 
     virtual folly::StringPiece val() const = 0;
 };
 
-// Iterator of single specified edgeType
-class SingleEdgeIterator : public StorageIterator {
+class TagIterator : public StorageIterator {
+public:
+    virtual VertexID vId() const = 0;
+
+    virtual TagID tagId() const = 0;
+};
+
+class SingleTagIterator : public TagIterator {
+public:
+    SingleTagIterator(std::unique_ptr<kvstore::KVIterator> iter,
+                      TagID tagId,
+                      size_t vIdLen)
+        : iter_(std::move(iter))
+        , tagId_(tagId)
+        , vIdLen_(vIdLen) {}
+
+    bool valid() const override {
+        return !!iter_ && iter_->valid();
+    }
+
+    void next() override {
+        iter_->next();
+    }
+
+    folly::StringPiece key() const override {
+        return iter_->key();
+    }
+
+    folly::StringPiece val() const override {
+        return iter_->val();
+    }
+
+    VertexID vId() const override {
+        return NebulaKeyUtils::getVertexId(vIdLen_, iter_->key()).str();
+    }
+
+    TagID tagId() const override {
+        return NebulaKeyUtils::getTagId(vIdLen_, iter_->key());
+    }
+
+protected:
+    std::unique_ptr<kvstore::KVIterator> iter_;
+    TagID tagId_;
+    size_t vIdLen_;
+};
+
+class EdgeIterator : public StorageIterator {
+public:
+    virtual VertexID srcId() const = 0;
+
+    virtual EdgeType edgeType() const = 0;
+
+    virtual EdgeRanking edgeRank() const = 0;
+
+    virtual VertexID dstId() const = 0;
+};
+
+// Iterator of single specified type
+class SingleEdgeIterator : public EdgeIterator {
 public:
     SingleEdgeIterator(std::unique_ptr<kvstore::KVIterator> iter,
                        EdgeType edgeType,
@@ -56,11 +112,24 @@ public:
         return iter_->val();
     }
 
+    VertexID srcId() const override {
+        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key()).str();
+    }
+
     EdgeType edgeType() const override {
-        return edgeType_;
+        return NebulaKeyUtils::getEdgeType(vIdLen_, iter_->key());
+    }
+
+    EdgeRanking edgeRank() const override {
+        return NebulaKeyUtils::getRank(vIdLen_, iter_->key());
+    }
+
+    VertexID dstId() const override {
+        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key()).str();
     }
 
 protected:
+    // return true when the value iter to a valid edge value
     bool check() {
         auto key = iter_->key();
         auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
@@ -85,10 +154,10 @@ protected:
     bool firstLoop_ = true;
 };
 
-// Iterator of multiple SingleEdge, it will iterate over edges of different types
-class MultiEdgeIterator : public StorageIterator {
+// Iterator of multiple SingleEdgeIterator, it will iterate over edges of different types
+class MultiEdgeIterator : public EdgeIterator {
 public:
-    explicit MultiEdgeIterator(std::vector<StorageIterator*> iters)
+    explicit MultiEdgeIterator(std::vector<EdgeIterator*> iters)
         : iters_(std::move(iters)) {
         if (!iters_.empty()) {
             moveToNextValidIterator();
@@ -114,8 +183,20 @@ public:
         return iters_[curIter_]->val();
     }
 
+    VertexID srcId() const override {
+        return iters_[curIter_]->srcId();
+    }
+
     EdgeType edgeType() const override {
         return iters_[curIter_]->edgeType();
+    }
+
+    EdgeRanking edgeRank() const override {
+        return iters_[curIter_]->edgeRank();
+    }
+
+    VertexID dstId() const override {
+        return iters_[curIter_]->dstId();
     }
 
 private:
@@ -130,13 +211,13 @@ private:
     }
 
 private:
-    std::vector<StorageIterator*> iters_;
+    std::vector<EdgeIterator*> iters_;
     EdgeType edgeType_;
     size_t curIter_ = 0;
 };
 
-// Iterator of all edges of a specified vertex
-class AllEdgeIterator : public StorageIterator {
+// Iterator of all edges type of a specified vertex
+class AllEdgeIterator : public EdgeIterator {
 public:
     AllEdgeIterator(EdgeContext* ctx,
                     std::unique_ptr<kvstore::KVIterator> iter,
@@ -168,8 +249,20 @@ public:
         return iter_->val();
     }
 
+    VertexID srcId() const override {
+        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key()).str();
+    }
+
     EdgeType edgeType() const override {
-        return edgeType_;
+        return NebulaKeyUtils::getEdgeType(vIdLen_, iter_->key());
+    }
+
+    EdgeRanking edgeRank() const override {
+        return NebulaKeyUtils::getRank(vIdLen_, iter_->key());
+    }
+
+    VertexID dstId() const override {
+        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key()).str();
     }
 
 private:

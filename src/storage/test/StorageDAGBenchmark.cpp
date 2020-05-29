@@ -6,7 +6,7 @@
  */
 #include "common/base/Base.h"
 #include <gtest/gtest.h>
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 #include <folly/Benchmark.h>
 
 namespace nebula {
@@ -141,8 +141,8 @@ FutureDAG<std::string> fanoutFutureDAG() {
     return dag;
 }
 
-StorageDAG<std::string> fanoutStorageDAG() {
-    StorageDAG<std::string> dag;
+StoragePlan<std::string> fanoutStorageDAG() {
+    StoragePlan<std::string> dag;
     auto out = std::make_unique<RelNode<std::string>>("leaf");
     for (size_t i = 0; i < 10; i++) {
         auto node = std::make_unique<RelNode<std::string>>(folly::to<std::string>(i));
@@ -169,8 +169,8 @@ FutureDAG<std::string> chainFutureDAG() {
     return dag;
 }
 
-StorageDAG<std::string> chainStorageDAG() {
-    StorageDAG<std::string> dag;
+StoragePlan<std::string> chainStorageDAG() {
+    StoragePlan<std::string> dag;
     size_t lastIdx;
     for (size_t i = 0; i < 10; i++) {
         auto node = std::make_unique<RelNode<std::string>>(folly::to<std::string>(i));
@@ -196,7 +196,7 @@ BENCHMARK(future_fanout, iters) {
 }
 
 BENCHMARK_RELATIVE(recursive_fanout, iters) {
-    StorageDAG<std::string> dag;
+    StoragePlan<std::string> dag;
     BENCHMARK_SUSPEND {
         dag = fanoutStorageDAG();
     }
@@ -218,7 +218,7 @@ BENCHMARK(future_chain, iters) {
 }
 
 BENCHMARK_RELATIVE(recursive_chain, iters) {
-    StorageDAG<std::string> dag;
+    StoragePlan<std::string> dag;
     BENCHMARK_SUSPEND {
         dag = chainStorageDAG();
     }

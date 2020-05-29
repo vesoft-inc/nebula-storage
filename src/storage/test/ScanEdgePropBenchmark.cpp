@@ -250,18 +250,18 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         // build dag with one VertexPrefixScanNode
         nebula::DataSet result;
 
-        StorageDAG<VertexID> dag;
+        StoragePlan<VertexID> dag;
         std::vector<TagNode*> tags;
         std::vector<EdgeNode<VertexID>*> edges;
         auto edgeNode = std::make_unique<VertexPrefixScanNode>(&edgeContext, env, spaceId, vIdLen);
         edges.emplace_back(edgeNode.get());
         dag.addNode(std::move(edgeNode));
-        auto filter = std::make_unique<FilterNode>(nullptr, tags, edges, nullptr, &edgeContext);
+        auto filter = std::make_unique<FilterNode>(tags, edges, nullptr, &edgeContext,
+                                                   vIdLen, nullptr);
         for (auto* edge : edges) {
             filter->addDependency(edge);
         }
-        auto cat = std::make_unique<GetNeighborsNode>(
-                tags, filter.get(), nullptr, &edgeContext, vIdLen, &result);
+        auto cat = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext, vIdLen, &result);
         cat->addDependency(filter.get());
         dag.addNode(std::move(filter));
         dag.addNode(std::move(cat));

@@ -10,7 +10,7 @@
 #include "common/base/Base.h"
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 
 namespace nebula {
 namespace storage {
@@ -33,9 +33,9 @@ protected:
         : QueryBaseProcessor<cpp2::GetPropRequest,
                              cpp2::GetPropResponse>(env, stats, cache) {}
 
-    StorageDAG<VertexID> buildTagDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildTagDAG(nebula::DataSet* result);
 
-    StorageDAG<cpp2::EdgeKey> buildEdgeDAG(nebula::DataSet* result);
+    StoragePlan<cpp2::EdgeKey> buildEdgeDAG(nebula::DataSet* result);
 
     void onProcessFinished() override;
 

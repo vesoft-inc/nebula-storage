@@ -57,8 +57,8 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-StorageDAG<VertexID> GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
-    StorageDAG<VertexID> dag;
+StoragePlan<VertexID> GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
+    StoragePlan<VertexID> dag;
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
@@ -74,7 +74,7 @@ StorageDAG<VertexID> GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
         dag.addNode(std::move(edge));
     }
     auto filter = std::make_unique<FilterNode>(
-            exp_.get(), tags, edges, &tagContext_, &edgeContext_);
+            tags, edges, &tagContext_, &edgeContext_, spaceVidLen_, exp_.get());
     for (auto* tag : tags) {
         filter->addDependency(tag);
     }
@@ -82,7 +82,7 @@ StorageDAG<VertexID> GetNeighborsProcessor::buildDAG(nebula::DataSet* result) {
         filter->addDependency(edge);
     }
     auto output = std::make_unique<GetNeighborsNode>(
-            tags, filter.get(), &tagContext_, &edgeContext_, spaceVidLen_, result);
+            filter.get(), &edgeContext_, spaceVidLen_, result);
     output->addDependency(filter.get());
     dag.addNode(std::move(filter));
     dag.addNode(std::move(output));

@@ -11,7 +11,7 @@
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
 #include "storage/exec/FilterContext.h"
-#include "storage/exec/StorageDAG.h"
+#include "storage/exec/StoragePlan.h"
 
 namespace nebula {
 namespace storage {
@@ -36,7 +36,7 @@ protected:
         : QueryBaseProcessor<cpp2::GetNeighborsRequest,
                              cpp2::GetNeighborsResponse>(env, stats, cache) {}
 
-    StorageDAG<VertexID> buildDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildDAG(nebula::DataSet* result);
 
     void onProcessFinished() override;
 
