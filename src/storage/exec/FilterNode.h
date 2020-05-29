@@ -189,6 +189,7 @@ private:
     const std::vector<PropContext>* props_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
 
+    nebula::Value tagResult_;
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<EdgeIterator> iter_;
 };
