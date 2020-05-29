@@ -43,7 +43,6 @@ public:
         for (auto& value : tagResult.values) {
             result.values.emplace_back(std::move(value));
         }
-        LOG(INFO) << tagResult.values.size();
 
         // add default null for each edge node
         result.values.resize(result.values.size() + edgeContext_->propContexts_.size(),
@@ -89,6 +88,10 @@ public:
 
         DVLOG(1) << vId << " process " << edgeRowCount << " edges in total.";
         return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    const std::vector<PropStat>& stats() {
+        return stats_;
     }
 
 private:
