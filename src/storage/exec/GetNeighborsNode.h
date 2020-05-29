@@ -52,6 +52,7 @@ public:
         for (auto& value : tagResult.values) {
             row.emplace_back(std::move(value));
         }
+        LOG(INFO) << tagResult.values.size();
 
         // add default null for each edge node and the last column of yield expression
         row.resize(row.size() + edgeContext_->propContexts_.size() + 1,
