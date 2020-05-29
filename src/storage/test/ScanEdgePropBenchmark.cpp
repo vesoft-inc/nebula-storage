@@ -288,7 +288,6 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         plan.addNode(std::move(filter));
         plan.addNode(std::move(output));
         plan.addNode(std::move(aggrNode));
-
         folly::stop_watch<std::chrono::microseconds> watch;
         auto code = plan.go(partId, vId);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);

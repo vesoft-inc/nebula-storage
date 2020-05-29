@@ -93,7 +93,6 @@ public:
 
 private:
     GetNeighborsNode() = default;
-
     FilterNode* filterNode_;
     EdgeContext* edgeContext_;
     StatCollector statProcessor_;
