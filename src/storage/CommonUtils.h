@@ -14,7 +14,6 @@
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "codec/RowReader.h"
 #include "kvstore/KVStore.h"
-// #include <folly/AtomicHashMap.h>
 #include <folly/concurrency/ConcurrentHashMap.h>
 
 namespace nebula {
@@ -32,25 +31,13 @@ class StorageEnv {
 public:
     StorageEnv() {}
 
-    void setRebuildPartition(int32_t partsNum) {
-        rebuildPartID_ = new folly::ConcurrentHashMap<PartitionID, bool>(partsNum);
-    }
-
-    void cleanupRebuildInfo(GraphSpaceID space) {
-        spaceStatus_.insert(space, IndexStatus::NORMAL);
-        rebuildPartID_->clear();
-        rebuildTagID_ = -1;
-        rebuildEdgeType_ = -1;
-        rebuildIndexID_ = -1;
-    }
-
 public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
 
     folly::ConcurrentHashMap<GraphSpaceID, IndexStatus>  spaceStatus_;
-    folly::ConcurrentHashMap<PartitionID, bool>*         rebuildPartID_;
+    folly::ConcurrentHashMap<PartitionID, bool>          rebuildPartID_;
     std::atomic<TagID>                                   rebuildTagID_{-1};
     std::atomic<EdgeType>                                rebuildEdgeType_{-1};
     std::atomic<IndexID>                                 rebuildIndexID_{-1};

@@ -117,16 +117,14 @@ void AdminTaskManager::schedule() {
         }
 
         auto subTasks = nebula::value(errOrSubTasks);
-        auto size = subTasks.size();
-        task->subTaskStatus_ = new folly::ConcurrentHashMap<int32_t, cpp2::ErrorCode>(size);
         for (auto& subtask : subTasks) {
             task->subtasks_.add(subtask);
         }
 
         auto subTaskConcurrency = std::min(task->getConcurrentReq(),
                                            static_cast<size_t>(FLAGS_max_concurrent_subtasks));
-        subTaskConcurrency = std::min(subTaskConcurrency, size);
-        task->unFinishedSubTask_ = size;
+        subTaskConcurrency = std::min(subTaskConcurrency, subTasks.size());
+        task->unFinishedSubTask_ = subTasks.size();
 
         FLOG_INFO("run task(%d, %d), %zu subtasks in %zu thread",
                   handle.first, handle.second,
@@ -158,7 +156,6 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
             task->finish();
             tasks_.erase(handle);
         } else {
-            LOG(INFO) << "Run Task!";
             pool_->add(std::bind(&AdminTaskManager::runSubTask, this, handle));
         }
     } else {
@@ -166,14 +163,12 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
     }
 }
 
-bool AdminTaskManager::isFinished(int jobID, int taskID) {
-    auto tasks = tasks_.find(std::make_pair(jobID, taskID))->second;
-    for (size_t i = 0; i < tasks->subTaskStatus_->size(); i++) {
-        if (tasks->subTaskStatus_->find(i)->second == cpp2::ErrorCode::SUCCEEDED) {
-            return true;
-        }
+bool AdminTaskManager::isFinished(int32_t jobID, int32_t taskID) {
+    auto iter = tasks_.find(std::make_pair(jobID, taskID));
+    if (iter == tasks_.cend()) {
+        return true;
     }
-    return false;
+    return iter->second->unFinishedSubTask_ == 0;
 }
 
 }  // namespace storage

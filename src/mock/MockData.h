@@ -189,6 +189,7 @@ public:
 
     static EdgeData getReverseEdge(const EdgeData& edge);
 
+    /**
     static StatusOr<PartitionID> partId(const VertexID id, int32_t numParts = 6) {
         // If the length of the id is 8, we will treat it as int64_t to be compatible
         // with the version 1.0
@@ -202,7 +203,7 @@ public:
         PartitionID pId = vid % numParts + 1;
         CHECK_GT(pId, 0U);
         return pId;
-    }
+    }**/
 };
 
 }  // namespace mock

@@ -518,7 +518,7 @@ void NebulaStore::asyncSingleRemove(GraphSpaceID spaceId,
         return;
     }
     auto part = nebula::value(ret);
-    part->asyncMultiRemove(std::move(keys), std::move(cb));
+    part->asyncSingleRemove(std::move(keys), std::move(cb));
 }
 
 void NebulaStore::asyncRemoveRange(GraphSpaceID spaceId,

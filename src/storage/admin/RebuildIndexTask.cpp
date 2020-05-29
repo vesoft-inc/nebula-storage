@@ -50,11 +50,10 @@ RebuildIndexTask::genSubTasks() {
 
     std::vector<AdminSubTask> tasks;
     for (PartitionID part : parts) {
-        // env_->rebuildPartID_->insert(std::make_pair(part, true));
         std::function<kvstore::ResultCode()> func = std::bind(&RebuildIndexTask::genSubTask,
                                                               this, space, part, schemaID,
                                                               indexID, item, isOffline);
-        tasks.emplace_back(func, part);
+        tasks.emplace_back(func);
     }
     return tasks;
 }
@@ -65,6 +64,7 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  int32_t indexID,
                                                  std::shared_ptr<meta::cpp2::IndexItem> item,
                                                  bool isOffline) {
+    env_->rebuildPartID_.insert(std::make_pair(part, true));
     auto result = buildIndexGlobal(space, part, schemaID, indexID, item->get_fields());
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index failed";
@@ -73,7 +73,6 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
 
     if (!isOffline) {
         LOG(INFO) << "Processing operation logs";
-        // Processing the operation logs
         result = buildIndexOnOperations(space, part);
         if (result != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Building index with operation logs failed";
@@ -81,11 +80,7 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
         }
     }
 
-    if (schemaID.getType() == nebula::meta::cpp2::SchemaID::Type::tag_id) {
-        env_->rebuildTagID_ = -1;
-    } else {
-        env_->rebuildEdgeType_ = -1;
-    }
+    env_->rebuildPartID_.erase(part);
     LOG(INFO) << "RebuildIndexTask Finished";
     return result;
 }

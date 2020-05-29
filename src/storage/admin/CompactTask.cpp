@@ -27,10 +27,9 @@ CompactTask::genSubTasks() {
     auto space = nebula::value(errOrSpace);
 
     using FuncObj = std::function<kvstore::ResultCode()>;
-    int32_t subTask = 0;
     for (auto& engine : space->engines_) {
         FuncObj obj = std::bind(&CompactTask::subTask, this, engine.get());
-        ret.emplace_back(obj, subTask++);
+        ret.emplace_back(obj);
     }
     return ret;
 }

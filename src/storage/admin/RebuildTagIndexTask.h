@@ -19,6 +19,12 @@ public:
                                  TaskContext&& ctx)
     : RebuildIndexTask(env, std::move(ctx)) {}
 
+    ~RebuildTagIndexTask() {
+        LOG(INFO) << "~RebuildTagIndexTask";
+        env_->rebuildTagID_ = -1;
+        env_->rebuildIndexID_ = -1;
+    }
+
 private:
     StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
     getIndex(GraphSpaceID space, IndexID indexID) override;

@@ -27,10 +27,10 @@ enum LogType : char {
 };
 
 enum BatchLogType : char {
-    OP_BATCH_PUT                   = 0x1,
-    OP_BATCH_REMOVE                = 0x2,
-    OP_BATCH_REMOVE_RANGE          = 0x3,
-    OP_BATCH_SINGLE_REMOVE         = 0x4,
+    OP_BATCH_PUT            = 0x1,
+    OP_BATCH_REMOVE         = 0x2,
+    OP_BATCH_REMOVE_RANGE   = 0x3,
+    OP_BATCH_SINGLE_REMOVE  = 0x4,
 };
 
 std::string encodeKV(const folly::StringPiece& key,

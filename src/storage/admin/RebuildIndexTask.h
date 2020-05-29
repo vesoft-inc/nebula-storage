@@ -33,13 +33,6 @@ protected:
                      IndexID indexID,
                      const std::vector<meta::cpp2::ColumnDef>& cols) = 0;
 
-    // StatusOr<std::vector<Value>>
-    // collectIndexValues(RowReader* reader,
-    //                    const std::vector<meta::cpp2::ColumnDef>& cols,
-    //                    std::vector<Value::Type>& colsType);
-
-    // Status checkValue(const Value& v, bool isNullable);
-
     void cancel() override {
         canceled_ = true;
     }
@@ -72,9 +65,8 @@ private:
 
 protected:
     std::atomic<bool>   canceled_{false};
-    std::mutex          lock_;
-    int32_t             callingNum_{0};
-    // meta::IndexManager* indexMan_{nullptr};
+    // std::mutex          lock_;
+    // int32_t             callingNum_{0};
 };
 
 }  // namespace storage

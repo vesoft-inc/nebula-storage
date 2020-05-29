@@ -188,10 +188,7 @@ MockCluster::memSchemaMan(SchemaVer schemaVerCount) {
 std::unique_ptr<meta::IndexManager>
 MockCluster::memIndexMan() {
     auto indexMan = std::make_unique<AdHocIndexManager>();
-    indexMan->addTagIndex(1, 3, 3, MockData::mockGeneralTagIndexColumns());
-    // indexMan->addEdgeIndex(1, 101, 101, MockData::mockEdgeIndexColumns());
-
-    // TODO conflict
+    indexMan->addTagIndex(1,  3,   3,  MockData::mockGeneralTagIndexColumns());
     indexMan->addTagIndex(1,  1,   11, MockData::mockPlayerTagIndex());
     indexMan->addEdgeIndex(1, 101, 12, MockData::mockServeEdgeIndex());
     indexMan->addEdgeIndex(1, 102, 13, MockData::mockTeammateEdgeIndex());

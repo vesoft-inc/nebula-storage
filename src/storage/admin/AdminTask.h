@@ -23,27 +23,20 @@ class AdminSubTask {
 public:
     AdminSubTask() = default;
 
-    AdminSubTask(std::function<cpp2::ErrorCode()> f, int32_t subTaskID)
-    : run_(f), subTaskID_(subTaskID) {}
+    explicit AdminSubTask(std::function<cpp2::ErrorCode()> f) : run_(f) {}
 
-    AdminSubTask(std::function<kvstore::ResultCode()> f, int32_t subTaskID) {
+    explicit AdminSubTask(std::function<kvstore::ResultCode()> f) {
         run_ = [f = f]() {
             return toStorageErr(f());
         };
-        subTaskID_ = subTaskID;
     }
 
     cpp2::ErrorCode invoke() {
         return run_();
     }
 
-    int32_t getSubTaskID() {
-        return subTaskID_;
-    }
-
 private:
     std::function<cpp2::ErrorCode()> run_;
-    int32_t                          subTaskID_;
 };
 
 enum class TaskPriority : int8_t {
@@ -147,9 +140,8 @@ public:
                                       std::vector<kvstore::KV> data);
 
 public:
-    std::atomic<size_t>                                     unFinishedSubTask_;
-    SubTaskQueue                                            subtasks_;
-    folly::ConcurrentHashMap<int32_t, cpp2::ErrorCode>*         subTaskStatus_;
+    std::atomic<size_t>         unFinishedSubTask_;
+    SubTaskQueue                subtasks_;
 
 protected:
     StorageEnv*                     env_;

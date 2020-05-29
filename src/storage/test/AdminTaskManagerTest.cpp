@@ -51,8 +51,8 @@ struct HookableTask : public AdminTask {
         return fGenSubTasks();
     }
 
-    void addSubTask(std::function<cpp2::ErrorCode()> subTask, int32_t subTaskID) {
-        subTasks.emplace_back(subTask, subTaskID);
+    void addSubTask(std::function<cpp2::ErrorCode()> subTask) {
+        subTasks.emplace_back(subTask);
     }
 
     void setJobId(int id) {
@@ -77,7 +77,7 @@ TEST(TaskManagerTest, extract_subtasks_to_context) {
         task->addSubTask([&subTaskCalled]() {
             ++subTaskCalled;
             return cpp2::ErrorCode::SUCCEEDED;
-        }, i);
+        });
     }
     for (auto& subtask : task->subTasks) {
         vtask->subtasks_.add(subtask);
@@ -224,7 +224,7 @@ TEST(TaskManagerTest, happy_path_task1_sub1) {
         return cpp2::ErrorCode::SUCCEEDED;
     };
     for (size_t i = 0; i < numSubTask; ++i) {
-        mockTask->addSubTask(subTask, i);
+        mockTask->addSubTask(subTask);
     }
     taskMgr->addAsyncTask(task);
     LOG(INFO) << "fTaskFini.wait(0)";
@@ -261,7 +261,7 @@ TEST(TaskManagerTest, run_a_medium_task_before_a_huge_task) {
             return cpp2::ErrorCode::SUCCEEDED;
         };
         for (size_t i = 0; i < numSubTask; ++i) {
-            mockTask->addSubTask(subTask, i);
+            mockTask->addSubTask(subTask);
         }
         taskMgr->addAsyncTask(task);
         fut.wait();
@@ -295,7 +295,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -324,7 +324,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -353,7 +353,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -381,7 +381,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -409,7 +409,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -437,7 +437,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -466,7 +466,7 @@ TEST(TaskManagerTest, happy_path) {
                 return cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
-                mockTask->addSubTask(subTask, i);
+                mockTask->addSubTask(subTask);
             }
             taskMgr->addAsyncTask(task);
             fut.wait();
@@ -534,7 +534,7 @@ TEST(TaskManagerTest, some_subtask_failed) {
             mockTask->addSubTask([&]() {
                 ++subTaskCalled;
                 return i == totalSubTask / 2 ? suc : errCode;
-            }, i);
+            });
         }
         mockTask->setCallback([&](ResultCode ret) {
             pro.setValue(ret);
@@ -573,7 +573,7 @@ TEST(TaskManagerTest, cancel_a_running_task_with_only_1_sub_task) {
         fCancel.wait();
         LOG(INFO) << "cancel called";
         return suc;
-    }, 0);
+    });
 
     mockTask->setCallback([&](ResultCode ret) {
         LOG(INFO) << "task finish()";
@@ -622,7 +622,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
 
     task1->addSubTask([&]() {
         return suc;
-    }, 0);
+    });
     task1->setCallback([&](ResultCode ret) {
         LOG(INFO) << "finish task1()";
         pTask1.setValue(ret);
@@ -634,7 +634,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
 
     task2->addSubTask([&]() {
         return suc;
-    }, 1);
+    });
     task2->setCallback([&](ResultCode ret) {
         LOG(INFO) << "finish task2()";
         pTask2.setValue(ret);
@@ -683,7 +683,7 @@ TEST(TaskManagerTest, cancel_a_task_before_all_sub_task_running) {
     task0->addSubTask([&]() {
         LOG(INFO) << "run subTask()";
         return suc;
-    }, 0);
+    });
 
     task0->setCallback([&](ResultCode ret) {
         pFiniTask0.setValue(ret);
@@ -728,12 +728,12 @@ TEST(TaskManagerTest, cancel_a_task_while_some_sub_task_running) {
         cancel.wait();
         LOG(INFO) << "run subTask(1)";
         return suc;
-    }, 0);
+    });
 
     task1->addSubTask([&]() {
         LOG(INFO) << "run subTask(2)";
         return suc;
-    }, 1);
+    });
 
     task1->setCallback([&](ResultCode ret) {
         task1_p.setValue(ret);

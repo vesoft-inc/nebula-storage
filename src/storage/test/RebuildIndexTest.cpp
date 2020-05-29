@@ -60,10 +60,9 @@ TEST(RebuildIndexTest, RebuildTagIndexOffline) {
     manager->addAsyncTask(task);
 
     // Wait for the task finished
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     sleep(1);
-    // }
-    sleep(3);
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
@@ -132,10 +131,9 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     writer->addTask(appendVertices).get();
 
     // Wait for the task finished
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     ::usleep(10);
-    // }
-    sleep(3);
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
     for (auto& key : mock::MockData::mockPlayerIndexKeys(true)) {
@@ -201,10 +199,9 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     writer->addTask(deleteVertices).get();
 
     // Wait for the task finished
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     ::usleep(10);
-    // }
-    sleep(3);
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
     for (auto& key : mock::MockData::mockPlayerIndexKeys(true)) {
@@ -254,10 +251,10 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOffline) {
     auto task = std::make_shared<RebuildEdgeIndexTask>(env, std::move(context));
     manager->addAsyncTask(task);
 
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     ::usleep(10);
-    // }
-    sleep(3);
+    // Wait for the task finished
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
@@ -320,10 +317,10 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     auto task = std::make_shared<RebuildEdgeIndexTask>(env, std::move(context));
     manager->addAsyncTask(task);
 
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     ::usleep(10);
-    // }
-    sleep(3);
+    // Wait for the task finished
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
@@ -387,13 +384,10 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     auto task = std::make_shared<RebuildEdgeIndexTask>(env, std::move(context));
     manager->addAsyncTask(task);
 
-    // usleep(200);
-    sleep(3);
-
-    // while (!manager->isFinished(context.jobId_, context.taskId_)) {
-    //     ::usleep(10);
-    // }
-
+    // Wait for the task finished
+    do {
+        sleep(1);
+    } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";

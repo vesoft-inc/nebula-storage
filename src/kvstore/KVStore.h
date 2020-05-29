@@ -145,9 +145,9 @@ public:
                                   KVCallback cb) = 0;
 
     virtual void asyncSingleRemove(GraphSpaceID spaceId,
-                                  PartitionID partId,
-                                  std::vector<std::string> keys,
-                                  KVCallback cb) = 0;
+                                   PartitionID partId,
+                                   std::vector<std::string> keys,
+                                   KVCallback cb) = 0;
 
     virtual void asyncRemoveRange(GraphSpaceID spaceId,
                                   PartitionID partId,

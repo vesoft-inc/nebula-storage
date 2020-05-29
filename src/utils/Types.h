@@ -12,8 +12,6 @@
 
 namespace nebula {
 
-// using IndexValues = std::vector<std::pair<nebula::Value::Type, std::string>>;
-
 enum class NebulaKeyType : uint32_t {
     kData              = 0x00000001,
     kIndex             = 0x00000002,

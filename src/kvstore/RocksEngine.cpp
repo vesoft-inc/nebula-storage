@@ -59,6 +59,14 @@ public:
         }
     }
 
+    ResultCode singleRemove(folly::StringPiece key) override {
+        if (batch_.SingleDelete(toSlice(key)).ok()) {
+            return ResultCode::SUCCEEDED;
+        } else {
+            return ResultCode::ERR_UNKNOWN;
+        }
+    }
+
     rocksdb::WriteBatch* data() {
         return &batch_;
     }

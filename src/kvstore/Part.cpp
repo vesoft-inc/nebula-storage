@@ -301,6 +301,16 @@ bool Part::commitLogs(std::unique_ptr<LogIterator> iter) {
             }
             break;
         }
+        case OP_SINGLE_REMOVE: {
+            auto keys = decodeMultiValues(log);
+            for (auto k : keys) {
+                if (batch->singleRemove(k) != ResultCode::SUCCEEDED) {
+                    LOG(ERROR) << idStr_ << "Failed to call WriteBatch::singleRemove()";
+                    return false;
+                }
+            }
+            break;
+        }
         default: {
             LOG(WARNING) << idStr_ << "Unknown operation: " << static_cast<int32_t>(log[0]);
         }

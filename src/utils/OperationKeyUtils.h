@@ -35,9 +35,6 @@ public:
 
 private:
     OperationKeyUtils() = delete;
-
-// private:
-    // static std::atomic<int64_t> counter{0};
 };
 
 }  // namespace nebula

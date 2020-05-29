@@ -129,9 +129,9 @@ kvstore::ResultCode BaseProcessor<RESP>::doSyncPut(GraphSpaceID spaceId,
     folly::Baton<true, std::atomic> baton;
     auto ret = kvstore::ResultCode::SUCCEEDED;
     env_->kvstore_->asyncMultiPut(spaceId,
-                            partId,
-                            std::move(data),
-                            [&ret, &baton] (kvstore::ResultCode code) {
+                                  partId,
+                                  std::move(data),
+                                  [&ret, &baton] (kvstore::ResultCode code) {
         if (kvstore::ResultCode::SUCCEEDED != code) {
             ret = code;
         }

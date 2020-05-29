@@ -33,7 +33,7 @@ FlushTask::genSubTasks() {
             }
         }
         return kvstore::ResultCode::SUCCEEDED;
-    }, 0);
+    });
     return ret;
 }
 
