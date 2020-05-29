@@ -36,7 +36,7 @@ protected:
         : QueryBaseProcessor<cpp2::GetNeighborsRequest,
                              cpp2::GetNeighborsResponse>(env, stats, cache) {}
 
-    StoragePlan<VertexID> buildDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildPlan(nebula::DataSet* result);
 
     void onProcessFinished() override;
 

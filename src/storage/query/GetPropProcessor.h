@@ -33,9 +33,9 @@ protected:
         : QueryBaseProcessor<cpp2::GetPropRequest,
                              cpp2::GetPropResponse>(env, stats, cache) {}
 
-    StoragePlan<VertexID> buildTagDAG(nebula::DataSet* result);
+    StoragePlan<VertexID> buildTagPlan(nebula::DataSet* result);
 
-    StoragePlan<cpp2::EdgeKey> buildEdgeDAG(nebula::DataSet* result);
+    StoragePlan<cpp2::EdgeKey> buildEdgePlan(nebula::DataSet* result);
 
     void onProcessFinished() override;
 

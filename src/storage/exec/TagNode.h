@@ -15,7 +15,7 @@ namespace nebula {
 namespace storage {
 
 // TagNode will return a DataSet of specified props of tagId
-class TagNode final : public QueryNode<VertexID> {
+class TagNode final : public RelNode<VertexID> {
 public:
     TagNode(TagContext* ctx,
             StorageEnv* env,

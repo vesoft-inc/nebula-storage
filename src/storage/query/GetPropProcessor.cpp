@@ -6,6 +6,7 @@
 
 #include "storage/query/GetPropProcessor.h"
 #include "storage/exec/GetPropNode.h"
+#include "storage/exec/AggregateNode.h"
 
 namespace nebula {
 namespace storage {
@@ -32,12 +33,12 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
 
     std::unordered_set<PartitionID> failedParts;
     if (!isEdge_) {
-        auto dag = buildTagDAG(&resultDataSet_);
+        auto plan = buildTagPlan(&resultDataSet_);
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
                 auto vId = row.columns[0].getStr();
-                auto ret = dag.go(partId, vId);
+                auto ret = plan.go(partId, vId);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
                     failedParts.emplace(partId);
@@ -46,7 +47,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
             }
         }
     } else {
-        auto dag = buildEdgeDAG(&resultDataSet_);
+        auto plan = buildEdgePlan(&resultDataSet_);
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
@@ -55,7 +56,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
                 edgeKey.edge_type = row.columns[1].getInt();
                 edgeKey.ranking = row.columns[2].getInt();
                 edgeKey.dst = row.columns[3].getStr();
-                auto ret = dag.go(partId, edgeKey);
+                auto ret = plan.go(partId, edgeKey);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
                     failedParts.emplace(partId);
@@ -68,40 +69,46 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
     onFinished();
 }
 
-StoragePlan<VertexID> GetPropProcessor::buildTagDAG(nebula::DataSet* result) {
-    StoragePlan<VertexID> dag;
+StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
+    StoragePlan<VertexID> plan;
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
                 &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second);
         tags.emplace_back(tag.get());
-        dag.addNode(std::move(tag));
+        plan.addNode(std::move(tag));
     }
     // todo(doodle): add filter
-    auto output = std::make_unique<GetTagPropNode>(tags, result);
+    auto output = std::make_unique<GetTagPropNode>(tags);
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
-    dag.addNode(std::move(output));
-    return dag;
+    auto aggrNode = std::make_unique<AggregateNode<VertexID>>(output.get(), result);
+    aggrNode->addDependency(output.get());
+    plan.addNode(std::move(output));
+    plan.addNode(std::move(aggrNode));
+    return plan;
 }
 
-StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgeDAG(nebula::DataSet* result) {
-    StoragePlan<cpp2::EdgeKey> dag;
+StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* result) {
+    StoragePlan<cpp2::EdgeKey> plan;
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(
                 &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second);
         edges.emplace_back(edge.get());
-        dag.addNode(std::move(edge));
+        plan.addNode(std::move(edge));
     }
     // todo(doodle): add filter
-    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_, result);
+    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_);
     for (auto* edge : edges) {
         output->addDependency(edge);
     }
-    dag.addNode(std::move(output));
-    return dag;
+    auto aggrNode = std::make_unique<AggregateNode<cpp2::EdgeKey>>(output.get(), result);
+    aggrNode->addDependency(output.get());
+    plan.addNode(std::move(output));
+    plan.addNode(std::move(aggrNode));
+    return plan;
 }
 
 cpp2::ErrorCode GetPropProcessor::checkColumnNames(const std::vector<std::string>& colNames) {

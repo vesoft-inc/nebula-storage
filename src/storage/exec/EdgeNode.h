@@ -17,7 +17,7 @@ namespace storage {
 // EdgeNode will return a StorageIterator which iterates over the specified
 // edgeType of given vertexId
 template<typename T>
-class EdgeNode : public QueryNode<T> {
+class EdgeNode : public RelNode<T> {
 public:
     EdgeIterator* iter() {
         return iter_.get();

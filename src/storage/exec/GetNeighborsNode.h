@@ -18,11 +18,9 @@ class GetNeighborsNode : public QueryNode<VertexID> {
 
 public:
     GetNeighborsNode(FilterNode* filterNode,
-                     EdgeContext* edgeContext,
-                     nebula::DataSet* result)
+                     EdgeContext* edgeContext)
         : filterNode_(filterNode)
-        , edgeContext_(edgeContext)
-        , result_(result) {}
+        , edgeContext_(edgeContext) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -30,30 +28,21 @@ public:
             return ret;
         }
 
-        nebula::Row row;
+        result_.columns.clear();
         // vertexId is the first column
-        row.columns.emplace_back(vId);
-
+        result_.columns.emplace_back(vId);
         // reserve second column for stat
-        row.columns.emplace_back(NullType::__NULL__);
-        // doodle
-        /*
-        std::vector<PropStat>* stats = nullptr;
-        if (edgeContext_->statCount_ > 0) {
-            *stats = initStatValue();
-        }
-        */
+        result_.columns.emplace_back(NullType::__NULL__);
+        stats_ = initStatValue();
 
         auto tagResult = filterNode_->tagResult().moveList();
-        LOG(INFO) << tagResult.values.size();
         for (auto& value : tagResult.values) {
-            row.columns.emplace_back(std::move(value));
+            result_.columns.emplace_back(std::move(value));
         }
-        LOG(INFO) << tagResult.values.size();
 
         // add default null for each edge node
-        row.columns.resize(row.columns.size() + edgeContext_->propContexts_.size(),
-                           NullType::__NULL__);
+        result_.columns.resize(result_.columns.size() + edgeContext_->propContexts_.size(),
+                               NullType::__NULL__);
         int64_t edgeRowCount = 0;
         nebula::List list;
         for (; filterNode_->valid(); filterNode_->next(), ++edgeRowCount) {
@@ -65,32 +54,26 @@ public:
             auto props = filterNode_->props();
             auto columnIdx = filterNode_->idx();
 
-            // doodle
-            // ret = collectEdgeProps(edgeType, key, reader, props, list, stats);
-            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list);
+            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list, &stats_);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
 
             // add edge prop value to the target column
-            if (row.columns[columnIdx].type() == Value::Type::NULLVALUE) {
-                row.columns[columnIdx].setList(nebula::List());
+            if (result_.columns[columnIdx].type() == Value::Type::NULLVALUE) {
+                result_.columns[columnIdx].setList(nebula::List());
             }
-            auto& cell = row.columns[columnIdx].mutableList();
+            auto& cell = result_.columns[columnIdx].mutableList();
             cell.values.emplace_back(std::move(list));
         }
 
-        // doodle
-        /*
-        if (edgeContext_->statCount_ > 0) {
-            // set the stat result to column[1]
-            row.columns[1].setList(calculateStat(*stats));
-        }
-        */
 
         DVLOG(1) << vId << " process " << edgeRowCount << " edges in total.";
-        result_->rows.emplace_back(std::move(row));
         return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    const std::vector<PropStat>& stats() {
+        return stats_;
     }
 
 private:
@@ -99,42 +82,23 @@ private:
     std::vector<PropStat> initStatValue() {
         // initialize all stat value of all edgeTypes
         std::vector<PropStat> stats;
-        stats.resize(edgeContext_->statCount_);
-        for (const auto& ec : edgeContext_->propContexts_) {
-            for (const auto& ctx : ec.second) {
-                if (ctx.hasStat_) {
-                    PropStat stat(ctx.statType_);
-                    stats[ctx.statIndex_] = std::move(stat);
+        if (edgeContext_->statCount_ > 0) {
+            stats.resize(edgeContext_->statCount_);
+            for (const auto& ec : edgeContext_->propContexts_) {
+                for (const auto& ctx : ec.second) {
+                    if (ctx.hasStat_) {
+                        PropStat stat(ctx.statType_);
+                        stats[ctx.statIndex_] = std::move(stat);
+                    }
                 }
             }
         }
         return stats;
     }
 
-    nebula::List calculateStat(const std::vector<PropStat>& stats) {
-        nebula::List result;
-        result.values.reserve(edgeContext_->statCount_);
-        for (const auto& stat : stats) {
-            if (stat.statType_ == cpp2::StatType::SUM) {
-                result.values.emplace_back(stat.sum_);
-            } else if (stat.statType_ == cpp2::StatType::COUNT) {
-                result.values.emplace_back(stat.count_);
-            } else if (stat.statType_ == cpp2::StatType::AVG) {
-                if (stat.count_ > 0) {
-                    result.values.emplace_back(stat.sum_ / stat.count_);
-                } else {
-                    result.values.emplace_back(NullType::NaN);
-                }
-            }
-            // todo(doodle): MIN/MAX
-        }
-        return result;
-    }
-
     FilterNode* filterNode_;
-    TagContext* tagContext_;
     EdgeContext* edgeContext_;
-    nebula::DataSet* result_;
+    std::vector<PropStat> stats_;
 };
 
 }  // namespace storage

@@ -4,14 +4,15 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include <folly/stop_watch.h>
+#include <gtest/gtest.h>
 #include "common/base/Base.h"
 #include "common/fs/TempDir.h"
-#include <gtest/gtest.h>
-#include <folly/stop_watch.h>
 #include "mock/AdHocSchemaManager.h"
-#include "storage/query/GetNeighborsProcessor.h"
-#include "storage/exec/GetNeighborsNode.h"
+#include "storage/exec/AggregateNode.h"
 #include "storage/exec/EdgeNode.h"
+#include "storage/exec/GetNeighborsNode.h"
+#include "storage/query/GetNeighborsProcessor.h"
 #include "storage/test/QueryTestUtils.h"
 
 namespace nebula {
@@ -258,10 +259,10 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         processor.spaceId_ = spaceId;
         processor.spaceVidLen_ = vIdLen;
         nebula::DataSet result;
-        auto dag = processor.buildDAG(&result);
+        auto plan = processor.buildPlan(&result);
 
         folly::stop_watch<std::chrono::microseconds> watch;
-        auto code = dag.go(partId, vId);
+        auto code = plan.go(partId, vId);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
         LOG(WARNING) << "GetNeighbors with EdgeTypePrefixScanNode takes "
                      << watch.elapsed().count() << " us.";
@@ -270,23 +271,26 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         // build dag with one VertexPrefixScanNode
         nebula::DataSet result;
 
-        StoragePlan<VertexID> dag;
+        StoragePlan<VertexID> plan;
         std::vector<TagNode*> tags;
         std::vector<EdgeNode<VertexID>*> edges;
         auto edgeNode = std::make_unique<VertexPrefixScanNode>(&edgeContext, env, spaceId, vIdLen);
         edges.emplace_back(edgeNode.get());
-        dag.addNode(std::move(edgeNode));
+        plan.addNode(std::move(edgeNode));
         auto filter = std::make_unique<FilterNode>(tags, edges, nullptr, &edgeContext, nullptr);
         for (auto* edge : edges) {
             filter->addDependency(edge);
         }
-        auto cat = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext, &result);
-        cat->addDependency(filter.get());
-        dag.addNode(std::move(filter));
-        dag.addNode(std::move(cat));
+        auto output = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext);
+        output->addDependency(filter.get());
+        auto aggrNode = std::make_unique<StatNode>(output.get(), &result, &edgeContext);
+        aggrNode->addDependency(output.get());
+        plan.addNode(std::move(filter));
+        plan.addNode(std::move(output));
+        plan.addNode(std::move(aggrNode));
 
         folly::stop_watch<std::chrono::microseconds> watch;
-        auto code = dag.go(partId, vId);
+        auto code = plan.go(partId, vId);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
         LOG(WARNING) << "GetNeighbors with VertexPrefixScanNode takes "
                      << watch.elapsed().count() << " us.";

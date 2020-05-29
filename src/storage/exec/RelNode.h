@@ -26,18 +26,6 @@ using EdgePropHandler = std::function<kvstore::ResultCode(EdgeType,
                                                           RowReader*,
                                                           const std::vector<PropContext>* props)>;
 
-// used to save stat value of each vertex
-struct PropStat {
-    PropStat() = default;
-
-    explicit PropStat(const cpp2::StatType& statType) : statType_(statType) {}
-
-    cpp2::StatType statType_;
-    mutable Value sum_ = 0L;
-    mutable int32_t count_ = 0;
-};
-
-
 template<typename T> class StoragePlan;
 
 // RelNode is shortcut for relational algebra node, each RelNode has an execute method,
@@ -94,10 +82,31 @@ protected:
     bool hasDependents_ = false;
 };
 
+// used to save stat value of each vertex
+struct PropStat {
+    PropStat() = default;
+
+    explicit PropStat(const cpp2::StatType& statType) : statType_(statType) {}
+
+    cpp2::StatType statType_;
+    mutable Value sum_ = 0L;
+    mutable Value count_ = 0L;
+    mutable Value min_ = std::numeric_limits<int64_t>::max();
+    mutable Value max_ = std::numeric_limits<int64_t>::min();
+};
+
+// QueryNode is the node which would generate a row in response (FilterNode is an exception).
+// Whenever result is retrieved, before a QueryNode is executed again, **must clean the row**
 template<typename T>
 class QueryNode : public RelNode<T> {
 public:
-    // explicit QueryNode(size_t vIdLen) : vIdLen_(vIdLen) {}
+    const nebula::Row& result() {
+        return result_;
+    }
+
+    nebula::Row& mutableResult() {
+        return result_;
+    }
 
 protected:
     StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx) {
@@ -165,13 +174,9 @@ protected:
                     break;
                 }
             }
-            // doodle
-            UNUSED(stats);
-            /*
             if (prop.hasStat_ && stats != nullptr) {
                 addStatValue(value, (*stats)[prop.statIndex_]);
             }
-            */
             if (prop.returned_) {
                 list.values.emplace_back(std::move(value));
             }
@@ -180,10 +185,10 @@ protected:
     }
 
     void addStatValue(const Value& value, PropStat& stat) {
-        if (value.type() == Value::Type::INT || value.type() == Value::Type::FLOAT) {
-            stat.sum_ = stat.sum_ + value;
-            ++stat.count_;
-        }
+        stat.sum_ = stat.sum_ + value;
+        stat.count_ = stat.count_ + 1;
+        stat.max_ = value > stat.max_ ? value : stat.max_;
+        stat.min_ = value < stat.min_ ? value : stat.min_;
     }
 
     kvstore::ResultCode collectTagProps(TagID tagId,
@@ -209,6 +214,8 @@ protected:
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
+
+    nebula::Row result_;
 };
 
 }  // namespace storage
