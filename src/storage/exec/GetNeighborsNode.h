@@ -9,6 +9,7 @@
 
 #include "common/base/Base.h"
 #include "storage/exec/FilterNode.h"
+#include "storage/exec/StatCollector.h"
 
 namespace nebula {
 namespace storage {
@@ -28,20 +29,23 @@ public:
             return ret;
         }
 
-        result_.columns.clear();
+        result_.setList(nebula::List());
+        auto& result = result_.mutableList();
         // vertexId is the first column
-        result_.columns.emplace_back(vId);
+        result.values.emplace_back(vId);
         // reserve second column for stat
-        result_.columns.emplace_back(NullType::__NULL__);
-        stats_ = initStatValue();
+        result.values.emplace_back(NullType::__NULL__);
+        if (edgeContext_->statCount_ > 0) {
+            stats_ = statProcessor_.initStatValue(edgeContext_);
+        }
 
-        auto tagResult = filterNode_->tagResult().moveList();
+        auto tagResult = filterNode_->result().getList();
         for (auto& value : tagResult.values) {
-            result_.columns.emplace_back(std::move(value));
+            result.values.emplace_back(std::move(value));
         }
 
         // add default null for each edge node
-        result_.columns.resize(result_.columns.size() + edgeContext_->propContexts_.size(),
+        result.values.resize(result.values.size() + edgeContext_->propContexts_.size(),
                                NullType::__NULL__);
         int64_t edgeRowCount = 0;
         nebula::List list;
@@ -54,50 +58,41 @@ public:
             auto props = filterNode_->props();
             auto columnIdx = filterNode_->idx();
 
-            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list, &stats_);
+            // collect props need to return
+            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
 
             // add edge prop value to the target column
-            if (result_.columns[columnIdx].type() == Value::Type::NULLVALUE) {
-                result_.columns[columnIdx].setList(nebula::List());
+            if (result.values[columnIdx].type() == Value::Type::NULLVALUE) {
+                result.values[columnIdx].setList(nebula::List());
             }
-            auto& cell = result_.columns[columnIdx].mutableList();
+            auto& cell = result.values[columnIdx].mutableList();
             cell.values.emplace_back(std::move(list));
+
+            // collect edge stat if has stat to return
+            if (edgeContext_->statCount_ > 0) {
+                statProcessor_.collectEdgeStats(srcId, edgeType, edgeRank, dstId,
+                                                reader, props, stats_);
+            }
         }
 
+        if (edgeContext_->statCount_ > 0) {
+            auto stats = statProcessor_.calculateStat(stats_);
+            result.values[1].setList(std::move(stats));
+        }
 
         DVLOG(1) << vId << " process " << edgeRowCount << " edges in total.";
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    const std::vector<PropStat>& stats() {
-        return stats_;
-    }
-
 private:
     GetNeighborsNode() = default;
 
-    std::vector<PropStat> initStatValue() {
-        // initialize all stat value of all edgeTypes
-        std::vector<PropStat> stats;
-        if (edgeContext_->statCount_ > 0) {
-            stats.resize(edgeContext_->statCount_);
-            for (const auto& ec : edgeContext_->propContexts_) {
-                for (const auto& ctx : ec.second) {
-                    if (ctx.hasStat_) {
-                        PropStat stat(ctx.statType_);
-                        stats[ctx.statIndex_] = std::move(stat);
-                    }
-                }
-            }
-        }
-        return stats;
-    }
-
     FilterNode* filterNode_;
     EdgeContext* edgeContext_;
+    StatCollector statProcessor_;
     std::vector<PropStat> stats_;
 };
 

@@ -84,7 +84,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
     }
     auto output = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext_);
     output->addDependency(filter.get());
-    auto aggrNode = std::make_unique<StatNode>(output.get(), result, &edgeContext_);
+    auto aggrNode = std::make_unique<AggregateNode<VertexID>>(output.get(), result);
     aggrNode->addDependency(output.get());
     plan.addNode(std::move(filter));
     plan.addNode(std::move(output));

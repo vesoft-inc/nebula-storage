@@ -25,25 +25,27 @@ public:
             return ret;
         }
 
+        result_.setList(nebula::List());
+        auto& result = result_.mutableList();
         for (auto* tagNode : tagNodes_) {
             ret = tagNode->collectTagPropsIfValid(
-                [this] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [&result] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            result_.columns.emplace_back(NullType::__NULL__);
+                            result.values.emplace_back(NullType::__NULL__);
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this] (TagID tagId, RowReader* reader, const std::vector<PropContext>* props)
-                -> kvstore::ResultCode {
+                [this, &result] (TagID tagId, RowReader* reader,
+                                 const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     nebula::List list;
                     auto code = collectTagProps(tagId, reader, props, list, nullptr);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
                     for (auto& col : list.values) {
-                        result_.columns.emplace_back(std::move(col));
+                        result.values.emplace_back(std::move(col));
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -72,18 +74,20 @@ public:
             return ret;
         }
 
+        result_.setList(nebula::List());
+        auto& result = result_.mutableList();
         for (auto* edgeNode : edgeNodes_) {
             ret = edgeNode->collectEdgePropsIfValid(
-                [this] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [&result] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            result_.columns.emplace_back(NullType::__NULL__);
+                            result.values.emplace_back(NullType::__NULL__);
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this] (EdgeType edgeType, folly::StringPiece key,
-                              RowReader* reader, const std::vector<PropContext>* props)
+                [this, &result] (EdgeType edgeType, folly::StringPiece key,
+                                 RowReader* reader, const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     nebula::List list;
                     auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key);
@@ -95,7 +99,7 @@ public:
                         return code;
                     }
                     for (auto& col : list.values) {
-                        result_.columns.emplace_back(std::move(col));
+                        result.values.emplace_back(std::move(col));
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });

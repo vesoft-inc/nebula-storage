@@ -283,7 +283,7 @@ TEST_P(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan) {
         }
         auto output = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext);
         output->addDependency(filter.get());
-        auto aggrNode = std::make_unique<StatNode>(output.get(), &result, &edgeContext);
+        auto aggrNode = std::make_unique<AggregateNode<VertexID>>(output.get(), &result);
         aggrNode->addDependency(output.get());
         plan.addNode(std::move(filter));
         plan.addNode(std::move(output));

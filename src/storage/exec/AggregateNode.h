@@ -36,8 +36,8 @@ public:
         }
 
         // The AggregateNode just get the result of QueryNode, add it to DataSet
-        const auto& row = node_->result();
-        result_->rows.emplace_back(std::move(row));
+        const auto& values = node_->result().getList().values;
+        result_->rows.emplace_back(std::move(values));
         return kvstore::ResultCode::SUCCEEDED;
     }
 
@@ -45,55 +45,6 @@ protected:
     QueryNode<T>* node_;
     nebula::DataSet* result_;
 };
-
-// StatNode will only be used in GetNeighbors for now, it need to calculate some stat of a vertex
-class StatNode final : public AggregateNode<VertexID> {
-public:
-    StatNode(GetNeighborsNode* node, nebula::DataSet* result, EdgeContext* edgeContext)
-        : AggregateNode(node, result)
-        , edgeContext_(edgeContext)
-        , rowNode_(node) {}
-
-    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
-        if (ret != kvstore::ResultCode::SUCCEEDED) {
-            return ret;
-        }
-        auto& row = rowNode_->mutableResult();
-        const auto& stats = rowNode_->stats();
-        if (edgeContext_->statCount_ > 0) {
-            // set the stat result to column[1]
-            auto values = calculateStat(stats);
-            row.columns[1].setList(std::move(values));
-        }
-        result_->rows.emplace_back(std::move(row));
-        return kvstore::ResultCode::SUCCEEDED;
-    }
-
-private:
-    nebula::List calculateStat(const std::vector<PropStat>& stats) {
-        nebula::List result;
-        result.values.reserve(edgeContext_->statCount_);
-        for (const auto& stat : stats) {
-            if (stat.statType_ == cpp2::StatType::SUM) {
-                result.values.emplace_back(stat.sum_);
-            } else if (stat.statType_ == cpp2::StatType::COUNT) {
-                result.values.emplace_back(stat.count_);
-            } else if (stat.statType_ == cpp2::StatType::AVG) {
-                result.values.emplace_back(stat.sum_ / stat.count_);
-            } else if (stat.statType_ == cpp2::StatType::MAX) {
-                result.values.emplace_back(stat.max_);
-            } else if (stat.statType_ == cpp2::StatType::MIN) {
-                result.values.emplace_back(stat.min_);
-            }
-        }
-        return result;
-    }
-
-    EdgeContext* edgeContext_;
-    GetNeighborsNode* rowNode_;
-};
-
 
 }  // namespace storage
 }  // namespace nebula

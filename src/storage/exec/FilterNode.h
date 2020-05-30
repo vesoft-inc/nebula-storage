@@ -18,7 +18,10 @@ namespace storage {
 
 // FilterNode has input of serveral TagNode and EdgeNode, the EdgeNode could be either several
 // EdgeTypePrefixScanNode of different edge types, or a single VertexPrefixScanNode which scan
-// all edges of a vertex
+// all edges of a vertex.
+// The output would be the result of tag, it is a List, each cell save a list of property values,
+// if tag not found, it will be a NullType::__NULL__. Also it will return a iterator of edges
+// which can pass through filter
 class FilterNode : public QueryNode<VertexID>, public EdgeIterator {
 public:
     FilterNode(const std::vector<TagNode*>& tagNodes,
@@ -40,8 +43,9 @@ public:
             return ret;
         }
 
-        tagResult_.setList(nebula::List());
-        auto& result = tagResult_.mutableList();
+        result_.setList(nebula::List());
+        auto& result = result_.mutableList();
+
         // add result of each tag node to tagResult
         for (auto* tagNode : tagNodes_) {
             ret = tagNode->collectTagPropsIfValid(
@@ -126,12 +130,6 @@ public:
         return props_;
     }
 
-    // return the result of tag, it is a List, each cell save a list of property values,
-    // if tag not found, it will be a NullType::__NULL__
-    Value& tagResult() {
-        return tagResult_;
-    }
-
 private:
     // return true when the value iter points to a value which can pass ttl and filter
     bool check() {
@@ -191,7 +189,6 @@ private:
     const std::vector<PropContext>* props_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
 
-    nebula::Value tagResult_;
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<EdgeIterator> iter_;
 };
