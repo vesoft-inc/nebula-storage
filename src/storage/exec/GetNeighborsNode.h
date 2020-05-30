@@ -90,10 +90,6 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    const std::vector<PropStat>& stats() {
-        return stats_;
-    }
-
 private:
     GetNeighborsNode() = default;
     FilterNode* filterNode_;
