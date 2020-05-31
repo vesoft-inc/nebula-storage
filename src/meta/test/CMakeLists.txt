@@ -95,21 +95,6 @@ nebula_add_test(
         gtest
 )
 
-#nebula_add_test(
-#    NAME
-#        config_man_test
-#    SOURCES
-#        ConfigManTest.cpp
-#    OBJECTS
-#        ${meta_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-
-
 nebula_add_test(
     NAME
         active_hosts_man_test
