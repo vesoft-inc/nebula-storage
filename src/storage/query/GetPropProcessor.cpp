@@ -74,11 +74,10 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
-                &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second);
+                &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second, exp_.get());
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
-    // todo(doodle): add filter
     auto output = std::make_unique<GetTagPropNode>(tags);
     for (auto* tag : tags) {
         output->addDependency(tag);
@@ -95,11 +94,10 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(
-                &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second);
+                &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second, exp_.get());
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
-    // todo(doodle): add filter
     auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_);
     for (auto* edge : edges) {
         output->addDependency(edge);

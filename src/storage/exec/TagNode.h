@@ -22,13 +22,15 @@ public:
             GraphSpaceID spaceId,
             size_t vIdLen,
             TagID tagId,
-            const std::vector<PropContext>* props)
+            const std::vector<PropContext>* props,
+            const Expression* exp = nullptr)
         : tagContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
         , vIdLen_(vIdLen)
         , tagId_(tagId)
-        , props_(props) {
+        , props_(props)
+        , exp_(exp) {
         auto schemaIter = tagContext_->schemas_.find(tagId_);
         CHECK(schemaIter != tagContext_->schemas_.end());
         CHECK(!schemaIter->second.empty());
@@ -90,6 +92,10 @@ public:
                 return nullHandler(props_);
             }
         }
+        if (exp_ != nullptr) {
+            // todo(doodle): eval the expression which can be applied to the tag node
+            exp_->eval();
+        }
         return valueHandler(tagId_, reader.get(), props_);
     }
 
@@ -100,6 +106,7 @@ private:
     size_t vIdLen_;
     TagID tagId_;
     const std::vector<PropContext>* props_;
+    const Expression* exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
 
     std::unique_ptr<StorageIterator> iter_;

@@ -46,6 +46,11 @@ public:
                 return nullHandler(props_);
             }
         }
+        if (exp_ != nullptr) {
+            // todo(doodle): eval the expression which can be applied to the edge node,
+            // which means we can only apply to FetchEdgeNode or EdgeTypePrefixScanNode.
+            exp_->eval();
+        }
         return valueHandler(edgeType_, key, reader_.get(), props_);
     }
 
@@ -55,13 +60,15 @@ protected:
              GraphSpaceID spaceId,
              size_t vIdLen,
              EdgeType edgeType,
-             const std::vector<PropContext>* props)
+             const std::vector<PropContext>* props,
+             const Expression* exp = nullptr)
         : edgeContext_(ctx)
         , env_(env)
         , spaceId_(spaceId)
         , vIdLen_(vIdLen)
         , edgeType_(edgeType)
-        , props_(props) {
+        , props_(props)
+        , exp_(exp) {
         auto schemaIter = edgeContext_->schemas_.find(std::abs(edgeType_));
         CHECK(schemaIter != edgeContext_->schemas_.end());
         CHECK(!schemaIter->second.empty());
@@ -83,6 +90,7 @@ protected:
     size_t vIdLen_;
     EdgeType edgeType_;
     const std::vector<PropContext>* props_;
+    const Expression* exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
@@ -97,8 +105,9 @@ public:
                   GraphSpaceID spaceId,
                   size_t vIdLen,
                   EdgeType edgeType,
-                  const std::vector<PropContext>* props)
-        : EdgeNode(ctx, env, spaceId, vIdLen, edgeType, props) {}
+                  const std::vector<PropContext>* props,
+                  const Expression* exp = nullptr)
+        : EdgeNode(ctx, env, spaceId, vIdLen, edgeType, props, exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::execute(partId, edgeKey);
@@ -134,8 +143,9 @@ public:
                            GraphSpaceID spaceId,
                            size_t vIdLen,
                            EdgeType edgeType,
-                           const std::vector<PropContext>* props)
-        : EdgeNode(ctx, env, spaceId, vIdLen, edgeType, props) {}
+                           const std::vector<PropContext>* props,
+                           const Expression* exp = nullptr)
+        : EdgeNode(ctx, env, spaceId, vIdLen, edgeType, props, exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
