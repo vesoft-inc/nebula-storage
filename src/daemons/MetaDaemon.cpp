@@ -10,15 +10,11 @@
 #include "common/webservice/WebService.h"
 #include "common/network/NetworkUtils.h"
 #include "common/process/ProcessUtils.h"
-#include "common/hdfs/HdfsHelper.h"
-#include "common/hdfs/HdfsCommandHelper.h"
 #include "common/thread/GenericThreadPool.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 #include "kvstore/PartManager.h"
 #include "kvstore/NebulaStore.h"
 #include "meta/MetaServiceHandler.h"
-#include "meta/MetaHttpIngestHandler.h"
-#include "meta/MetaHttpDownloadHandler.h"
 #include "meta/MetaHttpReplaceHostHandler.h"
 #include "meta/KVBasedClusterIdMan.h"
 #include "meta/ActiveHostsMan.h"
@@ -142,21 +138,9 @@ std::unique_ptr<nebula::kvstore::KVStore> initKV(std::vector<nebula::HostAddr> p
 }
 
 Status initWebService(nebula::WebService* svc,
-                      nebula::kvstore::KVStore* kvstore,
-                      nebula::hdfs::HdfsCommandHelper* helper,
-                      nebula::thread::GenericThreadPool* pool) {
+                      nebula::kvstore::KVStore* kvstore) {
     LOG(INFO) << "Starting Meta HTTP Service";
     auto& router = svc->router();
-    router.get("/download-dispatch").handler([kvstore, helper, pool](PathParams&&) {
-        auto handler = new nebula::meta::MetaHttpDownloadHandler();
-        handler->init(kvstore, helper, pool);
-        return handler;
-    });
-    router.get("/ingest-dispatch").handler([kvstore, pool](PathParams&&) {
-        auto handler = new nebula::meta::MetaHttpIngestHandler();
-        handler->init(kvstore, pool);
-        return handler;
-    });
     router.get("/replace").handler([kvstore](PathParams &&) {
         auto handler = new nebula::meta::MetaHttpReplaceHostHandler();
         handler->init(kvstore);
@@ -215,12 +199,11 @@ int main(int argc, char *argv[]) {
     }
 
     LOG(INFO) << "Start http service";
-    auto helper = std::make_unique<nebula::hdfs::HdfsCommandHelper>();
     auto pool = std::make_unique<nebula::thread::GenericThreadPool>();
     pool->start(FLAGS_meta_http_thread_num, "http thread pool");
 
     auto webSvc = std::make_unique<nebula::WebService>();
-    status = initWebService(webSvc.get(), kvstore.get(), helper.get(), pool.get());
+    status = initWebService(webSvc.get(), kvstore.get());
     if (!status.ok()) {
         LOG(ERROR) << "Init web service failed: " << status;
         return EXIT_FAILURE;

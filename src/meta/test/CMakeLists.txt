@@ -123,49 +123,6 @@ nebula_add_test(
         gtest
 )
 
-#nebula_add_test(
-#    NAME
-#        meta_http_download_test
-#    SOURCES
-#        MetaHttpDownloadHandlerTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:storage_http_handler>
-#        $<TARGET_OBJECTS:meta_http_handler>
-#        $<TARGET_OBJECTS:ws_obj>
-#        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
-#        $<TARGET_OBJECTS:http_client_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        proxygenhttpserver
-#        proxygenlib
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#nebula_add_test(
-#    NAME
-#        meta_http_ingest_test
-#    SOURCES
-#        MetaHttpIngestHandlerTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:storage_http_handler>
-#        $<TARGET_OBJECTS:meta_http_handler>
-#        $<TARGET_OBJECTS:ws_obj>
-#        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
-#        $<TARGET_OBJECTS:http_client_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        proxygenhttpserver
-#        proxygenlib
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
 
 nebula_add_test(
     NAME
@@ -257,7 +214,6 @@ nebula_add_test(
 #        $<TARGET_OBJECTS:meta_http_handler>
 #        $<TARGET_OBJECTS:ws_obj>
 #        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
 #        $<TARGET_OBJECTS:http_client_obj>
 #        ${meta_test_deps}
 #    LIBRARIES
