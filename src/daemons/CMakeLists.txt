@@ -16,7 +16,6 @@ set(common_deps
     $<TARGET_OBJECTS:common_thrift_obj>
     $<TARGET_OBJECTS:common_ws_obj>
     $<TARGET_OBJECTS:common_ws_common_obj>
-    $<TARGET_OBJECTS:common_hdfs_helper_obj>
     $<TARGET_OBJECTS:common_process_obj>
     $<TARGET_OBJECTS:common_stats_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
