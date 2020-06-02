@@ -59,7 +59,9 @@ public:
         return true;
     }
 
-    static bool mockEdgeData(storage::StorageEnv* env, int32_t totalParts) {
+    static bool mockEdgeData(storage::StorageEnv* env,
+                             int32_t totalParts,
+                             EdgeVersion maxVersions = 1) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
         if (!status.ok()) {
@@ -70,28 +72,30 @@ public:
         auto spaceVidLen = status.value();
         auto edges = mock::MockData::mockMultiEdges();
         std::vector<kvstore::KV> data;
-        std::atomic<size_t> count(edges.size());
-        folly::Baton<true, std::atomic> baton;
-        for (const auto& edge : edges) {
-            PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
-            auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
-                                               edge.rank_, edge.dstId_, 0L);
-            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
-            if (!schema) {
-                LOG(ERROR) << "Invalid edge " << edge.type_;
-                return false;
+        for (EdgeVersion version = 0; version < maxVersions; version++) {
+            std::atomic<size_t> count(edges.size());
+            folly::Baton<true, std::atomic> baton;
+            for (const auto& edge : edges) {
+                PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
+                auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
+                                                edge.rank_, edge.dstId_, version);
+                auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
+                if (!schema) {
+                    LOG(ERROR) << "Invalid edge " << edge.type_;
+                    return false;
+                }
+                EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
+                env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
+                                            [&](kvstore::ResultCode code) {
+                                                EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
+                                                count.fetch_sub(1);
+                                                if (count.load() == 0) {
+                                                    baton.post();
+                                                }
+                                            });
             }
-            EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
-            env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
-                                        [&](kvstore::ResultCode code) {
-                                            EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
-                                            count.fetch_sub(1);
-                                            if (count.load() == 0) {
-                                                baton.post();
-                                            }
-                                        });
+            baton.wait();
         }
-        baton.wait();
         return true;
     }
 

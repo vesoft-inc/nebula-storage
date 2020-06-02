@@ -8,6 +8,7 @@
 #define STORAGE_QUERY_QUERYBASEPROCESSOR_H_
 
 #include "common/base/Base.h"
+#include "common/context/ExpressionContext.h"
 #include "common/expression/Expression.h"
 #include "storage/BaseProcessor.h"
 
@@ -124,6 +125,7 @@ protected:
 
     TagContext tagContext_;
     EdgeContext edgeContext_;
+    std::unique_ptr<ExpressionContext> expCtx_;
     std::unique_ptr<Expression> exp_;
 
     nebula::DataSet resultDataSet_;

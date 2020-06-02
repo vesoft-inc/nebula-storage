@@ -6,12 +6,12 @@
 
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/StorageFlags.h"
-#include "storage/exec/FilterContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/EdgeNode.h"
+#include "storage/exec/HashJoinNode.h"
 #include "storage/exec/FilterNode.h"
-#include "storage/exec/GetNeighborsNode.h"
 #include "storage/exec/AggregateNode.h"
+#include "storage/exec/GetNeighborsNode.h"
 
 namespace nebula {
 namespace storage {
@@ -26,6 +26,7 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
         onFinished();
         return;
     }
+    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -59,36 +60,64 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
 }
 
 StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) {
+    /*
+    The StoragePlan looks like this:
+                 +--------+---------+
+                 | GetNeighborsNode |
+                 +--------+---------+
+                          |
+                 +--------+---------+
+                 |   AggregateNode  |
+                 +--------+---------+
+                          |
+                 +--------+---------+
+                 |    FilterNode    |
+                 +--------+---------+
+                          |
+                 +--------+---------+
+             +-->+   HashJoinNode   +<----+
+             |   +------------------+     |
+    +--------+---------+        +---------+--------+
+    |     TagNodes     |        |     EdgeNodes    |
+    +------------------+        +------------------+
+    */
     StoragePlan<VertexID> plan;
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
-                &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second);
+                planContext_.get(), &tagContext_, tc.first, &tc.second, expCtx_.get());
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
     std::vector<EdgeNode<VertexID>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
-        auto edge = std::make_unique<EdgeTypePrefixScanNode>(
-                &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second);
+        auto edge = std::make_unique<SingleEdgeNode>(
+                planContext_.get(), &edgeContext_, ec.first, &ec.second, expCtx_.get());
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
-    auto filter = std::make_unique<FilterNode>(
-            tags, edges, &tagContext_, &edgeContext_, exp_.get());
+
+    auto hashJoin = std::make_unique<HashJoinNode>(
+            tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
     for (auto* tag : tags) {
-        filter->addDependency(tag);
+        hashJoin->addDependency(tag);
     }
     for (auto* edge : edges) {
-        filter->addDependency(edge);
+        hashJoin->addDependency(edge);
     }
-    auto output = std::make_unique<GetNeighborsNode>(filter.get(), &edgeContext_);
-    output->addDependency(filter.get());
-    auto aggrNode = std::make_unique<AggregateNode<VertexID>>(output.get(), result);
-    aggrNode->addDependency(output.get());
+    auto filter = std::make_unique<FilterNode>(
+            hashJoin.get(), &tagContext_, &edgeContext_, expCtx_.get(), exp_.get());
+    filter->addDependency(hashJoin.get());
+    auto agg = std::make_unique<AggregateNode>(filter.get(), &edgeContext_);
+    agg->addDependency(filter.get());
+    auto output = std::make_unique<GetNeighborsNode>(
+            hashJoin.get(), agg.get(), &edgeContext_, result);
+    output->addDependency(agg.get());
+
+    plan.addNode(std::move(hashJoin));
     plan.addNode(std::move(filter));
+    plan.addNode(std::move(agg));
     plan.addNode(std::move(output));
-    plan.addNode(std::move(aggrNode));
     return plan;
 }
 

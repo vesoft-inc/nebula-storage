@@ -10,7 +10,6 @@
 #include "common/base/Base.h"
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/FilterContext.h"
 #include "storage/exec/StoragePlan.h"
 
 namespace nebula {

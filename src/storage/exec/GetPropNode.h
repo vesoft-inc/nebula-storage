@@ -16,8 +16,9 @@ namespace storage {
 
 class GetTagPropNode : public QueryNode<VertexID> {
 public:
-    explicit GetTagPropNode(std::vector<TagNode*> tagNodes)
-        : tagNodes_(std::move(tagNodes)) {}
+    explicit GetTagPropNode(std::vector<TagNode*> tagNodes, nebula::DataSet* resultDataSet)
+        : tagNodes_(std::move(tagNodes))
+        , resultDataSet_(resultDataSet) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -25,19 +26,18 @@ public:
             return ret;
         }
 
-        result_.setList(nebula::List());
-        auto& result = result_.mutableList();
+        std::vector<Value> row;
         for (auto* tagNode : tagNodes_) {
             ret = tagNode->collectTagPropsIfValid(
-                [&result] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            result.values.emplace_back(NullType::__NULL__);
+                            row.emplace_back(NullType::__NULL__);
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &result] (TagID tagId, RowReader* reader,
+                [this, &row] (TagID tagId, RowReader* reader,
                                  const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     nebula::List list;
                     auto code = collectTagProps(tagId, reader, props, list, nullptr);
@@ -45,7 +45,7 @@ public:
                         return code;
                     }
                     for (auto& col : list.values) {
-                        result.values.emplace_back(std::move(col));
+                        row.emplace_back(std::move(col));
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -53,20 +53,24 @@ public:
                 return ret;
             }
         }
+        resultDataSet_->rows.emplace_back(std::move(row));
         return kvstore::ResultCode::SUCCEEDED;
     }
 
 private:
     std::vector<TagNode*> tagNodes_;
     std::unique_ptr<RowReader> reader_;
+    nebula::DataSet* resultDataSet_;
 };
 
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
 public:
     GetEdgePropNode(std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
-                    size_t vIdLen)
+                    size_t vIdLen,
+                    nebula::DataSet* resultDataSet)
         : edgeNodes_(std::move(edgeNodes))
-        , vIdLen_(vIdLen) {}
+        , vIdLen_(vIdLen)
+        , resultDataSet_(resultDataSet) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::execute(partId, edgeKey);
@@ -74,19 +78,18 @@ public:
             return ret;
         }
 
-        result_.setList(nebula::List());
-        auto& result = result_.mutableList();
+        std::vector<Value> row;
         for (auto* edgeNode : edgeNodes_) {
             ret = edgeNode->collectEdgePropsIfValid(
-                [&result] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            result.values.emplace_back(NullType::__NULL__);
+                            row.emplace_back(NullType::__NULL__);
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &result] (EdgeType edgeType, folly::StringPiece key,
+                [this, &row] (EdgeType edgeType, folly::StringPiece key,
                                  RowReader* reader, const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     nebula::List list;
@@ -99,11 +102,15 @@ public:
                         return code;
                     }
                     for (auto& col : list.values) {
-                        result.values.emplace_back(std::move(col));
+                        row.emplace_back(std::move(col));
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
+            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                return ret;
+            }
         }
+        resultDataSet_->rows.emplace_back(std::move(row));
         return kvstore::ResultCode::SUCCEEDED;
     }
 
@@ -111,6 +118,7 @@ private:
     std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes_;
     size_t vIdLen_;
     std::unique_ptr<RowReader> reader_;
+    nebula::DataSet* resultDataSet_;
 };
 
 }  // namespace storage

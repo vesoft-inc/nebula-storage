@@ -6,7 +6,6 @@
 
 #include "storage/query/GetPropProcessor.h"
 #include "storage/exec/GetPropNode.h"
-#include "storage/exec/AggregateNode.h"
 
 namespace nebula {
 namespace storage {
@@ -21,6 +20,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
         onFinished();
         return;
     }
+    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -74,18 +74,15 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
-                &tagContext_, env_, spaceId_, spaceVidLen_, tc.first, &tc.second, exp_.get());
+            planContext_.get(), &tagContext_, tc.first, &tc.second, expCtx_.get());
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
-    auto output = std::make_unique<GetTagPropNode>(tags);
+    auto output = std::make_unique<GetTagPropNode>(tags, result);
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
-    auto aggrNode = std::make_unique<AggregateNode<VertexID>>(output.get(), result);
-    aggrNode->addDependency(output.get());
     plan.addNode(std::move(output));
-    plan.addNode(std::move(aggrNode));
     return plan;
 }
 
@@ -94,18 +91,15 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(
-                &edgeContext_, env_, spaceId_, spaceVidLen_, ec.first, &ec.second, exp_.get());
+            planContext_.get(), &edgeContext_, ec.first, &ec.second, expCtx_.get());
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
-    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_);
+    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_, result);
     for (auto* edge : edges) {
         output->addDependency(edge);
     }
-    auto aggrNode = std::make_unique<AggregateNode<cpp2::EdgeKey>>(output.get(), result);
-    aggrNode->addDependency(output.get());
     plan.addNode(std::move(output));
-    plan.addNode(std::move(aggrNode));
     return plan;
 }
 
