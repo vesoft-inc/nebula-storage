@@ -11,7 +11,6 @@
 #include <gtest/gtest_prod.h>
 #include "kvstore/KVStore.h"
 #include "meta/MetaServiceUtils.h"
-#include "interface/gen-cpp2/meta_types.h"
 
 namespace nebula {
 namespace meta {

@@ -26,9 +26,10 @@ void HBProcessor::process(const cpp2::HBReq& req) {
         return;
     }
 
+    LOG(INFO) << "Receive heartbeat from " << host
+              << ", role = " << static_cast<int>(req.get_role());
     auto ret = kvstore::ResultCode::SUCCEEDED;
     if (req.get_role() == cpp2::HostRole::STORAGE) {
-        LOG(INFO) << "Receive heartbeat from " << host;
         ClusterID peerCluserId = req.get_cluster_id();
         if (peerCluserId == 0) {
             LOG(INFO) << "Set clusterId for new host " << host << "!";

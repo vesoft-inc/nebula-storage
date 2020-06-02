@@ -17,7 +17,6 @@ namespace nebula {
 namespace meta {
 
 void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
-    UNUSED(req);
     {
         folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
         auto spaceRet = getSpaceIdNameMap();
@@ -99,10 +98,8 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
             iter->next();
             continue;
         }
-        if (type != cpp2::ListHostType::ALLOC) {
-            item.set_role(info.role_);
-            item.set_git_info_sha(info.gitInfoSha_);
-        }
+        item.set_role(info.role_);
+        item.set_git_info_sha(info.gitInfoSha_);
         if (now - info.lastHBTimeInMilliSec_ < FLAGS_removed_threshold_sec * 1000) {
             if (now - info.lastHBTimeInMilliSec_ < FLAGS_expired_threshold_sec * 1000) {
                 item.set_status(cpp2::HostStatus::ONLINE);
