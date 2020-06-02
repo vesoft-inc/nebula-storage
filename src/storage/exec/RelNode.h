@@ -8,10 +8,12 @@
 #define STORAGE_EXEC_RELNODE_H_
 
 #include "common/base/Base.h"
+#include "common/context/ExpressionContext.h"
 #include "utils/NebulaKeyUtils.h"
 #include "storage/CommonUtils.h"
 #include "storage/query/QueryBaseProcessor.h"
-#include "storage/exec/FilterContext.h"
+#include "storage/exec/QueryUtils.h"
+#include "storage/exec/StorageIterator.h"
 
 namespace nebula {
 namespace storage {
@@ -57,96 +59,9 @@ public:
 
     explicit RelNode(const std::string& name): name_(name) {}
 
-protected:
-    folly::Optional<std::pair<std::string, int64_t>>
-    getEdgeTTLInfo(EdgeContext* edgeContext, EdgeType edgeType) {
-        folly::Optional<std::pair<std::string, int64_t>> ret;
-        auto edgeFound = edgeContext->ttlInfo_.find(std::abs(edgeType));
-        if (edgeFound != edgeContext->ttlInfo_.end()) {
-            ret.emplace(edgeFound->second.first, edgeFound->second.second);
-        }
-        return ret;
-    }
-
-    folly::Optional<std::pair<std::string, int64_t>>
-    getTagTTLInfo(TagContext* tagContext, TagID tagId) {
-        folly::Optional<std::pair<std::string, int64_t>> ret;
-        auto tagFound = tagContext->ttlInfo_.find(tagId);
-        if (tagFound != tagContext->ttlInfo_.end()) {
-            ret.emplace(tagFound->second.first, tagFound->second.second);
-        }
-        return ret;
-    }
-
     std::string name_;
     std::vector<RelNode<T>*> dependencies_;
     bool hasDependents_ = false;
-};
-
-class QueryUtils final {
-public:
-    static StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx) {
-        auto value = reader->getValueByName(ctx.name_);
-        if (value.type() == Value::Type::NULLVALUE) {
-            // read null value
-            auto nullType = value.getNull();
-            if (nullType == NullType::BAD_DATA ||
-                nullType == NullType::BAD_TYPE ||
-                nullType == NullType::UNKNOWN_PROP) {
-                VLOG(1) << "Fail to read prop " << ctx.name_;
-                if (ctx.field_ != nullptr) {
-                    if (ctx.field_->hasDefault()) {
-                        return ctx.field_->defaultValue();
-                    } else if (ctx.field_->nullable()) {
-                        return NullType::__NULL__;
-                    }
-                }
-            } else if (nullType == NullType::__NULL__ || nullType == NullType::NaN) {
-                return value;
-            }
-            return Status::Error(folly::stringPrintf("Fail to read prop %s ", ctx.name_.c_str()));
-        }
-        return value;
-    }
-
-    static nebula::Value readEdgeProp(VertexIDSlice srcId,
-                                      EdgeType edgeType,
-                                      EdgeRanking edgeRank,
-                                      VertexIDSlice dstId,
-                                      RowReader* reader,
-                                      const PropContext& prop) {
-        nebula::Value value;
-        switch (prop.propInKeyType_) {
-            // prop in value
-            case PropContext::PropInKeyType::NONE: {
-                if (reader != nullptr) {
-                    auto status = readValue(reader, prop);
-                    if (!status.ok()) {
-                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-                    }
-                    value = std::move(status).value();
-                }
-                break;
-            }
-            case PropContext::PropInKeyType::SRC: {
-                value = srcId.str();
-                break;
-            }
-            case PropContext::PropInKeyType::TYPE: {
-                value = edgeType;
-                break;
-            }
-            case PropContext::PropInKeyType::RANK: {
-                value = edgeRank;
-                break;
-            }
-            case PropContext::PropInKeyType::DST: {
-                value = dstId.str();
-                break;
-            }
-        }
-        return value;
-    }
 };
 
 // QueryNode is the node which would read data from kvstore, it usually generate a row in response
@@ -186,7 +101,7 @@ protected:
                                         RowReader* reader,
                                         const std::vector<PropContext>* props,
                                         nebula::List& list,
-                                        FilterContext* filter) {
+                                        ExpressionContext* ctx) {
         for (auto& prop : *props) {
             VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
             if (reader != nullptr) {
@@ -195,8 +110,8 @@ protected:
                     return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
                 }
                 auto value = std::move(status.value());
-                if (filter != nullptr && prop.tagFiltered_) {
-                    filter->fillTagProp(tagId, prop.name_, value);
+                if (ctx != nullptr && prop.tagFiltered_) {
+                    // todo(doodle): put data into ExpressionContxt
                 }
                 if (prop.returned_) {
                     list.values.emplace_back(std::move(value));
@@ -207,6 +122,74 @@ protected:
     }
 
     Value result_;
+};
+
+// IterateEdgeNode is a typical volcano node, it will have a upstream node.
+// It keeps moving forward the iterator by calling `next`, if you need to filter some data,
+// implement the `check` just like FilterNode and HashJoinNode.
+template<typename T>
+class IterateEdgeNode : public QueryNode<T>, public EdgeIterator {
+public:
+    IterateEdgeNode() = default;
+
+    explicit IterateEdgeNode(IterateEdgeNode* node) : upstream_(node) {}
+
+    bool valid() const override {
+        return upstream_->valid();
+    }
+
+    void next() override {
+        do {
+            upstream_->next();
+        } while (upstream_->valid() && !check());
+    }
+
+    folly::StringPiece key() const override {
+        return upstream_->key();
+    }
+
+    folly::StringPiece val() const override {
+        return upstream_->val();
+    }
+
+    VertexID srcId() const override {
+        return upstream_->srcId();
+    }
+
+    EdgeType edgeType() const override {
+        return upstream_->edgeType();
+    }
+
+    EdgeRanking edgeRank() const override {
+        return upstream_->edgeRank();
+    }
+
+    VertexID dstId() const override {
+        return upstream_->dstId();
+    }
+
+    // return the edge row reader which could pass filter
+    RowReader* reader() const override {
+        return upstream_->reader();
+    }
+
+    // return the column index in result row, used for GetNeighbors
+    virtual size_t idx() const {
+        return upstream_->idx();
+    }
+
+    // return the edge props need to return
+    virtual const std::vector<PropContext>* props() const {
+        return upstream_->props();
+    }
+
+protected:
+    // return true when the iterator points to a valid value
+    virtual bool check() {
+        return true;
+    }
+
+    IterateEdgeNode* upstream_;
 };
 
 }  // namespace storage

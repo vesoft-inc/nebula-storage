@@ -9,6 +9,7 @@
 
 #include "common/base/Base.h"
 #include "kvstore/KVIterator.h"
+#include "storage/CommonUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -82,20 +83,32 @@ public:
     virtual EdgeRanking edgeRank() const = 0;
 
     virtual VertexID dstId() const = 0;
+
+    virtual RowReader* reader() const = 0;
 };
 
 // Iterator of single specified type
 class SingleEdgeIterator : public EdgeIterator {
 public:
-    SingleEdgeIterator(std::unique_ptr<kvstore::KVIterator> iter,
-                       EdgeType edgeType,
-                       size_t vIdLen)
+    SingleEdgeIterator(
+            std::unique_ptr<kvstore::KVIterator> iter,
+            EdgeType edgeType,
+            size_t vIdLen,
+            const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
+            const folly::Optional<std::pair<std::string, int64_t>>* ttl)
         : iter_(std::move(iter))
         , edgeType_(edgeType)
-        , vIdLen_(vIdLen) {}
+        , vIdLen_(vIdLen)
+        , schemas_(schemas)
+        , ttl_(ttl) {
+        CHECK(!!iter_);
+        while (iter_->valid() && !check()) {
+            iter_->next();
+        }
+    }
 
     bool valid() const override {
-        return !!iter_ && iter_->valid();
+        return iter_->valid();
     }
 
     void next() override {
@@ -110,6 +123,10 @@ public:
 
     folly::StringPiece val() const override {
         return iter_->val();
+    }
+
+    RowReader* reader() const override {
+        return reader_.get();
     }
 
     VertexID srcId() const override {
@@ -134,21 +151,44 @@ protected:
         auto key = iter_->key();
         auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
         auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
-        if (!firstLoop_ && rank == lastRank_ && lastDstId_ == dstId.str()) {
+        if (!firstLoop_ && rank == lastRank_ && lastDstId_ == dstId) {
             // pass old version data of same edge
             return false;
         }
 
+        auto val = iter_->val();
+        if (!reader_) {
+            reader_ = RowReader::getRowReader(*schemas_, val);
+            if (!reader_) {
+                return false;
+            }
+        } else if (!reader_->reset(*schemas_, val)) {
+            reader_.reset();
+            return false;
+        }
+
+        firstLoop_ = false;
         lastRank_ = rank;
         lastDstId_ = dstId.str();
-        firstLoop_ = false;
+
+        if (ttl_->hasValue()) {
+            auto ttlValue = ttl_->value();
+            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
+                                                    ttlValue.first, ttlValue.second)) {
+                return false;
+            }
+        }
+
         return true;
     }
 
     std::unique_ptr<kvstore::KVIterator> iter_;
     EdgeType edgeType_;
     size_t vIdLen_;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
+    const folly::Optional<std::pair<std::string, int64_t>>* ttl_ = nullptr;
 
+    std::unique_ptr<RowReader> reader_;
     EdgeRanking lastRank_ = 0;
     VertexID lastDstId_ = "";
     bool firstLoop_ = true;
@@ -183,6 +223,10 @@ public:
         return iters_[curIter_]->val();
     }
 
+    RowReader* reader() const override {
+        return iters_[curIter_]->reader();
+    }
+
     VertexID srcId() const override {
         return iters_[curIter_]->srcId();
     }
@@ -203,7 +247,6 @@ private:
     void moveToNextValidIterator() {
         while (curIter_ < iters_.size()) {
             if (iters_[curIter_] && iters_[curIter_]->valid()) {
-                edgeType_ = iters_[curIter_]->edgeType();
                 return;
             }
             ++curIter_;
@@ -212,19 +255,20 @@ private:
 
 private:
     std::vector<EdgeIterator*> iters_;
-    EdgeType edgeType_;
     size_t curIter_ = 0;
 };
 
-// Iterator of all edges type of a specified vertex
+// Iterator of all edges type of a specified vertex, can specify edge direction
 class AllEdgeIterator : public EdgeIterator {
 public:
     AllEdgeIterator(EdgeContext* ctx,
                     std::unique_ptr<kvstore::KVIterator> iter,
-                    size_t vIdLen)
+                    size_t vIdLen,
+                    const cpp2::EdgeDirection& dir)
         : edgeContext_(ctx)
         , iter_(std::move(iter))
-        , vIdLen_(vIdLen) {
+        , vIdLen_(vIdLen)
+        , dir_(dir) {
         CHECK(!!iter_);
         while (iter_->valid() && !check()) {
             iter_->next();
@@ -232,7 +276,7 @@ public:
     }
 
     bool valid() const override {
-        return !!iter_ && iter_->valid();
+        return iter_->valid();
     }
 
     void next() override {
@@ -247,6 +291,10 @@ public:
 
     folly::StringPiece val() const override {
         return iter_->val();
+    }
+
+    RowReader* reader() const override {
+        return reader_.get();
     }
 
     VertexID srcId() const override {
@@ -274,6 +322,12 @@ private:
         }
 
         auto type = NebulaKeyUtils::getEdgeType(vIdLen_, key);
+        if (dir_ == cpp2::EdgeDirection::IN_EDGE && type > 0) {
+            return false;
+        } else if (dir_ == cpp2::EdgeDirection::OUT_EDGE && type < 0) {
+            return false;
+        }
+
         if (type != edgeType_) {
             auto idxIter = edgeContext_->indexMap_.find(type);
             if (idxIter == edgeContext_->indexMap_.end()) {
@@ -285,17 +339,38 @@ private:
                 return false;
             }
             edgeType_ = type;
+            schemas_ = &(schemaIter->second);
+            ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, edgeType_);
         }
 
         auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
         auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
         // pass old version data of same edge
-        if (type == edgeType_ && rank == lastRank_ && lastDstId_ == dstId.str()) {
+        if (type == edgeType_ && rank == lastRank_ && lastDstId_ == dstId) {
+            return false;
+        }
+
+        auto val = iter_->val();
+        if (!reader_) {
+            reader_ = RowReader::getRowReader(*schemas_, val);
+            if (!reader_) {
+                return false;
+            }
+        } else if (!reader_->reset(*schemas_, val)) {
             return false;
         }
 
         lastRank_ = rank;
         lastDstId_ = dstId.str();
+
+        if (ttl_.hasValue()) {
+            auto ttlValue = ttl_.value();
+            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
+                                                    ttlValue.first, ttlValue.second)) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -303,6 +378,11 @@ private:
     EdgeContext* edgeContext_;
     std::unique_ptr<kvstore::KVIterator> iter_;
     size_t vIdLen_;
+    cpp2::EdgeDirection dir_ = cpp2::EdgeDirection::BOTH;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
+    folly::Optional<std::pair<std::string, int64_t>> ttl_ = nullptr;
+
+    std::unique_ptr<RowReader> reader_;
     EdgeType edgeType_ = 0;
     EdgeRanking lastRank_ = 0;
     VertexID lastDstId_ = "";

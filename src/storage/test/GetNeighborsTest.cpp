@@ -525,6 +525,7 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1);
     }
 }
+*/
 
 TEST(GetNeighborsTest, TtlTest) {
     FLAGS_mock_ttl_col = true;
@@ -537,6 +538,7 @@ TEST(GetNeighborsTest, TtlTest) {
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
+    /*
     TagID player = 1;
     EdgeType serve = 101;
 
@@ -580,9 +582,54 @@ TEST(GetNeighborsTest, TtlTest) {
         ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[2].getNull());
         ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[3].getNull());
     }
+    */
+    {
+        LOG(INFO) << "GoFromPlayerOverAll";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.edge_direction = cpp2::EdgeDirection::BOTH;
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
+    }
+    sleep(FLAGS_mock_ttl_duration + 1);
+    {
+        LOG(INFO) << "GoFromPlayerOverAll";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.edge_direction = cpp2::EdgeDirection::BOTH;
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
+        ASSERT_EQ(1, resp.vertices.rows.size());
+        ASSERT_EQ(9, resp.vertices.rows[0].columns.size());
+        ASSERT_TRUE(resp.vertices.rows[0].columns[2].isNull());     // player expired
+        ASSERT_TRUE(resp.vertices.rows[0].columns[5].isList());     // - teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].columns[8].isList());     // + teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].columns[6].isNull());     // - serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].columns[7].isNull());     // + serve expired
+    }
     FLAGS_mock_ttl_col = false;
 }
 
+/*
 TEST(GetNeighborsTest, FailedTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
@@ -708,7 +755,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, +/- serve, +/- teammate, col_date
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
     }
     {
@@ -726,7 +773,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, +/- serve, +/- teammate, col_date
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
     }
     {
@@ -744,7 +791,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 7 column: vId, stat, player, team, -serve, -teammate, col_date
+        // 7 column: vId, stat, player, team, general tag, - serve, - teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
     }
     {
@@ -762,7 +809,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 7 column: vId, stat, player, team, +serve, +teammate, col_date
+        // 7 column: vId, stat, player, team, general tag, + serve, + teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
     }
     {
@@ -780,7 +827,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, +/- serve, +/- teammate, col_date
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 9);
     }
     {
@@ -798,8 +845,37 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, +/- serve, +/- teammate, col_date
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
         QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 9);
+    }
+}
+
+TEST(GetNeighborsTest, MultiVersionTest) {
+    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts, 3));
+
+    {
+        LOG(INFO) << "GoFromPlayerOverAll";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.edge_direction = cpp2::EdgeDirection::BOTH;
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
     }
 }
 
