@@ -14,9 +14,9 @@ namespace storage {
 
 cpp2::GetPropRequest buildVertexRequest(
         int32_t totalParts,
-        const std::vector<VertexID> vertices,
-        const std::vector<std::pair<TagID, std::vector<std::string>>> tags,
-        bool returnAllProps = true) {
+        const std::vector<VertexID>& vertices,
+        const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
+        bool returnAllProps = false) {
     std::hash<std::string> hash;
     cpp2::GetPropRequest req;
     req.space_id = 1;
@@ -29,25 +29,36 @@ cpp2::GetPropRequest buildVertexRequest(
     }
 
     UNUSED(tags);
-    std::vector<cpp2::PropExp> props;
-    if (props.empty() && returnAllProps) {
-        req.set_props(std::move(props));
+    std::vector<cpp2::VertexProp> vertexProps;
+    if (vertexProps.empty() && returnAllProps) {
+        req.set_vertex_props(std::move(vertexProps));
+    } else {
+        for (const auto& tag : tags) {
+            TagID tagId = tag.first;
+            cpp2::VertexProp tagProp;
+            tagProp.tag = tagId;
+            for (const auto& prop : tag.second) {
+                tagProp.props.emplace_back(std::move(prop));
+            }
+            vertexProps.emplace_back(std::move(tagProp));
+        }
+        req.set_vertex_props(std::move(vertexProps));
     }
     return req;
 }
 
 cpp2::GetPropRequest buildEdgeRequest(
         int32_t totalParts,
-        const std::vector<cpp2::EdgeKey> edgeKeys,
-        const std::vector<std::pair<EdgeType, std::vector<std::string>>> edges,
-        bool returnAllProps = true) {
+        const std::vector<cpp2::EdgeKey>& edgeKeys,
+        const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
+        bool returnAllProps = false) {
     std::hash<std::string> hash;
     cpp2::GetPropRequest req;
     req.space_id = 1;
-    req.column_names.emplace_back("_src");
-    req.column_names.emplace_back("_type");
-    req.column_names.emplace_back("_ranking");
-    req.column_names.emplace_back("_dst");
+    req.column_names.emplace_back(_SRC);
+    req.column_names.emplace_back(_TYPE);
+    req.column_names.emplace_back(_RANK);
+    req.column_names.emplace_back(_DST);
     for (const auto& edge : edgeKeys) {
         PartitionID partId = (hash(edge.src) % totalParts) + 1;
         nebula::Row row;
@@ -59,9 +70,20 @@ cpp2::GetPropRequest buildEdgeRequest(
     }
 
     UNUSED(edges);
-    std::vector<cpp2::PropExp> props;
-    if (props.empty() && returnAllProps) {
-        req.set_props(std::move(props));
+    std::vector<cpp2::EdgeProp> edgeProps;
+    if (edgeProps.empty() && returnAllProps) {
+        req.set_edge_props(std::move(edgeProps));
+    } else {
+        for (const auto& edge : edges) {
+            EdgeType edgeType = edge.first;
+            cpp2::EdgeProp edgeProp;
+            edgeProp.type = edgeType;
+            for (const auto& prop : edge.second) {
+                edgeProp.props.emplace_back(std::move(prop));
+            }
+            edgeProps.emplace_back(std::move(edgeProp));
+        }
+        req.set_edge_props(std::move(edgeProps));
     }
     return req;
 }
@@ -77,8 +99,69 @@ void verifyResult(const std::vector<nebula::Row>& expect,
     }
 }
 
-TEST(GetPropTest, SimpleTest) {
-    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+TEST(GetPropTest, PropertyTest) {
+    fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    TagID player = 1;
+    EdgeType serve = 101;
+
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {"name", "age", "avgScore"};
+        nebula::Row row({"Tim Duncan", 44, 19.0});
+        expected.rows.emplace_back(std::move(row));
+        ASSERT_EQ(expected.colNames, resp.props.colNames);
+        ASSERT_EQ(expected, resp.props);
+    }
+    {
+        LOG(INFO) << "GetEdgeProp";
+        std::vector<cpp2::EdgeKey> edgeKeys;
+        {
+            cpp2::EdgeKey edgeKey;
+            edgeKey.src = "Tim Duncan";
+            edgeKey.edge_type = 101;
+            edgeKey.ranking = 1997;
+            edgeKey.dst = "Spurs";
+            edgeKeys.emplace_back(std::move(edgeKey));
+        }
+        std::vector<std::pair<TagID, std::vector<std::string>>> edges;
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = buildEdgeRequest(totalParts, edgeKeys, edges);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {"teamName", "startYear", "endYear"};
+        nebula::Row row({"Spurs", 1997, 2016});
+        expected.rows.emplace_back(std::move(row));
+        ASSERT_EQ(expected, resp.props);
+    }
+}
+
+TEST(GetPropTest, AllPropertyTest) {
+    fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
     mock::MockCluster cluster;
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
@@ -90,7 +173,7 @@ TEST(GetPropTest, SimpleTest) {
         LOG(INFO) << "GetVertexProp";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
-        auto req = buildVertexRequest(totalParts, vertices, tags);
+        auto req = buildVertexRequest(totalParts, vertices, tags, true);
 
         auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -124,7 +207,7 @@ TEST(GetPropTest, SimpleTest) {
             edgeKeys.emplace_back(std::move(edgeKey));
         }
         std::vector<std::pair<TagID, std::vector<std::string>>> edges;
-        auto req = buildEdgeRequest(totalParts, edgeKeys, edges);
+        auto req = buildEdgeRequest(totalParts, edgeKeys, edges, true);
 
         auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -168,7 +251,7 @@ TEST(GetPropTest, SimpleTest) {
         LOG(INFO) << "GetNotExisted";
         std::vector<VertexID> vertices = {"Not existed"};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
-        auto req = buildVertexRequest(totalParts, vertices, tags);
+        auto req = buildVertexRequest(totalParts, vertices, tags, true);
 
         auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();

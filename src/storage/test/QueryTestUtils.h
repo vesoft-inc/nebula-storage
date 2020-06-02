@@ -8,6 +8,8 @@
 #define STORAGE_TEST_QUERYTESTUTILS_H_
 
 #include "common/base/Base.h"
+#include "common/expression/Expression.h"
+#include "common/expression/SymbolPropertyExpression.h"
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
 #include "codec/RowWriterV2.h"
@@ -59,7 +61,9 @@ public:
         return true;
     }
 
-    static bool mockEdgeData(storage::StorageEnv* env, int32_t totalParts) {
+    static bool mockEdgeData(storage::StorageEnv* env,
+                             int32_t totalParts,
+                             EdgeVersion maxVersions = 1) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
         if (!status.ok()) {
@@ -70,28 +74,30 @@ public:
         auto spaceVidLen = status.value();
         auto edges = mock::MockData::mockMultiEdges();
         std::vector<kvstore::KV> data;
-        std::atomic<size_t> count(edges.size());
-        folly::Baton<true, std::atomic> baton;
-        for (const auto& edge : edges) {
-            PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
-            auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
-                                               edge.rank_, edge.dstId_, 0L);
-            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
-            if (!schema) {
-                LOG(ERROR) << "Invalid edge " << edge.type_;
-                return false;
+        for (EdgeVersion version = 0; version < maxVersions; version++) {
+            std::atomic<size_t> count(edges.size());
+            folly::Baton<true, std::atomic> baton;
+            for (const auto& edge : edges) {
+                PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
+                auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
+                                                edge.rank_, edge.dstId_, version);
+                auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
+                if (!schema) {
+                    LOG(ERROR) << "Invalid edge " << edge.type_;
+                    return false;
+                }
+                EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
+                env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
+                                            [&](kvstore::ResultCode code) {
+                                                EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
+                                                count.fetch_sub(1);
+                                                if (count.load() == 0) {
+                                                    baton.post();
+                                                }
+                                            });
             }
-            EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
-            env->kvstore_->asyncMultiPut(spaceId, partId, std::move(data),
-                                        [&](kvstore::ResultCode code) {
-                                            EXPECT_EQ(code, kvstore::ResultCode::SUCCEEDED);
-                                            count.fetch_sub(1);
-                                            if (count.load() == 0) {
-                                                baton.post();
-                                            }
-                                        });
+            baton.wait();
         }
-        baton.wait();
         return true;
     }
 
@@ -163,9 +169,9 @@ public:
             int32_t totalParts,
             const std::vector<VertexID> vertices,
             const std::vector<EdgeType>& over,
-            const std::vector<std::pair<TagID, std::vector<std::string>>> tags,
-            const std::vector<std::pair<EdgeType, std::vector<std::string>>> edges,
-            bool returnAllProps = true) {
+            const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
+            const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
+            bool returnNoneProps = false) {
         std::hash<std::string> hash;
         cpp2::GetNeighborsRequest req;
         req.space_id = 1;
@@ -180,14 +186,35 @@ public:
             req.edge_types.emplace_back(edge);
         }
 
-        // todo(doodle): wait
-        UNUSED(tags); UNUSED(edges);
-        std::vector<cpp2::PropExp> vertexProps;
-        if (vertexProps.empty() && returnAllProps) {
+        std::vector<cpp2::VertexProp> vertexProps;
+        if (tags.empty() && !returnNoneProps) {
+            req.set_vertex_props(std::move(vertexProps));
+        } else if (!returnNoneProps) {
+            for (const auto& tag : tags) {
+                TagID tagId = tag.first;
+                cpp2::VertexProp tagProp;
+                tagProp.tag = tagId;
+                for (const auto& prop : tag.second) {
+                    tagProp.props.emplace_back(std::move(prop));
+                }
+                vertexProps.emplace_back(std::move(tagProp));
+            }
             req.set_vertex_props(std::move(vertexProps));
         }
-        std::vector<cpp2::PropExp> edgeProps;
-        if (edgeProps.empty() && returnAllProps) {
+
+        std::vector<cpp2::EdgeProp> edgeProps;
+        if (edges.empty() && !returnNoneProps) {
+            req.set_edge_props(std::move(edgeProps));
+        } else if (!returnNoneProps) {
+            for (const auto& edge : edges) {
+                EdgeType edgeType = edge.first;
+                cpp2::EdgeProp edgeProp;
+                edgeProp.type = edgeType;
+                for (const auto& prop : edge.second) {
+                    edgeProp.props.emplace_back(std::move(prop));
+                }
+                edgeProps.emplace_back(std::move(edgeProp));
+            }
             req.set_edge_props(std::move(edgeProps));
         }
         return req;
@@ -203,12 +230,15 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
             size_t expectRowCount,
+            size_t expectColumnCount,
             std::unordered_map<VertexID, std::vector<Value>>* expectStats = nullptr) {
         UNUSED(over);
-        checkColNames(dataSet, tags, edges);
+        if (!edges.empty()) {
+            checkColNames(dataSet, tags, edges);
+        }
         ASSERT_EQ(expectRowCount, dataSet.rows.size());
         for (const auto& row : dataSet.rows) {
-            ASSERT_EQ(tags.size() + edges.size() + 2, row.columns.size());
+            ASSERT_EQ(expectColumnCount, row.columns.size());
             auto vId = row.columns[0].getStr();
             auto iter = std::find(vertices.begin(), vertices.end(), vId);
             ASSERT_TRUE(iter != vertices.end());
@@ -226,7 +256,7 @@ public:
         }
     }
 
-    // check response when none of the tags or edges is specified
+    // check response when none of the tags or edges is specified, will return all props
     static void checkResponse(
             const nebula::DataSet& dataSet,
             const std::vector<VertexID>& vertices,
@@ -239,7 +269,10 @@ public:
             auto vId = row.columns[0].getStr();
             auto iter = std::find(vertices.begin(), vertices.end(), vId);
             ASSERT_TRUE(iter != vertices.end());
+            // the second column is stats
             ASSERT_EQ(NullType::__NULL__, row.columns[1].getNull());
+            // the last column is yeild expression
+            ASSERT_EQ(NullType::__NULL__, row.columns[expectColumnCount - 1].getNull());
             checkRowProps(row, dataSet.colNames, {}, {});
         }
     }
@@ -249,16 +282,26 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
         auto colNames = dataSet.colNames;
-        ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 2);
+        ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 3);
         ASSERT_EQ("_vid", colNames[0]);
-        ASSERT_EQ("_stats", colNames[1]);
+        ASSERT_EQ(0, colNames[1].find("_stats"));
+        ASSERT_EQ(0, colNames[colNames.size() - 1].find("_expr"));
 
         for (size_t i = 0; i < tags.size(); i++) {
-            ASSERT_EQ(folly::to<std::string>(tags[i].first), colNames[i + 2]);
+            auto expected = "_tag:" + folly::to<std::string>(tags[i].first);
+            for (const auto& prop : tags[i].second) {
+                expected += ":" + prop;
+            }
+            ASSERT_EQ(expected, colNames[i + 2]);
         }
         for (size_t i = 0; i < edges.size(); i++) {
-            ASSERT_EQ(folly::to<std::string>(std::abs(edges[i].first)),
-                      colNames[i + 2 + tags.size()]);
+            std::string expected = "_edge:";
+            expected.append(edges[i].first > 0 ? "+" : "-")
+                    .append(folly::to<std::string>(std::abs(edges[i].first)));
+            for (const auto& prop : edges[i].second) {
+                expected += ":" + prop;
+            }
+            ASSERT_EQ(expected, colNames[i + 2 + tags.size()]);
         }
     }
 
@@ -337,13 +380,15 @@ public:
                               const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by team name and start year
-                // in case a player serve the same team more than once
-                return serve.teamName_ == values[1].getStr() &&
-                       serve.startYear_ == values[2].getInt();
+                // Find corresponding record by team name and start year,
+                // in case a player serve the same team more than once.
+                // The teamName and startYear would be in col 5 and 6, the first four
+                // property would be property in key
+                return serve.teamName_ == values[1 + 4].getStr() &&
+                       serve.startYear_ == values[2 + 4].getInt();
             });
             ASSERT_TRUE(iter != serves.end());
-            checkAllPropertyOfServe(*iter, values);
+            checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
         // Make sure teamName and startYear is the first two props,
@@ -364,13 +409,15 @@ public:
                              const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by player name and start year,
-                // in case a player serve the same team more than once
-                return serve.playerName_ == values[0].getStr() &&
-                       serve.startYear_ == values[2].getInt();
+                // Find corresponding record by player name and start year,
+                // in case a player serve the same team more than once.
+                // The playerName and startYear would be in col 4 and 6, the first four
+                // property would be property in key
+                return serve.playerName_ == values[0 + 4].getStr() &&
+                       serve.startYear_ == values[2 + 4].getInt();
             });
             ASSERT_TRUE(iter != serves.end());
-            checkAllPropertyOfServe(*iter, values);
+            checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
         // Make sure playerName and startYear is the first two props
@@ -386,26 +433,40 @@ public:
         checkSomePropertyOfServe(edgeType, props, *iter, values);
     }
 
-    static void checkAllPropertyOfServe(const mock::Serve& serve,
+    static void checkAllPropertyOfServe(EdgeType edgeType,
+                                        const mock::Serve& serve,
                                         const std::vector<Value>& values) {
-        ASSERT_EQ(serve.playerName_, values[0].getStr());
-        ASSERT_EQ(serve.teamName_, values[1].getStr());
-        ASSERT_EQ(serve.startYear_, values[2].getInt());
-        ASSERT_EQ(serve.endYear_, values[3].getInt());
-        ASSERT_EQ(serve.teamCareer_, values[4].getInt());
-        ASSERT_EQ(serve.teamGames_, values[5].getInt());
-        ASSERT_EQ(serve.teamAvgScore_, values[6].getFloat());
+        // property in key
+        if (edgeType > 0) {
+            ASSERT_EQ(serve.playerName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(serve.startYear_, values[2].getInt());
+            ASSERT_EQ(serve.teamName_, cleanSuffix(values[3].getStr()));
+        } else {
+            ASSERT_EQ(serve.teamName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(serve.startYear_, values[2].getInt());
+            ASSERT_EQ(serve.playerName_, cleanSuffix(values[3].getStr()));
+        }
+        // property in value
+        ASSERT_EQ(serve.playerName_, values[4].getStr());
+        ASSERT_EQ(serve.teamName_, values[5].getStr());
+        ASSERT_EQ(serve.startYear_, values[6].getInt());
+        ASSERT_EQ(serve.endYear_, values[7].getInt());
+        ASSERT_EQ(serve.teamCareer_, values[8].getInt());
+        ASSERT_EQ(serve.teamGames_, values[9].getInt());
+        ASSERT_EQ(serve.teamAvgScore_, values[10].getFloat());
         int32_t hasTtl = FLAGS_mock_ttl_col ? 1 : 0;
         if (serve.type_.empty()) {
-            ASSERT_EQ("trade", values[7 + hasTtl].getStr());
+            ASSERT_EQ("trade", values[11 + hasTtl].getStr());
         } else {
-            ASSERT_EQ(serve.type_, values[7 + hasTtl].getStr());
+            ASSERT_EQ(serve.type_, values[11 + hasTtl].getStr());
         }
         if (serve.champions_ == 0) {
             // 0 means not initialized, should return null
-            ASSERT_EQ(NullType::__NULL__, values[8 + hasTtl].getNull());
+            ASSERT_EQ(NullType::__NULL__, values[12 + hasTtl].getNull());
         } else {
-            ASSERT_EQ(serve.champions_, values[8 + hasTtl].getInt());
+            ASSERT_EQ(serve.champions_, values[12 + hasTtl].getInt());
         }
     }
 
@@ -441,21 +502,21 @@ public:
                 } else {
                     ASSERT_EQ(serve.champions_, values[i].getInt());
                 }
-            } else if (props[i] == "_src") {
+            } else if (props[i] == _SRC) {
                 if (edgeType > 0) {
                     ASSERT_EQ(serve.playerName_, cleanSuffix(values[i].getStr()));
                 } else {
                     ASSERT_EQ(serve.teamName_, cleanSuffix(values[i].getStr()));
                 }
-            } else if (props[i] == "_dst") {
+            } else if (props[i] == _DST) {
                 if (edgeType > 0) {
                     ASSERT_EQ(serve.teamName_, cleanSuffix(values[i].getStr()));
                 } else {
                     ASSERT_EQ(serve.playerName_, cleanSuffix(values[i].getStr()));
                 }
-            } else if (props[i] == "_rank") {
+            } else if (props[i] == _RANK) {
                 ASSERT_EQ(serve.startYear_, values[i].getInt());
-            } else if (props[i] == "_type") {
+            } else if (props[i] == _TYPE) {
                 ASSERT_EQ(edgeType, values[i].getInt());
             } else {
                 LOG(FATAL) << "Should not reach here";
@@ -472,14 +533,22 @@ public:
                               const std::vector<std::string>& props,
                               const std::vector<Value>& values) {
         if (props.empty()) {
-            auto player1 = cleanSuffix(values[0].getStr());
-            auto player2 = cleanSuffix(values[1].getStr());
+            auto player1 = values[4].getStr();
+            auto player2 = values[5].getStr();
             const auto& teammate = findTeammate(player1, player2);
-            ASSERT_EQ(teammate.player1_, values[0].getStr());
-            ASSERT_EQ(teammate.player2_, values[1].getStr());
-            ASSERT_EQ(teammate.teamName_, values[2].getStr());
-            ASSERT_EQ(teammate.startYear_, values[3].getInt());
-            ASSERT_EQ(teammate.endYear_, values[4].getInt());
+            // property in key
+            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[0].getStr()) ||
+                        teammate.player2_ == cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(teammate.startYear_, values[2].getInt());
+            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[3].getStr()) ||
+                        teammate.player2_ == cleanSuffix(values[3].getStr()));
+            // property in value
+            ASSERT_EQ(teammate.player1_, values[4].getStr());
+            ASSERT_EQ(teammate.player2_, values[5].getStr());
+            ASSERT_EQ(teammate.teamName_, values[6].getStr());
+            ASSERT_EQ(teammate.startYear_, values[7].getInt());
+            ASSERT_EQ(teammate.endYear_, values[8].getInt());
             return;
         }
         // Make sure _src and _dst is the first two props
@@ -522,13 +591,16 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
         auto vId = row.columns[0].getStr();
-        for (size_t i = 2; i < colNames.size(); i++) {
+        // skip the last column which is reserved for expression yields
+        for (size_t i = 2; i < colNames.size() - 1; i++) {
             const auto& name = colNames[i];
-            auto pos = name.find(':');
-            if (pos == std::string::npos) {
+            std::vector<std::string> cols;
+            folly::split(':', name, cols, true);
+            if (cols.size() < 2) {
                 LOG(FATAL) << "Invalid column name";
             }
-            auto entryId = folly::to<int32_t>(name.substr(0, pos));
+            // cols[1] is the tagName, which can be transfromed to entryId
+            auto entryId = folly::to<int32_t>(cols[1]);
             auto props = findExpectProps(entryId, tags, edges);
             switch (entryId) {
                 case 1: {
@@ -616,11 +688,11 @@ public:
     static const mock::Teammate& findTeammate(const std::string& player1,
                                               const std::string& player2) {
         auto iter = std::find_if(mock::MockData::teammates_.begin(),
-                                    mock::MockData::teammates_.end(),
-                                    [&](const auto& teammate) {
-                                        return teammate.player1_ == player1 &&
+                                 mock::MockData::teammates_.end(),
+                                 [&](const auto& teammate) {
+                                     return teammate.player1_ == player1 &&
                                             teammate.player2_ == player2;
-                                    });
+                                 });
         if (iter != mock::MockData::teammates_.end()) {
             return *iter;
         }
@@ -628,7 +700,7 @@ public:
                             mock::MockData::teammates_.end(),
                             [&](const auto& teammate) {
                                 return teammate.player1_ == player2 &&
-                                        teammate.player2_ == player1;
+                                       teammate.player2_ == player1;
                             });
         if (iter == mock::MockData::teammates_.end()) {
             LOG(FATAL) << "Can't find speicied teammate";
@@ -640,10 +712,6 @@ public:
             int32_t entryId,
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
-        if (tags.empty() && edges.empty()) {
-            // return {} means all property
-            return {};
-        }
         auto propIter = std::find_if(tags.begin(), tags.end(), [&](const auto& entry) {
             return entry.first == entryId;
         });
@@ -656,7 +724,8 @@ public:
         if (propIter != edges.end()) {
             return propIter->second;
         }
-        LOG(FATAL) << "Should not reach here";
+        // return {} means all property
+        return {};
     }
 };
 
