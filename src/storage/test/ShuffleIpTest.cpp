@@ -16,12 +16,12 @@
 #include "utils/NebulaKeyUtils.h"
 #include <folly/executors/ThreadedExecutor.h>
 
-#include "base/Base.h"
-#include "clients/meta/MetaClient.h"
-#include "common/NebulaKeyUtils.h"
-#include "fs/TempDir.h"
-#include "meta/ClientBasedGflagsManager.h"
-#include "meta/GflagsManager.h"
+#include "common/base/Base.h"
+#include "common/clients/meta/MetaClient.h"
+#include "utils/NebulaKeyUtils.h"
+#include "common/fs/TempDir.h"
+#include "common/meta/ClientBasedGflagsManager.h"
+#include "common/meta/GflagsManager.h"
 #include "meta/MetaServiceUtils.h"
 #include "meta/test/TestUtils.h"
 #include "mock/MockCluster.h"
@@ -60,6 +60,96 @@ void printHostItem(nebula::meta::cpp2::HostItem& host) {
     oss << "\n role = " << static_cast<int>(host.role);
     oss << "\n git_info_sha = " << host.git_info_sha;
     LOG(INFO) << oss.str();
+}
+
+std::vector<cpp2::NewVertex> genDummyVertices(int tagId, int howMany) {
+    std::vector<cpp2::NewVertex> newVertices;
+
+    int vid = 1000;
+    for (int32_t i = 0; i < howMany; i++) {
+        storage::cpp2::NewVertex newVertex;
+        newVertex.set_id(vid++);
+
+        storage::cpp2::NewTag newTag;
+        std::vector<storage::cpp2::NewTag> newTags;
+        newTag.set_tag_id(tagId);
+        // auto props = genData(FLAGS_size);
+        // newTag.set_props(std::move(props));
+        newTags.emplace_back(std::move(newTag));
+
+        newVertex.set_tags(std::move(newTags));
+        newVertices.emplace_back(std::move(newVertex));
+    }
+    return newVertices;
+}
+
+TEST(ShuffleIpTest, GenData) {
+    using StorageClient = storage::GraphStorageClient;
+    // need to manual change ip(host), which means has nothing to do
+    // in CI autotest, so comments out all the code
+    // will available in manual check
+
+    std::string meta_name{"hp-server"};
+    uint32_t meta_port = 6500;
+
+    auto ioThreadPool_ = std::make_shared<folly::IOThreadPoolExecutor>(3);
+
+    std::vector<HostAddr> metas;
+    metas.emplace_back(HostAddr(meta_name, meta_port));
+
+    meta::MetaClientOptions options;
+    auto metaClient = std::make_unique<meta::MetaClient>(ioThreadPool_,
+                                                     metas,
+                                                     options);
+    if (!metaClient->waitForMetadReady()) {
+        LOG(ERROR) << "waitForMetadReady error!";
+        return;
+    }
+    meta::SpaceDesc spaceDesc("default2", 3, 1);
+    auto futCreateSpace = metaClient->createSpace(spaceDesc);
+
+    futCreateSpace.wait();
+    auto spaceId = futCreateSpace.value().value();
+    LOG(INFO) << "Created space \"default\", its id is " << spaceId;
+
+    nebula::meta::cpp2::Schema schema;
+    nebula::meta::cpp2::ColumnDef column;
+    column.name = "name";
+    column.type = meta::cpp2::PropertyType::STRING;
+    schema.columns.emplace_back(std::move(column));
+
+    auto createTagSchemaRet = metaClient->createTagSchema(spaceId, "player", schema);
+    EXPECT_TRUE(createTagSchemaRet.value().ok());
+    if (!createTagSchemaRet.value().ok()) {
+        LOG(ERROR) << "Create tag failed: " << createTagSchemaRet.value().status();
+        return;
+    }
+    auto tagId = createTagSchemaRet.value().value();
+
+    auto storageClient = std::make_unique<StorageClient>(ioThreadPool_,
+                                                         metaClient.get());
+
+    auto vertices = genDummyVertices(tagId, 10);
+    std::unordered_map<TagID, std::vector<std::string>> propNames;
+    std::vector<std::string> props{"name"};
+    propNames.insert(std::make_pair(tagId, props));
+    /*
+    folly::SemiFuture<StorageRpcResponse<cpp2::ExecResponse>>
+    addVertices(
+        GraphSpaceID space,
+        std::vector<cpp2::NewVertex> vertices,
+        std::unordered_map<TagID, std::vector<std::string>> propNames,
+        bool overwritable,
+        folly::EventBase* evb = nullptr);
+    */
+    storageClient->addVertices(spaceId, vertices, propNames, true);
+
+    auto ret = metaClient->listHosts().get();
+    ASSERT_TRUE(ret.ok());
+    auto hosts = ret.value();
+    for (auto& host : hosts) {
+        printHostItem(host);
+    }
 }
 
 TEST(ShuffleIpTest, ListHosts) {
