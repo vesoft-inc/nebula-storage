@@ -1305,7 +1305,6 @@ TEST(MetaClientTest, Config) {
     sleep(FLAGS_heartbeat_interval_secs * 5);
 }
 
-
 TEST(MetaClientTest, RocksdbOptionsTest) {
     FLAGS_heartbeat_interval_secs = 1;
     fs::TempDir rootPath("/tmp/RocksdbOptionsTest.XXXXXX");
@@ -1332,10 +1331,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
     {
         auto name = "rocksdb_db_options";
         std::vector<cpp2::ConfigItem> configItems;
-        FLAGS_rocksdb_db_options = R"({
-            "disable_auto_compactions":"false",
-            "write_buffer_size":"1048576"
-        })";
+        FLAGS_rocksdb_db_options = R"({"disable_auto_compactions":"false","write_buffer_size":"1048576"})";
         Map map;
         map.kvs.emplace("disable_auto_compactions", "false");
         map.kvs.emplace("write_buffer_size", "1048576");
