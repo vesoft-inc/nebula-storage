@@ -24,7 +24,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                       IndexID indexID,
                                       const std::vector<meta::cpp2::ColumnDef>& cols) {
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto prefix = NebulaKeyUtils::prefix(part);
+    auto prefix = NebulaKeyUtils::partPrefix(part);
     auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Processing Part " << part << " Failed";

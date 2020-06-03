@@ -13,7 +13,6 @@
 #include "kvstore/NebulaStore.h"
 #include "storage/admin/TaskUtils.h"
 #include "storage/CommonUtils.h"
-#include <folly/AtomicHashMap.h>
 #include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 
 namespace nebula {

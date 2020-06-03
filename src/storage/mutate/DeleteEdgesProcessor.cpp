@@ -150,11 +150,21 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 dstId,
                                                                 valuesRet.value(),
                                                                 colsType);
-                    if (env_->rebuildIndexID_ != index->get_index_id()) {
-                        batchHolder->remove(std::move(indexKey));
-                    } else {
+                    auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
+                    auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
+                    if (spaceIndexIter == env_->rebuildIndexGuard_.cend()) {
+                        LOG(INFO) << "Delete OP Not Found " << spaceId_;
+                    }
+
+                    if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
+                        spaceIndexIter->second == index->get_index_id() &&
+                        partIter != env_->rebuildPartsGuard_.cend() &&
+                        partIter->second.find(partId) != partIter->second.cend()) {
+                        LOG(INFO) << "Delete OP Key";
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
+                    } else {
+                        batchHolder->remove(std::move(indexKey));
                     }
                 }
             }

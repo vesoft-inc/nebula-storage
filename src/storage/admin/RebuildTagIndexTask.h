@@ -21,8 +21,8 @@ public:
 
     ~RebuildTagIndexTask() {
         LOG(INFO) << "~RebuildTagIndexTask";
-        env_->rebuildTagID_ = -1;
-        env_->rebuildIndexID_ = -1;
+        // env_->rebuildIndexGuard_.erase(ctx_.spaceId_);
+        // env_->rebuildTagIDGuard_.erase(ctx_.spaceId_);
     }
 
 private:

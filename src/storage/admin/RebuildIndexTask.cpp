@@ -20,7 +20,6 @@ RebuildIndexTask::genSubTasks() {
     auto parameters = ctx_.parameters_;
     auto indexID = std::stoi(parameters.task_specfic_paras[0]);
     bool isOffline = !strcasecmp("offline", parameters.task_specfic_paras[1].c_str());
-    LOG(INFO) << "Gen Sub Tasks: Index ID " << indexID;
 
     auto itemRet = getIndex(space, indexID);
     if (!itemRet.ok()) {
@@ -28,19 +27,19 @@ RebuildIndexTask::genSubTasks() {
         return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
     }
 
-    if (env_->rebuildIndexID_ != -1) {
+    if (env_->rebuildIndexGuard_.find(space) != env_->rebuildIndexGuard_.cend()) {
         LOG(ERROR) << "Some index is rebuilding";
         return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
     }
 
-    env_->rebuildIndexID_ = indexID;
+    env_->rebuildIndexGuard_.insert(space, indexID);
     auto item = itemRet.value();
     auto schemaID = item->get_schema_id();
-    if (schemaID.getType() == nebula::meta::cpp2::SchemaID::Type::tag_id) {
-        env_->rebuildTagID_ = schemaID.get_tag_id();
-    } else {
-        env_->rebuildEdgeType_ = schemaID.get_edge_type();
-    }
+    // if (schemaID.getType() == nebula::meta::cpp2::SchemaID::Type::tag_id) {
+    //     env_->rebuildTagIDGuard_ = schemaID.get_tag_id();
+    // } else {
+    //     env_->rebuildEdgeTypeGuard_ = schemaID.get_edge_type();
+    // }
 
     if (isOffline) {
         LOG(INFO) << "Offline Rebuild Index Space: " << space << " Index: " << indexID;
@@ -49,7 +48,7 @@ RebuildIndexTask::genSubTasks() {
     }
 
     std::vector<AdminSubTask> tasks;
-    for (PartitionID part : parts) {
+    for (const auto& part : parts) {
         std::function<kvstore::ResultCode()> func = std::bind(&RebuildIndexTask::genSubTask,
                                                               this, space, part, schemaID,
                                                               indexID, item, isOffline);
@@ -64,7 +63,16 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  int32_t indexID,
                                                  std::shared_ptr<meta::cpp2::IndexItem> item,
                                                  bool isOffline) {
-    env_->rebuildPartID_.insert(std::make_pair(part, true));
+    auto partIter = env_->rebuildPartsGuard_.find(space);
+    if (partIter != env_->rebuildPartsGuard_.cend()) {
+        std::unordered_set<PartitionID> parts;
+        parts.emplace(part);
+        env_->rebuildPartsGuard_.insert(space, std::move(parts));
+    } else {
+        auto parts = env_->rebuildPartsGuard_[space];
+        parts.emplace(part);
+    }
+
     auto result = buildIndexGlobal(space, part, schemaID, indexID, item->get_fields());
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index failed";
@@ -80,7 +88,8 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
         }
     }
 
-    env_->rebuildPartID_.erase(part);
+    auto parts = env_->rebuildPartsGuard_.find(space)->second;
+    parts.erase(part);
     LOG(INFO) << "RebuildIndexTask Finished";
     return result;
 }
@@ -176,6 +185,7 @@ RebuildIndexTask::processModifyOperation(GraphSpaceID space,
                                          PartitionID part,
                                          std::vector<kvstore::KV>&& data,
                                          kvstore::KVStore* kvstore) {
+    LOG(ERROR) << "processModifyOperation";
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
     kvstore->asyncMultiPut(space, part, std::move(data),
@@ -195,6 +205,7 @@ RebuildIndexTask::processRemoveOperation(GraphSpaceID space,
                                          PartitionID part,
                                          std::string&& key,
                                          kvstore::KVStore* kvstore) {
+    LOG(INFO) << "processRemoveOperation";
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
     kvstore->asyncRemove(space, part, std::move(key),

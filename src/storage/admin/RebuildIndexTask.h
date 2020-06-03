@@ -65,8 +65,6 @@ private:
 
 protected:
     std::atomic<bool>   canceled_{false};
-    // std::mutex          lock_;
-    // int32_t             callingNum_{0};
 };
 
 }  // namespace storage

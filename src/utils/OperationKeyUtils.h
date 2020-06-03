@@ -11,6 +11,9 @@
 
 namespace nebula {
 
+/**
+ * The OperationKeyUtils is use to generate the operation key when rebuilding index. 
+ * */
 class OperationKeyUtils final {
 public:
     ~OperationKeyUtils() = default;

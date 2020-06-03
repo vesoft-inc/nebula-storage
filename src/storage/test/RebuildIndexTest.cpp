@@ -172,6 +172,7 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     processor->process(req);
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
+    sleep(3);
 
     auto manager = AdminTaskManager::instance();
     manager->init();
@@ -188,23 +189,22 @@ TEST(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     request.set_job_id(1);
     request.set_task_id(1);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
+    request.set_concurrency(6);
+    writer->addTask(deleteVertices).get();
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
 
     auto task = std::make_shared<RebuildTagIndexTask>(env, std::move(context));
-    manager->addAsyncTask(task);
-
-    writer->addTask(deleteVertices).get();
 
     // Wait for the task finished
     do {
         sleep(1);
     } while (!manager->isFinished(context.jobId_, context.taskId_));
+    manager->addAsyncTask(task);
 
     LOG(INFO) << "Check rebuild tag index...";
-    for (auto& key : mock::MockData::mockPlayerIndexKeys(true)) {
+    for (auto& key : mock::MockData::mockPlayerIndexKeys()) {
         std::string value;
         auto code = env->kvstore_->get(1, key.first, key.second, &value);
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
@@ -257,7 +257,7 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOffline) {
     } while (!manager->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
-    LOG(INFO) << "Check rebuild tag index...";
+    LOG(INFO) << "Check rebuild edge index...";
     for (auto& key : mock::MockData::mockServeIndexKeys()) {
         std::string value;
         auto code = env->kvstore_->get(1, key.first, key.second, &value);
@@ -351,7 +351,6 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
     };
-
     // Add Edges
     auto* processor = AddEdgesProcessor::instance(env, nullptr);
     cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
@@ -359,6 +358,7 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     processor->process(req);
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
+    sleep(3);
 
     auto manager = AdminTaskManager::instance();
     EXPECT_TRUE(manager->init());
@@ -375,9 +375,7 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     request.set_job_id(2);
     request.set_task_id(1);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
-
-    writer->addTask(deleteEdges).get();
+    request.set_concurrency(6);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
@@ -388,6 +386,7 @@ TEST(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     do {
         sleep(1);
     } while (!manager->isFinished(context.jobId_, context.taskId_));
+    writer->addTask(deleteEdges).get();
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";

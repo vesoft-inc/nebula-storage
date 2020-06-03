@@ -36,11 +36,15 @@ public:
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
 
-    folly::ConcurrentHashMap<GraphSpaceID, IndexStatus>  spaceStatus_;
-    folly::ConcurrentHashMap<PartitionID, bool>          rebuildPartID_;
-    std::atomic<TagID>                                   rebuildTagID_{-1};
-    std::atomic<EdgeType>                                rebuildEdgeType_{-1};
-    std::atomic<IndexID>                                 rebuildIndexID_{-1};
+
+    folly::ConcurrentHashMap<GraphSpaceID, IndexID>      rebuildIndexGuard_;
+    using Parts = std::unordered_set<PartitionID>;
+    folly::ConcurrentHashMap<GraphSpaceID, Parts>        rebuildPartsGuard_;
+    // folly::ConcurrentHashMap<GraphSpaceID, TagID>        rebuildTagIDGuard_;
+    // folly::ConcurrentHashMap<GraphSpaceID, EdgeType>     rebuildEdgeTypeGuard_;
+    // std::atomic<TagID>                                   rebuildTagID_{-1};
+    // std::atomic<EdgeType>                                rebuildEdgeType_{-1};
+    // std::atomic<IndexID>                                 rebuildIndexID_{-1};
 };
 
 class CommonUtils final {

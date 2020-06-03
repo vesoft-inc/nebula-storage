@@ -170,11 +170,16 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
-                        if (env_->rebuildIndexID_ != index->get_index_id()) {
-                            batchHolder->remove(std::move(oi));
-                        } else {
+                        auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
+                        auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
+                        if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
+                            spaceIndexIter->second == index->get_index_id() &&
+                            partIter != env_->rebuildPartsGuard_.cend() &&
+                            partIter->second.find(partId) != partIter->second.cend()) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                        } else {
+                            batchHolder->remove(std::move(oi));
                         }
                     }
                 }
@@ -193,12 +198,16 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
-                    if (env_->rebuildIndexID_ != index->get_index_id()) {
-                        batchHolder->put(std::move(ni), "");
-                    } else {
-                        // LOG(INFO) << "Modify Op Key " << ni;
+                    auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
+                    auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
+                    if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
+                        spaceIndexIter->second == index->get_index_id() &&
+                        partIter != env_->rebuildPartsGuard_.cend() &&
+                        partIter->second.find(partId) != partIter->second.cend()) {
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
                         batchHolder->put(std::move(modifyOpKey), "");
+                    } else {
+                        batchHolder->put(std::move(ni), "");
                     }
                 }
             }
