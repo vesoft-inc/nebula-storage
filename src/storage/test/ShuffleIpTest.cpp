@@ -73,8 +73,6 @@ std::vector<cpp2::NewVertex> genDummyVertices(int tagId, int howMany) {
         storage::cpp2::NewTag newTag;
         std::vector<storage::cpp2::NewTag> newTags;
         newTag.set_tag_id(tagId);
-        // auto props = genData(FLAGS_size);
-        // newTag.set_props(std::move(props));
         newTags.emplace_back(std::move(newTag));
 
         newVertex.set_tags(std::move(newTags));
@@ -85,77 +83,79 @@ std::vector<cpp2::NewVertex> genDummyVertices(int tagId, int howMany) {
 
 TEST(ShuffleIpTest, GenData) {
     using StorageClient = storage::GraphStorageClient;
+    // ********** notice notice notice*******
     // need to manual change ip(host), which means has nothing to do
-    // in CI autotest, so comments out all the code
+    // in CI autotest, so comments out all the code.
     // will available in manual check
+    // ********** notice end *******
 
-    std::string meta_name{"hp-server"};
-    uint32_t meta_port = 6500;
+    // std::string meta_name{"hp-server"};
+    // uint32_t meta_port = 6500;
 
-    auto ioThreadPool_ = std::make_shared<folly::IOThreadPoolExecutor>(3);
+    // auto ioThreadPool_ = std::make_shared<folly::IOThreadPoolExecutor>(3);
 
-    std::vector<HostAddr> metas;
-    metas.emplace_back(HostAddr(meta_name, meta_port));
+    // std::vector<HostAddr> metas;
+    // metas.emplace_back(HostAddr(meta_name, meta_port));
 
-    meta::MetaClientOptions options;
-    auto metaClient = std::make_unique<meta::MetaClient>(ioThreadPool_,
-                                                     metas,
-                                                     options);
-    if (!metaClient->waitForMetadReady()) {
-        LOG(ERROR) << "waitForMetadReady error!";
-        return;
-    }
-    meta::SpaceDesc spaceDesc("default2", 3, 1);
-    auto futCreateSpace = metaClient->createSpace(spaceDesc);
+    // meta::MetaClientOptions options;
+    // auto metaClient = std::make_unique<meta::MetaClient>(ioThreadPool_,
+    //                                                  metas,
+    //                                                  options);
+    // if (!metaClient->waitForMetadReady()) {
+    //     LOG(ERROR) << "waitForMetadReady error!";
+    //     return;
+    // }
+    // auto now = std::chrono::system_clock::now();
+    // std::time_t tt = std::chrono::system_clock::to_time_t(now);
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::stringstream oss;
+    // oss << std::put_time(std::localtime(&tt), "%T");
+    // std::string spaceName = oss.str();
+    // meta::SpaceDesc spaceDesc(spaceName, 3, 1);
+    // auto futCreateSpace = metaClient->createSpace(spaceDesc);
 
-    futCreateSpace.wait();
-    auto spaceId = futCreateSpace.value().value();
-    LOG(INFO) << "Created space \"default\", its id is " << spaceId;
+    // futCreateSpace.wait();
+    // auto spaceId = futCreateSpace.value().value();
+    // LOG(INFO) << folly::sformat("space {0} created, id = {1}", spaceName, spaceId);
 
-    nebula::meta::cpp2::Schema schema;
-    nebula::meta::cpp2::ColumnDef column;
-    column.name = "name";
-    column.type = meta::cpp2::PropertyType::STRING;
-    schema.columns.emplace_back(std::move(column));
+    // nebula::meta::cpp2::Schema schema;
+    // nebula::meta::cpp2::ColumnDef column;
+    // column.name = "name";
+    // column.type = meta::cpp2::PropertyType::STRING;
+    // schema.columns.emplace_back(std::move(column));
 
-    auto createTagSchemaRet = metaClient->createTagSchema(spaceId, "player", schema);
-    EXPECT_TRUE(createTagSchemaRet.value().ok());
-    if (!createTagSchemaRet.value().ok()) {
-        LOG(ERROR) << "Create tag failed: " << createTagSchemaRet.value().status();
-        return;
-    }
-    auto tagId = createTagSchemaRet.value().value();
+    // auto createTagSchemaFut = metaClient->createTagSchema(spaceId, "player", schema);
+    // createTagSchemaFut.wait();
+    // EXPECT_TRUE(createTagSchemaFut.value().ok());
+    // if (!createTagSchemaFut.value().ok()) {
+    //     LOG(ERROR) << "Create tag failed: " << createTagSchemaFut.value().status();
+    //     return;
+    // }
+    // auto tagId = createTagSchemaFut.value().value();
 
-    auto storageClient = std::make_unique<StorageClient>(ioThreadPool_,
-                                                         metaClient.get());
+    // auto storageClient = std::make_unique<StorageClient>(ioThreadPool_,
+    //                                                      metaClient.get());
 
-    auto vertices = genDummyVertices(tagId, 10);
-    std::unordered_map<TagID, std::vector<std::string>> propNames;
-    std::vector<std::string> props{"name"};
-    propNames.insert(std::make_pair(tagId, props));
-    /*
-    folly::SemiFuture<StorageRpcResponse<cpp2::ExecResponse>>
-    addVertices(
-        GraphSpaceID space,
-        std::vector<cpp2::NewVertex> vertices,
-        std::unordered_map<TagID, std::vector<std::string>> propNames,
-        bool overwritable,
-        folly::EventBase* evb = nullptr);
-    */
-    storageClient->addVertices(spaceId, vertices, propNames, true);
+    // auto vertices = genDummyVertices(tagId, 10);
+    // std::unordered_map<TagID, std::vector<std::string>> propNames;
+    // std::vector<std::string> props{"name"};
+    // propNames.insert(std::make_pair(tagId, props));
+    // storageClient->addVertices(spaceId, vertices, propNames, true);
 
-    auto ret = metaClient->listHosts().get();
-    ASSERT_TRUE(ret.ok());
-    auto hosts = ret.value();
-    for (auto& host : hosts) {
-        printHostItem(host);
-    }
+    // auto ret = metaClient->listHosts().get();
+    // ASSERT_TRUE(ret.ok());
+    // auto hosts = ret.value();
+    // for (auto& host : hosts) {
+    //     printHostItem(host);
+    // }
 }
 
 TEST(ShuffleIpTest, ListHosts) {
+    // ********** notice notice notice*******
     // need to manual change ip(host), which means has nothing to do
     // in CI autotest, so comments out all the code
     // will available in manual check
+    // ********** notice end *******
 
     // std::string meta_name{"hp-server"};
     // uint32_t meta_port = 6500;
@@ -170,8 +170,6 @@ TEST(ShuffleIpTest, ListHosts) {
     // auto client = std::make_unique<meta::MetaClient>(ioThreadPool_,
     //                                                  metas,
     //                                                  options);
-    // meta::SpaceDesc spaceDesc("default", 10, 1);
-    // auto rc = client->createSpace(spaceDesc);
     // if (!client->waitForMetadReady()) {
     //     LOG(ERROR) << "waitForMetadReady error!";
     //     return;
