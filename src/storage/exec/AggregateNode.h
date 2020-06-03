@@ -34,15 +34,16 @@ public:
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
-
-        // The AggregateNode just get the result of QueryNode, add it to DataSet
-        const auto& values = node_->result().getList().values;
-        result_->rows.emplace_back(std::move(values));
+        if (node_ != nullptr) {
+            // The AggregateNode just get the result of QueryNode, add it to DataSet
+            const auto& values = node_->result().getList().values;
+            result_->rows.emplace_back(std::move(values));
+        }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
 protected:
-    QueryNode<T>* node_;
+    QueryNode<T>* node_{nullptr};
     nebula::DataSet* result_;
 };
 

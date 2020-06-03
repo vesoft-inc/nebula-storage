@@ -11,6 +11,7 @@
 #include "storage/mutate/DeleteEdgesProcessor.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/query/GetPropProcessor.h"
+#include "storage/index/LookupProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -57,6 +58,13 @@ GraphStorageServiceHandler::future_getNeighbors(const cpp2::GetNeighborsRequest&
 folly::Future<cpp2::GetPropResponse>
 GraphStorageServiceHandler::future_getProps(const cpp2::GetPropRequest& req) {
     auto* processor = GetPropProcessor::instance(env_, &getPropQpsStat_, &vertexCache_);
+    RETURN_FUTURE(processor);
+}
+
+// lookup
+folly::Future<cpp2::LookupIndexResp>
+GraphStorageServiceHandler::future_lookupIndex(const cpp2::LookupIndexRequest& req) {
+    auto* processor = LookupProcessor::instance(env_, &lookupQpsStat_, &vertexCache_);
     RETURN_FUTURE(processor);
 }
 

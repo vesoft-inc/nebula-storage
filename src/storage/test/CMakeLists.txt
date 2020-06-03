@@ -31,6 +31,7 @@ set(storage_test_deps
     $<TARGET_OBJECTS:common_conf_obj>
     $<TARGET_OBJECTS:common_datatypes_obj>
     $<TARGET_OBJECTS:common_base_obj>
+    $<TARGET_OBJECTS:common_expression_obj>
 )
 
 nebula_add_test(
@@ -137,6 +138,21 @@ nebula_add_test(
         index_write_test
     SOURCES
         IndexWriteTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        lookup_index_test
+    SOURCES
+        LookupIndexTest.cpp
+        ../../codec/test/RowWriterV1.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
