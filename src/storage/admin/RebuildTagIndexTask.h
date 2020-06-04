@@ -17,12 +17,14 @@ class RebuildTagIndexTask : public RebuildIndexTask {
 public:
     explicit RebuildTagIndexTask(StorageEnv* env,
                                  TaskContext&& ctx)
-    : RebuildIndexTask(env, std::move(ctx)) {}
+        : RebuildIndexTask(env, std::move(ctx)) {}
 
     ~RebuildTagIndexTask() {
-        LOG(INFO) << "~RebuildTagIndexTask";
-        // env_->rebuildIndexGuard_.erase(ctx_.spaceId_);
-        // env_->rebuildTagIDGuard_.erase(ctx_.spaceId_);
+        if (env_->rebuildPartsGuard_ != nullptr &&
+            env_->rebuildIndexGuard_ != nullptr) {
+            env_->rebuildPartsGuard_->erase(space_);
+            env_->rebuildIndexGuard_->erase(space_);
+        }
     }
 
 private:

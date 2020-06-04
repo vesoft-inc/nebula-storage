@@ -18,7 +18,15 @@ namespace storage {
 class RebuildIndexTask : public AdminTask {
 public:
     explicit RebuildIndexTask(StorageEnv* env, TaskContext&& ctx)
-    : AdminTask(env, std::move(ctx)) {}
+        : AdminTask(env, std::move(ctx)) {
+        if (env_->rebuildIndexGuard_ == nullptr) {
+            env_->rebuildIndexGuard_ = std::make_unique<IndexGuard>();
+        }
+
+        if (env_->rebuildPartsGuard_ == nullptr) {
+            env_->rebuildPartsGuard_ = std::make_unique<PartsGuard>();
+        }
+    }
 
     ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
@@ -37,24 +45,21 @@ protected:
         canceled_ = true;
     }
 
-private:
+protected:
     kvstore::ResultCode buildIndexOnOperations(GraphSpaceID space,
                                                PartitionID part);
 
     kvstore::ResultCode processModifyOperation(GraphSpaceID space,
                                                PartitionID part,
-                                               std::vector<kvstore::KV>&& data,
-                                               kvstore::KVStore* kvstore);
+                                               std::vector<kvstore::KV>&& data);
 
     kvstore::ResultCode processRemoveOperation(GraphSpaceID space,
                                                PartitionID part,
-                                               std::string&& key,
-                                               kvstore::KVStore* kvstore);
+                                               std::string&& key);
 
     kvstore::ResultCode cleanupOperationLogs(GraphSpaceID space,
                                              PartitionID part,
-                                             std::vector<std::string>&& keys,
-                                             kvstore::KVStore* kvstore);
+                                             std::vector<std::string>&& keys);
 
     kvstore::ResultCode genSubTask(GraphSpaceID space,
                                    PartitionID part,
@@ -65,6 +70,7 @@ private:
 
 protected:
     std::atomic<bool>   canceled_{false};
+    GraphSpaceID        space_;
 };
 
 }  // namespace storage

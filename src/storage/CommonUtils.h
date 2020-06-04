@@ -20,6 +20,8 @@ namespace nebula {
 namespace storage {
 
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
+using IndexGuard  = folly::ConcurrentHashMap<GraphSpaceID, IndexID>;
+using PartsGuard  = folly::ConcurrentHashMap<GraphSpaceID, std::unordered_set<PartitionID>>;
 
 enum class IndexStatus {
     NORMAL       = 0x00,
@@ -29,22 +31,11 @@ enum class IndexStatus {
 
 class StorageEnv {
 public:
-    StorageEnv() {}
-
-public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
-
-
-    folly::ConcurrentHashMap<GraphSpaceID, IndexID>      rebuildIndexGuard_;
-    using Parts = std::unordered_set<PartitionID>;
-    folly::ConcurrentHashMap<GraphSpaceID, Parts>        rebuildPartsGuard_;
-    // folly::ConcurrentHashMap<GraphSpaceID, TagID>        rebuildTagIDGuard_;
-    // folly::ConcurrentHashMap<GraphSpaceID, EdgeType>     rebuildEdgeTypeGuard_;
-    // std::atomic<TagID>                                   rebuildTagID_{-1};
-    // std::atomic<EdgeType>                                rebuildEdgeType_{-1};
-    // std::atomic<IndexID>                                 rebuildIndexID_{-1};
+    std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
+    std::unique_ptr<PartsGuard>                     rebuildPartsGuard_{nullptr};
 };
 
 class CommonUtils final {

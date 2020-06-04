@@ -15,44 +15,44 @@ namespace storage {
 ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>>
 RebuildIndexTask::genSubTasks() {
     CHECK_NOTNULL(env_->kvstore_);
-    auto space = ctx_.spaceId_;
+    space_ = ctx_.spaceId_;
     auto parts = ctx_.parts_;
     auto parameters = ctx_.parameters_;
     auto indexID = std::stoi(parameters.task_specfic_paras[0]);
     bool isOffline = !strcasecmp("offline", parameters.task_specfic_paras[1].c_str());
 
-    auto itemRet = getIndex(space, indexID);
+    auto itemRet = getIndex(space_, indexID);
     if (!itemRet.ok()) {
         LOG(ERROR) << "Index Not Found";
         return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
     }
 
-    if (env_->rebuildIndexGuard_.find(space) != env_->rebuildIndexGuard_.cend()) {
+    if (env_->rebuildIndexGuard_->find(space_) != env_->rebuildIndexGuard_->cend() &&
+        env_->rebuildPartsGuard_->find(space_) != env_->rebuildPartsGuard_->cend()) {
         LOG(ERROR) << "Some index is rebuilding";
         return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
     }
 
-    env_->rebuildIndexGuard_.insert(space, indexID);
+    auto result = env_->rebuildIndexGuard_->insert(space_, indexID);
+    if (!result.second) {
+        LOG(ERROR) << "RebuildIndexTask set failed";
+        return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
+    }
     auto item = itemRet.value();
     auto schemaID = item->get_schema_id();
-    // if (schemaID.getType() == nebula::meta::cpp2::SchemaID::Type::tag_id) {
-    //     env_->rebuildTagIDGuard_ = schemaID.get_tag_id();
-    // } else {
-    //     env_->rebuildEdgeTypeGuard_ = schemaID.get_edge_type();
-    // }
 
     if (isOffline) {
-        LOG(INFO) << "Offline Rebuild Index Space: " << space << " Index: " << indexID;
+        LOG(INFO) << "Offline Rebuild Index Space: " << space_ << " Index: " << indexID;
     } else {
-        LOG(INFO) << "Online Rebuild Index Space: " << space << " Index: " << indexID;
+        LOG(INFO) << "Online Rebuild Index Space: " << space_ << " Index: " << indexID;
     }
 
     std::vector<AdminSubTask> tasks;
     for (const auto& part : parts) {
-        std::function<kvstore::ResultCode()> func = std::bind(&RebuildIndexTask::genSubTask,
-                                                              this, space, part, schemaID,
+        std::function<kvstore::ResultCode()> task = std::bind(&RebuildIndexTask::genSubTask,
+                                                              this, space_, part, schemaID,
                                                               indexID, item, isOffline);
-        tasks.emplace_back(func);
+        tasks.emplace_back(task);
     }
     return tasks;
 }
@@ -63,20 +63,23 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  int32_t indexID,
                                                  std::shared_ptr<meta::cpp2::IndexItem> item,
                                                  bool isOffline) {
-    auto partIter = env_->rebuildPartsGuard_.find(space);
-    if (partIter != env_->rebuildPartsGuard_.cend()) {
+    auto partIter = env_->rebuildPartsGuard_->find(space);
+    if (partIter == env_->rebuildPartsGuard_->cend()) {
         std::unordered_set<PartitionID> parts;
         parts.emplace(part);
-        env_->rebuildPartsGuard_.insert(space, std::move(parts));
+        env_->rebuildPartsGuard_->insert(space, std::move(parts));
     } else {
-        auto parts = env_->rebuildPartsGuard_[space];
+        auto parts = env_->rebuildPartsGuard_->at(space);
         parts.emplace(part);
     }
 
+    LOG(INFO) << "Start building index";
     auto result = buildIndexGlobal(space, part, schemaID, indexID, item->get_fields());
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index failed";
         return kvstore::ResultCode::E_BUILD_INDEX_FAILED;
+    } else {
+        LOG(INFO) << "Building index successful";
     }
 
     if (!isOffline) {
@@ -88,24 +91,26 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
         }
     }
 
-    auto parts = env_->rebuildPartsGuard_.find(space)->second;
-    parts.erase(part);
+    if (env_->rebuildIndexGuard_->find(space) != env_->rebuildIndexGuard_->cend() &&
+        env_->rebuildPartsGuard_->find(space) != env_->rebuildPartsGuard_->cend()) {
+        auto parts = env_->rebuildPartsGuard_->find(space)->second;
+        parts.erase(part);
+    }
     LOG(INFO) << "RebuildIndexTask Finished";
     return result;
 }
 
 kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                                                              PartitionID part) {
-    int32_t lastProcessedOperationsNum = 0;
-    bool processed = false;
+    if (canceled_) {
+        LOG(ERROR) << "Rebuild index canceled";
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
     while (true) {
         std::vector<std::string> operations;
         operations.reserve(FLAGS_rebuild_index_batch_num);
-
-        if (canceled_) {
-            LOG(ERROR) << "Rebuild index canceled";
-            return kvstore::ResultCode::SUCCEEDED;
-        }
+        int32_t lastProcessedOperationsNum = 0;
 
         std::unique_ptr<kvstore::KVIterator> operationIter;
         auto operationPrefix = OperationKeyUtils::operationPrefix(part);
@@ -118,7 +123,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             return operationRet;
         }
 
-        while (operationIter && operationIter->valid()) {
+        while (operationIter->valid()) {
             lastProcessedOperationsNum += 1;
             auto opKey = operationIter->key();
             auto opVal = operationIter->val();
@@ -127,17 +132,17 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                 auto key = OperationKeyUtils::getOperationKey(opKey);
                 std::vector<kvstore::KV> pairs;
                 pairs.emplace_back(std::move(key), "");
+                VLOG(3) << "Processing delete operation " << opKey;
                 auto ret = processModifyOperation(space, part,
-                                                  std::move(pairs),
-                                                  env_->kvstore_);
+                                                  std::move(pairs));
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
                     LOG(ERROR) << "Modify Playback Failed";
                     return ret;
                 }
             } else if (OperationKeyUtils::isDeleteOperation(opKey)) {
+                VLOG(3) << "Processing delete operation " << opVal;
                 auto ret = processRemoveOperation(space, part,
-                                                  std::move(opVal).data(),
-                                                  env_->kvstore_);
+                                                  opVal.str());
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
                     LOG(ERROR) << "Delete Playback Failed";
                     return ret;
@@ -148,11 +153,9 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             }
 
             operations.emplace_back(opKey);
-            if (lastProcessedOperationsNum !=0 &&
-                lastProcessedOperationsNum % FLAGS_rebuild_index_batch_num == 0 ) {
+            if (lastProcessedOperationsNum % FLAGS_rebuild_index_batch_num == 0) {
                 auto ret = cleanupOperationLogs(space, part,
-                                                std::move(operations),
-                                                env_->kvstore_);
+                                                std::move(operations));
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
                     LOG(ERROR) << "Delete Operation Failed";
                     return ret;
@@ -164,16 +167,14 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
         }
 
         auto ret = cleanupOperationLogs(space, part,
-                                        std::move(operations),
-                                        env_->kvstore_);
+                                        std::move(operations));
         if (kvstore::ResultCode::SUCCEEDED != ret) {
             LOG(ERROR) << "Delete Operation Failed";
             return ret;
         }
-        if (lastProcessedOperationsNum == 0 && processed) {
+        if (lastProcessedOperationsNum == 0) {
             break;
         } else {
-            processed = true;
             lastProcessedOperationsNum = 0;
         }
     }
@@ -183,13 +184,11 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
 kvstore::ResultCode
 RebuildIndexTask::processModifyOperation(GraphSpaceID space,
                                          PartitionID part,
-                                         std::vector<kvstore::KV>&& data,
-                                         kvstore::KVStore* kvstore) {
-    LOG(ERROR) << "processModifyOperation";
+                                         std::vector<kvstore::KV>&& data) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
-    kvstore->asyncMultiPut(space, part, std::move(data),
-                           [&result, &baton](kvstore::ResultCode code) {
+    env_->kvstore_->asyncMultiPut(space, part, std::move(data),
+                                 [&result, &baton](kvstore::ResultCode code) {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Modify the index data failed";
             result = code;
@@ -203,13 +202,11 @@ RebuildIndexTask::processModifyOperation(GraphSpaceID space,
 kvstore::ResultCode
 RebuildIndexTask::processRemoveOperation(GraphSpaceID space,
                                          PartitionID part,
-                                         std::string&& key,
-                                         kvstore::KVStore* kvstore) {
-    LOG(INFO) << "processRemoveOperation";
+                                         std::string&& key) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
-    kvstore->asyncRemove(space, part, std::move(key),
-                         [&result, &baton](kvstore::ResultCode code) {
+    env_->kvstore_->asyncRemove(space, part, std::move(key),
+                               [&result, &baton](kvstore::ResultCode code) {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Remove the operation log failed";
             result = code;
@@ -223,12 +220,11 @@ RebuildIndexTask::processRemoveOperation(GraphSpaceID space,
 kvstore::ResultCode
 RebuildIndexTask::cleanupOperationLogs(GraphSpaceID space,
                                        PartitionID part,
-                                       std::vector<std::string>&& keys,
-                                       kvstore::KVStore* kvstore) {
+                                       std::vector<std::string>&& keys) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
-    kvstore->asyncSingleRemove(space, part, std::move(keys),
-                               [&result, &baton](kvstore::ResultCode code) {
+    env_->kvstore_->asyncSingleRemove(space, part, std::move(keys),
+                                    [&result, &baton](kvstore::ResultCode code) {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Cleanup the operation log failed";
             result = code;

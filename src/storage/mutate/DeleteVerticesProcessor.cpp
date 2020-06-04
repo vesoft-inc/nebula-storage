@@ -167,16 +167,22 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                                                       vertex,
                                                                       valuesRet.value(),
                                                                       colsType);
-                        auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
-                        auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
-                        if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
-                            spaceIndexIter->second != index->get_index_id() &&
-                            partIter != env_->rebuildPartsGuard_.cend() &&
-                            partIter->second.find(partId) != partIter->second.cend()) {
-                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                            batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
-                        } else {
+
+                        if (env_->rebuildIndexGuard_ == nullptr &&
+                            env_->rebuildPartsGuard_ == nullptr) {
                             batchHolder->remove(std::move(indexKey));
+                        } else {
+                            auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
+                            auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
+                            if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
+                                spaceIndexIter->second == index->get_index_id() &&
+                                partIter != env_->rebuildPartsGuard_->cend() &&
+                                partIter->second.find(partId) != partIter->second.cend()) {
+                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
+                            } else {
+                                batchHolder->remove(std::move(indexKey));
+                            }
                         }
                     }
                 }

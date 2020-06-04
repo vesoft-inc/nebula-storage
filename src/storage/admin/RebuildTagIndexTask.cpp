@@ -23,14 +23,6 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                       meta::cpp2::SchemaID schemaID,
                                       IndexID indexID,
                                       const std::vector<meta::cpp2::ColumnDef>& cols) {
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto prefix = NebulaKeyUtils::partPrefix(part);
-    auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
-    if (ret != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Processing Part " << part << " Failed";
-        return ret;
-    }
-
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
     if (!vidSizeRet.ok()) {
         LOG(ERROR) << "Get VID Size Failed";
@@ -44,6 +36,14 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     int32_t batchNum = 0;
     VertexID currentVertex;
 
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto prefix = NebulaKeyUtils::partPrefix(part);
+    auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
+    if (ret != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Processing Part " << part << " Failed";
+        return ret;
+    }
+
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Tag Index is Canceled";
@@ -51,7 +51,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         if (batchNum >= FLAGS_rebuild_index_batch_num) {
-            auto result = saveJobStatus(space, part, std::move(data));
+            auto result = processModifyOperation(space, part, std::move(data));
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
                 return kvstore::ResultCode::ERR_IO_ERROR;
@@ -98,7 +98,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         iter->next();
     }
 
-    auto result = saveJobStatus(space, part, std::move(data));
+    auto result = processModifyOperation(space, part, std::move(data));
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Write Part " << part << " Index Failed";
         return kvstore::ResultCode::ERR_IO_ERROR;

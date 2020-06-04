@@ -36,7 +36,7 @@ void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
                                      task->getConcurrentReq());
 }
 
-cpp2::ErrorCode AdminTaskManager::cancelJob(int jobId) {
+cpp2::ErrorCode AdminTaskManager::cancelJob(JobID jobId) {
     auto ret = cpp2::ErrorCode::E_KEY_NOT_FOUND;
     auto it = tasks_.begin();
     while (it != tasks_.end()) {
@@ -51,7 +51,7 @@ cpp2::ErrorCode AdminTaskManager::cancelJob(int jobId) {
     return ret;
 }
 
-cpp2::ErrorCode AdminTaskManager::cancelTask(int jobId, int taskId) {
+cpp2::ErrorCode AdminTaskManager::cancelTask(JobID jobId, TaskID taskId) {
     if (taskId < 0) {
         return cancelJob(jobId);
     }
@@ -163,7 +163,7 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
     }
 }
 
-bool AdminTaskManager::isFinished(int32_t jobID, int32_t taskID) {
+bool AdminTaskManager::isFinished(JobID jobID, TaskID taskID) {
     auto iter = tasks_.find(std::make_pair(jobID, taskID));
     if (iter == tasks_.cend()) {
         return true;

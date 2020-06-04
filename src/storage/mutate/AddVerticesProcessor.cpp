@@ -170,16 +170,21 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
-                        auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
-                        auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
-                        if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
-                            spaceIndexIter->second == index->get_index_id() &&
-                            partIter != env_->rebuildPartsGuard_.cend() &&
-                            partIter->second.find(partId) != partIter->second.cend()) {
-                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
-                        } else {
+                        if (env_->rebuildIndexGuard_ == nullptr &&
+                            env_->rebuildPartsGuard_ == nullptr) {
                             batchHolder->remove(std::move(oi));
+                        } else {
+                            auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
+                            auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
+                            if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
+                                spaceIndexIter->second == index->get_index_id() &&
+                                partIter != env_->rebuildPartsGuard_->cend() &&
+                                partIter->second.find(partId) != partIter->second.cend()) {
+                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                            } else {
+                                batchHolder->remove(std::move(oi));
+                            }
                         }
                     }
                 }
@@ -198,16 +203,21 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
-                    auto spaceIndexIter = env_->rebuildIndexGuard_.find(spaceId_);
-                    auto partIter = env_->rebuildPartsGuard_.find(spaceId_);
-                    if (spaceIndexIter != env_->rebuildIndexGuard_.cend() &&
-                        spaceIndexIter->second == index->get_index_id() &&
-                        partIter != env_->rebuildPartsGuard_.cend() &&
-                        partIter->second.find(partId) != partIter->second.cend()) {
-                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
-                        batchHolder->put(std::move(modifyOpKey), "");
-                    } else {
+                    if (env_->rebuildIndexGuard_ == nullptr &&
+                        env_->rebuildPartsGuard_ == nullptr) {
                         batchHolder->put(std::move(ni), "");
+                    } else {
+                        auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
+                        auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
+                        if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
+                            spaceIndexIter->second == index->get_index_id() &&
+                            partIter != env_->rebuildPartsGuard_->cend() &&
+                            partIter->second.find(partId) != partIter->second.cend()) {
+                            auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
+                            batchHolder->put(std::move(modifyOpKey), "");
+                        } else {
+                            batchHolder->put(std::move(ni), "");
+                        }
                     }
                 }
             }

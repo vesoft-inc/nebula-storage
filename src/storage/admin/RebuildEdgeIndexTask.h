@@ -16,12 +16,14 @@ class RebuildEdgeIndexTask : public RebuildIndexTask {
 public:
     explicit RebuildEdgeIndexTask(StorageEnv* env,
                                   TaskContext&& ctx)
-    : RebuildIndexTask(env, std::move(ctx)) {}
+        : RebuildIndexTask(env, std::move(ctx)) {}
 
     ~RebuildEdgeIndexTask() {
-        LOG(INFO) << "~RebuildEdgeIndexTask";
-        // env_->rebuildIndexGuard_.erase(ctx_.spaceId_);
-        // env_->rebuildEdgeTypeGuard_.erase(ctx_.spaceId_);
+        if (env_->rebuildPartsGuard_ != nullptr &&
+            env_->rebuildIndexGuard_ != nullptr) {
+            env_->rebuildPartsGuard_->erase(space_);
+            env_->rebuildIndexGuard_->erase(space_);
+        }
     }
 
 private:

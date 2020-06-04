@@ -188,22 +188,6 @@ public:
     static std::unordered_map<std::string, std::vector<Serve>> teamServes_;
 
     static EdgeData getReverseEdge(const EdgeData& edge);
-
-    /**
-    static StatusOr<PartitionID> partId(const VertexID id, int32_t numParts = 6) {
-        // If the length of the id is 8, we will treat it as int64_t to be compatible
-        // with the version 1.0
-        uint64_t vid = 0;
-        if (id.size() == 8) {
-            memcpy(static_cast<void*>(&vid), id.data(), 8);
-        } else {
-            vid = folly::hash::fnv64_buf(id.data(), id.size());
-        }
-
-        PartitionID pId = vid % numParts + 1;
-        CHECK_GT(pId, 0U);
-        return pId;
-    }**/
 };
 
 }  // namespace mock

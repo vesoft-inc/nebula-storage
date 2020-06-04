@@ -59,8 +59,8 @@ struct TaskContext {
             , onFinish_(cb) {}
 
     nebula::meta::cpp2::AdminCmd    cmd_;
-    int32_t                         jobId_{-1};
-    int32_t                         taskId_{-1};
+    JobID                           jobId_{-1};
+    TaskID                          taskId_{-1};
     GraphSpaceID                    spaceId_{-1};
     std::vector<PartitionID>        parts_;
     nebula::storage::cpp2::TaskPara parameters_;
@@ -133,10 +133,6 @@ public:
         static cpp2::ErrorCode suc{cpp2::ErrorCode::SUCCEEDED};
         rc_.compare_exchange_strong(suc, cpp2::ErrorCode::E_USER_CANCEL);
     }
-
-    kvstore::ResultCode saveJobStatus(GraphSpaceID spaceId,
-                                      PartitionID partId,
-                                      std::vector<kvstore::KV> data);
 
 public:
     std::atomic<size_t>         unFinishedSubTask_;
