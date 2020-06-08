@@ -55,7 +55,11 @@ public:
 private:
     JobManager() = default;
     void scheduleThread();
+
+    FRIEND_TEST(JobManagerTest, AddRebuildTagIndexJob);
+    FRIEND_TEST(JobManagerTest, AddRebuildEdgeIndexJob);
     bool runJobInternal(const JobDescription& jobDesc);
+
     GraphSpaceID getSpaceId(const std::string& name);
     kvstore::ResultCode save(const std::string& k, const std::string& v);
 
