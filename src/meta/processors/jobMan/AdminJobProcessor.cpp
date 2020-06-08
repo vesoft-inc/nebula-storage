@@ -14,7 +14,7 @@ namespace meta {
 
 void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
     cpp2::AdminJobResult result;
-    auto errorCode = cpp2::ErrorCode::SUCCEEDED;
+    cpp2::ErrorCode errorCode = cpp2::ErrorCode::SUCCEEDED;
     std::stringstream oss;
     oss << " op = " << static_cast<int>(req.get_op());
     if (req.get_op() == nebula::meta::cpp2::AdminJobOp::ADD) {

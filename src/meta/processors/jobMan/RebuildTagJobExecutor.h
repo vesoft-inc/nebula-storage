@@ -18,7 +18,7 @@ public:
                           kvstore::KVStore* kvstore,
                           AdminClient* adminClient,
                           std::vector<std::string> paras)
-    : RebuildJobExecutor(jobId, kvstore, adminClient, paras) {}
+        : RebuildJobExecutor(jobId, kvstore, adminClient, paras) {}
 
 protected:
     folly::Future<Status>

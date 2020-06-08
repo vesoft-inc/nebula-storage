@@ -55,17 +55,17 @@ std::string TaskDescription::taskKey() {
     str.reserve(32);
     str.append(reinterpret_cast<const char*>(JobUtil::jobPrefix().data()),
                                              JobUtil::jobPrefix().size())
-       .append(reinterpret_cast<const char*>(&iJob_), sizeof(iJob_))
-       .append(reinterpret_cast<const char*>(&iTask_), sizeof(iTask_));
+       .append(reinterpret_cast<const char*>(&iJob_), sizeof(JobID))
+       .append(reinterpret_cast<const char*>(&iTask_), sizeof(TaskID));
     return str;
 }
 
-std::pair<JobID, int32_t>
+std::pair<JobID, TaskID>
 TaskDescription::parseKey(const folly::StringPiece& rawKey) {
     auto offset = JobUtil::jobPrefix().size();
     JobID iJob =  *reinterpret_cast<const JobID*>(rawKey.begin() + offset);
     offset += sizeof(JobID);
-    int32_t iTask = *reinterpret_cast<const int32_t*>(rawKey.begin() + offset);
+    TaskID iTask = *reinterpret_cast<const int32_t*>(rawKey.begin() + offset);
     return std::make_pair(iJob, iTask);
 }
 
@@ -74,8 +74,8 @@ std::string TaskDescription::archiveKey() {
     str.reserve(32);
     str.append(reinterpret_cast<const char*>(JobUtil::archivePrefix().data()),
                                              JobUtil::archivePrefix().size())
-       .append(reinterpret_cast<const char*>(&iJob_), sizeof(iJob_))
-       .append(reinterpret_cast<const char*>(&iTask_), sizeof(iTask_));
+       .append(reinterpret_cast<const char*>(&iJob_), sizeof(JobID))
+       .append(reinterpret_cast<const char*>(&iTask_), sizeof(TaskID));
     return str;
 }
 

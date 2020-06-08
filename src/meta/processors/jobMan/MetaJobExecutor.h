@@ -15,7 +15,7 @@
 namespace nebula {
 namespace meta {
 
-using ExecuteRet   = ErrorOr<cpp2::ErrorCode, std::unordered_map<HostAddr, Status>>;
+using ExecuteRet  = ErrorOr<cpp2::ErrorCode, std::unordered_map<HostAddr, Status>>;
 
 using ErrOrHosts  = ErrorOr<cpp2::ErrorCode,
                             std::vector<std::pair<HostAddr, std::vector<PartitionID>>>>;
@@ -33,16 +33,17 @@ public:
 
     virtual ~MetaJobExecutor() = default;
 
-    // Check the argument's size about the job
+    // Check the arguments about the job.
     virtual bool check() = 0;
 
-    //
+    // Prepare the Job info from the arguments.
     virtual cpp2::ErrorCode prepare() = 0;
 
-    //
+    // The skeleton to run the job.
+    // You should rewrite the executeInternal to trigger the calling.
     ExecuteRet execute();
 
-    //
+    // Stop the job when the user cancel it.
     virtual cpp2::ErrorCode stop() = 0;
 
 protected:

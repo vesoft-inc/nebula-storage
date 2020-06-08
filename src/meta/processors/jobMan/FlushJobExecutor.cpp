@@ -10,14 +10,14 @@ namespace nebula {
 namespace meta {
 
 FlushJobExecutor::FlushJobExecutor(JobID jobId,
-                                       kvstore::KVStore* kvstore,
-                            AdminClient* adminClient,
-                            std::vector<std::string> paras)
-                        : SimpleConcurrentJobExecutor(jobId, kvstore, adminClient, paras) {}
+                                   kvstore::KVStore* kvstore,
+                                   AdminClient* adminClient,
+                                   std::vector<std::string> paras)
+    : SimpleConcurrentJobExecutor(jobId, kvstore, adminClient, paras) {}
 
 folly::Future<Status> FlushJobExecutor::executeInternal(const HostAddr& address,
                                                         std::vector<PartitionID> parts) {
-    return adminClient_->addTask(cpp2::AdminCmd::FLUSH, jobId_, taskId_, space_,
+    return adminClient_->addTask(cpp2::AdminCmd::FLUSH, jobId_, taskId_++, space_,
                                  {address}, {}, parts, concurrency_);
 }
 

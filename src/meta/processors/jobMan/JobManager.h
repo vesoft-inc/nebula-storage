@@ -28,6 +28,8 @@ class JobManager : public nebula::cpp::NonCopyable, public nebula::cpp::NonMovab
     FRIEND_TEST(JobManagerTest, showJobs);
     FRIEND_TEST(JobManagerTest, showJob);
     FRIEND_TEST(JobManagerTest, recoverJob);
+    FRIEND_TEST(JobManagerTest, AddRebuildTagIndexJob);
+    FRIEND_TEST(JobManagerTest, AddRebuildEdgeIndexJob);
 
 public:
     ~JobManager();
@@ -42,8 +44,7 @@ public:
      * */
     cpp2::ErrorCode addJob(const JobDescription& jobDesc, AdminClient* client);
 
-    ErrorOr<cpp2::ErrorCode, std::vector<cpp2::JobDesc>>
-    showJobs();
+    ErrorOr<cpp2::ErrorCode, std::vector<cpp2::JobDesc>> showJobs();
 
     ErrorOr<cpp2::ErrorCode, std::pair<cpp2::JobDesc, std::vector<cpp2::TaskDesc>>>
     showJob(JobID iJob);
@@ -56,8 +57,6 @@ private:
     JobManager() = default;
     void scheduleThread();
 
-    FRIEND_TEST(JobManagerTest, AddRebuildTagIndexJob);
-    FRIEND_TEST(JobManagerTest, AddRebuildEdgeIndexJob);
     bool runJobInternal(const JobDescription& jobDesc);
 
     GraphSpaceID getSpaceId(const std::string& name);

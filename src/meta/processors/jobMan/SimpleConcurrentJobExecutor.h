@@ -27,7 +27,7 @@ public:
     cpp2::ErrorCode stop() override;
 
 protected:
-    int32_t        taskId_{0};
+    TaskID         taskId_{0};
     int32_t        concurrency_{INT_MAX};
 };
 

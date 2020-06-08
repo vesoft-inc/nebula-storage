@@ -20,7 +20,7 @@ public:
                        kvstore::KVStore* kvstore,
                        AdminClient* adminClient,
                        std::vector<std::string> paras)
-    : MetaJobExecutor(jobId, kvstore, adminClient, paras) {
+        : MetaJobExecutor(jobId, kvstore, adminClient, paras) {
         toLeader_ = true;
     }
 
@@ -30,17 +30,10 @@ public:
 
     meta::cpp2::ErrorCode stop() override;
 
-private:
-    std::vector<Status>
-    handleRebuildIndexResult(std::vector<folly::Future<Status>> results,
-                             kvstore::KVStore* kvstore,
-                             std::string statusKey);
-
 protected:
     GraphSpaceID             spaceId_;
     IndexID                  indexId_;
     bool                     isOffline_;
-    char                     category_;
 };
 
 }  // namespace meta

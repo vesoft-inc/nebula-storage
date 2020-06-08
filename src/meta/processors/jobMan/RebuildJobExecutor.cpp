@@ -49,38 +49,6 @@ cpp2::ErrorCode RebuildJobExecutor::prepare() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-std::vector<Status>
-RebuildJobExecutor::handleRebuildIndexResult(std::vector<folly::Future<Status>> results,
-                                             kvstore::KVStore* kvstore,
-                                             std::string statusKey) {
-    std::vector<Status> codes;
-    folly::collectAll(std::move(results))
-        .thenValue([statusKey, kvstore, &codes] (const auto& tries) mutable {
-            for (const auto& t : tries) {
-                if (!t.value().ok()) {
-                    LOG(ERROR) << "Build Edge Index Failed";
-                    codes.push_back(nebula::Status::Error("Build Edge Index Failed"));
-                    if (!MetaCommon::saveRebuildStatus(kvstore, statusKey, "FAILED")) {
-                        LOG(ERROR) << "Save rebuild status failed";
-                    }
-                }
-            }
-
-            if (!MetaCommon::saveRebuildStatus(kvstore, std::move(statusKey), "SUCCEEDED")) {
-                LOG(ERROR) << "Save rebuild status failed";
-            }
-            return codes;
-        })
-        .thenError([statusKey, kvstore, &codes] (auto &&e) {
-            LOG(ERROR) << "Exception caught: " << e.what();
-            if (!MetaCommon::saveRebuildStatus(kvstore, std::move(statusKey), "FAILED")) {
-                LOG(ERROR) << "Save rebuild status failed";
-            }
-            return codes;
-        });
-        return codes;
-}
-
 meta::cpp2::ErrorCode RebuildJobExecutor::stop() {
     auto errOrTargetHost = getTargetHost(space_);
     if (!nebula::ok(errOrTargetHost)) {
@@ -108,7 +76,7 @@ meta::cpp2::ErrorCode RebuildJobExecutor::stop() {
         .thenError([] (auto &&e) {
             LOG(ERROR) << "Exception caught: " << e.what();
             return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
-        });
+        }).wait();
 
     return cpp2::ErrorCode::SUCCEEDED;
 }

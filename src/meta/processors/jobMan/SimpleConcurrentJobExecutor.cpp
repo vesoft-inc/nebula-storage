@@ -20,7 +20,7 @@ SimpleConcurrentJobExecutor(JobID jobId,
 
 bool SimpleConcurrentJobExecutor::check() {
     auto parasNum = paras_.size();
-    if (parasNum < 2) {
+    if (parasNum == 1 || parasNum == 2) {
         return true;
     } else {
         return false;

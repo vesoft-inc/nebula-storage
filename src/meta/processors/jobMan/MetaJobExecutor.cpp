@@ -34,6 +34,7 @@ MetaJobExecutorFactory::createMetaJobExecutor(const JobDescription& jd,
                                          store,
                                          client,
                                          jd.getParas()));
+        break;
     case cpp2::AdminCmd::FLUSH:
         ret.reset(new FlushJobExecutor(jd.getJobId(),
                                        store,
@@ -105,7 +106,6 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     }
 
     std::vector<std::pair<HostAddr, std::vector<PartitionID>>> hosts;
-    auto activeHosts = ActiveHostsMan::getActiveHosts(kvstore_, FLAGS_heartbeat_interval_secs + 1);
     while (leaderIter->valid()) {
         auto hostAddr = MetaServiceUtils::parseLeaderKey(leaderIter->key());
         if (hostAddr.host == "") {
@@ -113,7 +113,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
             return cpp2::ErrorCode::E_INVALID_PARM;
         }
 
-        if (std::find(activeHosts.begin(), activeHosts.end(), hostAddr) != activeHosts.end()) {
+        if (ActiveHostsMan::isLived(kvstore_, hostAddr)) {
             auto leaderParts = MetaServiceUtils::parseLeaderVal(leaderIter->val());
             auto parts = leaderParts[space];
             hosts.emplace_back(std::make_pair(std::move(hostAddr), std::move(parts)));
@@ -141,7 +141,7 @@ ExecuteRet MetaJobExecutor::execute() {
     auto addresses = nebula::value(addressesRet);
     for (auto& address : addresses) {
         auto future = executeInternal({address.first}, address.second);
-        futures.push_back(std::move(future));
+        futures.emplace_back(std::move(future));
     }
 
     std::vector<Status> results;
@@ -151,19 +151,19 @@ ExecuteRet MetaJobExecutor::execute() {
             Status status;
             for (const auto& t : tries) {
                 if (t.hasException()) {
-                    LOG(ERROR) << "admin Failed: " << t.exception();
-                    results.push_back(nebula::Status::Error());
+                    LOG(ERROR) << "Admin Failed: " << t.exception();
+                    results.emplace_back(nebula::Status::Error());
                 } else {
-                    results.push_back(t.value());
+                    results.emplace_back(t.value());
                 }
             }
         }).thenError([&](auto&& e) {
-            LOG(ERROR) << "admin Failed: " << e.what();
+            LOG(ERROR) << "Admin Failed: " << e.what();
             errorStatus = Status::Error(e.what());
         }).wait();
 
     if (addresses.size() != results.size()) {
-        LOG(ERROR) << "return ERR_UNKNOWN: hosts.size: " << addresses.size()
+        LOG(ERROR) << "hosts.size: " << addresses.size()
                    << ", results.size: " << results.size();
         return cpp2::ErrorCode::E_INVALID_PARM;
     }

@@ -18,9 +18,9 @@ public:
                            kvstore::KVStore* kvstore,
                            AdminClient* adminClient,
                            std::vector<std::string> paras)
-     : RebuildJobExecutor(jobId, kvstore, adminClient, paras) {}
+        : RebuildJobExecutor(jobId, kvstore, adminClient, paras) {}
 
-private:
+protected:
      folly::Future<Status>
      executeInternal(const HostAddr& address,
                      std::vector<PartitionID> parts) override;

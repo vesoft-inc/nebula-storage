@@ -207,12 +207,12 @@ bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
 void JobManager::removeExpiredJobs(const std::vector<std::string>& expiredJobsAndTasks) {
     folly::Baton<true, std::atomic> baton;
     kvStore_->asyncMultiRemove(kDefaultSpaceId, kDefaultPartId, expiredJobsAndTasks,
-        [&](nebula::kvstore::ResultCode code){
-            if (code != kvstore::ResultCode::SUCCEEDED) {
-                LOG(ERROR) << "kvstore asyncRemoveRange failed: " << code;
-            }
-            baton.post();
-        });
+                               [&](nebula::kvstore::ResultCode code) {
+                                   if (code != kvstore::ResultCode::SUCCEEDED) {
+                                       LOG(ERROR) << "kvstore asyncRemoveRange failed: " << code;
+                                   }
+                                   baton.post();
+                               });
     baton.wait();
 }
 
@@ -260,7 +260,7 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
 
     jobDesc->setStatus(cpp2::JobStatus::STOPPED);
     auto rc = save(jobDesc->jobKey(), jobDesc->jobVal());
-    if (rc == nebula::kvstore::SUCCEEDED) {
+    if (rc != nebula::kvstore::SUCCEEDED) {
         return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
 
@@ -297,7 +297,7 @@ ErrorOr<ResultCode, JobID> JobManager::recoverJob() {
 ResultCode JobManager::save(const std::string& k, const std::string& v) {
     std::vector<kvstore::KV> data{std::make_pair(k, v)};
     folly::Baton<true, std::atomic> baton;
-    auto rc = nebula::kvstore::SUCCEEDED;
+    nebula::kvstore::ResultCode rc = nebula::kvstore::SUCCEEDED;
     kvStore_->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
                             [&] (nebula::kvstore::ResultCode code) {
                                 rc = code;

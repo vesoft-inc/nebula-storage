@@ -17,8 +17,7 @@ namespace meta {
 
 TEST(HBProcessorTest, HBTest) {
     fs::TempDir rootPath("/tmp/HBTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     const ClusterID kClusterId = 10;
     {
         for (auto i = 0; i < 5; i++) {

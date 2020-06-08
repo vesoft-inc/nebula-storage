@@ -17,8 +17,7 @@ namespace meta {
 
 TEST(AuthProcessorTest, CreateUserTest) {
     fs::TempDir rootPath("/tmp/CreateUserTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     {
         cpp2::CreateUserReq req;
         req.set_if_not_exists(false);
@@ -67,8 +66,7 @@ TEST(AuthProcessorTest, CreateUserTest) {
 
 TEST(AuthProcessorTest, AlterUserTest) {
     fs::TempDir rootPath("/tmp/AlterUserTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     // create a user.
     {
         cpp2::CreateUserReq req;
@@ -107,8 +105,7 @@ TEST(AuthProcessorTest, AlterUserTest) {
 
 TEST(AuthProcessorTest, DropUserTest) {
     fs::TempDir rootPath("/tmp/AlterUserTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     // create a user.
     {
         cpp2::CreateUserReq req;
@@ -167,8 +164,7 @@ TEST(AuthProcessorTest, DropUserTest) {
 
 TEST(AuthProcessorTest, GrantRevokeTest) {
     fs::TempDir rootPath("/tmp/GrantRevokeTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
     GraphSpaceID space1, space2;
     // create space1
@@ -545,8 +541,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
 
 TEST(AuthProcessorTest, ChangePasswordTest) {
     fs::TempDir rootPath("/tmp/ChangePasswordTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     // create a user.
     {
         cpp2::CreateUserReq req;
