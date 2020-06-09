@@ -36,12 +36,11 @@ public:
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
-
         env_->kvstore_->asyncAtomicOp(spaceId_, partId,
             [partId, vId, this] ()
             -> folly::Optional<std::string> {
-                auto exeRet = RelNode::execute(partId, vId);
-                if (exeRet == kvstore::ResultCode::SUCCEEDED) {
+                this->exeResult_ = RelNode::execute(partId, vId);
+                if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
                     this->tagId_ = filterNode_->getTagId();
                     this->key_ = filterNode_->getKey();
                     this->rowWriter_ = filterNode_->getRowWriter();
@@ -50,11 +49,22 @@ public:
                     this->expCtx_ = filterNode_->getExpressionContext();
                     return this->updateAndWriteBack(partId, vId);
                 } else {
+                    if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
+                        this->tagId_ = filterNode_->getTagId();
+                        this->filter_ = filterNode_->getFilterCont();
+                        this->insert_ = filterNode_->getInsert();
+                        this->expCtx_ = filterNode_->getExpressionContext();
+                    }
                     return folly::none;
                 }
             },
-            [this, partId, vId, &ret, &baton] (kvstore::ResultCode code) {
-                ret = code;
+            [&ret, &baton, this] (kvstore::ResultCode code) {
+                if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
+                    this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                    ret = this->exeResult_;
+                } else {
+                    ret = code;
+                }
                 baton.post();
             });
         baton.wait();
@@ -88,7 +98,17 @@ public:
                 VLOG(1) << "Update field faild ";
                 return std::string("");
             }
+            /*
             auto wRet = rowWriter_->setValue(propName, updateVal);
+            if (wRet != WriteResult::SUCCEEDED) {
+                VLOG(1) << "Add field faild ";
+                return std::string("");
+            }
+            */
+        }
+        auto tagFilters = this->filter_->getTagFilter();
+        for (auto &e : tagFilters) {
+            auto wRet = rowWriter_->setValue(e.first.second, e.second);
             if (wRet != WriteResult::SUCCEEDED) {
                 VLOG(1) << "Add field faild ";
                 return std::string("");
@@ -104,7 +124,7 @@ public:
             return std::string("");
         }
 
-        auto nVal = std::move(rowWriter_->moveEncodedStr());
+        auto nVal = rowWriter_->moveEncodedStr();
 
         UNUSED(partId);
         UNUSED(vId);
@@ -182,6 +202,7 @@ private:
     FilterContext                                                                  *filter_;
     bool                                                                            insert_{false};
     UpdateExpressionContext                                                        *expCtx_;
+    std::atomic<kvstore::ResultCode>                                                exeResult_;
 };
 
 }  // namespace storage

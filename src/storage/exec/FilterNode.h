@@ -249,13 +249,18 @@ public:
             auto schema = schemaIter->second.back();
             // When insert, the filter condition is always true
             // the tagId props of props_ need default value, nullable, update value
+#if 0
             for (auto& prop : *props) {
                 // first check whether is updated field, then use default value
                 if (prop.field_->hasDefault()) {
                     // all fields new value puts filter_
                     this->filter_->fillTagProp(tagId, prop.name_, prop.field_->defaultValue());
-                } else if (prop.field_->nullable()) {
-                    this->filter_->fillTagProp(tagId, prop.name_, NullType::__NULL__);
+                //} else if (prop.field_->nullable()) {
+                //    this->filter_->fillTagProp(tagId, prop.name_, NullType::__NULL__);
+
+                } else {
+                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                /*
                 } else {
                     bool isUpdateProp = false;
                     for (auto& updateProp : this->updatedVertexProps_) {
@@ -274,12 +279,30 @@ public:
                         return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
                     }
                 }
+                */
+                }
+            }
+#endif
+
+            UNUSED(props);
+            for (size_t i = 0; i < schema->getNumFields(); i++) {
+                auto prop = schema->getFieldName(i);
+                // read prop value
+                auto field = schema->field(i);
+                if (field->hasDefault()) {
+                    auto defalutVal = field->defaultValue();
+                    this->filter_->fillTagProp(tagId, prop, std::move(defalutVal));
+                } else {
+                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                }
             }
 
             // build key, value is emtpy
-            int64_t ms = time::WallClock::fastNowInMicroSec();
-            auto now = std::numeric_limits<int64_t>::max() - ms;
-            this->key_ = NebulaKeyUtils::vertexKey(this->vIdLen_, partId, vId, tagId, now);
+            auto version =
+                std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+            // Switch version to big-endian, make sure the key is in ordered.
+            version = folly::Endian::big(version);
+            this->key_ = NebulaKeyUtils::vertexKey(this->vIdLen_, partId, vId, tagId, version);
             this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get());
             this->tagId_ = tagId;
 
@@ -297,6 +320,7 @@ public:
             CHECK(schemaIter != this->tagContext_->schemas_.end());
             CHECK(!schemaIter->second.empty());
             auto schema = schemaIter->second.back();
+            /*
             for (auto& prop : *props) {
                 VLOG(1) << "Collect prop " << prop.name_ << ", type " << tagId;
 
@@ -313,10 +337,26 @@ public:
                 // filter, update, return props fields of this tag, value puts filter_
                 this->filter_->fillTagProp(tagId, prop.name_, cloValue);
             }
+            */
+
+            UNUSED(props);
+            UNUSED(row);
+            for (size_t i = 0; i < schema->getNumFields(); i++) {
+                auto prop = schema->getFieldName(i);
+                // read prop value
+                auto retVal = reader->getValueByIndex(i);;
+                if (retVal == NullType::BAD_TYPE) {
+                    VLOG(1) << "Bad value for tag: " << tagId
+                            << ", prop " << prop;
+                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                }
+                this->filter_->fillTagProp(tagId, prop, std::move(retVal));
+            }
 
             // update info
             if (this->updateTagIds_.find(tagId) != this->updateTagIds_.end()) {
-                this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), row.str());
+                // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), row.str());
+                this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get());
                 this->tagId_ = tagId;
                 this->key_ = key.str();
             }

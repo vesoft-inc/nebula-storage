@@ -66,6 +66,9 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
 
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         handleErrorCode(ret, spaceId_, partId);
+        if (ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
+            onProcessFinished();
+        }
     } else {
         onProcessFinished();
     }
@@ -135,11 +138,9 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
                                                       filterNode.get());
     updateNode->addDependency(filterNode.get());
 
-    auto resultNode = std::make_unique<UpdateTagResNode>(env_,
-                                                      spaceId_,
-                                                      updateNode.get(),
-                                                      getReturnPropsExp(),
-                                                      result);
+    auto resultNode = std::make_unique<UpdateTagResNode>(updateNode.get(),
+                                                         getReturnPropsExp(),
+                                                         result);
     resultNode->addDependency(updateNode.get());
     plan.addNode(std::move(filterNode));
     plan.addNode(std::move(updateNode));
@@ -174,7 +175,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             if (!colExp) {
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
-            if (!checkExp(colExp.get())) {
+            if (!this->checkExp(colExp.get())) {
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
             returnPropsExp_.emplace_back(std::move(colExp));
@@ -220,6 +221,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             tagContext_.vertexCache_->evict(std::make_pair(vId, tagId), partId);
         }
 
+    // Todo spport UPSERT VERTEX 202 SET tag;
         updateTagIds_.emplace(tagId);
         auto updateExp = Expression::decode(vertexProp.get_value());
         if (!updateExp) {

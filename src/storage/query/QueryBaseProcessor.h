@@ -55,6 +55,50 @@ public:
     // stat prop index from request
     size_t statIndex_;
     cpp2::StatType statType_;
+
+    PropContext(const PropContext& rhs)
+        : name_(rhs.name_)
+        , field_(rhs.field_)
+        , tagFiltered_(rhs.tagFiltered_)
+        , returned_(rhs.returned_)
+        , propInKeyType_(rhs.propInKeyType_)
+        , hasStat_(rhs.hasStat_)
+        , statIndex_(rhs.hasStat_)
+        , statType_(rhs.statType_) {}
+
+    PropContext(PropContext&& rhs)
+        : name_(rhs.name_)
+        , field_(rhs.field_)
+        , tagFiltered_(rhs.tagFiltered_)
+        , returned_(rhs.returned_)
+        , propInKeyType_(rhs.propInKeyType_)
+        , hasStat_(rhs.hasStat_)
+        , statIndex_(rhs.hasStat_)
+        , statType_(rhs.statType_) {}
+
+    PropContext& operator=(const PropContext& rhs) {
+        name_ = rhs.name_;
+        field_ = rhs.field_;
+        tagFiltered_ = rhs.tagFiltered_;
+        returned_ = rhs.returned_;
+        propInKeyType_ = rhs.propInKeyType_;
+        hasStat_ = rhs.hasStat_;
+        statIndex_ = rhs.hasStat_;
+        statType_ = rhs.statType_;
+        return *this;
+    }
+
+    PropContext& operator=(PropContext&& rhs) {
+        name_ = rhs.name_;
+        field_ = rhs.field_;
+        tagFiltered_ = rhs.tagFiltered_;
+        returned_ = rhs.returned_;
+        propInKeyType_ = rhs.propInKeyType_;
+        hasStat_ = rhs.hasStat_;
+        statIndex_ = rhs.hasStat_;
+        statType_ = rhs.statType_;
+        return *this;
+    }
 };
 
 const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKey_ = {
@@ -72,7 +116,8 @@ struct TagContext {
     std::unordered_map<TagID, std::pair<std::string, int64_t>>          ttlInfo_;
 
     // To find prop faster, std::pair<TagID, prop_name>
-    std::unordered_set<std::pair<TagID, std::string>>                   tagIdProps_;
+    // std::unordered_set<std::pair<TagID, std::string>>                tagIdProps_;
+    std::unordered_map<TagID, std::unordered_set<std::string>>          tagIdProps_;
     VertexCache                                                        *vertexCache_ = nullptr;
 };
 

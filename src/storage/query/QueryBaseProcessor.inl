@@ -46,7 +46,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
             PropContext ctx(name.c_str());
             ctx.returned_ = true;
             ctx.field_ = field;
-            tagContext_.tagIdProps_.emplace(std::make_pair(tagId, name));
+            // tagContext_.tagIdProps_.emplace(std::make_pair(tagId, name));
             ctxs.emplace_back(std::move(ctx));
         }
         this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
@@ -342,20 +342,23 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             const auto* tagName = sourceExp->sym();
             const auto* propName = sourceExp->prop();
 
-            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, *tagName);
+            std::string name = *propName;
+            auto tagRet = this->env_->schemaMan_->toTagID(this->spaceId_, *tagName);
             if (!tagRet.ok()) {
-                VLOG(1) << "Can't find tag " << *tagName << ", in space " << spaceId_;
+                VLOG(1) << "Can't find tag " << *tagName << ", in space " << this->spaceId_;
                 return false;
             }
             auto tagId = tagRet.value();
 
-            auto propIter = tagContext_.tagIdProps_.find(std::make_pair(tagId, *propName));
-            if (propIter == tagContext_.tagIdProps_.end()) {
-                VLOG(1) << "There is no related tag prop existed in tagContexts!";
+            // auto propIter = this->tagContext_.tagIdProps_.find(std::make_pair(tagId, *propName));
+            // if (propIter == this->tagContext_.tagIdProps_.end()) {
+            auto tagIter = this->tagContext_.tagIdProps_.find(tagId);
+            if (tagIter == this->tagContext_.tagIdProps_.end()) {
+                VLOG(1) << "There is no related tag existed in tagContexts!";
                 PropContext ctx(propName->c_str());
-                auto iter = tagContext_.schemas_.find(tagId);
-                if (iter == tagContext_.schemas_.end()) {
-                    VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
+                auto iter = this->tagContext_.schemas_.find(tagId);
+                if (iter == this->tagContext_.schemas_.end()) {
+                    VLOG(1) << "Can't find spaceId " << this->spaceId_ << " tagId " << tagId;
                     return false;
                 }
 
@@ -370,18 +373,59 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
                     return false;
                 }
                 ctx.field_ = field;
-                auto indexIter = tagContext_.indexMap_.find(tagId);
-                if (indexIter != tagContext_.indexMap_.end()) {
+                auto indexIter = this->tagContext_.indexMap_.find(tagId);
+                if (indexIter != this->tagContext_.indexMap_.end()) {
                     // add tag prop
                     auto index = indexIter->second;
-                    tagContext_.propContexts_[index].second.emplace_back(std::move(ctx));
+                    this->tagContext_.propContexts_[index].second.emplace_back(ctx);
                 } else {
                     std::vector<PropContext> ctxs;
-                    ctxs.emplace_back(ctx);
-                    tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
-                    tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
+                    ctxs.emplace_back(std::move(ctx));
+                    this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+                    this->tagContext_.indexMap_.emplace(tagId,
+                                                        this->tagContext_.propContexts_.size() - 1);
                 }
-                tagContext_.tagIdProps_.emplace(std::make_pair(tagId, *propName));
+                std::unordered_set<std::string> props;
+                props.emplace(name);
+                this->tagContext_.tagIdProps_.emplace(tagId, std::move(props));
+            } else {
+                auto propset = tagIter->second;
+                std::cout << propset.size();
+                auto propIter = propset.find(*propName);
+                if (propIter == propset.end()) {
+                    VLOG(1) << "There is no related tag prop existed in tagContexts!";
+                    PropContext ctx(propName->c_str());
+                    auto iter = this->tagContext_.schemas_.find(tagId);
+                    if (iter == this->tagContext_.schemas_.end()) {
+                        VLOG(1) << "Can't find spaceId " << this->spaceId_ << " tagId " << tagId;
+                        return false;
+                    }
+
+                    CHECK(!iter->second.empty());
+                    // Use newest version
+                    const auto& tagSchema = iter->second.back();
+                    CHECK_NOTNULL(tagSchema);
+
+                    auto field = tagSchema->field(*propName);
+                    if (field == nullptr) {
+                        VLOG(1) << "Can't find related prop " << *propName << " on tag " << tagName;
+                        return false;
+                    }
+                    ctx.field_ = field;
+                    auto indexIter = this->tagContext_.indexMap_.find(tagId);
+                    if (indexIter != this->tagContext_.indexMap_.end()) {
+                        // add tag prop
+                        auto index = indexIter->second;
+                        this->tagContext_.propContexts_[index].second.push_back(ctx);
+                    } else {
+                        std::vector<PropContext> ctxs;
+                        ctxs.emplace_back(ctx);
+                        this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+                        this->tagContext_.indexMap_.emplace(tagId,
+                                            this->tagContext_.propContexts_.size() - 1);
+                    }
+                    this->tagContext_.tagIdProps_[tagId].emplace(name);
+                }
             }
             return true;
         }

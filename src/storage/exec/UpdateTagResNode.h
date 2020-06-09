@@ -16,50 +16,48 @@ namespace storage {
 
 class UpdateTagResNode : public RelNode<VertexID>  {
 public:
-    UpdateTagResNode(StorageEnv* env,
-                     GraphSpaceID spaceId,
-                     UpdateTagNode* updateTagNode,
+    UpdateTagResNode(UpdateTagNode* updateTagNode,
                      std::vector<Expression*> returnPropsExp,
                      nebula::DataSet* result)
-        : env_(env)
-        , spaceId_(spaceId)
-        , updateTagNode_(updateTagNode)
+        : updateTagNode_(updateTagNode)
         , returnPropsExp_(returnPropsExp)
         , result_(result) {
         }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
-        if (ret == kvstore::ResultCode::SUCCEEDED ||
-            ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
-            filter_ = updateTagNode_->getFilterCont();
-            insert_ = updateTagNode_->getInsert();
-            expCtx_ = updateTagNode_->getExpressionContext();
-        }
-
-        if (ret != kvstore::ResultCode::SUCCEEDED) {
-            // Note: If filtered out, the result of every tag prop is NULl
-            if (ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
-                result_->colNames.emplace_back("_inserted");
-                nebula::Row row;
-                row.columns.emplace_back(false);
-
-                for (auto& retExp : returnPropsExp_) {
-                    auto sourceExp = dynamic_cast<const SourcePropertyExpression*>(retExp);
-                    if (sourceExp) {
-                        result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
-                                                       sourceExp->sym()->c_str(),
-                                                       sourceExp->prop()->c_str()));
-                    } else {
-                        VLOG(1) << "Can't get expression name";
-                        result_->colNames.emplace_back("NULL");
-                    }
-                    row.columns.emplace_back(NullType::__NULL__);
-                }
-                result_->rows.emplace_back(std::move(row));
-            }
+        if (ret != kvstore::ResultCode::SUCCEEDED &&
+            ret != kvstore::ResultCode::ERR_RESULT_FILTERED) {
             return ret;
         }
+
+        filter_ = updateTagNode_->getFilterCont();
+        insert_ = updateTagNode_->getInsert();
+        expCtx_ = updateTagNode_->getExpressionContext();
+
+        // Note: If filtered out, the result of every tag prop is old
+        /*
+        if (ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
+            result_->colNames.emplace_back("_inserted");
+            nebula::Row row;
+            row.columns.emplace_back(false);
+
+            for (auto& retExp : returnPropsExp_) {
+                auto sourceExp = dynamic_cast<const SourcePropertyExpression*>(retExp);
+                if (sourceExp) {
+                    result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
+                                                   sourceExp->sym()->c_str(),
+                                                   sourceExp->prop()->c_str()));
+                } else {
+                    VLOG(1) << "Can't get expression name";
+                    result_->colNames.emplace_back("NULL");
+                }
+                row.columns.emplace_back(NullType::__NULL__);
+            }
+            result_->rows.emplace_back(std::move(row));
+            return ret;
+        }
+        */
 
         result_->colNames.emplace_back("_inserted");
         nebula::Row row;
@@ -80,13 +78,11 @@ public:
             row.columns.emplace_back(std::move(val));
         }
         result_->rows.emplace_back(std::move(row));
-        return kvstore::ResultCode::SUCCEEDED;
+        return ret;
     }
 
 private:
     // =================================== input =======================================
-    StorageEnv                                                                     *env_;
-    GraphSpaceID                                                                    spaceId_;
     UpdateTagNode                                                                  *updateTagNode_;
     std::vector<Expression*>                                                        returnPropsExp_;
     UpdateExpressionContext                                                        *expCtx_;

@@ -55,7 +55,7 @@ const Value& UpdateExpressionContext::getSrcProp(const std::string& tagName,
                                                  const std::string& prop) const {
     if (!tagName.compare(tagName_)) {
         auto iter = srcPropVals_.find(prop);
-        if (iter == srcPropVals_.end()) {
+        if (iter != srcPropVals_.end()) {
             return iter->second;
         }
     }

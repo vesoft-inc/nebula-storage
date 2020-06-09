@@ -67,7 +67,7 @@ public:
         } else {
             iter_.reset();
         }
-        return kvstore::ResultCode::SUCCEEDED;
+        return ret;
     }
 
     kvstore::ResultCode collectTagPropsIfValid(TagNullHandler nullHandler,
@@ -98,7 +98,7 @@ public:
             // todo(doodle): eval the expression which can be applied to the tag node
             // exp_->eval();
         }
-        auto key = iter_->val();
+        auto key = iter_->key();
         return valueHandler(tagId_, reader.get(), props_, key, value);
     }
 
