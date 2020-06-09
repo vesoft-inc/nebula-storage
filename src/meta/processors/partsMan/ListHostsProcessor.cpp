@@ -26,8 +26,8 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             return;
         }
 
-        status = req.__isset.role ? fillLeaderAndPartInfoPerHost()
-                                  : allHostsWithStatus(*req.get_role());
+        status = req.__isset.role ? allHostsWithStatus(*req.get_role())
+                                  : fillLeaderAndPartInfoPerHost();
     }
     if (status.ok()) {
         resp_.set_hosts(std::move(hostItems_));
