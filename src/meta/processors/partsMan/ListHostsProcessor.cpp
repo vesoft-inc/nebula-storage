@@ -17,6 +17,7 @@ namespace nebula {
 namespace meta {
 
 void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
+    Status status;
     {
         folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
         auto spaceRet = getSpaceIdNameMap();
@@ -24,32 +25,14 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             onFinished();
             return;
         }
-        bool isMeta = req.get_type() == cpp2::ListHostType::META;
-        Status status = isMeta ? allMetaHostsStatus() : allHostsWithStatus(req.get_type());
 
-        if (!status.ok()) {
-            onFinished();
-            return;
-        }
+        status = req.__isset.role ? fillLeaderAndPartInfoPerHost()
+                                  : allHostsWithStatus(*req.get_role());
     }
-    resp_.set_hosts(std::move(hostItems_));
+    if (status.ok()) {
+        resp_.set_hosts(std::move(hostItems_));
+    }
     onFinished();
-}
-
-bool ListHostsProcessor::match(cpp2::ListHostType type, cpp2::HostRole role) {
-    switch (type) {
-    case cpp2::ListHostType::GRAPH:
-        return role == cpp2::HostRole::GRAPH;
-    case cpp2::ListHostType::META:
-        return role == cpp2::HostRole::META;
-    case cpp2::ListHostType::STORAGE:
-        return role == cpp2::HostRole::STORAGE;
-    case cpp2::ListHostType::ALLOC:
-        return role == cpp2::HostRole::STORAGE;
-    default:
-        break;
-    }
-    return false;
 }
 
 /*
@@ -77,7 +60,10 @@ Status ListHostsProcessor::allMetaHostsStatus() {
     return Status::OK();
 }
 
-Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
+Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
+    if (role == cpp2::HostRole::META) {
+        return allMetaHostsStatus();
+    }
     const auto& hostPrefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter);
@@ -94,7 +80,7 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
         auto host = MetaServiceUtils::parseHostKey(iter->key());
         item.set_hostAddr(std::move(host));
         HostInfo info = HostInfo::decode(iter->val());
-        if (!match(type, info.role_)) {
+        if (info.role_ != role) {
             iter->next();
             continue;
         }
@@ -113,13 +99,19 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
         iter->next();
     }
 
-    if (type != cpp2::ListHostType::ALLOC) {
-        removeExpiredHosts(std::move(removeHostsKey));
-        return Status::OK();
+    removeExpiredHosts(std::move(removeHostsKey));
+    return Status::OK();
+}
+
+Status ListHostsProcessor::fillLeaderAndPartInfoPerHost() {
+    auto status = allHostsWithStatus(cpp2::HostRole::STORAGE);
+    if (!status.ok()) {
+        return status;
     }
 
+    std::unique_ptr<kvstore::KVIterator> iter;
     const auto& leaderPrefix = MetaServiceUtils::leaderPrefix();
-    kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
+    auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Hosts Failed: No leaders";
         handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
@@ -179,7 +171,6 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::ListHostType type) {
         }
     }
 
-    removeExpiredHosts(std::move(removeHostsKey));
     return Status::OK();
 }
 

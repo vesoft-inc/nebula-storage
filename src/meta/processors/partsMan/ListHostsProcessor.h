@@ -25,12 +25,12 @@ private:
             : BaseProcessor<cpp2::ListHostsResp>(kvstore) {}
 
     /**
-     * if type == ALLOC
-     *      Get all hosts with online/offline status and partition distribution.
-     * else
-     *      return gitInfoSHA for all hosts
+     *  return online/offline, gitInfoSHA for the specific HostRole
      * */
-    Status allHostsWithStatus(cpp2::ListHostType type);
+    Status allHostsWithStatus(cpp2::HostRole type);
+
+    // the show leader, partition info (nebula 1.0 edition)
+    Status fillLeaderAndPartInfoPerHost();
 
     /**
      * Get gitInfoSHA from all meta hosts gitInfoSHA
@@ -44,7 +44,6 @@ private:
     std::unordered_map<std::string, std::vector<PartitionID>>
     getLeaderPartsWithSpaceName(const LeaderParts& leaderParts);
 
-    bool match(cpp2::ListHostType type, cpp2::HostRole role);
     void removeExpiredHosts(std::vector<std::string>&& removeHostsKey);
 
     std::vector<GraphSpaceID> spaceIds_;

@@ -82,7 +82,7 @@ std::vector<cpp2::NewVertex> genDummyVertices(int tagId, int howMany) {
 }
 
 TEST(ShuffleIpTest, GenData) {
-    using StorageClient = storage::GraphStorageClient;
+    // using StorageClient = storage::GraphStorageClient;
     // ********** notice notice notice*******
     // need to manual change ip(host), which means has nothing to do
     // in CI autotest, so comments out all the code.
