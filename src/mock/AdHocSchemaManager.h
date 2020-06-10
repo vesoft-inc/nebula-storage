@@ -69,7 +69,7 @@ public:
         LOG(FATAL) << "Unimplemented";
     }
 
-    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID space) override;
+    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID) override;
 
     // get all version of all tags
     StatusOr<TagSchemas> getAllVerTagSchema(GraphSpaceID space) override;
