@@ -217,6 +217,7 @@ TEST(UpdateVertexTest, Insertable_Test) {
     req.set_vertex_id(vertexId);
     req.set_part_id(partId);
     req.set_filter("");
+
     LOG(INFO) << "Build update items...";
     std::vector<cpp2::UpdateItem> items;
     // int: 3001.tag_3001_col_0 = 1
