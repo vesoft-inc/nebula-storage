@@ -69,7 +69,7 @@ TEST(RowReaderV1, headerInfo) {
     EXPECT_EQ(0x0040FF, r->readerV1_.blockOffsets_[1].first);
     EXPECT_EQ(0x00F008, r->readerV1_.blockOffsets_[2].first);
 
-    // Empty row, data invalid
+    // Empty row, return illegal schema version
     SchemaWriter schema5;
     auto reader2 = RowReader::getRowReader(&schema5,
                                            folly::StringPiece(""));

@@ -54,7 +54,7 @@ TEST(RowReaderV2, headerInfo) {
     EXPECT_EQ(0, reader->schemaVer());
     EXPECT_EQ(sizeof(data4), reader->headerLen());
 
-    // Empty row, data invalid
+    // Empty row, return illegal schema version
     SchemaWriter schema5;
     auto reader2 = RowReader::getRowReader(&schema5,
                                            folly::StringPiece(""));

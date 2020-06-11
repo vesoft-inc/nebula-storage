@@ -56,6 +56,7 @@ void RowReaderWrapper::getVersions(const folly::StringPiece& row,
     } else {
         LOG(ERROR) << "Invalid reader version: " << readerVer;
         schemaVer = -1;
+        return;
     }
 
     schemaVer = 0;
