@@ -305,6 +305,10 @@ macro(nebula_add_executable)
         ${nebula_exec_NAME}
         ${nebula_exec_LIBRARIES}
     )
+    add_dependencies(
+        ${nebula_exec_NAME}
+        common_project
+    )
 endmacro()
 
 macro(nebula_add_test)
