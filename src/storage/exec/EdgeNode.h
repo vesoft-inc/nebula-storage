@@ -14,7 +14,6 @@
 namespace nebula {
 namespace storage {
 
-
 // EdgeNode will return a StorageIterator which iterates over the specified
 // edgeType of given vertexId
 template<typename T>
