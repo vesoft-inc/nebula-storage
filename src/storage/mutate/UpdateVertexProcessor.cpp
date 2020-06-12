@@ -123,7 +123,6 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
                                                          env_,
                                                          spaceId_,
                                                          expCtx_.get(),
-                                                         updatedVertexProps_,
                                                          insertable_,
                                                          updateTagIds_,
                                                          spaceVidLen_);
@@ -175,7 +174,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             if (!colExp) {
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
-            if (!this->checkExp(colExp.get())) {
+            if (!checkExp(colExp.get())) {
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
             returnPropsExp_.emplace_back(std::move(colExp));
@@ -221,7 +220,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             tagContext_.vertexCache_->evict(std::make_pair(vId, tagId), partId);
         }
 
-    // Todo spport UPSERT VERTEX 202 SET tag;
+        // Todo spport UPSERT VERTEX 202 SET tag; must have tagId
         updateTagIds_.emplace(tagId);
         auto updateExp = Expression::decode(vertexProp.get_value());
         if (!updateExp) {
@@ -233,17 +232,8 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         }
     }
 
-    // TODO ExpressionContext
-    /*
-    if (expCtx_->hasDstTagProp() || expCtx_->hasEdgeProp()
-        || expCtx_->hasVariableProp() || expCtx_->hasInputProp()) {
-        LOG(ERROR) << "should only contain SrcTagProp expression!";
-        return cpp2::ErrorCode::E_INVALID_UPDATER;
-    }
-    */
-
     // update vertex only handle one tagId
-    if (tagContext_.propContexts_.size() > 1) {
+    if (this->tagContext_.propContexts_.size() > 1) {
         VLOG(1) << "should only contain one tag in update vertex!";
         return cpp2::ErrorCode::E_INVALID_UPDATER;
     }

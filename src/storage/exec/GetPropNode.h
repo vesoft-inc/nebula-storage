@@ -39,12 +39,11 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &result] (TagID tagId, RowReader* reader,
+                [this, &result] (TagID tagId,
+                                 RowReader* reader,
                                  const std::vector<PropContext>* props,
-                                 const folly::StringPiece& key,
-                                 const folly::StringPiece& row) -> kvstore::ResultCode {
+                                 const folly::StringPiece& key) -> kvstore::ResultCode {
                     UNUSED(key);
-                    UNUSED(row);
                     nebula::List list;
                     auto code = collectTagProps(tagId, reader, props, list, nullptr);
                     if (code != kvstore::ResultCode::SUCCEEDED) {

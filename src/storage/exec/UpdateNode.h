@@ -37,7 +37,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         env_->kvstore_->asyncAtomicOp(spaceId_, partId,
-            [partId, vId, this] ()
+            [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
@@ -73,6 +73,8 @@ public:
     }
 
     std::string updateAndWriteBack(const PartitionID partId, const VertexID vId) {
+        UNUSED(partId);
+        UNUSED(vId);
         for (auto& updateProp : this->updatedVertexProps_) {
             auto tagId = updateProp.get_tag_id();
             auto propName = updateProp.get_name();
@@ -92,23 +94,13 @@ public:
             }
             this->expCtx_->setSrcProp(tagName.value(), propName, updateVal);
 
-
             // update RowWriterV2 old value -> new value
             if (tagId_ != tagId) {
                 VLOG(1) << "Update field faild ";
                 return std::string("");
             }
-            /*
+
             auto wRet = rowWriter_->setValue(propName, updateVal);
-            if (wRet != WriteResult::SUCCEEDED) {
-                VLOG(1) << "Add field faild ";
-                return std::string("");
-            }
-            */
-        }
-        auto tagFilters = this->filter_->getTagFilter();
-        for (auto &e : tagFilters) {
-            auto wRet = rowWriter_->setValue(e.first.second, e.second);
             if (wRet != WriteResult::SUCCEEDED) {
                 VLOG(1) << "Add field faild ";
                 return std::string("");
@@ -125,47 +117,6 @@ public:
         }
 
         auto nVal = rowWriter_->moveEncodedStr();
-
-        UNUSED(partId);
-        UNUSED(vId);
-            /*
-            if (!indexes_.empty()) {
-                std::unique_ptr<RowReader> reader, oReader;
-                for (auto &index : indexes_) {
-                    if (index->get_schema_id().get_tag_id() == u.first) {
-                        if (!(u.second->kv.second.empty())) {
-                            if (oReader == nullptr) {
-                                oReader = RowReader::getTagPropReader(this->schemaMan_,
-                                                                      u.second->kv.second,
-                                                                      spaceId_,
-                                                                      u.first);
-                            }
-                            const auto &oCols = index->get_fields();
-                            auto oValues = collectIndexValues(oReader.get(), oCols);
-                            auto oIndexKey = NebulaKeyUtils::vertexIndexKey(partId,
-                                                                            index->index_id,
-                                                                            vId,
-                                                                            oValues);
-                            batchHolder->remove(std::move(oIndexKey));
-                        }
-                        if (reader == nullptr) {
-                            reader = RowReader::getTagPropReader(this->schemaMan_,
-                                                                 nVal,
-                                                                 spaceId_,
-                                                                 u.first);
-                        }
-                        const auto &cols = index->get_fields();
-                        auto values = collectIndexValues(reader.get(), cols);
-                        auto indexKey = NebulaKeyUtils::vertexIndexKey(partId,
-                                                                       index->get_index_id(),
-                                                                       vId,
-                                                                       values);
-                        batchHolder->put(std::move(indexKey), "");
-                    }
-                }
-            }
-            */
-
         batchHolder->put(std::move(key_), std::move(nVal));
         return encodeBatchValue(batchHolder->getBatch());
     }
@@ -185,24 +136,22 @@ public:
 
 private:
     // ============================ input =====================================================
-    StorageEnv                                                                     *env_;
-    GraphSpaceID                                                                    spaceId_;
+    StorageEnv                                                             *env_;
+    GraphSpaceID                                                            spaceId_;
     // update <tagID, prop name, new value expression>
     std::vector<storage::cpp2::UpdatedVertexProp>                           updatedVertexProps_;
-    UpdateFilterNode                                                               *filterNode_;
+    UpdateFilterNode                                                       *filterNode_;
 
-    // To update tagid，key, old row value
-    // std::unordered_map<std::string, std::unique_ptr<RowWriterV2>>                tagUpdateKVs_;
-    TagID                                                                           tagId_;
-    std::string                                                                     key_;
+    TagID                                                                   tagId_;
+    std::string                                                             key_;
+    RowWriterV2*                                                            rowWriter_;
 
-    RowWriterV2*                                                                    rowWriter_;
     // ============================ output ====================================================
     // input and update, then output
-    FilterContext                                                                  *filter_;
-    bool                                                                            insert_{false};
-    UpdateExpressionContext                                                        *expCtx_;
-    std::atomic<kvstore::ResultCode>                                                exeResult_;
+    FilterContext                                                          *filter_;
+    bool                                                                    insert_{false};
+    UpdateExpressionContext                                                *expCtx_;
+    std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
 
 }  // namespace storage

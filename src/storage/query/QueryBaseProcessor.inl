@@ -46,7 +46,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
             PropContext ctx(name.c_str());
             ctx.returned_ = true;
             ctx.field_ = field;
-            // tagContext_.tagIdProps_.emplace(std::make_pair(tagId, name));
+            tagContext_.tagIdProps_.emplace(std::make_pair(tagId, name));
             ctxs.emplace_back(std::move(ctx));
         }
         this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
@@ -282,7 +282,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceEdgeSchema() {
 template <typename REQ, typename RESP>
 bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
     switch (exp->kind()) {
-        // TODO constant expression
         case Expression::Kind::kConstant:
             return true;
         case Expression::Kind::kAdd:
@@ -323,18 +322,12 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
         }
         case Expression::Kind::kFunctionCall: {
             auto* funcExp = static_cast<const FunctionCallExpression*>(exp);
-            // auto* name = funcExp->name();
             auto args = funcExp->args();
-            // auto func = FunctionManager::get(*name, args.size());
-            // if (!func.ok()) {
-            //     return false;
-            // }
             for (auto& arg : args) {
                 if (!checkExp(arg)) {
                     return false;
                 }
             }
-            // funcExp->setFunc(std::move(func).value());
             return true;
         }
         case Expression::Kind::kSrcProperty: {
@@ -350,10 +343,8 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             }
             auto tagId = tagRet.value();
 
-            // auto propIter = this->tagContext_.tagIdProps_.find(std::make_pair(tagId, *propName));
-            // if (propIter == this->tagContext_.tagIdProps_.end()) {
-            auto tagIter = this->tagContext_.tagIdProps_.find(tagId);
-            if (tagIter == this->tagContext_.tagIdProps_.end()) {
+            auto propIter = this->tagContext_.tagIdProps_.find(std::make_pair(tagId, *propName));
+            if (propIter == this->tagContext_.tagIdProps_.end()) {
                 VLOG(1) << "There is no related tag existed in tagContexts!";
                 PropContext ctx(propName->c_str());
                 auto iter = this->tagContext_.schemas_.find(tagId);
@@ -385,47 +376,7 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
                     this->tagContext_.indexMap_.emplace(tagId,
                                                         this->tagContext_.propContexts_.size() - 1);
                 }
-                std::unordered_set<std::string> props;
-                props.emplace(name);
-                this->tagContext_.tagIdProps_.emplace(tagId, std::move(props));
-            } else {
-                auto propset = tagIter->second;
-                std::cout << propset.size();
-                auto propIter = propset.find(*propName);
-                if (propIter == propset.end()) {
-                    VLOG(1) << "There is no related tag prop existed in tagContexts!";
-                    PropContext ctx(propName->c_str());
-                    auto iter = this->tagContext_.schemas_.find(tagId);
-                    if (iter == this->tagContext_.schemas_.end()) {
-                        VLOG(1) << "Can't find spaceId " << this->spaceId_ << " tagId " << tagId;
-                        return false;
-                    }
-
-                    CHECK(!iter->second.empty());
-                    // Use newest version
-                    const auto& tagSchema = iter->second.back();
-                    CHECK_NOTNULL(tagSchema);
-
-                    auto field = tagSchema->field(*propName);
-                    if (field == nullptr) {
-                        VLOG(1) << "Can't find related prop " << *propName << " on tag " << tagName;
-                        return false;
-                    }
-                    ctx.field_ = field;
-                    auto indexIter = this->tagContext_.indexMap_.find(tagId);
-                    if (indexIter != this->tagContext_.indexMap_.end()) {
-                        // add tag prop
-                        auto index = indexIter->second;
-                        this->tagContext_.propContexts_[index].second.push_back(ctx);
-                    } else {
-                        std::vector<PropContext> ctxs;
-                        ctxs.emplace_back(ctx);
-                        this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
-                        this->tagContext_.indexMap_.emplace(tagId,
-                                            this->tagContext_.propContexts_.size() - 1);
-                    }
-                    this->tagContext_.tagIdProps_[tagId].emplace(name);
-                }
+                this->tagContext_.tagIdProps_.emplace(tagId, name);
             }
             return true;
         }
@@ -451,23 +402,19 @@ bool QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp) {
             }
 
             auto edgeType = edgeStatus.value();
-            auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
-            if (iter == edgeContext_.schemas_.end()) {
-                VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);
+            auto iter = this->edgeContext_.schemas_.find(std::abs(edgeType));
+            if (iter == this->edgeContext_.schemas_.end()) {
+                VLOG(1) << "Can't find spaceId " << this->spaceId_
+                        << " edgeType " << std::abs(edgeType);
                 return false;
             }
             CHECK(!iter->second.empty());
             // Use newest version
             const auto& edgeSchema = iter->second.back();
             CHECK_NOTNULL(edgeSchema);
-            auto schema = this->env_->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
-            if (!schema) {
-                VLOG(1) << "Cant find edgeType " << edgeType;
-                return false;
-            }
 
             const auto* propName = edgeExp->prop();
-            auto field = schema->field(*propName);
+            auto field = edgeSchema->field(*propName);
             if (field == nullptr) {
                 VLOG(1) << "Can't find related prop " << *propName << " on edge "
                         << *(edgeExp->sym());

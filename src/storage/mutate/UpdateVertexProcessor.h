@@ -38,8 +38,8 @@ private:
     // Get the schema of all versions of all tags in the spaceId
     cpp2::ErrorCode buildTagSchema();
 
-    // Build TagContext by parsing return prop expressions,
-    // filter expression, update prop expression
+    // Build TagContext by parsing return props expressions,
+    // filter expression, update props expression
     cpp2::ErrorCode buildTagContext(const cpp2::UpdateVertexRequest& req);
 
     void onProcessFinished() override;

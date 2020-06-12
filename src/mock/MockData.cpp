@@ -298,12 +298,12 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema(Schema
     meta::cpp2::ColumnDef col1;
     col1.name = "name";
     col1.type = meta::cpp2::PropertyType::STRING;
-    schema->addField(std::move(col1.name), std::move(col1.type), 0, false, Value(""));
+    schema->addField(std::move(col1.name), std::move(col1.type), 0, false, "");
 
     meta::cpp2::ColumnDef col2;
     col2.name = "age";
     col2.type = meta::cpp2::PropertyType::INT64;
-    schema->addField(std::move(col2.name), std::move(col2.type), 0, false, Value(18L));
+    schema->addField(std::move(col2.name), std::move(col2.type), 0, false, 18L);
 
     meta::cpp2::ColumnDef col3;
     col3.name = "playing";

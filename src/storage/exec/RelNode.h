@@ -25,8 +25,7 @@ using EdgeNullHandler = std::function<kvstore::ResultCode(EdgeType,
 using TagPropHandler = std::function<kvstore::ResultCode(TagID,
                                                          RowReader*,
                                                          const std::vector<PropContext>* props,
-                                                         const folly::StringPiece& key,
-                                                         const folly::StringPiece& row)>;
+                                                         const folly::StringPiece& key)>;
 
 using EdgePropHandler = std::function<kvstore::ResultCode(EdgeType,
                                                           folly::StringPiece,

@@ -10,13 +10,12 @@
 #include "common/base/Base.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
-#include "storage/exec/FilterContext.h"
 
 namespace nebula {
 namespace storage {
 
 // TagNode will return a DataSet of specified props of tagId
-class TagNode : public RelNode<VertexID> {
+class TagNode final : public RelNode<VertexID> {
 public:
     TagNode(TagContext* ctx,
             StorageEnv* env,
@@ -67,7 +66,7 @@ public:
         } else {
             iter_.reset();
         }
-        return ret;
+        return kvstore::ResultCode::SUCCEEDED;
     }
 
     kvstore::ResultCode collectTagPropsIfValid(TagNullHandler nullHandler,
@@ -99,7 +98,7 @@ public:
             // exp_->eval();
         }
         auto key = iter_->key();
-        return valueHandler(tagId_, reader.get(), props_, key, value);
+        return valueHandler(tagId_, reader.get(), props_, key);
     }
 
 protected:

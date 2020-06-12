@@ -11,6 +11,7 @@
 #include "common/expression/Expression.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/EdgeNode.h"
+#include "storage/exec/FilterContext.h"
 #include "storage/context/UpdateExpressionContext.h"
 
 namespace nebula {
@@ -53,14 +54,12 @@ public:
                            const std::vector<PropContext>*) -> kvstore::ResultCode {
                     result.values.emplace_back(NullType::__NULL__);
                     return kvstore::ResultCode::SUCCEEDED;
-               },
+                },
                 [this, &result] (TagID tagId,
                                  RowReader* reader,
                                  const std::vector<PropContext>* props,
-                                 const folly::StringPiece& key,
-                                 const folly::StringPiece& row) -> kvstore::ResultCode {
+                                 const folly::StringPiece& key) -> kvstore::ResultCode {
                     UNUSED(key);
-                    UNUSED(row);
                     nebula::List list;
                     auto code = collectTagProps(tagId, reader, props, list, filter_);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
@@ -181,24 +180,23 @@ private:
     }
 
 protected:
-    std::vector<TagNode*> tagNodes_;
-    std::vector<EdgeNode<VertexID>*> edgeNodes_;
-    TagContext* tagContext_;
-    EdgeContext* edgeContext_;
-    Expression* filterExp_;
-    FilterContext* filter_;
-    EdgeType edgeType_ = 0;
-    size_t columnIdx_;
-    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
-    const std::vector<PropContext>* props_ = nullptr;
-    folly::Optional<std::pair<std::string, int64_t>> ttl_;
-
-    std::unique_ptr<RowReader> reader_;
-    std::unique_ptr<EdgeIterator> iter_;
+    std::vector<TagNode*>                                                 tagNodes_;
+    std::vector<EdgeNode<VertexID>*>                                      edgeNodes_;
+    TagContext                                                           *tagContext_{nullptr};
+    EdgeContext                                                          *edgeContext_{nullptr};
+    Expression                                                           *filterExp_{nullptr};
+    FilterContext                                                        *filter_{nullptr};
+    EdgeType                                                              edgeType_{0};
+    size_t                                                                columnIdx_;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_{nullptr};
+    const std::vector<PropContext>                                       *props_{nullptr};
+    folly::Optional<std::pair<std::string, int64_t>>                      ttl_;
+    std::unique_ptr<RowReader>                                            reader_;
+    std::unique_ptr<EdgeIterator>                                         iter_;
 };
 
 // UpdateFilterNode only use for update vertex/edge
-// Collect the result of all tags/edges, and judge the filter expression
+// Collect the result of all tags/edges, and eval the filter expression
 class UpdateFilterNode final : public FilterNode {
 public:
     UpdateFilterNode(const std::vector<TagNode*>& tagUpdates,
@@ -209,7 +207,6 @@ public:
                      StorageEnv* env,
                      GraphSpaceID spaceId,
                      UpdateExpressionContext* expCtx,
-                     std::vector<storage::cpp2::UpdatedVertexProp>& updatedVertexProps,
                      bool insertable,
                      std::unordered_set<TagID>& updateTagIds,
                      size_t vIdLen)
@@ -217,14 +214,13 @@ public:
         , env_(env)
         , spaceId_(spaceId)
         , expCtx_(expCtx)
-        , updatedVertexProps_(updatedVertexProps)
         , insertable_(insertable)
         , updateTagIds_(updateTagIds)
         , vIdLen_(vIdLen) {
             filter_ = std::make_unique<FilterContext>();
         }
 
-    // Only update tag
+    // Only update one tag
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
@@ -233,8 +229,10 @@ public:
 
         CHECK_EQ(1, tagNodes_.size());
 
-        // This tagId needs insert props row
-        // Failed when the props neither updated value nor has default value, nullable
+        // Insert props row,
+        // For insert, condition is always true,
+        // Operator props must have default value, for set a = a + 1, a = b + 1
+        // Other props must have default value or nullable
         auto insertTagProps = [&partId, &vId, this] (TagID tagId,
                               const std::vector<PropContext>* props) -> kvstore::ResultCode {
             if (!this->insertable_ ||
@@ -247,53 +245,13 @@ public:
             CHECK(schemaIter != this->tagContext_->schemas_.end());
             CHECK(!schemaIter->second.empty());
             auto schema = schemaIter->second.back();
-            // When insert, the filter condition is always true
-            // the tagId props of props_ need default value, nullable, update value
-#if 0
             for (auto& prop : *props) {
-                // first check whether is updated field, then use default value
+                // Operator props must have default value
                 if (prop.field_->hasDefault()) {
                     // all fields new value puts filter_
                     this->filter_->fillTagProp(tagId, prop.name_, prop.field_->defaultValue());
-                //} else if (prop.field_->nullable()) {
-                //    this->filter_->fillTagProp(tagId, prop.name_, NullType::__NULL__);
-
                 } else {
                     return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                /*
-                } else {
-                    bool isUpdateProp = false;
-                    for (auto& updateProp : this->updatedVertexProps_) {
-                        auto toTagId = updateProp.get_tag_id();
-                        auto propName = updateProp.get_name();
-                        if (tagId == toTagId && !prop.name_.compare(propName)) {
-                            isUpdateProp = true;
-                            // insert when upsert, filter is always true
-
-                            break;
-                        }
-                    }
-
-                    // no default value, no nullable, no update prop
-                    if (!isUpdateProp) {
-                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                    }
-                }
-                */
-                }
-            }
-#endif
-
-            UNUSED(props);
-            for (size_t i = 0; i < schema->getNumFields(); i++) {
-                auto prop = schema->getFieldName(i);
-                // read prop value
-                auto field = schema->field(i);
-                if (field->hasDefault()) {
-                    auto defalutVal = field->defaultValue();
-                    this->filter_->fillTagProp(tagId, prop, std::move(defalutVal));
-                } else {
-                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
                 }
             }
 
@@ -313,14 +271,13 @@ public:
         auto collTagProp = [this] (TagID tagId,
                                    RowReader* reader,
                                    const std::vector<PropContext>* props,
-                                   const folly::StringPiece& key,
-                                   const folly::StringPiece& row)
+                                   const folly::StringPiece& key)
                                    -> kvstore::ResultCode {
             auto schemaIter = this->tagContext_->schemas_.find(tagId);
             CHECK(schemaIter != this->tagContext_->schemas_.end());
             CHECK(!schemaIter->second.empty());
             auto schema = schemaIter->second.back();
-            /*
+
             for (auto& prop : *props) {
                 VLOG(1) << "Collect prop " << prop.name_ << ", type " << tagId;
 
@@ -334,29 +291,12 @@ public:
                 auto cloValue = std::move(retVal.value());
 
                 // This is different from others node
-                // filter, update, return props fields of this tag, value puts filter_
+                // filter, update, return props fields values of this tag puts filter_
                 this->filter_->fillTagProp(tagId, prop.name_, cloValue);
             }
-            */
 
-            UNUSED(props);
-            UNUSED(row);
-            for (size_t i = 0; i < schema->getNumFields(); i++) {
-                auto prop = schema->getFieldName(i);
-                // read prop value
-                auto retVal = reader->getValueByIndex(i);;
-                if (retVal == NullType::BAD_TYPE) {
-                    VLOG(1) << "Bad value for tag: " << tagId
-                            << ", prop " << prop;
-                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-                }
-                this->filter_->fillTagProp(tagId, prop, std::move(retVal));
-            }
-
-            // update info
             if (this->updateTagIds_.find(tagId) != this->updateTagIds_.end()) {
-                // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), row.str());
-                this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get());
+                this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
                 this->tagId_ = tagId;
                 this->key_ = key.str();
             }
@@ -384,7 +324,6 @@ public:
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
-
 
     kvstore::ResultCode checkFilter() {
         if (filterExp_ != nullptr) {
@@ -431,7 +370,6 @@ private:
     GraphSpaceID                                                           spaceId_;
     UpdateExpressionContext                                               *expCtx_;
 
-    std::vector<storage::cpp2::UpdatedVertexProp>                          updatedVertexProps_;
     // Whether to allow insert
     bool                                                                   insertable_{false};
 
@@ -445,11 +383,8 @@ private:
     std::unique_ptr<FilterContext>                                         filter_;
 
     // Whether an insert has occurred
-    // Because update one vid, so every tagId of one vertex has one row data at most
-    // upsert process one row data, either update or insert
     bool                                                                   insert_{false};
 
-    // std::unordered_map<std::string, std::unique_ptr<RowWriterV2>>          tagUpdateKV_;
     std::string                                                            key_;
     std::unique_ptr<RowWriterV2>                                           rowWriter_;
 

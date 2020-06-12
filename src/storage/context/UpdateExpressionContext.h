@@ -44,7 +44,6 @@ public:
     const Value& getSrcProp(const std::string& tagName,
                             const std::string& prop) const override;
 
-
     void setVar(const std::string& var, Value val) override {
         UNUSED(var);
         UNUSED(val);
@@ -55,14 +54,6 @@ public:
 
     // Set vertex tag prop and value
     bool setSrcProp(const std::string& tagName, const std::string& prop, Value val);
-
-    std::unordered_map<std::string, Value> getSrcProp() {
-        return srcPropVals_;
-    }
-
-    std::string getTagName() {
-        return tagName_;
-    }
 
 private:
     std::string                                 tagName_;

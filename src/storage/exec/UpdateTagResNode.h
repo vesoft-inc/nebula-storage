@@ -36,36 +36,12 @@ public:
         expCtx_ = updateTagNode_->getExpressionContext();
 
         // Note: If filtered out, the result of every tag prop is old
-        /*
-        if (ret == kvstore::ResultCode::ERR_RESULT_FILTERED) {
-            result_->colNames.emplace_back("_inserted");
-            nebula::Row row;
-            row.columns.emplace_back(false);
-
-            for (auto& retExp : returnPropsExp_) {
-                auto sourceExp = dynamic_cast<const SourcePropertyExpression*>(retExp);
-                if (sourceExp) {
-                    result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
-                                                   sourceExp->sym()->c_str(),
-                                                   sourceExp->prop()->c_str()));
-                } else {
-                    VLOG(1) << "Can't get expression name";
-                    result_->colNames.emplace_back("NULL");
-                }
-                row.columns.emplace_back(NullType::__NULL__);
-            }
-            result_->rows.emplace_back(std::move(row));
-            return ret;
-        }
-        */
-
         result_->colNames.emplace_back("_inserted");
         nebula::Row row;
         row.columns.emplace_back(insert_);
-        Value val;
 
         for (auto& retExp : returnPropsExp_) {
-            val = retExp->eval(*expCtx_);
+            auto& val = retExp->eval(*expCtx_);
             auto sourceExp = dynamic_cast<const SourcePropertyExpression*>(retExp);
             if (sourceExp) {
                 result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
@@ -82,12 +58,10 @@ public:
     }
 
 private:
-    // =================================== input =======================================
     UpdateTagNode                                                                  *updateTagNode_;
     std::vector<Expression*>                                                        returnPropsExp_;
     UpdateExpressionContext                                                        *expCtx_;
 
-    // ================================== output =========================================
     // return prop sets
     nebula::DataSet                                                                *result_;
     FilterContext                                                                  *filter_;
