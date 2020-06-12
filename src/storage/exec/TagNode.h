@@ -94,7 +94,6 @@ public:
         }
         if (exp_ != nullptr) {
             // todo(doodle): eval the expression which can be applied to the tag node
-            // TODO fix
             // exp_->eval();
         }
         return valueHandler(tagId_, reader.get(), props_);

@@ -1,5 +1,5 @@
 
-add_library(
+nebula_add_library(
     mock_obj OBJECT
     MockCluster.cpp
     MockData.cpp
