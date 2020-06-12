@@ -76,13 +76,13 @@ protected:
 
 class EdgeIterator : public StorageIterator {
 public:
-    virtual VertexID srcId() const = 0;
+    virtual VertexIDSlice srcId() const = 0;
 
     virtual EdgeType edgeType() const = 0;
 
     virtual EdgeRanking edgeRank() const = 0;
 
-    virtual VertexID dstId() const = 0;
+    virtual VertexIDSlice dstId() const = 0;
 
     virtual RowReader* reader() const = 0;
 };
@@ -129,8 +129,8 @@ public:
         return reader_.get();
     }
 
-    VertexID srcId() const override {
-        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key()).str();
+    VertexIDSlice srcId() const override {
+        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key());
     }
 
     EdgeType edgeType() const override {
@@ -141,8 +141,8 @@ public:
         return NebulaKeyUtils::getRank(vIdLen_, iter_->key());
     }
 
-    VertexID dstId() const override {
-        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key()).str();
+    VertexIDSlice dstId() const override {
+        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key());
     }
 
 protected:
@@ -227,7 +227,7 @@ public:
         return iters_[curIter_]->reader();
     }
 
-    VertexID srcId() const override {
+    VertexIDSlice srcId() const override {
         return iters_[curIter_]->srcId();
     }
 
@@ -239,8 +239,13 @@ public:
         return iters_[curIter_]->edgeRank();
     }
 
-    VertexID dstId() const override {
+    VertexIDSlice dstId() const override {
         return iters_[curIter_]->dstId();
+    }
+
+    // return the index of multiple iterators
+    size_t getIdx() const {
+        return curIter_;
     }
 
 private:
@@ -297,8 +302,8 @@ public:
         return reader_.get();
     }
 
-    VertexID srcId() const override {
-        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key()).str();
+    VertexIDSlice srcId() const override {
+        return NebulaKeyUtils::getSrcId(vIdLen_, iter_->key());
     }
 
     EdgeType edgeType() const override {
@@ -309,8 +314,8 @@ public:
         return NebulaKeyUtils::getRank(vIdLen_, iter_->key());
     }
 
-    VertexID dstId() const override {
-        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key()).str();
+    VertexIDSlice dstId() const override {
+        return NebulaKeyUtils::getDstId(vIdLen_, iter_->key());
     }
 
 private:

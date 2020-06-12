@@ -11,6 +11,7 @@
 #include "common/context/ExpressionContext.h"
 #include "utils/NebulaKeyUtils.h"
 #include "storage/CommonUtils.h"
+#include "storage/context/StorageExpressionContext.h"
 #include "storage/query/QueryBaseProcessor.h"
 #include "storage/exec/QueryUtils.h"
 #include "storage/exec/StorageIterator.h"
@@ -78,44 +79,72 @@ public:
     }
 
 protected:
-    kvstore::ResultCode collectEdgeProps(VertexIDSlice srcId,
-                                         EdgeType edgeType,
-                                         EdgeRanking edgeRank,
-                                         VertexIDSlice dstId,
-                                         RowReader* reader,
-                                         const std::vector<PropContext>* props,
-                                         nebula::List& list) {
-        for (size_t i = 0; i < props->size(); i++) {
-            const auto& prop = (*props)[i];
-            if (prop.returned_) {
-                VLOG(2) << "Collect prop " << prop.name_ << ", type " << edgeType;
-                auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
-                                                      reader, prop);
-                list.values.emplace_back(std::move(value));
+    // if yields is not empty, will eval the yield expression, otherwize, collect property
+    kvstore::ResultCode collectEdgeProps(
+            EdgeType edgeType,
+            const std::string& edgeName,
+            RowReader* reader,
+            folly::StringPiece key,
+            size_t vIdLen,
+            const std::vector<PropContext>* props,
+            nebula::List& list,
+            const std::vector<std::unique_ptr<Expression>>* yields = nullptr,
+            StorageExpressionContext* ctx = nullptr) {
+        if (yields == nullptr || yields->empty()) {
+            for (const auto& prop : *props) {
+                if (prop.returned_) {
+                    auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+                    auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+                    auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
+                    VLOG(2) << "Collect prop " << prop.name_ << ", type " << edgeType;
+                    auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
+                                                          reader, prop);
+                    list.values.emplace_back(std::move(value));
+                }
+            }
+        } else {
+            for (const auto& exp : *yields) {
+                ctx->reset(reader, key, edgeName);
+                auto result = exp->eval(*ctx);
+                list.values.emplace_back(std::move(result));
             }
         }
+
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    kvstore::ResultCode collectTagProps(TagID tagId,
-                                        RowReader* reader,
-                                        const std::vector<PropContext>* props,
-                                        nebula::List& list,
-                                        ExpressionContext* ctx) {
-        for (auto& prop : *props) {
-            VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
-            if (reader != nullptr) {
-                auto status = QueryUtils::readValue(reader, prop);
-                if (!status.ok()) {
-                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-                }
-                auto value = std::move(status.value());
-                if (ctx != nullptr && prop.tagFiltered_) {
-                    // todo(doodle): put data into ExpressionContxt
+    // Always put filter property into expression context.
+    // if yields is not empty, will eval the yield expression, otherwize, collect property.
+    kvstore::ResultCode collectTagProps(
+            TagID tagId,
+            const std::string& tagName,
+            RowReader* reader,
+            const std::vector<PropContext>* props,
+            nebula::List& list,
+            const std::vector<std::unique_ptr<Expression>>* yields = nullptr,
+            StorageExpressionContext* ctx = nullptr) {
+        if (yields == nullptr || yields->empty()) {
+            for (auto& prop : *props) {
+                VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
+                auto value = reader->getValueByName(prop.name_);
+                if (ctx != nullptr && prop.filtered_) {
+                    ctx->setTagProp(tagName, prop.name_, value);
                 }
                 if (prop.returned_) {
                     list.values.emplace_back(std::move(value));
                 }
+            }
+        } else {
+            for (auto& prop : *props) {
+                VLOG(2) << "Collect prop " << prop.name_ << ", tagId " << tagId;
+                if (prop.returned_ || prop.filtered_) {
+                    auto value = reader->getValueByName(prop.name_);
+                    ctx->setTagProp(tagName, prop.name_, std::move(value));
+                }
+            }
+            for (const auto& exp : *yields) {
+                auto result = exp->eval(*ctx);
+                list.values.emplace_back(std::move(result));
             }
         }
         return kvstore::ResultCode::SUCCEEDED;
@@ -152,7 +181,7 @@ public:
         return upstream_->val();
     }
 
-    VertexID srcId() const override {
+    VertexIDSlice srcId() const override {
         return upstream_->srcId();
     }
 
@@ -164,13 +193,17 @@ public:
         return upstream_->edgeRank();
     }
 
-    VertexID dstId() const override {
+    VertexIDSlice dstId() const override {
         return upstream_->dstId();
     }
 
     // return the edge row reader which could pass filter
     RowReader* reader() const override {
         return upstream_->reader();
+    }
+
+    virtual const std::string& edgeName() const {
+        return upstream_->edgeName();
     }
 
     // return the column index in result row, used for GetNeighbors
@@ -181,6 +214,10 @@ public:
     // return the edge props need to return
     virtual const std::vector<PropContext>* props() const {
         return upstream_->props();
+    }
+
+    virtual const std::vector<std::unique_ptr<Expression>>* yields() const {
+        return upstream_->yields();
     }
 
 protected:

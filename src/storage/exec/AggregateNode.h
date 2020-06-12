@@ -88,8 +88,10 @@ private:
             for (const auto& ec : edgeContext->propContexts_) {
                 for (const auto& ctx : ec.second) {
                     if (ctx.hasStat_) {
-                        PropStat stat(ctx.statType_);
-                        stats_[ctx.statIndex_] = std::move(stat);
+                        for (size_t i = 0; i < ctx.statType_.size(); i++) {
+                            PropStat stat(ctx.statType_[i]);
+                            stats_[ctx.statIndex_[i]] = std::move(stat);
+                        }
                     }
                 }
             }
@@ -103,23 +105,30 @@ private:
                                          RowReader* reader,
                                          const std::vector<PropContext>* props,
                                          std::vector<PropStat>& stats) {
-        for (size_t i = 0; i < props->size(); i++) {
-            const auto& prop = (*props)[i];
+        for (const auto& prop : *props) {
             if (prop.hasStat_) {
-                VLOG(2) << "Collect stat prop " << prop.name_ << ", type " << edgeType;
-                auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
-                                                      reader, prop);
-                addStatValue(value, stats[prop.statIndex_]);
+                for (const auto statIndex : prop.statIndex_) {
+                    VLOG(2) << "Collect stat prop " << prop.name_ << ", type " << edgeType;
+                    auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
+                                                          reader, prop);
+                    addStatValue(value, stats[statIndex]);
+                }
             }
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     void addStatValue(const Value& value, PropStat& stat) {
-        stat.sum_ = stat.sum_ + value;
-        stat.count_ = stat.count_ + 1;
-        stat.max_ = value > stat.max_ ? value : stat.max_;
-        stat.min_ = value < stat.min_ ? value : stat.min_;
+        if (stat.statType_ == cpp2::StatType::SUM || stat.statType_ == cpp2::StatType::AVG) {
+            stat.sum_ = stat.sum_ + value;
+            stat.count_ = stat.count_ + 1;
+        } else if (stat.statType_ == cpp2::StatType::COUNT) {
+            stat.count_ = stat.count_ + 1;
+        } else if (stat.statType_ == cpp2::StatType::MAX) {
+            stat.max_ = value > stat.max_ ? value : stat.max_;
+        } else if (stat.statType_ == cpp2::StatType::MIN) {
+            stat.min_ = value < stat.min_ ? value : stat.min_;
+        }
     }
 
 private:

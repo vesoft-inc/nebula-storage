@@ -21,14 +21,18 @@ class GetNeighborsNode : public QueryNode<VertexID> {
     FRIEND_TEST(ScanEdgePropBench, ProcessEdgeProps);
 
 public:
-    GetNeighborsNode(HashJoinNode* hashJoinNode,
+    GetNeighborsNode(PlanContext* planCtx,
+                     HashJoinNode* hashJoinNode,
                      AggregateNode* AggregateNode,
                      EdgeContext* edgeContext,
-                     nebula::DataSet* resultDataSet)
-        : hashJoinNode_(hashJoinNode)
+                     nebula::DataSet* resultDataSet,
+                     StorageExpressionContext* expCtx)
+        : planContext_(planCtx)
+        , hashJoinNode_(hashJoinNode)
         , aggregateNode_(AggregateNode)
         , edgeContext_(edgeContext)
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet)
+        , expCtx_(expCtx) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -53,16 +57,25 @@ public:
         int64_t edgeRowCount = 0;
         nebula::List list;
         for (; aggregateNode_->valid(); aggregateNode_->next(), ++edgeRowCount) {
-            auto srcId = aggregateNode_->srcId();
             auto edgeType = aggregateNode_->edgeType();
-            auto edgeRank = aggregateNode_->edgeRank();
-            auto dstId = aggregateNode_->dstId();
+            auto key = aggregateNode_->key();
             auto reader = aggregateNode_->reader();
             auto props = aggregateNode_->props();
+            auto yields = aggregateNode_->yields();
             auto columnIdx = aggregateNode_->idx();
+            const auto& edgeName = aggregateNode_->edgeName();
 
+            expCtx_->reset(reader, key, edgeName);
             // collect props need to return
-            ret = collectEdgeProps(srcId, edgeType, edgeRank, dstId, reader, props, list);
+            ret = collectEdgeProps(edgeType,
+                                   edgeName,
+                                   reader,
+                                   key,
+                                   planContext_->vIdLen_,
+                                   props,
+                                   list,
+                                   yields,
+                                   expCtx_);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
@@ -89,10 +102,12 @@ public:
 private:
     GetNeighborsNode() = default;
 
+    PlanContext* planContext_;
     HashJoinNode* hashJoinNode_;
     AggregateNode* aggregateNode_;
     EdgeContext* edgeContext_;
     nebula::DataSet* resultDataSet_;
+    StorageExpressionContext* expCtx_;
 };
 
 }  // namespace storage

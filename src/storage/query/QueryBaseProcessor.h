@@ -10,6 +10,15 @@
 #include "common/base/Base.h"
 #include "common/context/ExpressionContext.h"
 #include "common/expression/Expression.h"
+#include "common/expression/SymbolPropertyExpression.h"
+#include "common/expression/ArithmeticExpression.h"
+#include "common/expression/ConstantExpression.h"
+#include "common/expression/FunctionCallExpression.h"
+#include "common/expression/LogicalExpression.h"
+#include "common/expression/RelationalExpression.h"
+#include "common/expression/TypeCastingExpression.h"
+#include "common/expression/UUIDExpression.h"
+#include "common/expression/UnaryExpression.h"
 #include "storage/BaseProcessor.h"
 
 namespace nebula {
@@ -21,57 +30,93 @@ struct ReturnProp {
 };
 
 // The PropContext stores the info about property to be returned or filtered
-class PropContext {
+struct PropContext {
 public:
     enum class PropInKeyType {
         NONE = 0x00,
         SRC = 0x01,
-        DST = 0x02,
-        TYPE = 0x03,
-        RANK = 0x04,
+        TYPE = 0x02,
+        RANK = 0x03,
+        DST = 0x04,
     };
 
     explicit PropContext(const char* name)
-        : name_(name) {}
+        : name_(name) {
+        setPropInKey();
+    }
+
+    PropContext(const char* name,
+                bool returned,
+                bool filtered,
+                const std::pair<size_t, cpp2::StatType>* statInfo = nullptr)
+        : name_(name)
+        , returned_(returned)
+        , filtered_(filtered) {
+        setPropInKey();
+        if (statInfo != nullptr) {
+            addStat(statInfo);
+        }
+    }
+
+    void setPropInKey() {
+        if (name_ == _SRC) {
+            propInKeyType_ = PropContext::PropInKeyType::SRC;
+        } else if (name_ == _TYPE) {
+            propInKeyType_ = PropContext::PropInKeyType::TYPE;
+        } else if (name_ == _RANK) {
+            propInKeyType_ = PropContext::PropInKeyType::RANK;
+        } else if (name_ == _DST) {
+            propInKeyType_ = PropContext::PropInKeyType::DST;
+        }
+    }
+
+    void addStat(const std::pair<size_t, cpp2::StatType>* statInfo) {
+        hasStat_ = true;
+        statIndex_.emplace_back(statInfo->first);
+        statType_.emplace_back(statInfo->second);
+    }
 
     // prop name
     std::string name_;
-    // field info, e.g. nullable, default value
-    const meta::SchemaProviderIf::Field* field_;
-    bool tagFiltered_ = false;
     bool returned_ = false;
+    bool filtered_ = false;
     // prop type in edge key, for srcId/dstId/type/rank
     PropInKeyType propInKeyType_ = PropInKeyType::NONE;
 
     // for edge prop stat, such as count/avg/sum
     bool hasStat_ = false;
     // stat prop index from request
-    size_t statIndex_;
-    cpp2::StatType statType_;
-};
-
-const std::vector<std::pair<std::string, PropContext::PropInKeyType>> kPropsInKey_ = {
-    {"_src", PropContext::PropInKeyType::SRC},
-    {"_type", PropContext::PropInKeyType::TYPE},
-    {"_rank", PropContext::PropInKeyType::RANK},
-    {"_dst", PropContext::PropInKeyType::DST},
+    std::vector<size_t> statIndex_;
+    std::vector<cpp2::StatType> statType_;
 };
 
 struct TagContext {
     std::vector<std::pair<TagID, std::vector<PropContext>>> propContexts_;
+    // indicates whether TagID is in propContxts_
     std::unordered_map<TagID, size_t> indexMap_;
+    // tagId -> tagName
+    std::unordered_map<TagID, std::string> tagNames_;
+    // tagId -> tag schema
     std::unordered_map<TagID,
                        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    // tagId -> tag ttl info
     std::unordered_map<TagID, std::pair<std::string, int64_t>> ttlInfo_;
+    std::unordered_map<TagID, std::vector<std::unique_ptr<Expression>>> yields_;
     VertexCache* vertexCache_ = nullptr;
 };
 
 struct EdgeContext {
     std::vector<std::pair<EdgeType, std::vector<PropContext>>> propContexts_;
+    // indicates whether EdgeType is in propContxts_
     std::unordered_map<EdgeType, size_t> indexMap_;
+    // EdgeType -> edgeName
+    std::unordered_map<EdgeType, std::string> edgeNames_;
+    // EdgeType -> edge schema
     std::unordered_map<EdgeType,
                        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
+    // EdgeType -> edge ttl info
     std::unordered_map<EdgeType, std::pair<std::string, int64_t>> ttlInfo_;
+    std::unordered_map<EdgeType, std::vector<std::unique_ptr<Expression>>> yields_;
     // offset is the start index of first edge type in a response row
     size_t offset_;
     size_t statCount_ = 0;
@@ -99,15 +144,16 @@ protected:
     cpp2::ErrorCode getSpaceEdgeSchema();
 
     // collect tag props need to return
-    cpp2::ErrorCode prepareVertexProps(const std::vector<cpp2::PropExp>& vertexProps,
-                                       std::vector<ReturnProp>& returnProps);
+    cpp2::ErrorCode prepareVertexProps(const std::vector<cpp2::EntryProp>& tagProps);
 
     // collect edge props need to return
-    cpp2::ErrorCode prepareEdgeProps(const std::vector<cpp2::PropExp>& edgeProps,
-                                     std::vector<ReturnProp>& returnProps);
+    cpp2::ErrorCode prepareEdgeProps(const std::vector<cpp2::EntryProp>& edgeProps);
+
+    cpp2::ErrorCode prepareProps(const std::vector<cpp2::PropExp>& props,
+                                 std::vector<std::unique_ptr<Expression>>* yields);
 
     // build tagContexts_ according to return props
-    cpp2::ErrorCode handleVertexProps(const std::vector<ReturnProp>& vertexProps);
+    cpp2::ErrorCode handleVertexProps(const std::vector<ReturnProp>& tagProps);
     // build edgeContexts_ according to return props
     cpp2::ErrorCode handleEdgeProps(const std::vector<ReturnProp>& edgeProps);
 
@@ -120,13 +166,24 @@ protected:
     std::vector<ReturnProp> buildAllTagProps();
     std::vector<ReturnProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
+    cpp2::ErrorCode checkExp(const Expression* exp, bool returned, bool filtered);
+
+    void addPropContextIfNotExists(std::vector<std::pair<TagID, std::vector<PropContext>>>& props,
+                                   std::unordered_map<int32_t, size_t>& indexMap,
+                                   std::unordered_map<int32_t, std::string>& names,
+                                   int32_t entryId,
+                                   const std::string* entryName,
+                                   const std::string* propName,
+                                   bool returned,
+                                   bool filtered,
+                                   const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);
+
 protected:
     GraphSpaceID spaceId_;
 
     TagContext tagContext_;
     EdgeContext edgeContext_;
-    std::unique_ptr<ExpressionContext> expCtx_;
-    std::unique_ptr<Expression> exp_;
+    std::unique_ptr<Expression> filter_;
 
     nebula::DataSet resultDataSet_;
 };

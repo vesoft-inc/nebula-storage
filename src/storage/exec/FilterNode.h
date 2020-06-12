@@ -19,19 +19,11 @@ namespace storage {
 class FilterNode : public IterateEdgeNode<VertexID> {
 public:
     FilterNode(IterateEdgeNode* hashJoinNode,
-               TagContext* tagContext,
-               EdgeContext* edgeContext,
-               ExpressionContext* expCtx,
+               StorageExpressionContext* expCtx = nullptr,
                Expression* exp = nullptr)
         : IterateEdgeNode(hashJoinNode)
-        , tagContext_(tagContext)
-        , edgeContext_(edgeContext)
         , expCtx_(expCtx)
-        , exp_(exp) {
-        UNUSED(tagContext_);
-        UNUSED(edgeContext_);
-        UNUSED(expCtx_);
-    }
+        , exp_(exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -49,16 +41,19 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (exp_ != nullptr) {
-            // todo(doodle)
-            exp_->eval(*expCtx_);
+            expCtx_->reset(upstream_->reader(), upstream_->key(), upstream_->edgeName());
+            auto result = exp_->eval(*expCtx_);
+            if (result.type() == Value::Type::BOOL) {
+                return result.getBool();
+            } else {
+                return false;
+            }
         }
         return true;
     }
 
 private:
-    TagContext* tagContext_;
-    EdgeContext* edgeContext_;
-    ExpressionContext* expCtx_;
+    StorageExpressionContext* expCtx_;
     Expression* exp_;
 };
 

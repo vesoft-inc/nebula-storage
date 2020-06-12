@@ -53,13 +53,21 @@ public:
         return valueHandler(edgeType_, key, reader_.get(), props_);
     }
 
+    const std::string& getEdgeName() {
+        return edgeName_;
+    }
+
+    const std::vector<std::unique_ptr<Expression>>* yields() const {
+        return yields_;
+    }
+
 protected:
     EdgeNode(PlanContext* planCtx,
              EdgeContext* ctx,
              EdgeType edgeType,
              const std::vector<PropContext>* props,
              ExpressionContext* expCtx,
-             Expression* exp = nullptr)
+             Expression* exp)
         : planContext_(planCtx)
         , edgeContext_(ctx)
         , edgeType_(edgeType)
@@ -71,6 +79,8 @@ protected:
         CHECK(!schemaIter->second.empty());
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, edgeType_);
+        edgeName_ = edgeContext_->edgeNames_[edgeType_];
+        yields_ = &(edgeContext_->yields_[edgeType_]);
     }
 
     EdgeNode(PlanContext* planCtx,
@@ -87,6 +97,8 @@ protected:
 
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
+    std::string edgeName_;
+    const std::vector<std::unique_ptr<Expression>>* yields_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<EdgeIterator> iter_;
@@ -100,7 +112,7 @@ public:
                   EdgeContext* ctx,
                   EdgeType edgeType,
                   const std::vector<PropContext>* props,
-                  ExpressionContext* expCtx,
+                  ExpressionContext* expCtx = nullptr,
                   Expression* exp = nullptr)
         : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
 
@@ -140,7 +152,7 @@ public:
                    EdgeContext* ctx,
                    EdgeType edgeType,
                    const std::vector<PropContext>* props,
-                   ExpressionContext* expCtx,
+                   ExpressionContext* expCtx = nullptr,
                    Expression* exp = nullptr)
         : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
 

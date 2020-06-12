@@ -16,10 +16,10 @@ namespace storage {
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         const std::vector<ReturnProp>& vertexProps) {
-    for (size_t i = 0; i < vertexProps.size(); i++) {
-        auto tagId = vertexProps[i].entryId_;
-        auto iter = this->tagContext_.schemas_.find(tagId);
-        if (iter == this->tagContext_.schemas_.end()) {
+    for (const auto& vertexProp : vertexProps) {
+        auto tagId = vertexProp.entryId_;
+        auto iter = tagContext_.schemas_.find(tagId);
+        if (iter == tagContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
             return cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
@@ -30,11 +30,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
             return cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
-        resultDataSet_.colNames.emplace_back(
-            folly::stringPrintf("%d:%s", tagId, tagName.value().c_str()));
 
         std::vector<PropContext> ctxs;
-        auto& props = vertexProps[i].names_;
+        auto& props = vertexProp.names_;
         for (const auto& name : props) {
             auto field = tagSchema->field(name);
             if (field == nullptr) {
@@ -42,14 +40,13 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
                 return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
             }
 
-            // todo(doodle): perhaps need to dedup here
             PropContext ctx(name.c_str());
             ctx.returned_ = true;
-            ctx.field_ = field;
             ctxs.emplace_back(std::move(ctx));
         }
-        this->tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
-        this->tagContext_.indexMap_.emplace(tagId, this->tagContext_.propContexts_.size() - 1);
+        tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+        tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
+        tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -57,10 +54,10 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         const std::vector<ReturnProp>& edgeProps) {
-    for (size_t i = 0; i < edgeProps.size(); i++) {
-        auto edgeType = edgeProps[i].entryId_;
-        auto iter = this->edgeContext_.schemas_.find(std::abs(edgeType));
-        if (iter == this->edgeContext_.schemas_.end()) {
+    for (const auto& edgeProp : edgeProps) {
+        auto edgeType = edgeProp.entryId_;
+        auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
+        if (iter == edgeContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
             return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
@@ -71,33 +68,23 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
             return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
-        resultDataSet_.colNames.emplace_back(
-            folly::stringPrintf("%d:%s", edgeType, edgeName.value().c_str()));
 
         std::vector<PropContext> ctxs;
-        auto& props = edgeProps[i].names_;
+        auto& props = edgeProp.names_;
         for (const auto& name : props) {
-            // because there are some reserved edge prop in key (src/dst/type/rank),
-            // we can't find those prop in schema
-            PropContext ctx(name.c_str());
-            auto propIter = std::find_if(kPropsInKey_.begin(), kPropsInKey_.end(),
-                                         [&] (const auto& entry) { return entry.first == name; });
-            if (propIter != kPropsInKey_.end()) {
-                ctx.propInKeyType_ = propIter->second;
-            } else {
-                auto field = edgeSchema->field(name);
-                if (field == nullptr) {
-                    VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
-                    return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
-                }
-                ctx.field_ = field;
+            auto field = edgeSchema->field(name);
+            if (field == nullptr) {
+                VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
+                return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
             }
+
+            PropContext ctx(name.c_str());
             ctx.returned_ = true;
-            // todo(doodle): perhaps need to dedup here
             ctxs.emplace_back(std::move(ctx));
         }
-        this->edgeContext_.propContexts_.emplace_back(edgeType, std::move(ctxs));
-        this->edgeContext_.indexMap_.emplace(edgeType, this->edgeContext_.propContexts_.size() - 1);
+        edgeContext_.propContexts_.emplace_back(edgeType, std::move(ctxs));
+        edgeContext_.indexMap_.emplace(edgeType, edgeContext_.propContexts_.size() - 1);
+        edgeContext_.edgeNames_.emplace(edgeType, std::move(edgeName).value());
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -109,18 +96,22 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
     }
     const auto& filterStr = *req.get_filter();
     if (!filterStr.empty()) {
-        // todo(doodle): wait Expression ready, check if filter valid,
-        // and add tag filter to tagContexts_
+        // the filter expression **must** return a bool
+        filter_ = std::move(Expression::decode(filterStr));
+        if (filter_ == nullptr) {
+            return cpp2::ErrorCode::E_INVALID_FILTER;
+        }
+        return checkExp(filter_.get(), false, true);
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::buildTagTTLInfo() {
-    for (const auto& tc : this->tagContext_.propContexts_) {
+    for (const auto& tc : tagContext_.propContexts_) {
         auto tagId = tc.first;
-        auto iter = this->tagContext_.schemas_.find(tagId);
-        CHECK(iter != this->tagContext_.schemas_.end());
+        auto iter = tagContext_.schemas_.find(tagId);
+        CHECK(iter != tagContext_.schemas_.end());
         const auto& tagSchema = iter->second.back();
 
         auto ttlInfo = tagSchema->getTTLInfo();
@@ -133,10 +124,10 @@ void QueryBaseProcessor<REQ, RESP>::buildTagTTLInfo() {
 
 template<typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
-    for (const auto& ec : this->edgeContext_.propContexts_) {
+    for (const auto& ec : edgeContext_.propContexts_) {
         auto edgeType = ec.first;
-        auto iter = this->edgeContext_.schemas_.find(std::abs(edgeType));
-        CHECK(iter != this->edgeContext_.schemas_.end());
+        auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
+        CHECK(iter != edgeContext_.schemas_.end());
         const auto& edgeSchema = iter->second.back();
 
         auto ttlInfo = edgeSchema->getTTLInfo();
@@ -150,7 +141,7 @@ void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
 template<typename REQ, typename RESP>
 std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
     std::vector<ReturnProp> result;
-    for (const auto& entry : this->tagContext_.schemas_) {
+    for (const auto& entry : tagContext_.schemas_) {
         ReturnProp prop;
         prop.entryId_ = entry.first;
         std::vector<std::string> names;
@@ -172,7 +163,7 @@ template<typename REQ, typename RESP>
 std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         const cpp2::EdgeDirection& direction) {
     std::vector<ReturnProp> result;
-    for (const auto& entry : this->edgeContext_.schemas_) {
+    for (const auto& entry : edgeContext_.schemas_) {
         ReturnProp prop;
         prop.entryId_ = entry.first;
         if (direction == cpp2::EdgeDirection::IN_EDGE) {
@@ -200,59 +191,47 @@ std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareVertexProps(
-        const std::vector<cpp2::PropExp>& vertexProps,
-        std::vector<ReturnProp>& returnProps) {
-    // todo(doodle): wait
-    /*
-    for (auto& vertexProp : vertexProps) {
-        // If there is no property specified, add all property of latest schema to vertexProps
-        if (vertexProp.names.empty()) {
-            auto tagId = vertexProp.tag;
-            auto tagSchema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
-            if (!tagSchema) {
-                VLOG(1) << "Can't find spaceId " << spaceId_ << " tag " << tagId;
-                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-            }
-
-            auto count = tagSchema->getNumFields();
-            for (size_t i = 0; i < count; i++) {
-                auto name = tagSchema->getFieldName(i);
-                vertexProp.names.emplace_back(std::move(name));
-            }
+        const std::vector<cpp2::EntryProp>& tagProps) {
+    for (const auto& tagProp : tagProps) {
+        auto ret = prepareProps(tagProp.props,
+                                &(tagContext_.yields_[tagProp.tag_or_edge_id]));
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            return ret;
         }
     }
-    */
-    UNUSED(vertexProps);
-    UNUSED(returnProps);
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareEdgeProps(
-        const std::vector<cpp2::PropExp>& edgeProps,
-        std::vector<ReturnProp>& returnProps) {
-    // todo(doodle): wait
-    /*
-    for (auto& edgeProp : edgeProps) {
-        // If there is no property specified, add all property of latest schema to edgeProps
-        if (edgeProp.names.empty()) {
-            auto edgeType = edgeProp.type;
-            auto edgeSchema = env_->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
-            if (!edgeSchema) {
-                VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
-                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
-            }
-
-            auto count = edgeSchema->getNumFields();
-            for (size_t i = 0; i < count; i++) {
-                auto name = edgeSchema->getFieldName(i);
-                edgeProp.names.emplace_back(std::move(name));
-            }
+        const std::vector<cpp2::EntryProp>& edgeProps) {
+    for (const auto& edgeProp : edgeProps) {
+        auto ret = prepareProps(edgeProp.props,
+                                &(edgeContext_.yields_[edgeProp.tag_or_edge_id]));
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            return ret;
         }
     }
-    */
-    UNUSED(edgeProps);
-    UNUSED(returnProps);
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+template <typename REQ, typename RESP>
+cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareProps(
+        const std::vector<cpp2::PropExp>& props,
+        std::vector<std::unique_ptr<Expression>>* yields) {
+    for (const auto& propExp : props) {
+        auto exp = Expression::decode(propExp.prop);
+        if (exp == nullptr) {
+            return cpp2::ErrorCode::E_DATA_TYPE_MISMATCH;
+        }
+        auto ret = checkExp(exp.get(), true, false);
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            return ret;
+        }
+        if (yields != nullptr) {
+            yields->emplace_back(std::move(exp));
+        }
+    }
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -262,7 +241,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceVertexSchema() {
     if (!tags.ok()) {
         return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
-    this->tagContext_.schemas_ = std::move(tags).value();
+    tagContext_.schemas_ = std::move(tags).value();
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -273,10 +252,199 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceEdgeSchema() {
         return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
 
-    this->edgeContext_.schemas_ = std::move(edges).value();
+    edgeContext_.schemas_ = std::move(edges).value();
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+template <typename REQ, typename RESP>
+cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
+                                                        bool returned,
+                                                        bool filtered) {
+    switch (exp->kind()) {
+        case Expression::Kind::kConstant:
+            return cpp2::ErrorCode::SUCCEEDED;
+        case Expression::Kind::kAdd:
+        case Expression::Kind::kMinus:
+        case Expression::Kind::kMultiply:
+        case Expression::Kind::kDivision:
+        case Expression::Kind::kMod: {
+            auto* ariExp = static_cast<const ArithmeticExpression*>(exp);
+            auto ret = checkExp(ariExp->left(), returned, filtered);
+            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                return ret;
+            }
+            return checkExp(ariExp->right(), returned, filtered);
+        }
+        case Expression::Kind::kUnaryPlus:
+        case Expression::Kind::kUnaryNegate:
+        case Expression::Kind::kUnaryNot:
+        case Expression::Kind::kUnaryIncr:
+        case Expression::Kind::kUnaryDecr: {
+            auto* unaExp = static_cast<const UnaryExpression*>(exp);
+            return checkExp(unaExp->operand(), returned, filtered);
+        }
+        case Expression::Kind::kRelEQ:
+        case Expression::Kind::kRelNE:
+        case Expression::Kind::kRelLT:
+        case Expression::Kind::kRelLE:
+        case Expression::Kind::kRelGT:
+        case Expression::Kind::kRelGE:
+        case Expression::Kind::kRelIn: {
+            auto* relExp = static_cast<const RelationalExpression*>(exp);
+            auto ret = checkExp(relExp->left(), returned, filtered);
+            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                return ret;
+            }
+            return checkExp(relExp->right(), returned, filtered);
+        }
+        case Expression::Kind::kLogicalAnd:
+        case Expression::Kind::kLogicalOr:
+        case Expression::Kind::kLogicalXor: {
+            auto* logExp = static_cast<const LogicalExpression*>(exp);
+            auto ret = checkExp(logExp->left(), returned, filtered);
+            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                return ret;
+            }
+            return checkExp(logExp->right(), returned, filtered);
+        }
+        case Expression::Kind::kTypeCasting: {
+            auto* typExp = static_cast<const TypeCastingExpression*>(exp);
+            return checkExp(typExp->operand(), returned, filtered);
+        }
+        case Expression::Kind::kFunctionCall: {
+            return cpp2::ErrorCode::E_INVALID_FILTER;
+        }
+        case Expression::Kind::kSrcProperty: {
+            auto* sourceExp = static_cast<const SourcePropertyExpression*>(exp);
+            const auto* tagName = sourceExp->sym();
+            const auto* propName = sourceExp->prop();
+            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, *tagName);
+            if (!tagRet.ok()) {
+                VLOG(1) << "Can't find tag " << *tagName << ", in space " << spaceId_;
+                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            }
+
+            auto tagId = tagRet.value();
+            auto iter = tagContext_.schemas_.find(tagId);
+            if (iter == tagContext_.schemas_.end()) {
+                VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
+                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            }
+            CHECK(!iter->second.empty());
+            const auto& tagSchema = iter->second.back();
+
+            auto field = tagSchema->field(*propName);
+            if (field == nullptr) {
+                VLOG(1) << "Can't find related prop " << *propName << " on tag " << *tagName;
+                return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+            }
+
+            addPropContextIfNotExists(tagContext_.propContexts_,
+                                      tagContext_.indexMap_,
+                                      tagContext_.tagNames_,
+                                      tagId,
+                                      tagName,
+                                      propName,
+                                      returned,
+                                      filtered);
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
+        case Expression::Kind::kEdgeRank:
+        case Expression::Kind::kEdgeDst:
+        case Expression::Kind::kEdgeSrc:
+        case Expression::Kind::kEdgeType:
+        case Expression::Kind::kEdgeProperty: {
+            auto* edgeExp = static_cast<const SymbolPropertyExpression*>(exp);
+            const auto* edgeName = edgeExp->sym();
+            const auto* propName = edgeExp->prop();
+            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeName);
+            if (!edgeRet.ok()) {
+                VLOG(1) << "Can't find edge " << *edgeName << ", in space " << spaceId_;
+                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            }
+
+            auto edgeType = edgeRet.value();
+            auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
+            if (iter == edgeContext_.schemas_.end()) {
+                VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);
+                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            }
+            CHECK(!iter->second.empty());
+            const auto& edgeSchema = iter->second.back();
+
+            const meta::SchemaProviderIf::Field* field = nullptr;
+            if (exp->kind() == Expression::Kind::kEdgeProperty) {
+                field = edgeSchema->field(*propName);
+                if (field == nullptr) {
+                    VLOG(1) << "Can't find related prop " << *propName << " on edge " << *edgeName;
+                    return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+                }
+            }
+            addPropContextIfNotExists(edgeContext_.propContexts_,
+                                      edgeContext_.indexMap_,
+                                      edgeContext_.edgeNames_,
+                                      edgeType,
+                                      edgeName,
+                                      propName,
+                                      returned,
+                                      filtered);
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
+        case Expression::Kind::kInputProperty:
+        case Expression::Kind::kVarProperty:
+        case Expression::Kind::kDstProperty:
+        case Expression::Kind::kUUID:
+        case Expression::Kind::kVar:
+        case Expression::Kind::kVersionedVar: {
+            return cpp2::ErrorCode::E_INVALID_FILTER;
+        }
+        default: {
+            LOG(INFO) << "Unsupport expression type! kind = "
+                      << exp->kind();
+            return cpp2::ErrorCode::E_INVALID_FILTER;
+        }
+    }
+}
+
+template <typename REQ, typename RESP>
+void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
+        std::vector<std::pair<TagID, std::vector<PropContext>>>& propContexts,
+        std::unordered_map<int32_t, size_t>& indexMap,
+        std::unordered_map<int32_t, std::string>& names,
+        int32_t entryId,
+        const std::string* entryName,
+        const std::string* propName,
+        bool returned,
+        bool filtered,
+        const std::pair<size_t, cpp2::StatType>* statInfo) {
+    auto idxIter = indexMap.find(entryId);
+    if (idxIter == indexMap.end()) {
+        // if no property of tag/edge has been add to propContexts
+        PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+        std::vector<PropContext> ctxs;
+        ctxs.emplace_back(std::move(ctx));
+        propContexts.emplace_back(entryId, std::move(ctxs));
+        indexMap.emplace(entryId, propContexts.size() - 1);
+        names.emplace(entryId, *entryName);
+    } else {
+        // some property of tag/edge has been add to propContexts
+        auto& props = propContexts[idxIter->second].second;
+        auto iter = std::find_if(props.begin(), props.end(), [propName] (const auto& prop) {
+                                 return prop.name_ == *propName; });
+        if (iter == props.end()) {
+            // this prop has not been add to propContexts
+            PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+            props.emplace_back(std::move(ctx));
+        } else {
+            // this prop been add to propContexts, just update the flag
+            iter->returned_ |= returned;
+            iter->filtered_ |= filtered;
+            if (statInfo != nullptr) {
+                iter->addStat(statInfo);
+            }
+        }
+    }
+}
 
 }  // namespace storage
 }  // namespace nebula

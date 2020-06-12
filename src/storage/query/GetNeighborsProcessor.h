@@ -43,13 +43,21 @@ protected:
     cpp2::ErrorCode buildTagContext(const cpp2::GetNeighborsRequest& req);
     cpp2::ErrorCode buildEdgeContext(const cpp2::GetNeighborsRequest& req);
 
+    // build tag/edge col name in response when return all property
+    void buildTagColName(const std::vector<ReturnProp>& tagProps);
+    void buildEdgeColName(const std::vector<ReturnProp>& edgeProps);
+
+    // build tag/edge col name in response when prop specified
+    void buildTagColName(const std::vector<cpp2::EntryProp>& tagProps);
+    void buildEdgeColName(const std::vector<cpp2::EntryProp>& edgeProps);
+
     // add PropContext of stat
     cpp2::ErrorCode handleEdgeStatProps(const std::vector<cpp2::StatProp>& statProps);
-    cpp2::ErrorCode checkStatType(const meta::cpp2::PropertyType& fType, cpp2::StatType statType);
-    PropContext buildPropContextWithStat(const std::string& name,
-                                         size_t idx,
-                                         const cpp2::StatType& statType,
-                                         const meta::SchemaProviderIf::Field* field);
+    cpp2::ErrorCode checkStatType(const meta::SchemaProviderIf::Field* field,
+                                  cpp2::StatType statType);
+
+private:
+    std::unique_ptr<StorageExpressionContext> expCtx_;
 };
 
 }  // namespace storage

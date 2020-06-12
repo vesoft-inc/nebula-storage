@@ -21,7 +21,7 @@ public:
             TagContext* ctx,
             TagID tagId,
             const std::vector<PropContext>* props,
-            ExpressionContext* expCtx,
+            ExpressionContext* expCtx = nullptr,
             Expression* exp = nullptr)
         : planContext_(planCtx)
         , tagContext_(ctx)
@@ -34,6 +34,8 @@ public:
         CHECK(!schemaIter->second.empty());
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
+        tagName_ = tagContext_->tagNames_[tagId_];
+        yields_ = &(tagContext_->yields_[tagId_]);
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -101,6 +103,14 @@ public:
         return valueHandler(tagId_, reader_.get(), props_);
     }
 
+    const std::string& getTagName() {
+        return tagName_;
+    }
+
+    const std::vector<std::unique_ptr<Expression>>* yields() const {
+        return yields_;
+    }
+
 private:
     PlanContext* planContext_;
     TagContext* tagContext_;
@@ -110,6 +120,8 @@ private:
     Expression* exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
+    std::string tagName_;
+    const std::vector<std::unique_ptr<Expression>>* yields_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<StorageIterator> iter_;

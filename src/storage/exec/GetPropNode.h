@@ -16,9 +16,12 @@ namespace storage {
 
 class GetTagPropNode : public QueryNode<VertexID> {
 public:
-    explicit GetTagPropNode(std::vector<TagNode*> tagNodes, nebula::DataSet* resultDataSet)
+    explicit GetTagPropNode(std::vector<TagNode*> tagNodes,
+                            nebula::DataSet* resultDataSet,
+                            StorageExpressionContext* expCtx)
         : tagNodes_(std::move(tagNodes))
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet)
+        , expCtx_(expCtx) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -28,6 +31,8 @@ public:
 
         std::vector<Value> row;
         for (auto* tagNode : tagNodes_) {
+            const auto& tagName = tagNode->getTagName();
+            const auto* yields = tagNode->yields();
             ret = tagNode->collectTagPropsIfValid(
                 [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
@@ -37,10 +42,18 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &row] (TagID tagId, RowReader* reader,
-                                 const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [this, &row, &tagName, yields] (TagID tagId,
+                                                RowReader* reader,
+                                                const std::vector<PropContext>* props)
+                -> kvstore::ResultCode {
                     nebula::List list;
-                    auto code = collectTagProps(tagId, reader, props, list, nullptr);
+                    auto code = collectTagProps(tagId,
+                                                tagName,
+                                                reader,
+                                                props,
+                                                list,
+                                                yields,
+                                                expCtx_);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
@@ -59,18 +72,20 @@ public:
 
 private:
     std::vector<TagNode*> tagNodes_;
-    std::unique_ptr<RowReader> reader_;
     nebula::DataSet* resultDataSet_;
+    StorageExpressionContext* expCtx_;
 };
 
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
 public:
     GetEdgePropNode(std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
                     size_t vIdLen,
-                    nebula::DataSet* resultDataSet)
+                    nebula::DataSet* resultDataSet,
+                    StorageExpressionContext* expCtx)
         : edgeNodes_(std::move(edgeNodes))
         , vIdLen_(vIdLen)
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet)
+        , expCtx_(expCtx) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::execute(partId, edgeKey);
@@ -80,6 +95,8 @@ public:
 
         std::vector<Value> row;
         for (auto* edgeNode : edgeNodes_) {
+            const auto& edgeName = edgeNode->getEdgeName();
+            const auto* yields = edgeNode->yields();
             ret = edgeNode->collectEdgePropsIfValid(
                 [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
@@ -89,15 +106,21 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &row] (EdgeType edgeType, folly::StringPiece key,
-                                 RowReader* reader, const std::vector<PropContext>* props)
+                [this, &row, &edgeName, yields] (EdgeType edgeType,
+                                                 folly::StringPiece key,
+                                                 RowReader* reader,
+                                                 const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     nebula::List list;
-                    auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key);
-                    auto edgeRank = NebulaKeyUtils::getRank(vIdLen_, key);
-                    auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
-                    auto code = collectEdgeProps(srcId, edgeType, edgeRank, dstId,
-                                                 reader, props, list);
+                    auto code = collectEdgeProps(edgeType,
+                                                 edgeName,
+                                                 reader,
+                                                 key,
+                                                 vIdLen_,
+                                                 props,
+                                                 list,
+                                                 yields,
+                                                 expCtx_);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
@@ -117,8 +140,8 @@ public:
 private:
     std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes_;
     size_t vIdLen_;
-    std::unique_ptr<RowReader> reader_;
     nebula::DataSet* resultDataSet_;
+    StorageExpressionContext* expCtx_;
 };
 
 }  // namespace storage

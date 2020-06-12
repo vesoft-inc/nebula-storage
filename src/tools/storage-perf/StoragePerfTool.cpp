@@ -142,20 +142,14 @@ private:
                               + folly::Random::rand32(FLAGS_max_vertex_id - FLAGS_min_vertex_id))};
     }
 
-    std::vector<cpp2::PropExp> vertexProps() {
-        std::vector<cpp2::PropExp> propExps;
-        cpp2::PropExp propExp;
-        propExp.set_prop(folly::stringPrintf("tag_%d_col_1", tagId_));
-        propExps.emplace_back(propExp);
-        return propExps;
+    std::vector<cpp2::EntryProp> vertexProps() {
+        std::vector<cpp2::EntryProp> vertexProps;
+        return vertexProps;
     }
 
-    std::vector<cpp2::PropExp> edgeProps() {
-        std::vector<cpp2::PropExp> propExps;
-        cpp2::PropExp propExp;
-        propExp.set_prop("col_1");
-        propExps.emplace_back(propExp);
-        return propExps;
+    std::vector<cpp2::EntryProp> edgeProps() {
+        std::vector<cpp2::EntryProp> edgeProps;
+        return edgeProps;
     }
 
     std::vector<Value> genData(int32_t size) {
@@ -236,8 +230,8 @@ private:
 
         cpp2::EdgeDirection edgeDire = cpp2::EdgeDirection::BOTH;
         std::vector<cpp2::StatProp> statProps;
-        std::vector<cpp2::PropExp> vProps = vertexProps();
-        std::vector<cpp2::PropExp> eProps = edgeProps();
+        auto vProps = vertexProps();
+        auto eProps = edgeProps();
 
         auto tokens = tokenBucket_.consumeOrDrain(FLAGS_concurrency, FLAGS_qps, FLAGS_concurrency);
         for (auto i = 0; i < tokens; i++) {
