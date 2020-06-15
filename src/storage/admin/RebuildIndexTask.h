@@ -45,7 +45,6 @@ protected:
         canceled_ = true;
     }
 
-protected:
     kvstore::ResultCode buildIndexOnOperations(GraphSpaceID space,
                                                PartitionID part);
 

@@ -52,7 +52,7 @@ RebuildIndexTask::genSubTasks() {
         std::function<kvstore::ResultCode()> task = std::bind(&RebuildIndexTask::genSubTask,
                                                               this, space_, part, schemaID,
                                                               indexID, item, isOffline);
-        tasks.emplace_back(task);
+        tasks.emplace_back(std::move(task));
     }
     return tasks;
 }
