@@ -19,7 +19,7 @@ public:
                      AdminClient* adminClient,
                      std::vector<std::string> params);
 
-    folly::Future<Status> executeInternal(const HostAddr& address,
+    folly::Future<Status> executeInternal(HostAddr address,
                                           std::vector<PartitionID> parts) override;
 };
 

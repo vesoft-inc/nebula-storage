@@ -54,7 +54,7 @@ protected:
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
 
-    virtual folly::Future<Status> executeInternal(const HostAddr& address,
+    virtual folly::Future<Status> executeInternal(HostAddr address,
                                                   std::vector<PartitionID> parts) = 0;
 
 protected:

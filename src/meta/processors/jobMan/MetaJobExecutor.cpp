@@ -140,7 +140,7 @@ ExecuteRet MetaJobExecutor::execute() {
     std::vector<folly::SemiFuture<Status>> futures;
     auto addresses = nebula::value(addressesRet);
     for (auto& address : addresses) {
-        auto future = executeInternal({address.first}, address.second);
+        auto future = executeInternal(std::move(address.first), std::move(address.second));
         futures.emplace_back(std::move(future));
     }
 

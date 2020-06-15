@@ -22,7 +22,7 @@ public:
 
 protected:
      folly::Future<Status>
-     executeInternal(const HostAddr& address,
+     executeInternal(HostAddr address,
                      std::vector<PartitionID> parts) override;
 };
 

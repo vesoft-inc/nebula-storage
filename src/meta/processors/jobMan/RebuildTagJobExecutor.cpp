@@ -10,10 +10,11 @@ namespace nebula {
 namespace meta {
 
 folly::Future<Status>
-RebuildTagJobExecutor::executeInternal(const HostAddr& address,
+RebuildTagJobExecutor::executeInternal(HostAddr address,
                                        std::vector<PartitionID> parts) {
     // TODO will move to admin client's addTask
-    return adminClient_->rebuildTagIndex(address, space_, indexId_, std::move(parts), isOffline_);
+    return adminClient_->rebuildTagIndex(std::move(address), space_, indexId_,
+                                         std::move(parts), isOffline_);
 }
 
 }  // namespace meta

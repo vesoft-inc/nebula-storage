@@ -15,10 +15,10 @@ FlushJobExecutor::FlushJobExecutor(JobID jobId,
                                    std::vector<std::string> paras)
     : SimpleConcurrentJobExecutor(jobId, kvstore, adminClient, paras) {}
 
-folly::Future<Status> FlushJobExecutor::executeInternal(const HostAddr& address,
+folly::Future<Status> FlushJobExecutor::executeInternal(HostAddr address,
                                                         std::vector<PartitionID> parts) {
     return adminClient_->addTask(cpp2::AdminCmd::FLUSH, jobId_, taskId_++, space_,
-                                 {address}, {}, parts, concurrency_);
+                                 {std::move(address)}, {}, std::move(parts), concurrency_);
 }
 
 }  // namespace meta
