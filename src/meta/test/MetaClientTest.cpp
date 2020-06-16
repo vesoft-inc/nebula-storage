@@ -943,7 +943,7 @@ TEST(MetaClientTest, DiffTest) {
     client->registerListener(listener.get());
     {
         // Add hosts automatically, then testing listHosts interface.
-        std::vector<HostAddr> hosts = {{"127.0.0.1", 0}};
+        std::vector<HostAddr> hosts = {{"", 0}};
         TestUtils::registerHB(kv, hosts);
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
