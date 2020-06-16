@@ -941,7 +941,7 @@ TEST(MetaClientTest, DiffTest) {
     client->registerListener(listener.get());
     {
         // Add hosts automatically, then testing listHosts interface.
-        std::vector<HostAddr> hosts = {{"", 0}};
+        std::vector<HostAddr> hosts = {{"127.0.0.1", 0}};
         TestUtils::registerHB(kv, hosts);
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
@@ -989,7 +989,7 @@ TEST(MetaClientTest, HeartbeatTest) {
     HostAddr localHost(cluster.localIP(), network::NetworkUtils::getAvailablePort());
     options.localHost_ = localHost;
     options.clusterId_ = kClusterId;
-    options.inStoraged_ = true;
+    options.role_ = meta::cpp2::HostRole::STORAGE;
     cluster.initMetaClient(std::move(options));
     auto* client = cluster.metaClient_.get();
 
