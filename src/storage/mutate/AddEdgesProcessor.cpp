@@ -142,6 +142,11 @@ AddEdgesProcessor::addEdges(PartitionID partId,
         auto edgeType = NebulaKeyUtils::getEdgeType(spaceVidLen_, e.first);
         for (auto& index : indexes_) {
             if (edgeType == index->get_schema_id().get_edge_type()) {
+                if (checkIndexLocked(spaceId_, partId)) {
+                    LOG(INFO) << "The part have locked";
+                    return folly::none;
+                }
+
                 /*
                  * step 1 , Delete old version index if exists.
                  */
@@ -152,6 +157,8 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     }
                     val = std::move(obsIdx).value();
                 }
+
+                auto indexId = index->get_index_id();
                 if (!val.empty()) {
                     auto reader = RowReader::getEdgePropReader(env_->schemaMan_,
                                                                spaceId_,
@@ -163,21 +170,11 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     }
                     auto oi = indexKey(partId, reader.get(), e.first, index);
                     if (!oi.empty()) {
-                        if (env_->rebuildIndexGuard_ == nullptr &&
-                            env_->rebuildPartsGuard_ == nullptr) {
-                            batchHolder->remove(std::move(oi));
+                        if (checkRebuilding(spaceId_, partId, indexId)) {
+                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else {
-                            auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
-                            auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
-                            if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
-                                spaceIndexIter->second == index->get_index_id() &&
-                                partIter != env_->rebuildPartsGuard_->cend() &&
-                                partIter->second.find(partId) != partIter->second.cend()) {
-                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                                batchHolder->put(std::move(deleteOpKey), std::move(oi));
-                            } else {
-                                batchHolder->remove(std::move(oi));
-                            }
+                            batchHolder->remove(std::move(oi));
                         }
                     }
                 }
@@ -194,24 +191,15 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                         return folly::none;
                     }
                 }
+
                 auto ni = indexKey(partId, nReader.get(), e.first, index);
                 if (!ni.empty()) {
-                    if (env_->rebuildIndexGuard_ == nullptr &&
-                        env_->rebuildPartsGuard_ == nullptr) {
-                        batchHolder->put(std::move(ni), "");
+                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId,
+                                                                                 std::move(ni));
+                        batchHolder->put(std::move(modifyOpKey), "");
                     } else {
-                        auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
-                        auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
-                        if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
-                            spaceIndexIter->second == index->get_index_id() &&
-                            partIter != env_->rebuildPartsGuard_->cend() &&
-                            partIter->second.find(partId) != partIter->second.cend()) {
-                            auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId,
-                                                                                     std::move(ni));
-                            batchHolder->put(std::move(modifyOpKey), "");
-                        } else {
-                            batchHolder->put(std::move(ni), "");
-                        }
+                        batchHolder->put(std::move(ni), "");
                     }
                 }
             }

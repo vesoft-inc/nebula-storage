@@ -127,7 +127,7 @@ kvstore::ResultCode BaseProcessor<RESP>::doSyncPut(GraphSpaceID spaceId,
                                                    PartitionID partId,
                                                    std::vector<kvstore::KV> data) {
     folly::Baton<true, std::atomic> baton;
-    auto ret = kvstore::ResultCode::SUCCEEDED;
+    kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     env_->kvstore_->asyncMultiPut(spaceId,
                                   partId,
                                   std::move(data),
@@ -149,25 +149,6 @@ void BaseProcessor<RESP>::doRemove(GraphSpaceID spaceId,
         spaceId, partId, std::move(keys), [spaceId, partId, this](kvstore::ResultCode code) {
         handleAsync(spaceId, partId, code);
     });
-}
-
-template <typename RESP>
-kvstore::ResultCode BaseProcessor<RESP>::doSyncRemove(GraphSpaceID spaceId,
-                                                      PartitionID partId,
-                                                      std::vector<std::string> keys) {
-    folly::Baton<true, std::atomic> baton;
-    auto ret = kvstore::ResultCode::SUCCEEDED;
-    this->env_kvstore_->asyncMultiRemove(spaceId,
-                                         partId,
-                                         std::move(keys),
-                                         [&ret, &baton] (kvstore::ResultCode code) {
-        if (kvstore::ResultCode::SUCCEEDED != code) {
-            ret = code;
-        }
-        baton.post();
-    });
-    baton.wait();
-    return ret;
 }
 
 template <typename RESP>
@@ -202,5 +183,23 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
     return std::move(rowWrite).moveEncodedStr();
 }
 
+template <typename RESP>
+bool BaseProcessor<RESP>::checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID) {
+    auto spaceIter = env_->rebuildIndexGuard_->find(space);
+    auto partsIter = env_->rebuildPartsGuard_->find(space);
+
+    return spaceIter != env_->rebuildIndexGuard_->cend() &&
+        spaceIter->second == indexID &&
+        partsIter != env_->rebuildPartsGuard_->cend() &&
+        partsIter->second.find(part) != partsIter->second.cend();
+}
+
+template <typename RESP>
+bool BaseProcessor<RESP>::checkIndexLocked(GraphSpaceID space, PartitionID part) {
+    auto spaceAndPart = std::make_pair(space, part);
+    auto stateIter = env_->rebuildStateGuard_->find(std::move(spaceAndPart));
+    return stateIter != env_->rebuildStateGuard_->cend() &&
+        stateIter->second == IndexState::LOCKED;
+}
 }  // namespace storage
 }  // namespace nebula

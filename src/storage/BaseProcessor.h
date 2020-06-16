@@ -67,10 +67,6 @@ protected:
 
     void doRemove(GraphSpaceID spaceId, PartitionID partId, std::vector<std::string> keys);
 
-    kvstore::ResultCode doSyncRemove(GraphSpaceID spaceId,
-                                     PartitionID partId,
-                                     std::vector<std::string> keys);
-
     cpp2::ErrorCode to(kvstore::ResultCode code);
 
     nebula::meta::cpp2::ColumnDef columnDef(std::string name,
@@ -89,6 +85,10 @@ protected:
     StatusOr<std::string> encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);
+
+    bool checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID);
+
+    bool checkIndexLocked(GraphSpaceID space, PartitionID part);
 
 protected:
     StorageEnv*                                     env_{nullptr};

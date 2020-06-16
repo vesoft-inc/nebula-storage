@@ -18,13 +18,13 @@ namespace storage {
 class RebuildIndexTask : public AdminTask {
 public:
     explicit RebuildIndexTask(StorageEnv* env, TaskContext&& ctx)
-        : AdminTask(env, std::move(ctx)) {
-        if (env_->rebuildIndexGuard_ == nullptr) {
-            env_->rebuildIndexGuard_ = std::make_unique<IndexGuard>();
-        }
+        : AdminTask(env, std::move(ctx)) {}
 
-        if (env_->rebuildPartsGuard_ == nullptr) {
-            env_->rebuildPartsGuard_ = std::make_unique<PartsGuard>();
+    ~RebuildIndexTask() {
+        if (env_->rebuildPartsGuard_ != nullptr &&
+            env_->rebuildIndexGuard_ != nullptr) {
+            env_->rebuildPartsGuard_->erase(space_);
+            env_->rebuildIndexGuard_->erase(space_);
         }
     }
 
@@ -63,7 +63,7 @@ protected:
     kvstore::ResultCode genSubTask(GraphSpaceID space,
                                    PartitionID part,
                                    meta::cpp2::SchemaID schemaID,
-                                   int32_t indexID,
+                                   IndexID indexID,
                                    std::shared_ptr<meta::cpp2::IndexItem> item,
                                    bool isOffline);
 

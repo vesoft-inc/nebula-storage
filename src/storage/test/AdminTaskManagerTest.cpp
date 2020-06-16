@@ -273,7 +273,7 @@ TEST(TaskManagerTest, run_a_medium_task_before_a_huge_task) {
 
 TEST(TaskManagerTest, happy_path) {
     auto taskMgr = AdminTaskManager::instance();
-    EXPECT_TRUE(taskMgr->init());
+    taskMgr->init();
         {
             size_t numSubTask = 1;
             std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();

@@ -17,8 +17,7 @@ namespace storage {
 
 class CompactTask : public AdminTask {
 public:
-    CompactTask(StorageEnv* env, TaskContext&& ctx)
-        : AdminTask(env, std::move(ctx)) {}
+    CompactTask(StorageEnv* env, TaskContext&& ctx) : AdminTask(env, std::move(ctx)) {}
 
     ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
     kvstore::ResultCode subTask(nebula::kvstore::KVEngine* engine);

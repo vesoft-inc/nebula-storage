@@ -126,6 +126,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
                 if (type == index->get_schema_id().get_edge_type()) {
+                    if (checkIndexLocked(spaceId_, partId)) {
+                        LOG(INFO) << "The part have locked";
+                        return folly::none;
+                    }
+
                     if (reader == nullptr) {
                         reader = RowReader::getEdgePropReader(env_->schemaMan_,
                                                               spaceId_,
@@ -151,21 +156,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 valuesRet.value(),
                                                                 colsType);
 
-                    if (env_->rebuildIndexGuard_ == nullptr &&
-                        env_->rebuildPartsGuard_ == nullptr) {
-                        batchHolder->remove(std::move(indexKey));
+                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                        auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                        batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                     } else {
-                        auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
-                        auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
-                        if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
-                            spaceIndexIter->second == index->get_index_id() &&
-                            partIter != env_->rebuildPartsGuard_->cend() &&
-                            partIter->second.find(partId) != partIter->second.cend()) {
-                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                            batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
-                        } else {
-                            batchHolder->remove(std::move(indexKey));
-                        }
+                        batchHolder->remove(std::move(indexKey));
                     }
                 }
             }

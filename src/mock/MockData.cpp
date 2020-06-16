@@ -594,8 +594,8 @@ std::vector<VertexData> MockData::mockVertices(bool upper) {
             auto name = player.name_.data();
             std::stringstream stream;
             for (size_t i = 0; i < strlen(name); i++) {
-                char c = toupper(name[i]);
-                stream << c;
+                char upperChar = toupper(name[i]);
+                stream << upperChar;
             }
             data.vId_ = stream.str();
             props.emplace_back(stream.str());
@@ -643,15 +643,13 @@ std::vector<VertexData> MockData::mockVertices(bool upper) {
 std::vector<std::pair<PartitionID, std::string>> MockData::mockPlayerIndexKeys(bool upper) {
     std::vector<std::pair<PartitionID, std::string>> keys;
     for (auto& player : players_) {
-        // auto partRet = MockData::partId(player.name_);
-        // auto part = partRet.value();
         std::string name;
         if (upper) {
             auto data = player.name_.data();
             std::stringstream stream;
             for (size_t i = 0; i < strlen(data); i++) {
-                char c = toupper(data[i]);
-                stream << c;
+                char upperChar = toupper(data[i]);
+                stream << upperChar;
             }
             name = stream.str();
         } else {
@@ -664,8 +662,6 @@ std::vector<std::pair<PartitionID, std::string>> MockData::mockPlayerIndexKeys(b
         values.emplace_back(player.playing_);
         std::vector<Value::Type> colsType;
         auto key = IndexKeyUtils::vertexIndexKey(32, part, 11, name, values, colsType);
-        // LOG(INFO) << "Index Part " << part << " VID " << name;
-        // LOG(INFO) << "Index Key " << key;
         auto pair = std::make_pair(part, std::move(key));
         keys.emplace_back(std::move(pair));
     }
@@ -704,8 +700,8 @@ std::vector<EdgeData> MockData::mockEdges(bool upper) {
             auto name = serve.playerName_.data();
             std::stringstream stream;
             for (size_t i = 0; i < strlen(name); i++) {
-                char c = toupper(name[i]);
-                stream << c;
+                char upperChar = toupper(name[i]);
+                stream << upperChar;
             }
             positiveEdge.srcId_ = stream.str();
             props.emplace_back(stream.str());

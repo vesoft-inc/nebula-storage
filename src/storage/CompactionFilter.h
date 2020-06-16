@@ -211,7 +211,7 @@ private:
 class StorageCompactionFilterFactoryBuilder : public kvstore::CompactionFilterFactoryBuilder {
 public:
     explicit StorageCompactionFilterFactoryBuilder(storage::StorageEnv* env)
-        : env_(env) { }
+        : env_(env) {}
 
     virtual ~StorageCompactionFilterFactoryBuilder() = default;
 

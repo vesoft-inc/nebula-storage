@@ -18,6 +18,7 @@ bool AdminTaskManager::init() {
     pool_ = std::make_unique<ThreadPool>(FLAGS_max_concurrent_subtasks);
     bgThread_ = std::make_unique<thread::GenericWorker>();
     if (!bgThread_->start()) {
+        LOG(ERROR) << "background thread start failed";
         return false;
     }
 
@@ -165,6 +166,7 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
 
 bool AdminTaskManager::isFinished(JobID jobID, TaskID taskID) {
     auto iter = tasks_.find(std::make_pair(jobID, taskID));
+    // Task maybe erased when it's finished.
     if (iter == tasks_.cend()) {
         return true;
     }

@@ -61,7 +61,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
 
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                 LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                            << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
                 pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                 onFinished();
                 return;
@@ -149,6 +149,11 @@ AddVerticesProcessor::addVertices(PartitionID partId,
         auto vId = NebulaKeyUtils::getVertexId(spaceVidLen_, v.first);
         for (auto& index : indexes_) {
             if (tagId == index->get_schema_id().get_tag_id()) {
+                if (checkIndexLocked(spaceId_, partId)) {
+                    LOG(INFO) << "The part have locked";
+                    return folly::none;
+                }
+
                 /*
                  * step 1 , Delete old version index if exists.
                  */
@@ -159,6 +164,8 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     val = std::move(obsIdx).value();
                 }
+
+                auto indexId = index->get_index_id();
                 if (!val.empty()) {
                     auto reader = RowReader::getTagPropReader(env_->schemaMan_,
                                                               spaceId_,
@@ -170,21 +177,12 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
-                        if (env_->rebuildIndexGuard_ == nullptr &&
-                            env_->rebuildPartsGuard_ == nullptr) {
-                            batchHolder->remove(std::move(oi));
+                        // Check the index is building for the specified partition or not
+                        if (checkRebuilding(spaceId_, partId, indexId)) {
+                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else {
-                            auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
-                            auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
-                            if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
-                                spaceIndexIter->second == index->get_index_id() &&
-                                partIter != env_->rebuildPartsGuard_->cend() &&
-                                partIter->second.find(partId) != partIter->second.cend()) {
-                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                                batchHolder->put(std::move(deleteOpKey), std::move(oi));
-                            } else {
-                                batchHolder->remove(std::move(oi));
-                            }
+                            batchHolder->remove(std::move(oi));
                         }
                     }
                 }
@@ -203,21 +201,12 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
-                    if (env_->rebuildIndexGuard_ == nullptr &&
-                        env_->rebuildPartsGuard_ == nullptr) {
-                        batchHolder->put(std::move(ni), "");
+                    // Check the index is building for the specified partition or not
+                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
+                        batchHolder->put(std::move(modifyOpKey), "");
                     } else {
-                        auto spaceIndexIter = env_->rebuildIndexGuard_->find(spaceId_);
-                        auto partIter = env_->rebuildPartsGuard_->find(spaceId_);
-                        if (spaceIndexIter != env_->rebuildIndexGuard_->cend() &&
-                            spaceIndexIter->second == index->get_index_id() &&
-                            partIter != env_->rebuildPartsGuard_->cend() &&
-                            partIter->second.find(partId) != partIter->second.cend()) {
-                            auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
-                            batchHolder->put(std::move(modifyOpKey), "");
-                        } else {
-                            batchHolder->put(std::move(ni), "");
-                        }
+                        batchHolder->put(std::move(ni), "");
                     }
                 }
             }

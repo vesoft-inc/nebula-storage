@@ -18,11 +18,7 @@ class OperationKeyUtils final {
 public:
     ~OperationKeyUtils() = default;
 
-    static bool isOperationKey(const folly::StringPiece& key) {
-        constexpr int32_t len = static_cast<int32_t>(sizeof(NebulaKeyType));
-        auto type = readInt<int32_t>(key.data(), len);
-        return static_cast<uint32_t>(NebulaKeyType::kOperation) == type;
-    }
+    static bool isOperationKey(const folly::StringPiece& key);
 
     static std::string modifyOperationKey(PartitionID part, std::string key);
 

@@ -18,14 +18,6 @@ public:
                                   TaskContext&& ctx)
         : RebuildIndexTask(env, std::move(ctx)) {}
 
-    ~RebuildEdgeIndexTask() {
-        if (env_->rebuildPartsGuard_ != nullptr &&
-            env_->rebuildIndexGuard_ != nullptr) {
-            env_->rebuildPartsGuard_->erase(space_);
-            env_->rebuildIndexGuard_->erase(space_);
-        }
-    }
-
 private:
     StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
     getIndex(GraphSpaceID space, IndexID indexID) override;
@@ -39,4 +31,5 @@ private:
 
 }  // namespace storage
 }  // namespace nebula
+
 #endif  // STORAGE_ADMIN_REBUILDEDGEINDEXTASK_H_

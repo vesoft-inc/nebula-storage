@@ -19,15 +19,16 @@
 namespace nebula {
 namespace storage {
 
+enum class IndexState {
+    BUILDING,
+    LOCKED,
+};
+
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 using IndexGuard  = folly::ConcurrentHashMap<GraphSpaceID, IndexID>;
 using PartsGuard  = folly::ConcurrentHashMap<GraphSpaceID, std::unordered_set<PartitionID>>;
+using StateGuard  = folly::ConcurrentHashMap<std::pair<GraphSpaceID, PartitionID>, IndexState>;
 
-enum class IndexStatus {
-    NORMAL       = 0x00,
-    LOCKING      = 0x01,
-    IN_BUILDING  = 0x02,
-};
 
 class StorageEnv {
 public:
@@ -36,6 +37,7 @@ public:
     meta::IndexManager*                             indexMan_{nullptr};
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
     std::unique_ptr<PartsGuard>                     rebuildPartsGuard_{nullptr};
+    std::unique_ptr<StateGuard>                     rebuildStateGuard_{nullptr};
 };
 
 class CommonUtils final {

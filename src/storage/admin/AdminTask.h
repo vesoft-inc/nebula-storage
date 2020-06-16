@@ -53,16 +53,12 @@ struct TaskContext {
             : cmd_(req.get_cmd())
             , jobId_(req.get_job_id())
             , taskId_(req.get_task_id())
-            , spaceId_(req.get_para().get_space_id())
-            , parts_(req.get_para().parts)
             , parameters_(req.get_para())
             , onFinish_(cb) {}
 
     nebula::meta::cpp2::AdminCmd    cmd_;
     JobID                           jobId_{-1};
     TaskID                          taskId_{-1};
-    GraphSpaceID                    spaceId_{-1};
-    std::vector<PartitionID>        parts_;
     nebula::storage::cpp2::TaskPara parameters_;
     TaskPriority                    pri_{TaskPriority::MID};
     CallBack                        onFinish_;
@@ -76,8 +72,7 @@ class AdminTask {
 public:
     AdminTask() = default;
 
-    explicit AdminTask(StorageEnv* env, TaskContext&& ctx)
-    : env_(env), ctx_(ctx) {}
+    explicit AdminTask(StorageEnv* env, TaskContext&& ctx) : env_(env), ctx_(ctx) {}
 
     virtual ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() = 0;
 

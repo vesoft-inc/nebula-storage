@@ -19,6 +19,7 @@ IndexUtils::collectIndexValues(RowReader* reader,
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
     }
+
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
         auto isNullable = col.__isset.nullable && *(col.get_nullable());

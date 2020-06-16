@@ -23,12 +23,12 @@ public:
     void addTagIndex(GraphSpaceID space,
                      TagID tagID,
                      IndexID indexID,
-                     std::vector<nebula::meta::cpp2::ColumnDef> fields);
+                     std::vector<nebula::meta::cpp2::ColumnDef>&& fields);
 
     void addEdgeIndex(GraphSpaceID space,
                       EdgeType edgeType,
                       IndexID indexID,
-                      std::vector<nebula::meta::cpp2::ColumnDef> fields);
+                      std::vector<nebula::meta::cpp2::ColumnDef>&& fields);
 
     StatusOr<std::shared_ptr<IndexItem>>
     getTagIndex(GraphSpaceID space, IndexID index) override;

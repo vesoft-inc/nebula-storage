@@ -48,9 +48,9 @@ private:
     static std::unique_ptr<nebula::mock::MockCluster> cluster_;
 };
 
-nebula::storage::StorageEnv* RebuildIndexTest::env_ = nullptr;
-std::unique_ptr<fs::TempDir> RebuildIndexTest::rootPath_ = nullptr;
-std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_ = nullptr;
+nebula::storage::StorageEnv* RebuildIndexTest::env_{nullptr};
+std::unique_ptr<fs::TempDir> RebuildIndexTest::rootPath_{nullptr};
+std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 
 TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     auto writer = std::make_unique<thread::GenericWorker>();
@@ -95,8 +95,9 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     TaskContext context(request, callback);
 
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
-    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 11);
     manager->addAsyncTask(task);
+
+    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 11);
     writer->addTask(deleteVertices).get();
 
     // Wait for the task finished
@@ -114,6 +115,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
 
+    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
     manager->shutdown();
 }
@@ -176,6 +178,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
+    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
     manager->shutdown();
 }
@@ -269,8 +272,9 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
     auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
-    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 12);
     manager->addAsyncTask(task);
+
+    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 12);
     writer->addTask(deleteEdges).get();
 
     // Wait for the task finished
@@ -289,6 +293,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
 
+    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
     manager->shutdown();
 }
@@ -350,6 +355,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
+    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
     manager->shutdown();
 }
