@@ -933,7 +933,9 @@ TEST(MetaClientTest, DiffTest) {
 
     mock::MockCluster cluster;
     cluster.startMeta(0, rootPath.path());
-    cluster.initMetaClient();
+    meta::MetaClientOptions options;
+    options.role_ = meta::cpp2::HostRole::STORAGE;
+    cluster.initMetaClient(options);
     auto* kv = cluster.metaKV_.get();
     auto* client = cluster.metaClient_.get();
 
