@@ -38,11 +38,7 @@ RebuildIndexTask::genSubTasks() {
         return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
     }
 
-    auto result = env_->rebuildIndexGuard_->insert(space_, indexID);
-    if (!result.second) {
-        LOG(ERROR) << "RebuildIndexTask set failed";
-        return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
-    }
+    env_->rebuildIndexGuard_->emplace(space_, indexID);
     auto item = itemRet.value();
     auto schemaID = item->get_schema_id();
     if (isOffline) {
@@ -65,7 +61,7 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  PartitionID part,
                                                  meta::cpp2::SchemaID schemaID,
                                                  IndexID indexID,
-                                                 std::shared_ptr<meta::cpp2::IndexItem> item,
+                                                 const std::shared_ptr<meta::cpp2::IndexItem> item,
                                                  bool isOffline) {
     auto partIter = env_->rebuildPartsGuard_->find(space);
     if (partIter == env_->rebuildPartsGuard_->cend()) {
@@ -113,11 +109,8 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    int32_t lastProcessedOperationsNum = 0;
+    int32_t processedOperationsNum = 0;
     while (true) {
-        std::vector<std::string> operations;
-        operations.reserve(FLAGS_rebuild_index_batch_num);
-
         std::unique_ptr<kvstore::KVIterator> operationIter;
         auto operationPrefix = OperationKeyUtils::operationPrefix(part);
         auto operationRet = env_->kvstore_->prefix(space,
@@ -129,12 +122,15 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             return operationRet;
         }
 
+        std::vector<std::string> operations;
+        operations.reserve(FLAGS_rebuild_index_batch_num);
         while (operationIter->valid()) {
-            lastProcessedOperationsNum += 1;
+            processedOperationsNum += 1;
             auto opKey = operationIter->key();
             auto opVal = operationIter->val();
             // replay operation record
             if (OperationKeyUtils::isModifyOperation(opKey)) {
+                VLOG(3) << "Processing Modify Operation " << opKey;
                 auto key = OperationKeyUtils::getOperationKey(opKey);
                 std::vector<kvstore::KV> pairs;
                 pairs.emplace_back(std::move(key), "");
@@ -145,6 +141,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                     return ret;
                 }
             } else if (OperationKeyUtils::isDeleteOperation(opKey)) {
+                VLOG(3) << "Processing Delete Operation " << opVal;
                 auto ret = processRemoveOperation(space, part,
                                                   opVal.str());
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
@@ -157,7 +154,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             }
 
             operations.emplace_back(std::move(opKey));
-            if (lastProcessedOperationsNum % FLAGS_rebuild_index_batch_num == 0) {
+            if (processedOperationsNum % FLAGS_rebuild_index_batch_num == 0) {
                 auto ret = cleanupOperationLogs(space, part,
                                                 std::move(operations));
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
@@ -177,18 +174,22 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             return ret;
         }
 
-        if (lastProcessedOperationsNum < FLAGS_rebuild_index_locked_threshold) {
+        // When the processed operation number is less than the locked threshold,
+        // we will mark the lock's building in StorageEnv and refuse writing for
+        // a short piece of time.
+        if (processedOperationsNum < FLAGS_rebuild_index_locked_threshold) {
             // lock the part
             auto spaceAndPart = std::make_pair(space, part);
             auto stateIter = env_->rebuildStateGuard_->find(spaceAndPart);
+            // If the state is LOCKED, we should finished the building index successful.
             if (stateIter->second == IndexState::BUILDING) {
                 env_->rebuildStateGuard_->assign(spaceAndPart, IndexState::LOCKED);
-                lastProcessedOperationsNum = 0;
+                processedOperationsNum = 0;
             } else {
                 break;
             }
         } else {
-            lastProcessedOperationsNum = 0;
+            processedOperationsNum = 0;
         }
     }
     return kvstore::ResultCode::SUCCEEDED;

@@ -89,16 +89,15 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     request.set_job_id(1);
     request.set_task_id(11);
     request.set_para(std::move(parameter));
-    request.set_concurrency(6);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
 
-    auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
-
     RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 11);
     writer->addTask(deleteVertices).get();
+
+    auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
+    manager->addAsyncTask(task);
 
     // Wait for the task finished
     do {
@@ -130,8 +129,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
         cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
         auto fut = processor->getFuture();
         processor->process(req);
-        auto resp = std::move(fut).get();
-        EXPECT_EQ(0, resp.result.failed_parts.size());
+        std::move(fut).get();
     };
 
     // Add Vertices
@@ -157,7 +155,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     request.set_job_id(2);
     request.set_task_id(12);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
@@ -207,7 +204,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
     request.set_job_id(3);
     request.set_task_id(13);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
@@ -228,6 +224,8 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
+    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildPartsGuard_->erase(1);
     manager->shutdown();
 }
 
@@ -267,15 +265,15 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     request.set_job_id(4);
     request.set_task_id(14);
     request.set_para(std::move(parameter));
-    request.set_concurrency(6);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
-    auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
 
     RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 12);
     writer->addTask(deleteEdges).get();
+
+    auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
+    manager->addAsyncTask(task);
 
     // Wait for the task finished
     do {
@@ -335,7 +333,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     request.set_job_id(5);
     request.set_task_id(15);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
@@ -384,7 +381,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
     request.set_job_id(6);
     request.set_task_id(16);
     request.set_para(std::move(parameter));
-    request.set_concurrency(3);
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
