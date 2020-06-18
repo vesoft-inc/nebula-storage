@@ -257,8 +257,8 @@ public:
         item.set_index_name(indexName);
         cpp2::SchemaID schemaID;
         schemaID.set_tag_id(tagID);
-        item.set_schema_id(schemaID);
-        item.set_schema_name(tagName);
+        item.set_schema_id(std::move(schemaID));
+        item.set_schema_name(std::move(tagName));
         item.set_fields(std::move(columns));
 
         std::vector<nebula::kvstore::KV> data;
@@ -287,8 +287,8 @@ public:
         item.set_index_name(indexName);
         cpp2::SchemaID schemaID;
         schemaID.set_edge_type(edgeType);
-        item.set_schema_id(schemaID);
-        item.set_schema_name(edgeName);
+        item.set_schema_id(std::move(schemaID));
+        item.set_schema_name(std::move(edgeName));
         item.set_fields(std::move(columns));
 
         std::vector<nebula::kvstore::KV> data;

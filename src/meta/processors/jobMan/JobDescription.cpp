@@ -4,7 +4,6 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "meta/processors/jobMan/JobDescription.h"
 #include <stdexcept>
 #include <string>
 #include <vector>

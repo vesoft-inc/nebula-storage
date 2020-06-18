@@ -25,7 +25,7 @@ public:
     MetaJobExecutor(JobID jobId,
                     kvstore::KVStore* kvstore,
                     AdminClient* adminClient,
-                    std::vector<std::string> paras)
+                    const std::vector<std::string>& paras)
     : jobId_(jobId),
       kvstore_(kvstore),
       adminClient_(adminClient),
@@ -54,16 +54,18 @@ protected:
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
 
-    virtual folly::Future<Status> executeInternal(HostAddr address,
-                                                  std::vector<PartitionID> parts) = 0;
+    virtual folly::Future<Status> executeInternal(HostAddr&& address,
+                                                  std::vector<PartitionID>&& parts) = 0;
 
 protected:
     JobID                       jobId_{INT_MIN};
+    TaskID                      taskId_{0};
     kvstore::KVStore*           kvstore_{nullptr};
     AdminClient*                adminClient_{nullptr};
     GraphSpaceID                space_;
     std::vector<std::string>    paras_;
     bool                        toLeader_{false};
+    int32_t                     concurrency_{INT_MAX};
 };
 
 class MetaJobExecutorFactory {

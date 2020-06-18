@@ -50,8 +50,7 @@ TEST(ActiveHostsManTest, EncodeDecodeHostInfoV2) {
 TEST(ActiveHostsManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
     FLAGS_expired_threshold_sec = 2;
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     auto now = time::WallClock::fastNowInMilliSec();
     HostInfo info1(now, cpp2::HostRole::STORAGE, NEBULA_STRINGIFY(GIT_INFO_SHA));
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 0), info1);
@@ -90,8 +89,7 @@ TEST(ActiveHostsManTest, NormalTest) {
 TEST(ActiveHostsManTest, LeaderTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
     FLAGS_expired_threshold_sec = 2;
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     auto now = time::WallClock::fastNowInMilliSec();
 
     HostInfo hInfo1(now, cpp2::HostRole::STORAGE, NEBULA_STRINGIFY(GIT_INFO_SHA));
@@ -138,8 +136,7 @@ TEST(ActiveHostsManTest, LeaderTest) {
 
 TEST(LastUpdateTimeManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/LastUpdateTimeManTest.XXXXXX");
-    mock::MockCluster cluster;
-    auto kv = cluster.initMetaKV(rootPath.path());
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
 
     ASSERT_EQ(0, LastUpdateTimeMan::get(kv.get()));
     int64_t now = time::WallClock::fastNowInMilliSec();

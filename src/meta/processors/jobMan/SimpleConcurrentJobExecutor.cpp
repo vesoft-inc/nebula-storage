@@ -15,16 +15,12 @@ SimpleConcurrentJobExecutor::
 SimpleConcurrentJobExecutor(JobID jobId,
                             kvstore::KVStore* kvstore,
                             AdminClient* adminClient,
-                            std::vector<std::string> paras)
+                            const std::vector<std::string>& paras)
     : MetaJobExecutor(jobId, kvstore, adminClient, paras) {}
 
 bool SimpleConcurrentJobExecutor::check() {
     auto parasNum = paras_.size();
-    if (parasNum == 1 || parasNum == 2) {
-        return true;
-    } else {
-        return false;
-    }
+    return parasNum == 1 || parasNum == 2;
 }
 
 cpp2::ErrorCode

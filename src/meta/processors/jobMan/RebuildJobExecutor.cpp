@@ -17,35 +17,29 @@ namespace nebula {
 namespace meta {
 
 bool RebuildJobExecutor::check() {
-    if (paras_.size() != 3) {
-        return false;
-    } else {
-        return true;
-    }
+    return paras_.size() == 3;
 }
 
 cpp2::ErrorCode RebuildJobExecutor::prepare() {
-    std::string spaceName = paras_[0];
-    std::string indexName = paras_[1];
-    isOffline_ = paras_[2] == "offline" ? true : false;
-    LOG(INFO) << "Rebuild Index Space " << spaceName << ", Index Name "
-              << indexName << " " << isOffline_;
-
-    auto spaceRet = getSpaceIdFromName(spaceName);
+    auto spaceRet = getSpaceIdFromName(paras_[0]);
     if (!nebula::ok(spaceRet)) {
-        LOG(ERROR) << "Can't find the space: " << spaceName;
+        LOG(ERROR) << "Can't find the space: " << paras_[0];
         return nebula::error(spaceRet);
     }
-    spaceId_ = nebula::value(spaceRet);
+    space_ = nebula::value(spaceRet);
 
     std::string indexValue;
-    auto indexKey = MetaServiceUtils::indexIndexKey(spaceId_, indexName);
+    auto indexKey = MetaServiceUtils::indexIndexKey(space_, paras_[1]);
     auto result = kvstore_->get(kDefaultSpaceId, kDefaultPartId, indexKey, &indexValue);
     if (result != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Get indexKey error indexName: " << indexName;
+        LOG(ERROR) << "Get indexKey error indexName: " << paras_[1];
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
+
     indexId_ = *reinterpret_cast<const IndexID*>(indexValue.c_str());
+    isOffline_ = paras_[2] == "offline" ? true : false;
+    LOG(INFO) << "Rebuild Index Space " << space_ << ", Index "
+              << indexId_ << " " << isOffline_;
     return cpp2::ErrorCode::SUCCEEDED;
 }
 

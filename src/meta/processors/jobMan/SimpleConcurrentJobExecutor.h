@@ -18,17 +18,13 @@ public:
     SimpleConcurrentJobExecutor(JobID jobId,
                                 kvstore::KVStore* kvstore,
                                 AdminClient* adminClient,
-                                std::vector<std::string> params);
+                                const std::vector<std::string>& params);
 
     bool check() override;
 
     cpp2::ErrorCode prepare() override;
 
     cpp2::ErrorCode stop() override;
-
-protected:
-    TaskID         taskId_{0};
-    int32_t        concurrency_{INT_MAX};
 };
 
 }  // namespace meta

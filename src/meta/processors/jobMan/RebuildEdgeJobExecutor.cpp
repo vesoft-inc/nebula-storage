@@ -10,11 +10,20 @@ namespace nebula {
 namespace meta {
 
 folly::Future<Status>
-RebuildEdgeJobExecutor::executeInternal(HostAddr address,
-                                        std::vector<PartitionID> parts) {
-    // TODO will move to admin client's addTask
-    return adminClient_->rebuildEdgeIndex(std::move(address), space_, indexId_,
-                                          std::move(parts), isOffline_);
+RebuildEdgeJobExecutor::executeInternal(HostAddr&& address,
+                                        std::vector<PartitionID>&& parts) {
+    std::vector<std::string> taskParameters;
+    taskParameters.reserve(2);
+    taskParameters.emplace_back(folly::to<std::string>(indexId_));
+    if (isOffline_) {
+        taskParameters.emplace_back("offline");
+    } else {
+        taskParameters.emplace_back("online");
+    }
+
+    return adminClient_->addTask(cpp2::AdminCmd::REBUILD_EDGE_INDEX, jobId_, taskId_++,
+                                 space_, {std::move(address)}, std::move(taskParameters),
+                                 std::move(parts), concurrency_);
 }
 
 }  // namespace meta

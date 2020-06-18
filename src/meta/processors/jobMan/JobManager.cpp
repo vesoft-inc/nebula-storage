@@ -145,15 +145,15 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
 }
 
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
-    adminClient_ = client;
     auto rc = save(jobDesc.jobKey(), jobDesc.jobVal());
     if (rc == nebula::kvstore::SUCCEEDED) {
         queue_->enqueue(jobDesc.getJobId());
-        return cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "Add Job Failed";
         return cpp2::ErrorCode::E_ADD_JOB_FAILURE;
     }
+    adminClient_ = client;
+    return cpp2::ErrorCode::SUCCEEDED;
 }
 
 ErrorOr<cpp2::ErrorCode, std::vector<cpp2::JobDesc>>

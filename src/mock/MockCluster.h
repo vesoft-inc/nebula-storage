@@ -67,7 +67,7 @@ public:
     initKV(kvstore::KVOptions options, HostAddr localHost = HostAddr("", 0));
 
     static std::unique_ptr<kvstore::NebulaStore>
-    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr("0", 0));
+    initMetaKV(const char* dataPath, HostAddr localHost = HostAddr("", 0));
 
     void initStorageKV(const char* dataPath,
                        HostAddr localHost = HostAddr("", 0),

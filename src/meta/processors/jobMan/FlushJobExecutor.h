@@ -17,10 +17,10 @@ public:
     FlushJobExecutor(JobID jobId,
                      kvstore::KVStore* kvstore,
                      AdminClient* adminClient,
-                     std::vector<std::string> params);
+                     const std::vector<std::string>& params);
 
-    folly::Future<Status> executeInternal(HostAddr address,
-                                          std::vector<PartitionID> parts) override;
+    folly::Future<Status> executeInternal(HostAddr&& address,
+                                          std::vector<PartitionID>&& parts) override;
 };
 
 }  // namespace meta

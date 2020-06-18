@@ -19,7 +19,7 @@ public:
     RebuildJobExecutor(JobID jobId,
                        kvstore::KVStore* kvstore,
                        AdminClient* adminClient,
-                       std::vector<std::string> paras)
+                       const std::vector<std::string>& paras)
         : MetaJobExecutor(jobId, kvstore, adminClient, paras) {
         toLeader_ = true;
     }
@@ -31,7 +31,6 @@ public:
     meta::cpp2::ErrorCode stop() override;
 
 protected:
-    GraphSpaceID             spaceId_;
     IndexID                  indexId_;
     bool                     isOffline_;
 };
