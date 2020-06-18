@@ -59,11 +59,7 @@ public:
                 return true;
             }
         } else if (OperationKeyUtils::isOperationKey(key)) {
-            if (env_->rebuildIndexGuard_->empty()) {
-                return true;
-            } else {
-                return false;
-            }
+            return env_->rebuildIndexGuard_->empty();
         } else {
             VLOG(3) << "Skip the system key inside, key " << key;
         }

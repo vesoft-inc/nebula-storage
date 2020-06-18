@@ -23,6 +23,11 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                        meta::cpp2::SchemaID schemaID,
                                        IndexID indexID,
                                        const std::vector<meta::cpp2::ColumnDef>& cols) {
+    if (canceled_) {
+        LOG(ERROR) << "Rebuild Edge Index is Canceled";
+        return kvstore::ResultCode::ERR_IO_ERROR;
+    }
+
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
     if (!vidSizeRet.ok()) {
         LOG(ERROR) << "Get VID Size Failed";
@@ -31,12 +36,6 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
 
     auto vidSize = vidSizeRet.value();
     auto edgeType = schemaID.get_edge_type();
-    std::vector<kvstore::KV> data;
-    data.reserve(FLAGS_rebuild_index_batch_num);
-    int32_t batchNum = 0;
-    VertexID currentSrcVertex;
-    VertexID currentDstVertex;
-    EdgeRanking currentRanking;
 
     std::unique_ptr<kvstore::KVIterator> iter;
     auto prefix = NebulaKeyUtils::partPrefix(part);
@@ -46,13 +45,19 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         return ret;
     }
 
+    int32_t batchNum = 0;
+    VertexID currentSrcVertex;
+    VertexID currentDstVertex;
+    EdgeRanking currentRanking;
+    std::vector<kvstore::KV> data;
+    data.reserve(FLAGS_rebuild_index_batch_num);
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Edge Index is Canceled";
             return kvstore::ResultCode::ERR_IO_ERROR;
         }
 
-        if (batchNum >= FLAGS_rebuild_index_batch_num) {
+        if (batchNum == FLAGS_rebuild_index_batch_num) {
             auto result = processModifyOperation(space, part, std::move(data));
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
@@ -63,13 +68,13 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         auto key = iter->key().str();
+        auto val = iter->val();
         if (!NebulaKeyUtils::isEdge(vidSize, key) ||
             NebulaKeyUtils::getEdgeType(vidSize, key) != edgeType) {
             iter->next();
             continue;
         }
 
-        auto val = iter->val();
         auto source = NebulaKeyUtils::getSrcId(vidSize, key);
         auto destination = NebulaKeyUtils::getDstId(vidSize, key);
         auto ranking = NebulaKeyUtils::getRank(vidSize, key);
@@ -104,7 +109,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                     ranking,
                                                     destination.data(),
                                                     valuesRet.value(),
-                                                    colsType);
+                                                    std::move(colsType));
         data.emplace_back(std::move(indexKey), "");
         batchNum += 1;
         iter->next();

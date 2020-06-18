@@ -73,6 +73,10 @@ void AdminTaskManager::shutdown() {
     bgThread_->stop();
     bgThread_->wait();
 
+    for (auto it = tasks_.begin(); it != tasks_.end(); ++it) {
+        it->second->cancel();  // cancelled_ = true;
+    }
+
     pool_->join();
     LOG(INFO) << "exit AdminTaskManager::shutdown()";
 }

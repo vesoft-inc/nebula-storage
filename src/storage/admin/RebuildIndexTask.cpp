@@ -109,7 +109,6 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    int32_t processedOperationsNum = 0;
     while (true) {
         std::unique_ptr<kvstore::KVIterator> operationIter;
         auto operationPrefix = OperationKeyUtils::operationPrefix(part);
@@ -124,6 +123,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
 
         std::vector<std::string> operations;
         operations.reserve(FLAGS_rebuild_index_batch_num);
+        int32_t processedOperationsNum = 0;
         while (operationIter->valid()) {
             processedOperationsNum += 1;
             auto opKey = operationIter->key();
@@ -184,12 +184,9 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             // If the state is LOCKED, we should finished the building index successful.
             if (stateIter->second == IndexState::BUILDING) {
                 env_->rebuildStateGuard_->assign(spaceAndPart, IndexState::LOCKED);
-                processedOperationsNum = 0;
             } else {
                 break;
             }
-        } else {
-            processedOperationsNum = 0;
         }
     }
     return kvstore::ResultCode::SUCCEEDED;

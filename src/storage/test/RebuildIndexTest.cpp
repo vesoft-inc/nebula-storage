@@ -24,15 +24,18 @@ namespace storage {
 class RebuildIndexTest : public ::testing::Test {
 protected:
     static void SetUpTestCase() {
-        LOG(INFO) << "SetUpTestCase";
+        LOG(INFO) << "SetUp RebuildIndexTest TestCase";
         rootPath_ = std::make_unique<fs::TempDir>("/tmp/RebuildIndexTest.XXXXXX");
         cluster_ = std::make_unique<nebula::mock::MockCluster>();
         cluster_->initStorageKV(rootPath_->path());
         env_ = cluster_->storageEnv_.get();
+        manager_ = AdminTaskManager::instance();
+        manager_->init();
     }
 
     static void TearDownTestCase() {
-        LOG(INFO) << "TearDownTestCase";
+        LOG(INFO) << "TearDown RebuildIndexTest TestCase";
+        manager_->shutdown();
         cluster_.reset();
         rootPath_.reset();
     }
@@ -41,14 +44,16 @@ protected:
 
     void TearDown() override {}
 
-    static nebula::storage::StorageEnv* env_;
+    static StorageEnv* env_;
+    static AdminTaskManager* manager_;
 
 private:
     static std::unique_ptr<fs::TempDir> rootPath_;
     static std::unique_ptr<nebula::mock::MockCluster> cluster_;
 };
 
-nebula::storage::StorageEnv* RebuildIndexTest::env_{nullptr};
+StorageEnv* RebuildIndexTest::env_{nullptr};
+AdminTaskManager* RebuildIndexTest::manager_{nullptr};
 std::unique_ptr<fs::TempDir> RebuildIndexTest::rootPath_{nullptr};
 std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 
@@ -74,9 +79,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
-    auto manager = AdminTaskManager::instance();
-    EXPECT_TRUE(manager->init());
-
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
@@ -97,12 +99,12 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     writer->addTask(deleteVertices).get();
 
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
     for (auto& key : mock::MockData::mockPlayerIndexKeys()) {
@@ -116,7 +118,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
-    manager->shutdown();
 }
 
 TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
@@ -140,9 +141,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
-    auto manager = AdminTaskManager::instance();
-    manager->init();
-
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
@@ -160,13 +158,13 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     TaskContext context(request, callback);
 
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
     writer->addTask(appendVertices).get();
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
     for (auto& key : mock::MockData::mockPlayerIndexKeys(true)) {
@@ -177,7 +175,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
-    manager->shutdown();
 }
 
 TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
@@ -188,9 +185,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
     processor->process(req);
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
-
-    auto manager = AdminTaskManager::instance();
-    EXPECT_TRUE(manager->init());
 
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
@@ -209,12 +203,12 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
     TaskContext context(request, callback);
 
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
@@ -226,7 +220,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     RebuildIndexTest::env_->rebuildPartsGuard_->erase(1);
-    manager->shutdown();
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
@@ -250,9 +243,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
-    auto manager = AdminTaskManager::instance();
-    EXPECT_TRUE(manager->init());
-
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
@@ -273,12 +263,12 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     writer->addTask(deleteEdges).get();
 
     auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";
@@ -293,7 +283,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
-    manager->shutdown();
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
@@ -318,9 +307,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
 
-    auto manager = AdminTaskManager::instance();
-    manager->init();
-
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
@@ -337,12 +323,12 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
     auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
@@ -354,7 +340,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
     writer->stop();
-    manager->shutdown();
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
@@ -365,9 +350,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
     processor->process(req);
     auto resp = std::move(fut).get();
     EXPECT_EQ(0, resp.result.failed_parts.size());
-
-    auto manager = AdminTaskManager::instance();
-    manager->init();
 
     cpp2::TaskPara parameter;
     parameter.set_space_id(1);
@@ -385,12 +367,12 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
     auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
-    manager->addAsyncTask(task);
+    manager_->addAsyncTask(task);
 
     // Wait for the task finished
     do {
         usleep(50);
-    } while (!manager->isFinished(context.jobId_, context.taskId_));
+    } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";
@@ -399,8 +381,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
         auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
-
-    manager->shutdown();
 }
 
 }  // namespace storage

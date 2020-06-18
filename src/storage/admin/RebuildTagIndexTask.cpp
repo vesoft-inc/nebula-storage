@@ -23,6 +23,11 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                       meta::cpp2::SchemaID schemaID,
                                       IndexID indexID,
                                       const std::vector<meta::cpp2::ColumnDef>& cols) {
+    if (canceled_) {
+        LOG(ERROR) << "Rebuild Tag Index is Canceled";
+        return kvstore::ResultCode::ERR_IO_ERROR;
+    }
+
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
     if (!vidSizeRet.ok()) {
         LOG(ERROR) << "Get VID Size Failed";
@@ -31,10 +36,6 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
 
     auto vidSize = vidSizeRet.value();
     auto tagID = schemaID.get_tag_id();
-    std::vector<kvstore::KV> data;
-    data.reserve(FLAGS_rebuild_index_batch_num);
-    int32_t batchNum = 0;
-    VertexID currentVertex;
 
     std::unique_ptr<kvstore::KVIterator> iter;
     auto prefix = NebulaKeyUtils::partPrefix(part);
@@ -44,13 +45,17 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         return ret;
     }
 
+    int32_t batchNum = 0;
+    VertexID currentVertex;
+    std::vector<kvstore::KV> data;
+    data.reserve(FLAGS_rebuild_index_batch_num);
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Tag Index is Canceled";
             return kvstore::ResultCode::ERR_IO_ERROR;
         }
 
-        if (batchNum >= FLAGS_rebuild_index_batch_num) {
+        if (batchNum == FLAGS_rebuild_index_batch_num) {
             auto result = processModifyOperation(space, part, std::move(data));
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
@@ -92,7 +97,8 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                       part,
                                                       indexID,
                                                       vertex.data(),
-                                                      valuesRet.value());
+                                                      valuesRet.value(),
+                                                      std::move(colsType));
         data.emplace_back(std::move(indexKey), "");
         batchNum += 1;
         iter->next();
