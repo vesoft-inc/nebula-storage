@@ -33,4 +33,6 @@ DECLARE_int32(max_edge_returned_per_vertex);
 
 DECLARE_bool(enable_reservoir_sampling);
 
+DECLARE_bool(enable_multi_versions);
+
 #endif  // STORAGE_STORAGEFLAGS_H_

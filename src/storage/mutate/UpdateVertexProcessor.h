@@ -8,6 +8,7 @@
 #define STORAGE_MUTATE_UPDATEVERTEXROCESSOR_H_
 
 #include "storage/query/QueryBaseProcessor.h"
+#include "storage/StorageFlags.h"
 
 namespace nebula {
 namespace storage {

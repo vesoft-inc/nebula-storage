@@ -193,9 +193,8 @@ public:
     StorageCompactionFilterFactory(meta::SchemaManager* schemaMan,
                                    meta::IndexManager* indexMan,
                                    GraphSpaceID spaceId,
-                                   size_t vIdLen,
-                                   int32_t customFilterIntervalSecs):
-        KVCompactionFilterFactory(spaceId, customFilterIntervalSecs),
+                                   size_t vIdLen):
+        KVCompactionFilterFactory(spaceId),
         schemaMan_(schemaMan),
         indexMan_(indexMan),
         vIdLen_(vIdLen) {}
@@ -223,7 +222,7 @@ public:
     virtual ~StorageCompactionFilterFactoryBuilder() = default;
 
     std::shared_ptr<kvstore::KVCompactionFilterFactory>
-    buildCfFactory(GraphSpaceID spaceId, int32_t customFilterIntervalSecs) override {
+    buildCfFactory(GraphSpaceID spaceId) override {
         auto vIdLen = schemaMan_->getSpaceVidLen(spaceId);
         if (!vIdLen.ok()) {
             return nullptr;
@@ -231,8 +230,7 @@ public:
         return std::make_shared<StorageCompactionFilterFactory>(schemaMan_,
                                                                 indexMan_,
                                                                 spaceId,
-                                                                vIdLen.value(),
-                                                                customFilterIntervalSecs);
+                                                                vIdLen.value());
     }
 
 private:

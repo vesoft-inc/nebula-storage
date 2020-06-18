@@ -29,3 +29,6 @@ DEFINE_int32(reader_handlers, 32, "Total reader handlers");
 DEFINE_int32(max_edge_returned_per_vertex, INT_MAX, "Max edge number returnred searching vertex");
 
 DEFINE_bool(enable_reservoir_sampling, false, "Will do reservoir sampling if set true.");
+
+DEFINE_bool(enable_multi_versions, true, "If true, the insert timestamp will be the wall clock. "
+                                         "If false, always has the same timestamp of max");
