@@ -111,7 +111,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
     auto agg = std::make_unique<AggregateNode>(filter.get(), &edgeContext_);
     agg->addDependency(filter.get());
     auto output = std::make_unique<GetNeighborsNode>(
-            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, expCtx_.get());
+            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result);
     output->addDependency(agg.get());
 
     plan.addNode(std::move(hashJoin));
@@ -142,6 +142,10 @@ cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeig
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
+    code = buildYields(req);
+    if (code != cpp2::ErrorCode::SUCCEEDED) {
+        return code;
+    }
     code = buildFilter(req);
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
@@ -161,7 +165,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsR
         ret = handleVertexProps(returnProps);
         buildTagColName(returnProps);
     } else {
-        ret = prepareVertexProps(req.vertex_props);
+        ret = handleVertexProps(req.vertex_props);
         buildTagColName(req.vertex_props);
     }
 
@@ -186,7 +190,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
         buildEdgeColName(returnProps);
     } else {
         // generate related props if no edge type or property specified
-        ret = prepareEdgeProps(req.edge_props);
+        ret = handleEdgeProps(req.edge_props);
         buildEdgeColName(req.edge_props);
     }
 
@@ -201,54 +205,28 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-void GetNeighborsProcessor::buildTagColName(const std::vector<ReturnProp>& tagProps) {
+void GetNeighborsProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {
     for (const auto& tagProp : tagProps) {
-        auto tagId = tagProp.entryId_;
+        auto tagId = tagProp.tag;
         auto tagName = tagContext_.tagNames_[tagId];
         std::string colName = "_tag:" + tagName;
-        for (const auto& name : tagProp.names_) {
-            colName += ":" + name;
+        for (const auto& prop : tagProp.props) {
+            colName += ":" + std::move(prop);
         }
         DVLOG(1) << "append col name: " << colName;
         resultDataSet_.colNames.emplace_back(std::move(colName));
     }
 }
 
-void GetNeighborsProcessor::buildEdgeColName(const std::vector<ReturnProp>& edgeProps) {
+void GetNeighborsProcessor::buildEdgeColName(const std::vector<cpp2::EdgeProp>& edgeProps) {
     for (const auto& edgeProp : edgeProps) {
-        auto edgeType = edgeProp.entryId_;
+        auto edgeType = edgeProp.type;
         auto edgeName = edgeContext_.edgeNames_[edgeType];
         std::string colName = "_edge:";
         colName.append(edgeType > 0 ? "+" : "-")
                .append(edgeName);
-        for (const auto& name : edgeProp.names_) {
-            colName += ":" + name;
-        }
-        DVLOG(1) << "append col name: " << colName;
-        resultDataSet_.colNames.emplace_back(std::move(colName));
-    }
-}
-
-void GetNeighborsProcessor::buildTagColName(const std::vector<cpp2::EntryProp>& tagProps) {
-    for (const auto& tagProp : tagProps) {
-        auto tagId = tagProp.tag_or_edge_id;
-        auto tagName = tagContext_.tagNames_[tagId];
-        std::string colName = "_tag:" + tagName;
-        for (const auto& propExp : tagProp.props) {
-            colName += ":" + std::move(propExp.alias);
-        }
-        DVLOG(1) << "append col name: " << colName;
-        resultDataSet_.colNames.emplace_back(std::move(colName));
-    }
-}
-
-void GetNeighborsProcessor::buildEdgeColName(const std::vector<cpp2::EntryProp>& edgeProps) {
-    for (const auto& edgeProp : edgeProps) {
-        auto edgeType = edgeProp.tag_or_edge_id;
-        auto edgeName = edgeContext_.edgeNames_[edgeType];
-        std::string colName = "_edge:" + edgeName;
-        for (const auto& propExp : edgeProp.props) {
-            colName += ":" + std::move(propExp.alias);
+        for (const auto& prop : edgeProp.props) {
+            colName += ":" + std::move(prop);
         }
         DVLOG(1) << "append col name: " << colName;
         resultDataSet_.colNames.emplace_back(std::move(colName));

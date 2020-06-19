@@ -35,7 +35,6 @@ public:
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
         tagName_ = tagContext_->tagNames_[tagId_];
-        yields_ = &(tagContext_->yields_[tagId_]);
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -107,10 +106,6 @@ public:
         return tagName_;
     }
 
-    const std::vector<std::unique_ptr<Expression>>* yields() const {
-        return yields_;
-    }
-
 private:
     PlanContext* planContext_;
     TagContext* tagContext_;
@@ -121,7 +116,6 @@ private:
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
     std::string tagName_;
-    const std::vector<std::unique_ptr<Expression>>* yields_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<StorageIterator> iter_;

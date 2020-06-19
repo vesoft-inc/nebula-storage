@@ -50,15 +50,14 @@ public:
         // add result of each tag node to tagResult
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
-            const auto* yields = tagNode->yields();
             ret = tagNode->collectTagPropsIfValid(
                 [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
                     result.values.emplace_back(NullType::__NULL__);
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &result, &tagName, yields] (TagID tagId,
-                                                   RowReader* reader,
-                                                   const std::vector<PropContext>* props)
+                [this, &result, &tagName] (TagID tagId,
+                                           RowReader* reader,
+                                           const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     nebula::List list;
                     auto code = collectTagProps(tagId,
@@ -66,7 +65,6 @@ public:
                                                 reader,
                                                 props,
                                                 list,
-                                                yields,
                                                 expCtx_);
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
@@ -144,10 +142,6 @@ public:
         return edgeName_;
     }
 
-    const std::vector<std::unique_ptr<Expression>>* yields() const override {
-        return yields_;
-    }
-
 private:
     // return true when the value iter points to a value which can pass ttl and filter
     bool check() override {
@@ -164,7 +158,6 @@ private:
             auto idx = idxIter->second;
             edgeType_ = type;
             edgeName_ = edgeNodes_[iter_->getIdx()]->getEdgeName();
-            yields_ = &(edgeContext_->yields_[type]);
             props_ = &(edgeContext_->propContexts_[idx].second);
             // the columnIdx_ would be the column index in a response row, so need to add
             // the offset of tags and other fields
@@ -184,7 +177,6 @@ private:
     std::string edgeName_;
     size_t columnIdx_;
     const std::vector<PropContext>* props_ = nullptr;
-    const std::vector<std::unique_ptr<Expression>>* yields_ = nullptr;
 
     std::unique_ptr<MultiEdgeIterator> iter_;
 };

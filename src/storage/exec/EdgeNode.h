@@ -57,10 +57,6 @@ public:
         return edgeName_;
     }
 
-    const std::vector<std::unique_ptr<Expression>>* yields() const {
-        return yields_;
-    }
-
 protected:
     EdgeNode(PlanContext* planCtx,
              EdgeContext* ctx,
@@ -80,7 +76,6 @@ protected:
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, edgeType_);
         edgeName_ = edgeContext_->edgeNames_[edgeType_];
-        yields_ = &(edgeContext_->yields_[edgeType_]);
     }
 
     EdgeNode(PlanContext* planCtx,
@@ -98,7 +93,6 @@ protected:
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
     std::string edgeName_;
-    const std::vector<std::unique_ptr<Expression>>* yields_ = nullptr;
 
     std::unique_ptr<RowReader> reader_;
     std::unique_ptr<EdgeIterator> iter_;

@@ -25,14 +25,12 @@ public:
                      HashJoinNode* hashJoinNode,
                      AggregateNode* AggregateNode,
                      EdgeContext* edgeContext,
-                     nebula::DataSet* resultDataSet,
-                     StorageExpressionContext* expCtx)
+                     nebula::DataSet* resultDataSet)
         : planContext_(planCtx)
         , hashJoinNode_(hashJoinNode)
         , aggregateNode_(AggregateNode)
         , edgeContext_(edgeContext)
-        , resultDataSet_(resultDataSet)
-        , expCtx_(expCtx) {}
+        , resultDataSet_(resultDataSet) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -51,8 +49,8 @@ public:
             row.emplace_back(std::move(value));
         }
 
-        // add default null for each edge node
-        row.resize(row.size() + edgeContext_->propContexts_.size(),
+        // add default null for each edge node and the last column of yield expression
+        row.resize(row.size() + edgeContext_->propContexts_.size() + 1,
                    NullType::__NULL__);
         int64_t edgeRowCount = 0;
         nebula::List list;
@@ -61,11 +59,9 @@ public:
             auto key = aggregateNode_->key();
             auto reader = aggregateNode_->reader();
             auto props = aggregateNode_->props();
-            auto yields = aggregateNode_->yields();
             auto columnIdx = aggregateNode_->idx();
             const auto& edgeName = aggregateNode_->edgeName();
 
-            expCtx_->reset(reader, key, edgeName);
             // collect props need to return
             ret = collectEdgeProps(edgeType,
                                    edgeName,
@@ -73,9 +69,7 @@ public:
                                    key,
                                    planContext_->vIdLen_,
                                    props,
-                                   list,
-                                   yields,
-                                   expCtx_);
+                                   list);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 return ret;
             }
@@ -107,7 +101,6 @@ private:
     AggregateNode* aggregateNode_;
     EdgeContext* edgeContext_;
     nebula::DataSet* resultDataSet_;
-    StorageExpressionContext* expCtx_;
 };
 
 }  // namespace storage

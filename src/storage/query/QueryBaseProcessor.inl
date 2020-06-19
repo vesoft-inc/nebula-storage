@@ -15,9 +15,9 @@ namespace storage {
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
-        const std::vector<ReturnProp>& vertexProps) {
+        const std::vector<cpp2::VertexProp>& vertexProps) {
     for (const auto& vertexProp : vertexProps) {
-        auto tagId = vertexProp.entryId_;
+        auto tagId = vertexProp.tag;
         auto iter = tagContext_.schemas_.find(tagId);
         if (iter == tagContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
@@ -32,8 +32,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         }
 
         std::vector<PropContext> ctxs;
-        auto& props = vertexProp.names_;
-        for (const auto& name : props) {
+        for (const auto& name : vertexProp.props) {
             auto field = tagSchema->field(name);
             if (field == nullptr) {
                 VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
@@ -53,9 +52,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
-        const std::vector<ReturnProp>& edgeProps) {
+        const std::vector<cpp2::EdgeProp>& edgeProps) {
     for (const auto& edgeProp : edgeProps) {
-        auto edgeType = edgeProp.entryId_;
+        auto edgeType = edgeProp.type;
         auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
         if (iter == edgeContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
@@ -70,12 +69,13 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         }
 
         std::vector<PropContext> ctxs;
-        auto& props = edgeProp.names_;
-        for (const auto& name : props) {
-            auto field = edgeSchema->field(name);
-            if (field == nullptr) {
-                VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
-                return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+        for (const auto& name : edgeProp.props) {
+            if (name != _SRC && name != _TYPE && name != _RANK && name != _DST) {
+                auto field = edgeSchema->field(name);
+                if (field == nullptr) {
+                    VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
+                    return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+                }
             }
 
             PropContext ctx(name.c_str());
@@ -86,6 +86,16 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         edgeContext_.indexMap_.emplace(edgeType, edgeContext_.propContexts_.size() - 1);
         edgeContext_.edgeNames_.emplace(edgeType, std::move(edgeName).value());
     }
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+template<typename REQ, typename RESP>
+cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
+    resultDataSet_.colNames.emplace_back("_expr");
+    if (!req.__isset.expressions) {
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+    // todo(doodle): support expression yields later
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -139,100 +149,50 @@ void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
 }
 
 template<typename REQ, typename RESP>
-std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
-    std::vector<ReturnProp> result;
+std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
+    std::vector<cpp2::VertexProp> result;
     for (const auto& entry : tagContext_.schemas_) {
-        ReturnProp prop;
-        prop.entryId_ = entry.first;
-        std::vector<std::string> names;
+        cpp2::VertexProp tagProp;
+        tagProp.tag = entry.first;
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);
-            names.emplace_back(std::move(name));
+            tagProp.props.emplace_back(std::move(name));
         }
-        prop.names_ = std::move(names);
-        result.emplace_back(std::move(prop));
+        result.emplace_back(std::move(tagProp));
     }
     std::sort(result.begin(), result.end(),
-              [&] (const auto& a, const auto& b) { return a.entryId_ < b.entryId_; });
+              [&] (const auto& a, const auto& b) { return a.tag < b.tag; });
     return result;
 }
 
 template<typename REQ, typename RESP>
-std::vector<ReturnProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
+std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         const cpp2::EdgeDirection& direction) {
-    std::vector<ReturnProp> result;
+    std::vector<cpp2::EdgeProp> result;
     for (const auto& entry : edgeContext_.schemas_) {
-        ReturnProp prop;
-        prop.entryId_ = entry.first;
+        cpp2::EdgeProp edgeProp;
+        edgeProp.type = entry.first;
         if (direction == cpp2::EdgeDirection::IN_EDGE) {
-            prop.entryId_ = -prop.entryId_;
+            edgeProp.type = -edgeProp.type;
         }
-        std::vector<std::string> names;
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);
-            names.emplace_back(std::move(name));
+            edgeProp.props.emplace_back(std::move(name));
         }
-        prop.names_ = std::move(names);
         if (direction == cpp2::EdgeDirection::BOTH) {
-            ReturnProp reverse = prop;
-            reverse.entryId_ = -prop.entryId_;
+            cpp2::EdgeProp reverse = edgeProp;
+            reverse.type = -edgeProp.type;
             result.emplace_back(std::move(reverse));
         }
-        result.emplace_back(std::move(prop));
+        result.emplace_back(std::move(edgeProp));
     }
     std::sort(result.begin(), result.end(),
-              [&] (const auto& a, const auto& b) { return a.entryId_ < b.entryId_; });
+              [&] (const auto& a, const auto& b) { return a.type < b.type; });
     return result;
-}
-
-template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareVertexProps(
-        const std::vector<cpp2::EntryProp>& tagProps) {
-    for (const auto& tagProp : tagProps) {
-        auto ret = prepareProps(tagProp.props,
-                                &(tagContext_.yields_[tagProp.tag_or_edge_id]));
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
-            return ret;
-        }
-    }
-    return cpp2::ErrorCode::SUCCEEDED;
-}
-
-template <typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareEdgeProps(
-        const std::vector<cpp2::EntryProp>& edgeProps) {
-    for (const auto& edgeProp : edgeProps) {
-        auto ret = prepareProps(edgeProp.props,
-                                &(edgeContext_.yields_[edgeProp.tag_or_edge_id]));
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
-            return ret;
-        }
-    }
-    return cpp2::ErrorCode::SUCCEEDED;
-}
-
-template <typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::prepareProps(
-        const std::vector<cpp2::PropExp>& props,
-        std::vector<std::unique_ptr<Expression>>* yields) {
-    for (const auto& propExp : props) {
-        auto exp = Expression::decode(propExp.prop);
-        if (exp == nullptr) {
-            return cpp2::ErrorCode::E_DATA_TYPE_MISMATCH;
-        }
-        auto ret = checkExp(exp.get(), true, false);
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
-            return ret;
-        }
-        if (yields != nullptr) {
-            yields->emplace_back(std::move(exp));
-        }
-    }
-    return cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename REQ, typename RESP>

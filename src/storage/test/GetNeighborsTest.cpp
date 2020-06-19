@@ -43,8 +43,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "OneOutEdgeKeyInProperty";
@@ -63,8 +63,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "OneInEdgeMultiProperty";
@@ -82,8 +82,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         processor->process(req);
         auto resp = std::move(fut).get();
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, team, - serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, team, - serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "OneInEdgeKeyInProperty";
@@ -102,8 +102,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         processor->process(req);
         auto resp = std::move(fut).get();
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, team, - serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, team, - serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "GetNotExistTag";
@@ -123,8 +123,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, team, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
+        // vId, stat, team, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 6);
     }
     {
         LOG(INFO) << "OutEdgeReturnAllProperty";
@@ -142,8 +142,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve, teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
+        // vId, stat, player, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 6);
     }
     {
         LOG(INFO) << "InEdgeReturnAllProperty";
@@ -161,8 +161,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, - teammate, - serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
+        // vId, stat, player, - teammate, - serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 6);
     }
     {
         LOG(INFO) << "InOutEdgeReturnAllProperty";
@@ -180,8 +180,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, - teammate, - serve, serve, teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 7);
+        // vId, stat, player, - teammate, - serve, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 8);
     }
     {
         LOG(INFO) << "InEdgeReturnAllProperty";
@@ -199,8 +199,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, - teammate, - serve, serve, teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 7);
+        // vId, stat, player, - teammate, - serve, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 8);
     }
     {
         LOG(INFO) << "Nullable";
@@ -218,8 +218,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "DefaultValue";
@@ -237,8 +237,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "Misc";
@@ -260,8 +260,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "MultiOutEdgeMultiProperty";
@@ -280,8 +280,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve, teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
+        // vId, stat, player, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 6);
     }
     {
         LOG(INFO) << "InOutEdgeMultiProperty";
@@ -301,8 +301,8 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve, teammate, -teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 6);
+        // vId, stat, player, serve, teammate, -teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 7);
     }
 }
 
@@ -336,8 +336,8 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 5);
     }
     {
         LOG(INFO) << "OneInEdgeMultiProperty";
@@ -355,8 +355,8 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
         processor->process(req);
         auto resp = std::move(fut).get();
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, -serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 4);
+        // vId, stat, player, -serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 5);
     }
     {
         LOG(INFO) << "Misc";
@@ -380,8 +380,8 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve, teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 5);
+        // vId, stat, player, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 2, 6);
     }
 }
 
@@ -449,9 +449,9 @@ TEST(GetNeighborsTest, StatTest) {
             548 + 294 + 301 + 115, (29.7 + 27.1 + 27.5 + 25.7) / 4, 7});
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges,
-                                      1, 4, &expectStat);
+                                      1, 5, &expectStat);
     }
     {
         LOG(INFO) << "CollectStatOfSameProperty";
@@ -506,9 +506,9 @@ TEST(GetNeighborsTest, StatTest) {
             (29.7 + 27.1 + 27.5 + 25.7) / 4, 25.7, 29.7});
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges,
-                                      1, 4, &expectStat);
+                                      1, 5, &expectStat);
     }
 }
 
@@ -633,8 +633,8 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         std::vector<VertexID> vertices = {"Tim Duncan"};
@@ -651,8 +651,8 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
 }
 
@@ -686,8 +686,8 @@ TEST(GetNeighborsTest, TtlTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 4);
+        // vId, stat, player, serve, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, over, tags, edges, 1, 5);
     }
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -704,8 +704,8 @@ TEST(GetNeighborsTest, TtlTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 10);
     }
     sleep(FLAGS_mock_ttl_duration + 1);
     {
@@ -725,9 +725,10 @@ TEST(GetNeighborsTest, TtlTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(4, resp.vertices.rows[0].columns.size());
+        ASSERT_EQ(5, resp.vertices.rows[0].columns.size());
         ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[2].getNull());
         ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[3].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[4].getNull());
     }
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -744,14 +745,15 @@ TEST(GetNeighborsTest, TtlTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(9, resp.vertices.rows[0].columns.size());
+        ASSERT_EQ(10, resp.vertices.rows[0].columns.size());
         ASSERT_TRUE(resp.vertices.rows[0].columns[2].isNull());     // player expired
         ASSERT_TRUE(resp.vertices.rows[0].columns[5].isList());     // - teammate valid
-        ASSERT_TRUE(resp.vertices.rows[0].columns[8].isList());     // + teammate valid
         ASSERT_TRUE(resp.vertices.rows[0].columns[6].isNull());     // - serve expired
         ASSERT_TRUE(resp.vertices.rows[0].columns[7].isNull());     // + serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].columns[8].isList());     // + teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].columns[9].isNull());     // expr
     }
     FLAGS_mock_ttl_col = false;
 }
@@ -862,8 +864,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 2 column: vId, stat
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 2);
+        // vId, stat, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 3);
     }
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -880,8 +882,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 10);
     }
     {
         LOG(INFO) << "GoFromTeamOverAll";
@@ -898,8 +900,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 10);
     }
     {
         LOG(INFO) << "GoFromPlayerOverInEdge";
@@ -916,8 +918,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 7 column: vId, stat, player, team, general tag, - serve, - teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
+        // vId, stat, player, team, general tag, - serve, - teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 8);
     }
     {
         LOG(INFO) << "GoFromPlayerOverOutEdge";
@@ -934,8 +936,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 7 column: vId, stat, player, team, general tag, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
+        // vId, stat, player, team, general tag, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 8);
     }
     {
         LOG(INFO) << "GoFromMultiPlayerOverAll";
@@ -952,8 +954,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 10);
     }
     {
         LOG(INFO) << "GoFromMultiTeamOverAll";
@@ -970,8 +972,8 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 3, 10);
     }
 }
 
@@ -999,8 +1001,8 @@ TEST(GetNeighborsTest, MultiVersionTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // 9 column: vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate
-        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 9);
+        // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 10);
     }
 }
 
@@ -1048,12 +1050,14 @@ TEST(GetNeighborsTest, FilterTest) {
         expected.colNames = {"_vid",
                              "_stats",
                              "_tag:1:name:age:avgScore",
-                             "_edge:101:teamName:startYear:endYear"};
+                             "_edge:+101:teamName:startYear:endYear",
+                             "_expr"};
         nebula::Row row({"Tracy McGrady",
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
-                                       nebula::List({"Rockets", 2004, 2010})})});
+                                       nebula::List({"Rockets", 2004, 2010})}),
+                         NullType::__NULL__});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.vertices);
     }
@@ -1097,13 +1101,15 @@ TEST(GetNeighborsTest, FilterTest) {
         expected.colNames = {"_vid",
                              "_stats",
                              "_tag:1:name:age:avgScore",
-                             "_edge:101:teamName:startYear:endYear"};
+                             "_edge:+101:teamName:startYear:endYear",
+                             "_expr"};
         auto serveEdges = nebula::List();
         serveEdges.values.emplace_back(nebula::List({"Magic", 2000, 2004}));
         nebula::Row row({"Tracy McGrady",
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
-                         serveEdges});
+                         serveEdges,
+                         NullType::__NULL__});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.vertices);
     }
@@ -1146,12 +1152,14 @@ TEST(GetNeighborsTest, FilterTest) {
         expected.colNames = {"_vid",
                              "_stats",
                              "_tag:1:name:age:avgScore",
-                             "_edge:101:teamName:startYear:endYear"};
+                             "_edge:+101:teamName:startYear:endYear",
+                             "_expr"};
         nebula::Row row({"Tracy McGrady",
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
-                                       nebula::List({"Rockets", 2004, 2010})})});
+                                       nebula::List({"Rockets", 2004, 2010})}),
+                         NullType::__NULL__});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.vertices);
     }
@@ -1195,7 +1203,8 @@ TEST(GetNeighborsTest, FilterTest) {
         expected.colNames = {"_vid",
                              "_stats",
                              "_tag:1:name:age:avgScore",
-                             "_edge:101:teamName:startYear:endYear"};
+                             "_edge:+101:teamName:startYear:endYear",
+                             "_expr"};
         ASSERT_EQ(expected.colNames, resp.vertices.colNames);
         ASSERT_EQ(4, resp.vertices.rows.size());
         {
@@ -1203,7 +1212,8 @@ TEST(GetNeighborsTest, FilterTest) {
                             NullType::__NULL__,
                             nebula::List({"Tracy McGrady", 41, 19.6}),
                             nebula::List({nebula::List({"Magic", 2000, 2004}),
-                                          nebula::List({"Rockets", 2004, 2010})})});
+                                          nebula::List({"Rockets", 2004, 2010})}),
+                            NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
                 if (resp.vertices.rows[i].columns[0].getStr() == "Tracy McGrady") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
@@ -1217,7 +1227,8 @@ TEST(GetNeighborsTest, FilterTest) {
             nebula::Row row({"Tim Duncan",
                             NullType::__NULL__,
                             nebula::List({"Tim Duncan", 44, 19.0}),
-                            serveEdges});
+                            serveEdges,
+                            NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
                 if (resp.vertices.rows[i].columns[0].getStr() == "Tim Duncan") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
@@ -1229,6 +1240,7 @@ TEST(GetNeighborsTest, FilterTest) {
             nebula::Row row({"Tony Parker",
                             NullType::__NULL__,
                             nebula::List({"Tony Parker", 38, 15.5}),
+                            NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
                 if (resp.vertices.rows[i].columns[0].getStr() == "Tony Parker") {
@@ -1242,6 +1254,7 @@ TEST(GetNeighborsTest, FilterTest) {
             nebula::Row row({"Manu Ginobili",
                             NullType::__NULL__,
                             nebula::List({"Manu Ginobili", 42, 13.3}),
+                            NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
                 if (resp.vertices.rows[i].columns[0].getStr() == "Manu Ginobili") {
@@ -1283,8 +1296,9 @@ TEST(GetNeighborsTest, FilterTest) {
         expected.colNames = {"_vid",
                              "_stats",
                              "_tag:1:name:age:avgScore",
-                             "_edge:101:teamName:startYear:endYear",
-                             "_edge:102:player1:player2:teamName"};
+                             "_edge:+101:teamName:startYear:endYear",
+                             "_edge:+102:player1:player2:teamName",
+                             "_expr"};
         auto serveEdges = nebula::List();
         serveEdges.values.emplace_back(nebula::List({"Spurs", 1997, 2016}));
         // This will only get the edge of serve, which does not make sense
@@ -1293,210 +1307,11 @@ TEST(GetNeighborsTest, FilterTest) {
                          NullType::__NULL__,
                          nebula::List({"Tim Duncan", 44, 19.0}),
                          serveEdges,
+                         NullType::__NULL__,
                          NullType::__NULL__});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.vertices);
     }
-}
-
-// wait ExpressionContext change interface to return Value instaed of const Value&
-TEST(GetNeighborsTest, ComplicateYieldTest) {
-    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
-    mock::MockCluster cluster;
-    cluster.initStorageKV(rootPath.path());
-    auto* env = cluster.storageEnv_.get();
-    auto totalParts = cluster.getTotalParts();
-    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
-    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
-
-    TagID player = 1;
-    EdgeType serve = 101;
-
-    {
-        std::vector<VertexID> vertices = {"Tracy McGrady"};
-        std::vector<EdgeType> over = {serve};
-
-        std::hash<std::string> hash;
-        cpp2::GetNeighborsRequest req;
-        req.space_id = 1;
-        req.column_names.emplace_back("_vid");
-        for (const auto& vertex : vertices) {
-            PartitionID partId = (hash(vertex) % totalParts) + 1;
-            nebula::Row row;
-            row.columns.emplace_back(vertex);
-            req.parts[partId].emplace_back(std::move(row));
-        }
-        for (const auto& edge : over) {
-            req.edge_types.emplace_back(edge);
-        }
-
-        {
-            LOG(INFO) << "$^.player.endYear - 2000 as player_yield1";
-            LOG(INFO) << "$^.player.endYear > 2000 as player_yield2";
-            std::vector<cpp2::EntryProp> vertexProps;
-            cpp2::EntryProp tagProp;
-            tagProp.tag_or_edge_id = player;
-            {
-                cpp2::PropExp propExp;
-                propExp.alias = "player_yield1";
-                ArithmeticExpression exp(
-                    Expression::Kind::kMinus,
-                    new SourcePropertyExpression(new std::string(folly::to<std::string>(player)),
-                                                new std::string("endYear")),
-                    new ConstantExpression(2000));
-                propExp.set_prop(Expression::encode(exp));
-                tagProp.props.emplace_back(std::move(propExp));
-            }
-            {
-                cpp2::PropExp propExp;
-                propExp.alias = "player_yield2";
-                RelationalExpression exp(
-                    Expression::Kind::kRelGT,
-                    new SourcePropertyExpression(new std::string(folly::to<std::string>(player)),
-                                                new std::string("endYear")),
-                    new ConstantExpression(2000));
-                propExp.set_prop(Expression::encode(exp));
-                tagProp.props.emplace_back(std::move(propExp));
-            }
-            vertexProps.emplace_back(std::move(tagProp));
-            req.set_vertex_props(std::move(vertexProps));
-        }
-        {
-            LOG(INFO) << "serve.endYear - 2000 as serve_yield1";
-            LOG(INFO) << "serve.endYear > 2000 as serve_yield2";
-            std::vector<cpp2::EntryProp> edgeProps;
-            cpp2::EntryProp edgeProp;
-            edgeProp.tag_or_edge_id = serve;
-            {
-                cpp2::PropExp propExp;
-                propExp.alias = "serve_yield1";
-                ArithmeticExpression exp(
-                    Expression::Kind::kMinus,
-                    new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
-                                            new std::string("endYear")),
-                    new ConstantExpression(2000));
-                propExp.set_prop(Expression::encode(exp));
-                edgeProp.props.emplace_back(std::move(propExp));
-            }
-            {
-                cpp2::PropExp propExp;
-                propExp.alias = "serve_yield2";
-                RelationalExpression exp(
-                    Expression::Kind::kRelGT,
-                    new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
-                                            new std::string("endYear")),
-                    new ConstantExpression(2000));
-                propExp.set_prop(Expression::encode(exp));
-                edgeProp.props.emplace_back(std::move(propExp));
-            }
-            edgeProps.emplace_back(std::move(edgeProp));
-            req.set_edge_props(std::move(edgeProps));
-        }
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
-        auto fut = processor->getFuture();
-        processor->process(req);
-        auto resp = std::move(fut).get();
-
-        ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        nebula::DataSet expected;
-        expected.colNames = {"_vid",
-                             "_stats",
-                             "_tag:1:player_yield1:player_yield2",
-                             "_edge:101:serve_yield1:serve_yield2"};
-        nebula::Row row({"Tracy McGrady",
-                         NullType::__NULL__,
-                         nebula::List({12, true}),
-                         nebula::List({nebula::List({0, false}),
-                                       nebula::List({4, true}),
-                                       nebula::List({10, true}),
-                                       nebula::List({10, true}),
-                                       nebula::List({11, true}),
-                                       nebula::List({12, true})})});
-        expected.rows.emplace_back(std::move(row));
-        ASSERT_EQ(expected, resp.vertices);
-    }
-    /*
-    {
-        std::vector<VertexID> vertices = {"Tracy McGrady"};
-        std::vector<EdgeType> over = {serve};
-
-        std::hash<std::string> hash;
-        cpp2::GetNeighborsRequest req;
-        req.space_id = 1;
-        req.column_names.emplace_back("_vid");
-        for (const auto& vertex : vertices) {
-            PartitionID partId = (hash(vertex) % totalParts) + 1;
-            nebula::Row row;
-            row.columns.emplace_back(vertex);
-            req.parts[partId].emplace_back(std::move(row));
-        }
-        for (const auto& edge : over) {
-            req.edge_types.emplace_back(edge);
-        }
-
-        {
-            LOG(INFO) << "$^.player.endYear - $^.player.startYear as year";
-            std::vector<cpp2::EntryProp> vertexProps;
-            cpp2::EntryProp tagProp;
-            tagProp.tag_or_edge_id = player;
-            cpp2::PropExp propExp;
-            propExp.alias = "year";
-            ArithmeticExpression exp(
-                Expression::Kind::kMinus,
-                new SourcePropertyExpression(new std::string(folly::to<std::string>(player)),
-                                             new std::string("endYear")),
-                new SourcePropertyExpression(new std::string(folly::to<std::string>(player)),
-                                             new std::string("startYear")));
-            propExp.set_prop(Expression::encode(exp));
-            tagProp.props.emplace_back(std::move(propExp));
-            vertexProps.emplace_back(std::move(tagProp));
-            req.set_vertex_props(std::move(vertexProps));
-        }
-        {
-            LOG(INFO) << "serve.endYear - serve.startYear as team_year";
-            std::vector<cpp2::EntryProp> edgeProps;
-            cpp2::EntryProp edgeProp;
-            edgeProp.tag_or_edge_id = serve;
-            cpp2::PropExp propExp;
-            propExp.alias = "team_year";
-            ArithmeticExpression exp(
-                Expression::Kind::kMinus,
-                new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
-                                           new std::string("endYear")),
-                new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
-                                           new std::string("startYear")));
-            propExp.set_prop(Expression::encode(exp));
-            edgeProp.props.emplace_back(std::move(propExp));
-            edgeProps.emplace_back(std::move(edgeProp));
-            req.set_edge_props(std::move(edgeProps));
-        }
-
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
-        auto fut = processor->getFuture();
-        processor->process(req);
-        auto resp = std::move(fut).get();
-
-        ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
-        nebula::DataSet expected;
-        expected.colNames = {"_vid",
-                             "_stats",
-                             "_tag:1:year",
-                             "_edge:101:team_year"};
-        nebula::Row row({"Tracy McGrady",
-                         NullType::__NULL__,
-                         nebula::List({15}),
-                         nebula::List({nebula::List({3}),
-                                       nebula::List({4}),
-                                       nebula::List({6}),
-                                       nebula::List({0}),
-                                       nebula::List({1}),
-                                       nebula::List({1})})});
-        expected.rows.emplace_back(std::move(row));
-        ASSERT_EQ(expected, resp.vertices);
-    }
-    */
 }
 
 }  // namespace storage

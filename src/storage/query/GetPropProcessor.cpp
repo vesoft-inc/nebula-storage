@@ -21,7 +21,6 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
         return;
     }
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
-    expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_);
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -79,7 +78,7 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
-    auto output = std::make_unique<GetTagPropNode>(tags, result, expCtx_.get());
+    auto output = std::make_unique<GetTagPropNode>(tags, result);
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
@@ -96,7 +95,7 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
-    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_, result, expCtx_.get());
+    auto output = std::make_unique<GetEdgePropNode>(edges, spaceVidLen_, result);
     for (auto* edge : edges) {
         output->addDependency(edge);
     }
@@ -147,15 +146,15 @@ cpp2::ErrorCode GetPropProcessor::checkAndBuildContexts(const cpp2::GetPropReque
 
 cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& req) {
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
-    if (req.props.empty()) {
+    if (req.vertex_props.empty()) {
         // If no props specified, get all property of all tagId in space
         auto returnProps = buildAllTagProps();
         // generate tag prop context
         ret = handleVertexProps(returnProps);
-        buildColName(returnProps, tagContext_.tagNames_);
+        buildTagColName(returnProps);
     } else {
-        ret = prepareVertexProps(req.props);
-        buildColName(req.props);
+        ret = handleVertexProps(req.vertex_props);
+        buildTagColName(req.vertex_props);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
@@ -167,15 +166,15 @@ cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& re
 
 cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& req) {
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
-    if (req.props.empty()) {
+    if (req.edge_props.empty()) {
         // If no props specified, get all property of all tagId in space
         auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH);
         // generate edge prop context
         ret = handleEdgeProps(returnProps);
-        buildColName(returnProps, edgeContext_.edgeNames_);
+        buildEdgeColName(returnProps);
     } else {
-        ret = prepareEdgeProps(req.props);
-        buildColName(req.props);
+        ret = handleEdgeProps(req.edge_props);
+        buildEdgeColName(req.edge_props);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
@@ -185,21 +184,18 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-void GetPropProcessor::buildColName(const std::vector<ReturnProp>& props,
-                                    std::unordered_map<int32_t, std::string>& names) {
-    for (const auto& prop : props) {
-        // entryName is tagName or edgeName
-        auto entryName = names[prop.entryId_];
-        for (const auto& propName : prop.names_) {
-            resultDataSet_.colNames.emplace_back(entryName + ":" + propName);
+void GetPropProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {
+    for (const auto& tagProp : tagProps) {
+        for (const auto& prop : tagProp.props) {
+            resultDataSet_.colNames.emplace_back(prop);
         }
     }
 }
 
-void GetPropProcessor::buildColName(const std::vector<cpp2::EntryProp>& entries) {
-    for (const auto& entry : entries) {
-        for (const auto& prop : entry.props) {
-            resultDataSet_.colNames.emplace_back(std::move(prop.alias));
+void GetPropProcessor::buildEdgeColName(const std::vector<cpp2::EdgeProp>& edgeProps) {
+    for (const auto& edgeProp : edgeProps) {
+        for (const auto& prop : edgeProp.props) {
+            resultDataSet_.colNames.emplace_back(prop);
         }
     }
 }

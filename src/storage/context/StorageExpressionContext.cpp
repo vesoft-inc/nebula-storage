@@ -16,7 +16,7 @@ Value StorageExpressionContext::value_ = NullType::__NULL__;
 const Value& StorageExpressionContext::getEdgeProp(const std::string& edgeName,
                                                    const std::string& prop) const {
     if (edgeName != name_) {
-        return kNullValue;
+        return Value::kNullValue;
     }
     if (prop == _SRC) {
         value_ = NebulaKeyUtils::getSrcId(vIdLen_, key_);
@@ -37,7 +37,7 @@ const Value& StorageExpressionContext::getSrcProp(const std::string& tagName,
                                                   const std::string& prop) const {
     auto iter = tagFilters_.find(std::make_pair(tagName, prop));
     if (iter == tagFilters_.end()) {
-        return kNullValue;
+        return Value::kNullValue;
     }
     VLOG(1) << "Hit srcProp filter for tag " << tagName << ", prop " << prop;
     return iter->second;

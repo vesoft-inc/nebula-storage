@@ -24,11 +24,6 @@
 namespace nebula {
 namespace storage {
 
-struct ReturnProp {
-    int32_t entryId_;                       // tagId or edgeType
-    std::vector<std::string> names_;        // property names
-};
-
 // The PropContext stores the info about property to be returned or filtered
 struct PropContext {
 public:
@@ -101,7 +96,6 @@ struct TagContext {
                        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     // tagId -> tag ttl info
     std::unordered_map<TagID, std::pair<std::string, int64_t>> ttlInfo_;
-    std::unordered_map<TagID, std::vector<std::unique_ptr<Expression>>> yields_;
     VertexCache* vertexCache_ = nullptr;
 };
 
@@ -116,7 +110,6 @@ struct EdgeContext {
                        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     // EdgeType -> edge ttl info
     std::unordered_map<EdgeType, std::pair<std::string, int64_t>> ttlInfo_;
-    std::unordered_map<EdgeType, std::vector<std::unique_ptr<Expression>>> yields_;
     // offset is the start index of first edge type in a response row
     size_t offset_;
     size_t statCount_ = 0;
@@ -143,28 +136,20 @@ protected:
     cpp2::ErrorCode getSpaceVertexSchema();
     cpp2::ErrorCode getSpaceEdgeSchema();
 
-    // collect tag props need to return
-    cpp2::ErrorCode prepareVertexProps(const std::vector<cpp2::EntryProp>& tagProps);
-
-    // collect edge props need to return
-    cpp2::ErrorCode prepareEdgeProps(const std::vector<cpp2::EntryProp>& edgeProps);
-
-    cpp2::ErrorCode prepareProps(const std::vector<cpp2::PropExp>& props,
-                                 std::vector<std::unique_ptr<Expression>>* yields);
-
     // build tagContexts_ according to return props
-    cpp2::ErrorCode handleVertexProps(const std::vector<ReturnProp>& tagProps);
+    cpp2::ErrorCode handleVertexProps(const std::vector<cpp2::VertexProp>& tagProps);
     // build edgeContexts_ according to return props
-    cpp2::ErrorCode handleEdgeProps(const std::vector<ReturnProp>& edgeProps);
+    cpp2::ErrorCode handleEdgeProps(const std::vector<cpp2::EdgeProp>& edgeProps);
 
     cpp2::ErrorCode buildFilter(const REQ& req);
+    cpp2::ErrorCode buildYields(const REQ& req);
 
     // build ttl info map
     void buildTagTTLInfo();
     void buildEdgeTTLInfo();
 
-    std::vector<ReturnProp> buildAllTagProps();
-    std::vector<ReturnProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
+    std::vector<cpp2::VertexProp> buildAllTagProps();
+    std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
     cpp2::ErrorCode checkExp(const Expression* exp, bool returned, bool filtered);
 

@@ -28,28 +28,28 @@ public:
 
     // Get the latest version value for the given variable name, such as $a, $b
     const Value& getVar(const std::string&) const override {
-        return kNullValue;
+        return Value::kNullValue;
     }
 
     // Get the given version value for the given variable name, such as $a, $b
     const Value& getVersionedVar(const std::string&, int64_t) const override {
-        return kNullValue;
+        return Value::kNullValue;
     }
 
     // Get the specified property from a variable, such as $a.prop_name
     const Value& getVarProp(const std::string&, const std::string&) const override {
-        return kNullValue;
+        return Value::kNullValue;
     }
 
     // Get the specified property of tagName from the destination vertex,
     // such as $$.tagName.prop_name
     const Value& getDstProp(const std::string&, const std::string&) const override {
-        return kNullValue;
+        return Value::kNullValue;
     }
 
     // Get the specified property from the input, such as $-.prop_name
     const Value& getInputProp(const std::string&) const override {
-        return kNullValue;
+        return Value::kNullValue;
     }
 
     // Get the specified property from the edge, such as edgename.prop_name

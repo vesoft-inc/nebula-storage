@@ -186,57 +186,32 @@ public:
             req.edge_types.emplace_back(edge);
         }
 
-        std::vector<cpp2::EntryProp> vertexProps;
+        std::vector<cpp2::VertexProp> vertexProps;
         if (tags.empty() && !returnNoneProps) {
             req.set_vertex_props(std::move(vertexProps));
         } else if (!returnNoneProps) {
             for (const auto& tag : tags) {
                 TagID tagId = tag.first;
-                cpp2::EntryProp tagProp;
-                tagProp.tag_or_edge_id = tagId;
+                cpp2::VertexProp tagProp;
+                tagProp.tag = tagId;
                 for (const auto& prop : tag.second) {
-                    cpp2::PropExp propExp;
-                    SourcePropertyExpression exp(new std::string(folly::to<std::string>(tagId)),
-                                                 new std::string(prop));
-                    propExp.set_alias(prop);
-                    propExp.set_prop(Expression::encode(exp));
-                    tagProp.props.emplace_back(std::move(propExp));
+                    tagProp.props.emplace_back(std::move(prop));
                 }
                 vertexProps.emplace_back(std::move(tagProp));
             }
             req.set_vertex_props(std::move(vertexProps));
         }
 
-        std::vector<cpp2::EntryProp> edgeProps;
+        std::vector<cpp2::EdgeProp> edgeProps;
         if (edges.empty() && !returnNoneProps) {
             req.set_edge_props(std::move(edgeProps));
         } else if (!returnNoneProps) {
             for (const auto& edge : edges) {
                 EdgeType edgeType = edge.first;
-                cpp2::EntryProp edgeProp;
-                edgeProp.tag_or_edge_id = edgeType;
+                cpp2::EdgeProp edgeProp;
+                edgeProp.type = edgeType;
                 for (const auto& prop : edge.second) {
-                    cpp2::PropExp propExp;
-                    propExp.set_alias(prop);
-                    if (prop == _SRC) {
-                        EdgeSrcIdExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                        propExp.set_prop(Expression::encode(exp));
-                    } else if (prop == _TYPE) {
-                        EdgeTypeExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                        propExp.set_prop(Expression::encode(exp));
-                    } else if (prop == _RANK) {
-                        EdgeRankExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                        propExp.set_prop(Expression::encode(exp));
-                    } else if (prop == _DST) {
-                        EdgeDstIdExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                        propExp.set_prop(Expression::encode(exp));
-                    } else {
-                        EdgePropertyExpression exp(
-                            new std::string(folly::to<std::string>(edgeType)),
-                            new std::string(prop));
-                        propExp.set_prop(Expression::encode(exp));
-                    }
-                    edgeProp.props.emplace_back(std::move(propExp));
+                    edgeProp.props.emplace_back(std::move(prop));
                 }
                 edgeProps.emplace_back(std::move(edgeProp));
             }
@@ -294,7 +269,10 @@ public:
             auto vId = row.columns[0].getStr();
             auto iter = std::find(vertices.begin(), vertices.end(), vId);
             ASSERT_TRUE(iter != vertices.end());
+            // the second column is stats
             ASSERT_EQ(NullType::__NULL__, row.columns[1].getNull());
+            // the last column is yeild expression
+            ASSERT_EQ(NullType::__NULL__, row.columns[expectColumnCount - 1].getNull());
             checkRowProps(row, dataSet.colNames, {}, {});
         }
     }
@@ -304,9 +282,10 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
         auto colNames = dataSet.colNames;
-        ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 2);
+        ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 3);
         ASSERT_EQ("_vid", colNames[0]);
         ASSERT_EQ(0, colNames[1].find("_stats"));
+        ASSERT_EQ(0, colNames[colNames.size() - 1].find("_expr"));
 
         for (size_t i = 0; i < tags.size(); i++) {
             auto expected = "_tag:" + folly::to<std::string>(tags[i].first);
@@ -316,7 +295,9 @@ public:
             ASSERT_EQ(expected, colNames[i + 2]);
         }
         for (size_t i = 0; i < edges.size(); i++) {
-            auto expected = "_edge:" + folly::to<std::string>(edges[i].first);
+            std::string expected = "_edge:";
+            expected.append(edges[i].first > 0 ? "+" : "-")
+                    .append(folly::to<std::string>(std::abs(edges[i].first)));
             for (const auto& prop : edges[i].second) {
                 expected += ":" + prop;
             }
@@ -584,7 +565,8 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
         auto vId = row.columns[0].getStr();
-        for (size_t i = 2; i < colNames.size(); i++) {
+        // skip the last column which is reserved for expression yields
+        for (size_t i = 2; i < colNames.size() - 1; i++) {
             const auto& name = colNames[i];
             std::vector<std::string> cols;
             folly::split(':', name, cols, true);

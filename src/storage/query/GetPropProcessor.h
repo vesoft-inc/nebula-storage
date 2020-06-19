@@ -47,10 +47,8 @@ protected:
 
     cpp2::ErrorCode buildEdgeContext(const cpp2::GetPropRequest& req);
 
-    void buildColName(const std::vector<ReturnProp>& props,
-                      std::unordered_map<int32_t, std::string>& names);
-
-    void buildColName(const std::vector<cpp2::EntryProp>& props);
+    void buildTagColName(const std::vector<cpp2::VertexProp>& tagProps);
+    void buildEdgeColName(const std::vector<cpp2::EdgeProp>& edgeProps);
 
 private:
     bool isEdge_ = false;                   // true for edge, false for tag

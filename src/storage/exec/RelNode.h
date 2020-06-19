@@ -87,26 +87,17 @@ protected:
             folly::StringPiece key,
             size_t vIdLen,
             const std::vector<PropContext>* props,
-            nebula::List& list,
-            const std::vector<std::unique_ptr<Expression>>* yields = nullptr,
-            StorageExpressionContext* ctx = nullptr) {
-        if (yields == nullptr || yields->empty()) {
-            for (const auto& prop : *props) {
-                if (prop.returned_) {
-                    auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
-                    auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
-                    auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
-                    VLOG(2) << "Collect prop " << prop.name_ << ", type " << edgeType;
-                    auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
-                                                          reader, prop);
-                    list.values.emplace_back(std::move(value));
-                }
-            }
-        } else {
-            for (const auto& exp : *yields) {
-                ctx->reset(reader, key, edgeName);
-                auto result = exp->eval(*ctx);
-                list.values.emplace_back(std::move(result));
+            nebula::List& list) {
+        UNUSED(edgeName);
+        for (const auto& prop : *props) {
+            if (prop.returned_) {
+                auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
+                auto edgeRank = NebulaKeyUtils::getRank(vIdLen, key);
+                auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
+                VLOG(2) << "Collect prop " << prop.name_ << ", type " << edgeType;
+                auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
+                                                      reader, prop);
+                list.values.emplace_back(std::move(value));
             }
         }
 
@@ -121,30 +112,15 @@ protected:
             RowReader* reader,
             const std::vector<PropContext>* props,
             nebula::List& list,
-            const std::vector<std::unique_ptr<Expression>>* yields = nullptr,
             StorageExpressionContext* ctx = nullptr) {
-        if (yields == nullptr || yields->empty()) {
-            for (auto& prop : *props) {
-                VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
-                auto value = reader->getValueByName(prop.name_);
-                if (ctx != nullptr && prop.filtered_) {
-                    ctx->setTagProp(tagName, prop.name_, value);
-                }
-                if (prop.returned_) {
-                    list.values.emplace_back(std::move(value));
-                }
+        for (auto& prop : *props) {
+            VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
+            auto value = reader->getValueByName(prop.name_);
+            if (ctx != nullptr && prop.filtered_) {
+                ctx->setTagProp(tagName, prop.name_, value);
             }
-        } else {
-            for (auto& prop : *props) {
-                VLOG(2) << "Collect prop " << prop.name_ << ", tagId " << tagId;
-                if (prop.returned_ || prop.filtered_) {
-                    auto value = reader->getValueByName(prop.name_);
-                    ctx->setTagProp(tagName, prop.name_, std::move(value));
-                }
-            }
-            for (const auto& exp : *yields) {
-                auto result = exp->eval(*ctx);
-                list.values.emplace_back(std::move(result));
+            if (prop.returned_) {
+                list.values.emplace_back(std::move(value));
             }
         }
         return kvstore::ResultCode::SUCCEEDED;
@@ -214,10 +190,6 @@ public:
     // return the edge props need to return
     virtual const std::vector<PropContext>* props() const {
         return upstream_->props();
-    }
-
-    virtual const std::vector<std::unique_ptr<Expression>>* yields() const {
-        return upstream_->yields();
     }
 
 protected:

@@ -142,13 +142,13 @@ private:
                               + folly::Random::rand32(FLAGS_max_vertex_id - FLAGS_min_vertex_id))};
     }
 
-    std::vector<cpp2::EntryProp> vertexProps() {
-        std::vector<cpp2::EntryProp> vertexProps;
+    std::vector<cpp2::VertexProp> vertexProps() {
+        std::vector<cpp2::VertexProp> vertexProps;
         return vertexProps;
     }
 
-    std::vector<cpp2::EntryProp> edgeProps() {
-        std::vector<cpp2::EntryProp> edgeProps;
+    std::vector<cpp2::EdgeProp> edgeProps() {
+        std::vector<cpp2::EdgeProp> edgeProps;
         return edgeProps;
     }
 
@@ -239,7 +239,7 @@ private:
 
             graphStorageClient_->getNeighbors(spaceId_, colNames, vertices,
                                               {edgeType_}, edgeDire,  &statProps,
-                                              &vProps, &eProps)
+                                              &vProps, &eProps, nullptr)
                 .via(evb)
                 .thenValue([this, start](auto&& resps) {
                     if (!resps.succeeded()) {

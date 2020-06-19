@@ -29,25 +29,20 @@ cpp2::GetPropRequest buildVertexRequest(
     }
 
     UNUSED(tags);
-    std::vector<cpp2::EntryProp> vertexProps;
+    std::vector<cpp2::VertexProp> vertexProps;
     if (vertexProps.empty() && returnAllProps) {
-        req.set_props(std::move(vertexProps));
+        req.set_vertex_props(std::move(vertexProps));
     } else {
         for (const auto& tag : tags) {
             TagID tagId = tag.first;
-            cpp2::EntryProp tagProp;
-            tagProp.tag_or_edge_id = tagId;
+            cpp2::VertexProp tagProp;
+            tagProp.tag = tagId;
             for (const auto& prop : tag.second) {
-                cpp2::PropExp propExp;
-                SourcePropertyExpression exp(new std::string(folly::to<std::string>(tagId)),
-                                             new std::string(prop));
-                propExp.set_alias(prop);
-                propExp.set_prop(Expression::encode(exp));
-                tagProp.props.emplace_back(std::move(propExp));
+                tagProp.props.emplace_back(std::move(prop));
             }
             vertexProps.emplace_back(std::move(tagProp));
         }
-        req.set_props(std::move(vertexProps));
+        req.set_vertex_props(std::move(vertexProps));
     }
     return req;
 }
@@ -75,40 +70,20 @@ cpp2::GetPropRequest buildEdgeRequest(
     }
 
     UNUSED(edges);
-    std::vector<cpp2::EntryProp> edgeProps;
+    std::vector<cpp2::EdgeProp> edgeProps;
     if (edgeProps.empty() && returnAllProps) {
-        req.set_props(std::move(edgeProps));
+        req.set_edge_props(std::move(edgeProps));
     } else {
         for (const auto& edge : edges) {
             EdgeType edgeType = edge.first;
-            cpp2::EntryProp edgeProp;
-            edgeProp.tag_or_edge_id = edgeType;
+            cpp2::EdgeProp edgeProp;
+            edgeProp.type = edgeType;
             for (const auto& prop : edge.second) {
-                cpp2::PropExp propExp;
-                propExp.set_alias(prop);
-                if (prop == _SRC) {
-                    EdgeSrcIdExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                    propExp.set_prop(Expression::encode(exp));
-                } else if (prop == _TYPE) {
-                    EdgeTypeExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                    propExp.set_prop(Expression::encode(exp));
-                } else if (prop == _RANK) {
-                    EdgeRankExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                    propExp.set_prop(Expression::encode(exp));
-                } else if (prop == _DST) {
-                    EdgeDstIdExpression exp(new std::string(folly::to<std::string>(edgeType)));
-                    propExp.set_prop(Expression::encode(exp));
-                } else {
-                    EdgePropertyExpression exp(
-                        new std::string(folly::to<std::string>(edgeType)),
-                        new std::string(prop));
-                    propExp.set_prop(Expression::encode(exp));
-                }
-                edgeProp.props.emplace_back(std::move(propExp));
+                edgeProp.props.emplace_back(std::move(prop));
             }
             edgeProps.emplace_back(std::move(edgeProp));
         }
-        req.set_props(std::move(edgeProps));
+        req.set_edge_props(std::move(edgeProps));
     }
     return req;
 }
