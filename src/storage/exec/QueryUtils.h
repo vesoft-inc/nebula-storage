@@ -49,6 +49,7 @@ public:
         return value;
     }
 
+    // return none if no valid ttl, else return the ttl property name and time
     static folly::Optional<std::pair<std::string, int64_t>>
     getEdgeTTLInfo(EdgeContext* edgeContext, EdgeType edgeType) {
         folly::Optional<std::pair<std::string, int64_t>> ret;
@@ -59,6 +60,7 @@ public:
         return ret;
     }
 
+    // return none if no valid ttl, else return the ttl property name and time
     static folly::Optional<std::pair<std::string, int64_t>>
     getTagTTLInfo(TagContext* tagContext, TagID tagId) {
         folly::Optional<std::pair<std::string, int64_t>> ret;
