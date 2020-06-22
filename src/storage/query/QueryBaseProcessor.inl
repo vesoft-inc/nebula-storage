@@ -169,7 +169,8 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
 
 template<typename REQ, typename RESP>
 std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
-        const cpp2::EdgeDirection& direction) {
+        const cpp2::EdgeDirection& direction,
+        bool addPropInKey) {
     std::vector<cpp2::EdgeProp> result;
     for (const auto& entry : edgeContext_.schemas_) {
         cpp2::EdgeProp edgeProp;
@@ -177,6 +178,15 @@ std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         if (direction == cpp2::EdgeDirection::IN_EDGE) {
             edgeProp.type = -edgeProp.type;
         }
+
+        if (addPropInKey) {
+            // add default property in key
+            edgeProp.props.emplace_back(_SRC);
+            edgeProp.props.emplace_back(_TYPE);
+            edgeProp.props.emplace_back(_RANK);
+            edgeProp.props.emplace_back(_DST);
+        }
+
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {

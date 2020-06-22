@@ -168,7 +168,7 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
     if (req.edge_props.empty()) {
         // If no props specified, get all property of all tagId in space
-        auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH);
+        auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH, false);
         // generate edge prop context
         ret = handleEdgeProps(returnProps);
         buildEdgeColName(returnProps);

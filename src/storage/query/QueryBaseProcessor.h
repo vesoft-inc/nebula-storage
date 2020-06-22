@@ -149,7 +149,8 @@ protected:
     void buildEdgeTTLInfo();
 
     std::vector<cpp2::VertexProp> buildAllTagProps();
-    std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
+    std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction,
+                                                  bool addPropInKey);
 
     cpp2::ErrorCode checkExp(const Expression* exp, bool returned, bool filtered);
 

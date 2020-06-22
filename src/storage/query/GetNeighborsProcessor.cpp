@@ -184,7 +184,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
         return cpp2::ErrorCode::SUCCEEDED;
     } else if (req.edge_props.empty()) {
         // If no props specified, get all property of all edge type in space
-        auto returnProps = buildAllEdgeProps(req.edge_direction);
+        auto returnProps = buildAllEdgeProps(req.edge_direction, true);
         // generate edge prop context
         ret = handleEdgeProps(returnProps);
         buildEdgeColName(returnProps);

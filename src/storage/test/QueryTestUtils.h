@@ -380,13 +380,15 @@ public:
                               const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by team name and start year
-                // in case a player serve the same team more than once
-                return serve.teamName_ == values[1].getStr() &&
-                       serve.startYear_ == values[2].getInt();
+                // Find corresponding record by team name and start year,
+                // in case a player serve the same team more than once.
+                // The teamName and startYear would be in col 5 and 6, the first four
+                // property would be property in key
+                return serve.teamName_ == values[1 + 4].getStr() &&
+                       serve.startYear_ == values[2 + 4].getInt();
             });
             ASSERT_TRUE(iter != serves.end());
-            checkAllPropertyOfServe(*iter, values);
+            checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
         // Make sure teamName and startYear is the first two props,
@@ -407,13 +409,15 @@ public:
                              const std::vector<Value>& values) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
-                // find corresponding record by player name and start year,
-                // in case a player serve the same team more than once
-                return serve.playerName_ == values[0].getStr() &&
-                       serve.startYear_ == values[2].getInt();
+                // Find corresponding record by player name and start year,
+                // in case a player serve the same team more than once.
+                // The playerName and startYear would be in col 4 and 6, the first four
+                // property would be property in key
+                return serve.playerName_ == values[0 + 4].getStr() &&
+                       serve.startYear_ == values[2 + 4].getInt();
             });
             ASSERT_TRUE(iter != serves.end());
-            checkAllPropertyOfServe(*iter, values);
+            checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
         // Make sure playerName and startYear is the first two props
@@ -429,26 +433,40 @@ public:
         checkSomePropertyOfServe(edgeType, props, *iter, values);
     }
 
-    static void checkAllPropertyOfServe(const mock::Serve& serve,
+    static void checkAllPropertyOfServe(EdgeType edgeType,
+                                        const mock::Serve& serve,
                                         const std::vector<Value>& values) {
-        ASSERT_EQ(serve.playerName_, values[0].getStr());
-        ASSERT_EQ(serve.teamName_, values[1].getStr());
-        ASSERT_EQ(serve.startYear_, values[2].getInt());
-        ASSERT_EQ(serve.endYear_, values[3].getInt());
-        ASSERT_EQ(serve.teamCareer_, values[4].getInt());
-        ASSERT_EQ(serve.teamGames_, values[5].getInt());
-        ASSERT_EQ(serve.teamAvgScore_, values[6].getFloat());
+        // property in key
+        if (edgeType > 0) {
+            ASSERT_EQ(serve.playerName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(serve.startYear_, values[2].getInt());
+            ASSERT_EQ(serve.teamName_, cleanSuffix(values[3].getStr()));
+        } else {
+            ASSERT_EQ(serve.teamName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(serve.startYear_, values[2].getInt());
+            ASSERT_EQ(serve.playerName_, cleanSuffix(values[3].getStr()));
+        }
+        // property in value
+        ASSERT_EQ(serve.playerName_, values[4].getStr());
+        ASSERT_EQ(serve.teamName_, values[5].getStr());
+        ASSERT_EQ(serve.startYear_, values[6].getInt());
+        ASSERT_EQ(serve.endYear_, values[7].getInt());
+        ASSERT_EQ(serve.teamCareer_, values[8].getInt());
+        ASSERT_EQ(serve.teamGames_, values[9].getInt());
+        ASSERT_EQ(serve.teamAvgScore_, values[10].getFloat());
         int32_t hasTtl = FLAGS_mock_ttl_col ? 1 : 0;
         if (serve.type_.empty()) {
-            ASSERT_EQ("trade", values[7 + hasTtl].getStr());
+            ASSERT_EQ("trade", values[11 + hasTtl].getStr());
         } else {
-            ASSERT_EQ(serve.type_, values[7 + hasTtl].getStr());
+            ASSERT_EQ(serve.type_, values[11 + hasTtl].getStr());
         }
         if (serve.champions_ == 0) {
             // 0 means not initialized, should return null
-            ASSERT_EQ(NullType::__NULL__, values[8 + hasTtl].getNull());
+            ASSERT_EQ(NullType::__NULL__, values[12 + hasTtl].getNull());
         } else {
-            ASSERT_EQ(serve.champions_, values[8 + hasTtl].getInt());
+            ASSERT_EQ(serve.champions_, values[12 + hasTtl].getInt());
         }
     }
 
@@ -515,14 +533,22 @@ public:
                               const std::vector<std::string>& props,
                               const std::vector<Value>& values) {
         if (props.empty()) {
-            auto player1 = cleanSuffix(values[0].getStr());
-            auto player2 = cleanSuffix(values[1].getStr());
+            auto player1 = values[4].getStr();
+            auto player2 = values[5].getStr();
             const auto& teammate = findTeammate(player1, player2);
-            ASSERT_EQ(teammate.player1_, values[0].getStr());
-            ASSERT_EQ(teammate.player2_, values[1].getStr());
-            ASSERT_EQ(teammate.teamName_, values[2].getStr());
-            ASSERT_EQ(teammate.startYear_, values[3].getInt());
-            ASSERT_EQ(teammate.endYear_, values[4].getInt());
+            // property in key
+            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[0].getStr()) ||
+                        teammate.player2_ == cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(edgeType, values[1].getInt());
+            ASSERT_EQ(teammate.startYear_, values[2].getInt());
+            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[3].getStr()) ||
+                        teammate.player2_ == cleanSuffix(values[3].getStr()));
+            // property in value
+            ASSERT_EQ(teammate.player1_, values[4].getStr());
+            ASSERT_EQ(teammate.player2_, values[5].getStr());
+            ASSERT_EQ(teammate.teamName_, values[6].getStr());
+            ASSERT_EQ(teammate.startYear_, values[7].getInt());
+            ASSERT_EQ(teammate.endYear_, values[8].getInt());
             return;
         }
         // Make sure _src and _dst is the first two props
@@ -662,11 +688,11 @@ public:
     static const mock::Teammate& findTeammate(const std::string& player1,
                                               const std::string& player2) {
         auto iter = std::find_if(mock::MockData::teammates_.begin(),
-                                    mock::MockData::teammates_.end(),
-                                    [&](const auto& teammate) {
-                                        return teammate.player1_ == player1 &&
+                                 mock::MockData::teammates_.end(),
+                                 [&](const auto& teammate) {
+                                     return teammate.player1_ == player1 &&
                                             teammate.player2_ == player2;
-                                    });
+                                 });
         if (iter != mock::MockData::teammates_.end()) {
             return *iter;
         }
@@ -674,7 +700,7 @@ public:
                             mock::MockData::teammates_.end(),
                             [&](const auto& teammate) {
                                 return teammate.player1_ == player2 &&
-                                        teammate.player2_ == player1;
+                                       teammate.player2_ == player1;
                             });
         if (iter == mock::MockData::teammates_.end()) {
             LOG(FATAL) << "Can't find speicied teammate";
