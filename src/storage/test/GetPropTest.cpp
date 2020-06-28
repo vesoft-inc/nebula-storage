@@ -22,9 +22,10 @@ cpp2::GetPropRequest buildVertexRequest(
     req.space_id = 1;
     req.column_names.emplace_back("_vid");
     for (const auto& vertex : vertices) {
-        PartitionID partId = (hash(vertex) % totalParts) + 1;
+        auto vId = vertex + std::string(32 - vertex.size(), '\0');
+        PartitionID partId = (hash(vId) % totalParts) + 1;
         nebula::Row row;
-        row.columns.emplace_back(vertex);
+        row.columns.emplace_back(vId);
         req.parts[partId].emplace_back(std::move(row));
     }
 
@@ -60,7 +61,8 @@ cpp2::GetPropRequest buildEdgeRequest(
     req.column_names.emplace_back(_RANK);
     req.column_names.emplace_back(_DST);
     for (const auto& edge : edgeKeys) {
-        PartitionID partId = (hash(edge.src) % totalParts) + 1;
+        auto vId = edge.src + std::string(32 - edge.src.size(), '\0');
+        PartitionID partId = (hash(vId) % totalParts) + 1;
         nebula::Row row;
         row.columns.emplace_back(edge.src);
         row.columns.emplace_back(edge.edge_type);

@@ -1006,6 +1006,67 @@ TEST(GetNeighborsTest, MultiVersionTest) {
     }
 }
 
+TEST(GetNeighborsTest, SuffixTest) {
+    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = std::move(status).value();
+
+    TagID player = 1;
+    EdgeType serve = 101;
+
+    nebula::DataSet resultWithSuffix, resultWithoutSuffix;
+    {
+        LOG(INFO) << "GoWithVidSuffix";
+        VertexID duncan = "Tim Duncan";
+        // add '\0' suffix
+        duncan.append(vIdLen - duncan.size(), '\0');
+        std::vector<VertexID> vertices = {duncan};
+        std::vector<EdgeType> over = {serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        resultWithSuffix = std::move(resp.vertices);
+    }
+    {
+        LOG(INFO) << "GoWithoutVidSuffix";
+        VertexID duncan = "Tim Duncan";
+        std::vector<VertexID> vertices = {duncan};
+        std::vector<EdgeType> over = {serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        resultWithoutSuffix = std::move(resp.vertices);
+    }
+    ASSERT_EQ(resultWithSuffix, resultWithoutSuffix);
+}
+
 TEST(GetNeighborsTest, FilterTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
@@ -1018,6 +1079,11 @@ TEST(GetNeighborsTest, FilterTest) {
     TagID player = 1;
     EdgeType serve = 101;
     EdgeType teammate = 102;
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = status.value();
 
     {
         LOG(INFO) << "RelExp";
@@ -1052,7 +1118,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_tag:1:name:age:avgScore",
                              "_edge:+101:teamName:startYear:endYear",
                              "_expr"};
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
@@ -1105,7 +1171,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_expr"};
         auto serveEdges = nebula::List();
         serveEdges.values.emplace_back(nebula::List({"Magic", 2000, 2004}));
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          serveEdges,
@@ -1154,7 +1220,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_tag:1:name:age:avgScore",
                              "_edge:+101:teamName:startYear:endYear",
                              "_expr"};
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
@@ -1208,7 +1274,7 @@ TEST(GetNeighborsTest, FilterTest) {
         ASSERT_EQ(expected.colNames, resp.vertices.colNames);
         ASSERT_EQ(4, resp.vertices.rows.size());
         {
-            nebula::Row row({"Tracy McGrady",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                             NullType::__NULL__,
                             nebula::List({"Tracy McGrady", 41, 19.6}),
                             nebula::List({nebula::List({"Magic", 2000, 2004}),
@@ -1224,7 +1290,7 @@ TEST(GetNeighborsTest, FilterTest) {
         {
             auto serveEdges = nebula::List();
             serveEdges.values.emplace_back(nebula::List({"Spurs", 1997, 2016}));
-            nebula::Row row({"Tim Duncan",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
                             NullType::__NULL__,
                             nebula::List({"Tim Duncan", 44, 19.0}),
                             serveEdges,
@@ -1237,7 +1303,7 @@ TEST(GetNeighborsTest, FilterTest) {
             }
         }
         {
-            nebula::Row row({"Tony Parker",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tony Parker"),
                             NullType::__NULL__,
                             nebula::List({"Tony Parker", 38, 15.5}),
                             NullType::__NULL__,
@@ -1251,7 +1317,7 @@ TEST(GetNeighborsTest, FilterTest) {
         }
         {
             // same as 1.0, tag data is returned even if can't pass the filter
-            nebula::Row row({"Manu Ginobili",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Manu Ginobili"),
                             NullType::__NULL__,
                             nebula::List({"Manu Ginobili", 42, 13.3}),
                             NullType::__NULL__,
@@ -1303,7 +1369,7 @@ TEST(GetNeighborsTest, FilterTest) {
         serveEdges.values.emplace_back(nebula::List({"Spurs", 1997, 2016}));
         // This will only get the edge of serve, which does not make sense
         // see https://github.com/vesoft-inc/nebula/issues/2166
-        nebula::Row row({"Tim Duncan",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
                          NullType::__NULL__,
                          nebula::List({"Tim Duncan", 44, 19.0}),
                          serveEdges,

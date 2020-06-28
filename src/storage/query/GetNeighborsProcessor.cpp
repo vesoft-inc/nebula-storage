@@ -287,6 +287,7 @@ cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
                                           edgeType,
                                           edgeName,
                                           propName,
+                                          field,
                                           false,
                                           false,
                                           &statInfo);

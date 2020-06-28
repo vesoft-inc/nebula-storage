@@ -41,6 +41,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
 
             PropContext ctx(name.c_str());
             ctx.returned_ = true;
+            ctx.field_ = field;
             ctxs.emplace_back(std::move(ctx));
         }
         tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
@@ -70,15 +71,15 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
 
         std::vector<PropContext> ctxs;
         for (const auto& name : edgeProp.props) {
+            PropContext ctx(name.c_str());
             if (name != _SRC && name != _TYPE && name != _RANK && name != _DST) {
                 auto field = edgeSchema->field(name);
                 if (field == nullptr) {
                     VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
                     return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
                 }
+                ctx.field_ = field;
             }
-
-            PropContext ctx(name.c_str());
             ctx.returned_ = true;
             ctxs.emplace_back(std::move(ctx));
         }
@@ -315,6 +316,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       tagId,
                                       tagName,
                                       propName,
+                                      field,
                                       returned,
                                       filtered);
             return cpp2::ErrorCode::SUCCEEDED;
@@ -356,6 +358,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       edgeType,
                                       edgeName,
                                       propName,
+                                      field,
                                       returned,
                                       filtered);
             return cpp2::ErrorCode::SUCCEEDED;
@@ -384,13 +387,14 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
         int32_t entryId,
         const std::string* entryName,
         const std::string* propName,
+        const meta::SchemaProviderIf::Field* field,
         bool returned,
         bool filtered,
         const std::pair<size_t, cpp2::StatType>* statInfo) {
     auto idxIter = indexMap.find(entryId);
     if (idxIter == indexMap.end()) {
         // if no property of tag/edge has been add to propContexts
-        PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+        PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
         std::vector<PropContext> ctxs;
         ctxs.emplace_back(std::move(ctx));
         propContexts.emplace_back(entryId, std::move(ctxs));
@@ -403,7 +407,7 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
                                  return prop.name_ == *propName; });
         if (iter == props.end()) {
             // this prop has not been add to propContexts
-            PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+            PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
             props.emplace_back(std::move(ctx));
         } else {
             // this prop been add to propContexts, just update the flag

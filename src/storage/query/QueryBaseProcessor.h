@@ -41,10 +41,12 @@ public:
     }
 
     PropContext(const char* name,
+                const meta::SchemaProviderIf::Field* field,
                 bool returned,
                 bool filtered,
                 const std::pair<size_t, cpp2::StatType>* statInfo = nullptr)
         : name_(name)
+        , field_(field)
         , returned_(returned)
         , filtered_(filtered) {
         setPropInKey();
@@ -73,6 +75,8 @@ public:
 
     // prop name
     std::string name_;
+    // field info, e.g. nullable, default value
+    const meta::SchemaProviderIf::Field* field_;
     bool returned_ = false;
     bool filtered_ = false;
     // prop type in edge key, for srcId/dstId/type/rank
@@ -160,6 +164,7 @@ protected:
                                    int32_t entryId,
                                    const std::string* entryName,
                                    const std::string* propName,
+                                   const meta::SchemaProviderIf::Field* field,
                                    bool returned,
                                    bool filtered,
                                    const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);

@@ -24,6 +24,11 @@ namespace storage {
 
 class QueryTestUtils {
 public:
+    static std::string appendSuffix(size_t vIdLen, const std::string& id) {
+        auto result = id + std::string(vIdLen - id.size(), '\0');
+        return result;
+    }
+
     static bool mockVertexData(storage::StorageEnv* env, int32_t totalParts) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
@@ -39,7 +44,8 @@ public:
         folly::Baton<true, std::atomic> baton;
         std::atomic<size_t> count(vertices.size());
         for (const auto& vertex : vertices) {
-            PartitionID partId = (hash(vertex.props_[0].getStr()) % totalParts) + 1;
+            auto id = appendSuffix(spaceVidLen, vertex.vId_);
+            PartitionID partId = (hash(id) % totalParts) + 1;
             TagID tagId = vertex.tId_;
             auto key = NebulaKeyUtils::vertexKey(spaceVidLen, partId, vertex.vId_, tagId, 0L);
             auto schema = env->schemaMan_->getTagSchema(spaceId, tagId);
@@ -78,9 +84,10 @@ public:
             std::atomic<size_t> count(edges.size());
             folly::Baton<true, std::atomic> baton;
             for (const auto& edge : edges) {
-                PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
+                auto id = appendSuffix(spaceVidLen, edge.srcId_);
+                PartitionID partId = (hash(id) % totalParts) + 1;
                 auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
-                                                edge.rank_, edge.dstId_, version);
+                                                   edge.rank_, edge.dstId_, version);
                 auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
                 if (!schema) {
                     LOG(ERROR) << "Invalid edge " << edge.type_;
@@ -177,9 +184,10 @@ public:
         req.space_id = 1;
         req.column_names.emplace_back("_vid");
         for (const auto& vertex : vertices) {
-            PartitionID partId = (hash(vertex) % totalParts) + 1;
+            auto vId = appendSuffix(32, vertex);
+            PartitionID partId = (hash(vId) % totalParts) + 1;
             nebula::Row row;
-            row.columns.emplace_back(vertex);
+            row.columns.emplace_back(vId);
             req.parts[partId].emplace_back(std::move(row));
         }
         for (const auto& edge : over) {
@@ -240,10 +248,10 @@ public:
         for (const auto& row : dataSet.rows) {
             ASSERT_EQ(expectColumnCount, row.columns.size());
             auto vId = row.columns[0].getStr();
-            auto iter = std::find(vertices.begin(), vertices.end(), vId);
+            auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
             ASSERT_TRUE(iter != vertices.end());
             if (expectStats != nullptr) {
-                auto& expect = (*expectStats)[vId];
+                auto& expect = (*expectStats)[cleanSuffix(vId)];
                 auto& actual = row.columns[1].getList().values;
                 ASSERT_EQ(expect.size(), actual.size());
                 for (size_t i = 0; i < expect.size(); i++) {
@@ -267,7 +275,7 @@ public:
         for (const auto& row : dataSet.rows) {
             ASSERT_EQ(expectColumnCount, row.columns.size());
             auto vId = row.columns[0].getStr();
-            auto iter = std::find(vertices.begin(), vertices.end(), vId);
+            auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
             ASSERT_TRUE(iter != vertices.end());
             // the second column is stats
             ASSERT_EQ(NullType::__NULL__, row.columns[1].getNull());
@@ -590,7 +598,7 @@ public:
             const std::vector<std::string> colNames,
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
-        auto vId = row.columns[0].getStr();
+        auto vId = cleanSuffix(row.columns[0].getStr());
         // skip the last column which is reserved for expression yields
         for (size_t i = 2; i < colNames.size() - 1; i++) {
             const auto& name = colNames[i];

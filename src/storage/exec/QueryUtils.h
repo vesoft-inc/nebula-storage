@@ -16,37 +16,54 @@ namespace storage {
 
 class QueryUtils final {
 public:
-    static nebula::Value readEdgeProp(VertexIDSlice srcId,
-                                      EdgeType edgeType,
-                                      EdgeRanking edgeRank,
-                                      VertexIDSlice dstId,
-                                      RowReader* reader,
-                                      const PropContext& prop) {
-        nebula::Value value;
+    static StatusOr<nebula::Value> readValue(RowReader* reader, const PropContext& ctx) {
+        auto value = reader->getValueByName(ctx.name_);
+        if (value.type() == Value::Type::NULLVALUE) {
+            // read null value
+            auto nullType = value.getNull();
+            if (nullType == NullType::BAD_DATA ||
+                nullType == NullType::BAD_TYPE ||
+                nullType == NullType::UNKNOWN_PROP) {
+                VLOG(1) << "Fail to read prop " << ctx.name_;
+                if (ctx.field_ != nullptr) {
+                    if (ctx.field_->hasDefault()) {
+                        return ctx.field_->defaultValue();
+                    } else if (ctx.field_->nullable()) {
+                        return NullType::__NULL__;
+                    }
+                }
+            } else if (nullType == NullType::__NULL__ || nullType == NullType::NaN) {
+                return value;
+            }
+            return Status::Error(folly::stringPrintf("Fail to read prop %s ", ctx.name_.c_str()));
+        }
+        return value;
+    }
+
+    static StatusOr<nebula::Value> readEdgeProp(VertexIDSlice srcId,
+                                                EdgeType edgeType,
+                                                EdgeRanking edgeRank,
+                                                VertexIDSlice dstId,
+                                                RowReader* reader,
+                                                const PropContext& prop) {
         switch (prop.propInKeyType_) {
             // prop in value
             case PropContext::PropInKeyType::NONE: {
-                value = reader->getValueByName(prop.name_);
-                break;
+                return readValue(reader, prop);
             }
             case PropContext::PropInKeyType::SRC: {
-                value = srcId.str();
-                break;
+                return srcId.str();
             }
             case PropContext::PropInKeyType::TYPE: {
-                value = edgeType;
-                break;
+                return edgeType;
             }
             case PropContext::PropInKeyType::RANK: {
-                value = edgeRank;
-                break;
+                return edgeRank;
             }
             case PropContext::PropInKeyType::DST: {
-                value = dstId.str();
-                break;
+                return dstId.str();
             }
         }
-        return value;
     }
 
     // return none if no valid ttl, else return the ttl property name and time

@@ -111,7 +111,10 @@ private:
                     VLOG(2) << "Collect stat prop " << prop.name_ << ", type " << edgeType;
                     auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
                                                           reader, prop);
-                    addStatValue(value, stats[statIndex]);
+                    if (!value.ok()) {
+                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                    }
+                    addStatValue(std::move(value).value(), stats[statIndex]);
                 }
             }
         }
