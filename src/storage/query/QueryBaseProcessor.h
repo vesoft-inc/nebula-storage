@@ -41,10 +41,12 @@ public:
     }
 
     PropContext(const char* name,
+                const meta::SchemaProviderIf::Field* field,
                 bool returned,
                 bool filtered,
                 const std::pair<size_t, cpp2::StatType>* statInfo = nullptr)
         : name_(name)
+        , field_(field)
         , returned_(returned)
         , filtered_(filtered) {
         setPropInKey();
@@ -73,6 +75,8 @@ public:
 
     // prop name
     std::string name_;
+    // field info, e.g. nullable, default value
+    const meta::SchemaProviderIf::Field* field_;
     bool returned_ = false;
     bool filtered_ = false;
     // prop type in edge key, for srcId/dstId/type/rank
@@ -137,9 +141,9 @@ protected:
     cpp2::ErrorCode getSpaceEdgeSchema();
 
     // build tagContexts_ according to return props
-    cpp2::ErrorCode handleVertexProps(const std::vector<cpp2::VertexProp>& tagProps);
+    cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps);
     // build edgeContexts_ according to return props
-    cpp2::ErrorCode handleEdgeProps(const std::vector<cpp2::EdgeProp>& edgeProps);
+    cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps);
 
     cpp2::ErrorCode buildFilter(const REQ& req);
     cpp2::ErrorCode buildYields(const REQ& req);
@@ -149,10 +153,13 @@ protected:
     void buildEdgeTTLInfo();
 
     std::vector<cpp2::VertexProp> buildAllTagProps();
-    std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction,
-                                                  bool addPropInKey);
+    std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
     cpp2::ErrorCode checkExp(const Expression* exp, bool returned, bool filtered);
+
+    void addReturnPropContext(std::vector<PropContext>& ctxs,
+                              const char* propName,
+                              const meta::SchemaProviderIf::Field* field);
 
     void addPropContextIfNotExists(std::vector<std::pair<TagID, std::vector<PropContext>>>& props,
                                    std::unordered_map<int32_t, size_t>& indexMap,
@@ -160,6 +167,7 @@ protected:
                                    int32_t entryId,
                                    const std::string* entryName,
                                    const std::string* propName,
+                                   const meta::SchemaProviderIf::Field* field,
                                    bool returned,
                                    bool filtered,
                                    const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);

@@ -32,6 +32,7 @@ set(storage_test_deps
     $<TARGET_OBJECTS:common_datatypes_obj>
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
+    $<TARGET_OBJECTS:common_function_manager_obj>
 )
 
 nebula_add_test(

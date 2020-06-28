@@ -53,7 +53,7 @@ public:
 
     void next() override {
         // we need to collect the stat during `next`
-        collectEdgeStats(srcId(), edgeType(), edgeRank(), dstId(), reader(), props(), stats_);
+        collectEdgeStats(srcId(), edgeType(), edgeRank(), dstId(), reader(), props());
         IterateEdgeNode::next();
     }
 
@@ -103,15 +103,20 @@ private:
                                          EdgeRanking edgeRank,
                                          VertexIDSlice dstId,
                                          RowReader* reader,
-                                         const std::vector<PropContext>* props,
-                                         std::vector<PropStat>& stats) {
+                                         const std::vector<PropContext>* props) {
+        if (stats_.empty()) {
+            return kvstore::ResultCode::SUCCEEDED;
+        }
         for (const auto& prop : *props) {
             if (prop.hasStat_) {
                 for (const auto statIndex : prop.statIndex_) {
                     VLOG(2) << "Collect stat prop " << prop.name_ << ", type " << edgeType;
                     auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
                                                           reader, prop);
-                    addStatValue(value, stats[statIndex]);
+                    if (!value.ok()) {
+                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                    }
+                    addStatValue(std::move(value).value(), stats_[statIndex]);
                 }
             }
         }

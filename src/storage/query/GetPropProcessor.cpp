@@ -37,7 +37,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
-                auto vId = row.columns[0].getStr();
+                auto vId = row.values[0].getStr();
                 auto ret = plan.go(partId, vId);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
@@ -52,10 +52,10 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
                 cpp2::EdgeKey edgeKey;
-                edgeKey.src = row.columns[0].getStr();
-                edgeKey.edge_type = row.columns[1].getInt();
-                edgeKey.ranking = row.columns[2].getInt();
-                edgeKey.dst = row.columns[3].getStr();
+                edgeKey.src = row.values[0].getStr();
+                edgeKey.edge_type = row.values[1].getInt();
+                edgeKey.ranking = row.values[2].getInt();
+                edgeKey.dst = row.values[3].getStr();
                 auto ret = plan.go(partId, edgeKey);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
@@ -153,8 +153,10 @@ cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& re
         ret = handleVertexProps(returnProps);
         buildTagColName(returnProps);
     } else {
-        ret = handleVertexProps(req.vertex_props);
-        buildTagColName(req.vertex_props);
+        // not use const reference because we need to modify it when all property need to return
+        auto returnProps = std::move(req.vertex_props);
+        ret = handleVertexProps(returnProps);
+        buildTagColName(returnProps);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
@@ -168,13 +170,15 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
     if (req.edge_props.empty()) {
         // If no props specified, get all property of all tagId in space
-        auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH, false);
+        auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH);
         // generate edge prop context
         ret = handleEdgeProps(returnProps);
         buildEdgeColName(returnProps);
     } else {
-        ret = handleEdgeProps(req.edge_props);
-        buildEdgeColName(req.edge_props);
+        // not use const reference because we need to modify it when all property need to return
+        auto returnProps = std::move(req.edge_props);
+        ret = handleEdgeProps(returnProps);
+        buildEdgeColName(returnProps);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {

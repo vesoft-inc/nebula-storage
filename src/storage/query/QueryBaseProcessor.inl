@@ -15,8 +15,8 @@ namespace storage {
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
-        const std::vector<cpp2::VertexProp>& vertexProps) {
-    for (const auto& vertexProp : vertexProps) {
+        std::vector<cpp2::VertexProp>& vertexProps) {
+    for (auto& vertexProp : vertexProps) {
         auto tagId = vertexProp.tag;
         auto iter = tagContext_.schemas_.find(tagId);
         if (iter == tagContext_.schemas_.end()) {
@@ -32,16 +32,25 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         }
 
         std::vector<PropContext> ctxs;
-        for (const auto& name : vertexProp.props) {
-            auto field = tagSchema->field(name);
-            if (field == nullptr) {
-                VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
-                return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+        if (!vertexProp.props.empty()) {
+            for (const auto& name : vertexProp.props) {
+                auto field = tagSchema->field(name);
+                if (field == nullptr) {
+                    VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
+                    return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+                }
+                addReturnPropContext(ctxs, name.c_str(), field);
             }
-
-            PropContext ctx(name.c_str());
-            ctx.returned_ = true;
-            ctxs.emplace_back(std::move(ctx));
+        } else {
+            // if the list of property names is empty, then all properties on the given tag
+            // will be returned
+            auto count = tagSchema->getNumFields();
+            for (size_t i = 0; i < count; i++) {
+                auto name = tagSchema->getFieldName(i);
+                vertexProp.props.emplace_back(name);
+                auto field = tagSchema->field(i);
+                addReturnPropContext(ctxs, name, field);
+            }
         }
         tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
         tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
@@ -52,8 +61,8 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
-        const std::vector<cpp2::EdgeProp>& edgeProps) {
-    for (const auto& edgeProp : edgeProps) {
+        std::vector<cpp2::EdgeProp>& edgeProps) {
+    for (auto& edgeProp : edgeProps) {
         auto edgeType = edgeProp.type;
         auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
         if (iter == edgeContext_.schemas_.end()) {
@@ -69,24 +78,54 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         }
 
         std::vector<PropContext> ctxs;
-        for (const auto& name : edgeProp.props) {
-            if (name != _SRC && name != _TYPE && name != _RANK && name != _DST) {
-                auto field = edgeSchema->field(name);
-                if (field == nullptr) {
-                    VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
-                    return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+        if (!edgeProp.props.empty()) {
+            for (const auto& name : edgeProp.props) {
+                if (name != _SRC && name != _TYPE && name != _RANK && name != _DST) {
+                    auto field = edgeSchema->field(name);
+                    if (field == nullptr) {
+                        VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
+                        return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+                    }
+                    addReturnPropContext(ctxs, name.c_str(), field);
+                } else {
+                    addReturnPropContext(ctxs, name.c_str(), nullptr);
                 }
             }
-
-            PropContext ctx(name.c_str());
-            ctx.returned_ = true;
-            ctxs.emplace_back(std::move(ctx));
+        } else {
+            // if the list of property names is empty, then all properties on the given edgeType
+            // will be returned
+            addReturnPropContext(ctxs, _SRC, nullptr);
+            addReturnPropContext(ctxs, _TYPE, nullptr);
+            addReturnPropContext(ctxs, _RANK, nullptr);
+            addReturnPropContext(ctxs, _DST, nullptr);
+            edgeProp.props.emplace_back(_SRC);
+            edgeProp.props.emplace_back(_TYPE);
+            edgeProp.props.emplace_back(_RANK);
+            edgeProp.props.emplace_back(_DST);
+            auto count = edgeSchema->getNumFields();
+            for (size_t i = 0; i < count; i++) {
+                auto name = edgeSchema->getFieldName(i);
+                edgeProp.props.emplace_back(name);
+                auto field = edgeSchema->field(i);
+                addReturnPropContext(ctxs, name, field);
+            }
         }
         edgeContext_.propContexts_.emplace_back(edgeType, std::move(ctxs));
         edgeContext_.indexMap_.emplace(edgeType, edgeContext_.propContexts_.size() - 1);
         edgeContext_.edgeNames_.emplace(edgeType, std::move(edgeName).value());
     }
     return cpp2::ErrorCode::SUCCEEDED;
+}
+
+template <typename REQ, typename RESP>
+void QueryBaseProcessor<REQ, RESP>::addReturnPropContext(
+        std::vector<PropContext>& ctxs,
+        const char* propName,
+        const meta::SchemaProviderIf::Field* field) {
+    PropContext ctx(propName);
+    ctx.returned_ = true;
+    ctx.field_ = field;
+    ctxs.emplace_back(std::move(ctx));
 }
 
 template<typename REQ, typename RESP>
@@ -158,7 +197,7 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);
-            tagProp.props.emplace_back(std::move(name));
+            tagProp.props.emplace_back(name);
         }
         result.emplace_back(std::move(tagProp));
     }
@@ -169,8 +208,7 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
 
 template<typename REQ, typename RESP>
 std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
-        const cpp2::EdgeDirection& direction,
-        bool addPropInKey) {
+        const cpp2::EdgeDirection& direction) {
     std::vector<cpp2::EdgeProp> result;
     for (const auto& entry : edgeContext_.schemas_) {
         cpp2::EdgeProp edgeProp;
@@ -179,19 +217,17 @@ std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
             edgeProp.type = -edgeProp.type;
         }
 
-        if (addPropInKey) {
-            // add default property in key
-            edgeProp.props.emplace_back(_SRC);
-            edgeProp.props.emplace_back(_TYPE);
-            edgeProp.props.emplace_back(_RANK);
-            edgeProp.props.emplace_back(_DST);
-        }
+        // add default property in key
+        edgeProp.props.emplace_back(_SRC);
+        edgeProp.props.emplace_back(_TYPE);
+        edgeProp.props.emplace_back(_RANK);
+        edgeProp.props.emplace_back(_DST);
 
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
             auto name = schema->getFieldName(i);
-            edgeProp.props.emplace_back(std::move(name));
+            edgeProp.props.emplace_back(name);
         }
         if (direction == cpp2::EdgeDirection::BOTH) {
             cpp2::EdgeProp reverse = edgeProp;
@@ -315,6 +351,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       tagId,
                                       tagName,
                                       propName,
+                                      field,
                                       returned,
                                       filtered);
             return cpp2::ErrorCode::SUCCEEDED;
@@ -356,6 +393,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       edgeType,
                                       edgeName,
                                       propName,
+                                      field,
                                       returned,
                                       filtered);
             return cpp2::ErrorCode::SUCCEEDED;
@@ -384,13 +422,14 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
         int32_t entryId,
         const std::string* entryName,
         const std::string* propName,
+        const meta::SchemaProviderIf::Field* field,
         bool returned,
         bool filtered,
         const std::pair<size_t, cpp2::StatType>* statInfo) {
     auto idxIter = indexMap.find(entryId);
     if (idxIter == indexMap.end()) {
         // if no property of tag/edge has been add to propContexts
-        PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+        PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
         std::vector<PropContext> ctxs;
         ctxs.emplace_back(std::move(ctx));
         propContexts.emplace_back(entryId, std::move(ctxs));
@@ -403,7 +442,7 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
                                  return prop.name_ == *propName; });
         if (iter == props.end()) {
             // this prop has not been add to propContexts
-            PropContext ctx(propName->c_str(), returned, filtered, statInfo);
+            PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
             props.emplace_back(std::move(ctx));
         } else {
             // this prop been add to propContexts, just update the flag

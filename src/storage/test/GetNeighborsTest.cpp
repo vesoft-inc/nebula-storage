@@ -437,6 +437,15 @@ TEST(GetNeighborsTest, StatTest) {
             statProp.stat = cpp2::StatType::MAX;
             statProps.emplace_back(std::move(statProp));
         }
+        {
+            // sum of rank in serve edge
+            cpp2::StatProp statProp;
+            statProp.set_alias("Sum of rank in serve edge");
+            EdgeRankExpression exp(new std::string(folly::to<std::string>(serve)));
+            statProp.set_prop(Expression::encode(exp));
+            statProp.stat = cpp2::StatType::SUM;
+            statProps.emplace_back(std::move(statProp));
+        }
         req.stat_props = std::move(statProps);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
@@ -446,7 +455,7 @@ TEST(GetNeighborsTest, StatTest) {
 
         std::unordered_map<VertexID, std::vector<Value>> expectStat;
         expectStat.emplace("LeBron James", std::vector<Value>{
-            548 + 294 + 301 + 115, (29.7 + 27.1 + 27.5 + 25.7) / 4, 7});
+            548 + 294 + 301 + 115, (29.7 + 27.1 + 27.5 + 25.7) / 4, 7, 2003 + 2010 + 2014 + 2018});
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         // vId, stat, player, serve, expr
@@ -670,6 +679,11 @@ TEST(GetNeighborsTest, TtlTest) {
     TagID player = 1;
     EdgeType serve = 101;
 
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = std::move(status).value();
+
     {
         LOG(INFO) << "OutEdgeReturnAllProperty";
         std::vector<VertexID> vertices = {"Tim Duncan"};
@@ -725,10 +739,14 @@ TEST(GetNeighborsTest, TtlTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(5, resp.vertices.rows[0].columns.size());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[2].getNull());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[3].getNull());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[4].getNull());
+        // vId, stat, player, serve, expr
+        ASSERT_EQ(5, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
+                  resp.vertices.rows[0].values[0].getStr());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[1].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[2].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[3].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[4].getNull());
     }
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -747,13 +765,18 @@ TEST(GetNeighborsTest, TtlTest) {
         ASSERT_EQ(0, resp.result.failed_parts.size());
         // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(10, resp.vertices.rows[0].columns.size());
-        ASSERT_TRUE(resp.vertices.rows[0].columns[2].isNull());     // player expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[5].isList());     // - teammate valid
-        ASSERT_TRUE(resp.vertices.rows[0].columns[6].isNull());     // - serve expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[7].isNull());     // + serve expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[8].isList());     // + teammate valid
-        ASSERT_TRUE(resp.vertices.rows[0].columns[9].isNull());     // expr
+        ASSERT_EQ(10, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
+                  resp.vertices.rows[0].values[0].getStr());
+        ASSERT_TRUE(resp.vertices.rows[0].values[1].isNull());     // stat
+        ASSERT_TRUE(resp.vertices.rows[0].values[2].isNull());     // player expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[3].isNull());     // team not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[4].isNull());     // general tag not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[5].isList());     // - teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].values[6].isNull());     // - serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[7].isNull());     // + serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[8].isList());     // + teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].values[9].isNull());     // expr
     }
     FLAGS_mock_ttl_col = false;
 }
@@ -837,6 +860,64 @@ TEST(GetNeighborsTest, FailedTest) {
 
         ASSERT_EQ(1, resp.result.failed_parts.size());
         ASSERT_EQ(cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND, resp.result.failed_parts.front().code);
+    }
+}
+
+TEST(GetNeighborsTest, ReturnAllPropertyTest) {
+    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    TagID player = 1;
+    TagID team = 2;
+    EdgeType serve = 101;
+    EdgeType teammate = 102;
+
+    {
+        LOG(INFO) << "ReturnAllPropertyInTagAndEdge";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(player, std::vector<std::string>()));
+        tags.emplace_back(std::make_pair(team, std::vector<std::string>()));
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        edges.emplace_back(std::make_pair(serve, std::vector<std::string>()));
+        edges.emplace_back(std::make_pair(-teammate, std::vector<std::string>()));
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // vId, stat, player, team, serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
+    }
+    {
+        LOG(INFO) << "ReturnAllPropertyInTagAndEdge";
+        std::vector<VertexID> vertices = {"Spurs"};
+        std::vector<EdgeType> over = {};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(player, std::vector<std::string>()));
+        tags.emplace_back(std::make_pair(team, std::vector<std::string>()));
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        edges.emplace_back(std::make_pair(-serve, std::vector<std::string>()));
+        edges.emplace_back(std::make_pair(teammate, std::vector<std::string>()));
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // vId, stat, player, team, -serve, teammate, expr
+        QueryTestUtils::checkResponse(resp.vertices, vertices, 1, 7);
     }
 }
 
@@ -1006,6 +1087,67 @@ TEST(GetNeighborsTest, MultiVersionTest) {
     }
 }
 
+TEST(GetNeighborsTest, SuffixTest) {
+    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = std::move(status).value();
+
+    TagID player = 1;
+    EdgeType serve = 101;
+
+    nebula::DataSet resultWithSuffix, resultWithoutSuffix;
+    {
+        LOG(INFO) << "GoWithVidSuffix";
+        VertexID duncan = "Tim Duncan";
+        // add '\0' suffix
+        duncan.append(vIdLen - duncan.size(), '\0');
+        std::vector<VertexID> vertices = {duncan};
+        std::vector<EdgeType> over = {serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        resultWithSuffix = std::move(resp.vertices);
+    }
+    {
+        LOG(INFO) << "GoWithoutVidSuffix";
+        VertexID duncan = "Tim Duncan";
+        std::vector<VertexID> vertices = {duncan};
+        std::vector<EdgeType> over = {serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        resultWithoutSuffix = std::move(resp.vertices);
+    }
+    ASSERT_EQ(resultWithSuffix, resultWithoutSuffix);
+}
+
 TEST(GetNeighborsTest, FilterTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
@@ -1018,6 +1160,11 @@ TEST(GetNeighborsTest, FilterTest) {
     TagID player = 1;
     EdgeType serve = 101;
     EdgeType teammate = 102;
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = status.value();
 
     {
         LOG(INFO) << "RelExp";
@@ -1052,7 +1199,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_tag:1:name:age:avgScore",
                              "_edge:+101:teamName:startYear:endYear",
                              "_expr"};
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
@@ -1105,7 +1252,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_expr"};
         auto serveEdges = nebula::List();
         serveEdges.values.emplace_back(nebula::List({"Magic", 2000, 2004}));
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          serveEdges,
@@ -1154,7 +1301,7 @@ TEST(GetNeighborsTest, FilterTest) {
                              "_tag:1:name:age:avgScore",
                              "_edge:+101:teamName:startYear:endYear",
                              "_expr"};
-        nebula::Row row({"Tracy McGrady",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                          NullType::__NULL__,
                          nebula::List({"Tracy McGrady", 41, 19.6}),
                          nebula::List({nebula::List({"Magic", 2000, 2004}),
@@ -1208,14 +1355,14 @@ TEST(GetNeighborsTest, FilterTest) {
         ASSERT_EQ(expected.colNames, resp.vertices.colNames);
         ASSERT_EQ(4, resp.vertices.rows.size());
         {
-            nebula::Row row({"Tracy McGrady",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tracy McGrady"),
                             NullType::__NULL__,
                             nebula::List({"Tracy McGrady", 41, 19.6}),
                             nebula::List({nebula::List({"Magic", 2000, 2004}),
                                           nebula::List({"Rockets", 2004, 2010})}),
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tracy McGrady") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tracy McGrady") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1224,26 +1371,26 @@ TEST(GetNeighborsTest, FilterTest) {
         {
             auto serveEdges = nebula::List();
             serveEdges.values.emplace_back(nebula::List({"Spurs", 1997, 2016}));
-            nebula::Row row({"Tim Duncan",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
                             NullType::__NULL__,
                             nebula::List({"Tim Duncan", 44, 19.0}),
                             serveEdges,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tim Duncan") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tim Duncan") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
             }
         }
         {
-            nebula::Row row({"Tony Parker",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tony Parker"),
                             NullType::__NULL__,
                             nebula::List({"Tony Parker", 38, 15.5}),
                             NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tony Parker") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tony Parker") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1251,13 +1398,13 @@ TEST(GetNeighborsTest, FilterTest) {
         }
         {
             // same as 1.0, tag data is returned even if can't pass the filter
-            nebula::Row row({"Manu Ginobili",
+            nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Manu Ginobili"),
                             NullType::__NULL__,
                             nebula::List({"Manu Ginobili", 42, 13.3}),
                             NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Manu Ginobili") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Manu Ginobili") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1303,7 +1450,7 @@ TEST(GetNeighborsTest, FilterTest) {
         serveEdges.values.emplace_back(nebula::List({"Spurs", 1997, 2016}));
         // This will only get the edge of serve, which does not make sense
         // see https://github.com/vesoft-inc/nebula/issues/2166
-        nebula::Row row({"Tim Duncan",
+        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
                          NullType::__NULL__,
                          nebula::List({"Tim Duncan", 44, 19.0}),
                          serveEdges,

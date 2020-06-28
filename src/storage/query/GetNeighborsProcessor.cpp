@@ -42,9 +42,9 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
-        for (const auto& input : partEntry.second) {
-            CHECK_GE(input.columns.size(), 1);
-            auto vId = input.columns[0].getStr();
+        for (const auto& row : partEntry.second) {
+            CHECK_GE(row.values.size(), 1);
+            auto vId = row.values[0].getStr();
 
             // the first column of each row would be the vertex id
             auto ret = plan.go(partId, vId);
@@ -124,7 +124,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
 cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) {
     resultDataSet_.colNames.emplace_back("_vid");
     // reserve second colname for stat
-    resultDataSet_.colNames.emplace_back("");
+    resultDataSet_.colNames.emplace_back("_stats");
 
     auto code = getSpaceVertexSchema();
     if (code != cpp2::ErrorCode::SUCCEEDED) {
@@ -159,14 +159,17 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsR
         // If the list is not given, no prop will be returned.
         return cpp2::ErrorCode::SUCCEEDED;
     } else if (req.vertex_props.empty()) {
-        // If no prpos specified, get all property of all tagId in space
+        // If no props specified, get all property of all tagId in space
         auto returnProps = buildAllTagProps();
         // generate tag prop context
         ret = handleVertexProps(returnProps);
         buildTagColName(returnProps);
     } else {
-        ret = handleVertexProps(req.vertex_props);
-        buildTagColName(req.vertex_props);
+        // Generate related props according to property specified.
+        // not use const reference because we need to modify it when all property need to return
+        auto returnProps = std::move(req.vertex_props);
+        ret = handleVertexProps(returnProps);
+        buildTagColName(returnProps);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
@@ -184,14 +187,16 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
         return cpp2::ErrorCode::SUCCEEDED;
     } else if (req.edge_props.empty()) {
         // If no props specified, get all property of all edge type in space
-        auto returnProps = buildAllEdgeProps(req.edge_direction, true);
+        auto returnProps = buildAllEdgeProps(req.edge_direction);
         // generate edge prop context
         ret = handleEdgeProps(returnProps);
         buildEdgeColName(returnProps);
     } else {
-        // generate related props if no edge type or property specified
-        ret = handleEdgeProps(req.edge_props);
-        buildEdgeColName(req.edge_props);
+        // Generate related props according to property specified.
+        // not use const reference because we need to modify it when all property need to return
+        auto returnProps = std::move(req.edge_props);
+        ret = handleEdgeProps(returnProps);
+        buildEdgeColName(returnProps);
     }
 
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
@@ -287,6 +292,7 @@ cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
                                           edgeType,
                                           edgeName,
                                           propName,
+                                          field,
                                           false,
                                           false,
                                           &statInfo);

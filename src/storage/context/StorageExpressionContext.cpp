@@ -27,7 +27,8 @@ const Value& StorageExpressionContext::getEdgeProp(const std::string& edgeName,
     } else if (prop == _TYPE) {
         value_ = NebulaKeyUtils::getEdgeType(vIdLen_, key_);
     } else {
-        // todo(doodle): const reference... wait change return value type by value
+        // todo(doodle): const reference... wait change return value type by value,
+        // and we need to use schema to get default value if necessary
         value_ = reader_->getValueByName(prop);
     }
     return value_;

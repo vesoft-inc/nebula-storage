@@ -97,7 +97,10 @@ protected:
                 VLOG(2) << "Collect prop " << prop.name_ << ", type " << edgeType;
                 auto value = QueryUtils::readEdgeProp(srcId, edgeType, edgeRank, dstId,
                                                       reader, prop);
-                list.values.emplace_back(std::move(value));
+                if (!value.ok()) {
+                    return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                }
+                list.values.emplace_back(std::move(value).value());
             }
         }
 
@@ -115,7 +118,11 @@ protected:
             StorageExpressionContext* ctx = nullptr) {
         for (auto& prop : *props) {
             VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
-            auto value = reader->getValueByName(prop.name_);
+            auto status = QueryUtils::readValue(reader, prop);
+            if (!status.ok()) {
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+            auto value = std::move(status).value();
             if (ctx != nullptr && prop.filtered_) {
                 ctx->setTagProp(tagName, prop.name_, value);
             }
