@@ -51,33 +51,43 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
         std::vector<kvstore::KV> data;
         data.reserve(32);
         for (auto& newEdge : newEdges) {
-            auto edgeKey = newEdge.key;
-            VLOG(3) << "PartitionID: " << partId << ", VertexID: " << edgeKey.src
-                    << ", EdgeType: " << edgeKey.edge_type << ", EdgeRanking: "
-                    << edgeKey.ranking << ", VertexID: "
-                    << edgeKey.dst << ", EdgeVersion: " << version;
+            auto edgeName = newEdge.get_edge_name();
+            auto edgeRet = env_->schemaMan_->toEdgeType(spaceId_, edgeName);
+            if (!edgeRet.ok()) {
+                LOG(ERROR) << "Space " << spaceId_ <<", Edge name " << edgeName << " invalid";
+                pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                onFinished();
+                return;
+            }
+            auto edgeType = edgeRet.value();
+            edgeType = newEdge.get_reversely() ? -edgeType : edgeType;
 
-            if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, edgeKey.src, edgeKey.dst)) {
+            VLOG(3) << "PartitionID: " << partId << ", VertexID: " << newEdge.src
+                    << ", EdgeType: " << edgeType << ", EdgeRanking: "
+                    << newEdge.ranking << ", VertexID: "
+                    << newEdge.dst << ", EdgeVersion: " << version;
+
+            if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, newEdge.src, newEdge.dst)) {
                 LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                             << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
-                            << edgeKey.src << " dstVid: " << edgeKey.dst;
+                            << newEdge.src << " dstVid: " << newEdge.dst;
                 pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                 onFinished();
                 return;
             }
 
             auto key = NebulaKeyUtils::edgeKey(spaceVidLen_,
-                                                partId,
-                                                edgeKey.src,
-                                                edgeKey.edge_type,
-                                                edgeKey.ranking,
-                                                edgeKey.dst,
-                                                version);
+                                               partId,
+                                               newEdge.src,
+                                               edgeType,
+                                               newEdge.ranking,
+                                               newEdge.dst,
+                                               version);
             auto schema = env_->schemaMan_->getEdgeSchema(spaceId_,
-                                                            std::abs(edgeKey.edge_type));
+                                                          std::abs(edgeType));
             if (!schema) {
                 LOG(ERROR) << "Space " << spaceId_ << ", Edge "
-                            << edgeKey.edge_type << " invalid";
+                            << edgeType << " invalid";
                 pushResultCode(cpp2::ErrorCode::E_EDGE_NOT_FOUND, partId);
                 onFinished();
                 return;

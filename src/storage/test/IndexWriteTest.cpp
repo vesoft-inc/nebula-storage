@@ -61,7 +61,7 @@ TEST(IndexTest, SimpleVerticesTest) {
         for (auto partId = 1; partId <= 6; partId++) {
             nebula::storage::cpp2::NewVertex newVertex;
             nebula::storage::cpp2::NewTag newTag;
-            newTag.set_tag_id(3);
+            newTag.set_tag_name("3");
             const Date date = {2020, 2, 20};
             const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600};
             std::vector<Value>  props;
@@ -151,12 +151,11 @@ TEST(IndexTest, SimpleEdgesTest) {
         // mock v2 edges
         for (auto partId = 1; partId <= 6; partId++) {
             nebula::storage::cpp2::NewEdge newEdge;
-            nebula::storage::cpp2::EdgeKey edgeKey;
-            edgeKey.set_src(convertVertexId(vIdLen, partId));
-            edgeKey.set_edge_type(101);
-            edgeKey.set_ranking(0);
-            edgeKey.set_dst(convertVertexId(vIdLen, partId + 6));
-            newEdge.set_key(std::move(edgeKey));
+            newEdge.set_src(convertVertexId(vIdLen, partId));
+            newEdge.set_edge_name("101");
+            newEdge.set_reversely(0);
+            newEdge.set_ranking(0);
+            newEdge.set_dst(convertVertexId(vIdLen, partId + 6));
             std::vector<Value>  props;
             props.emplace_back(Value("col1"));
             props.emplace_back(Value("col2"));
@@ -167,7 +166,7 @@ TEST(IndexTest, SimpleEdgesTest) {
             props.emplace_back(Value(7.7F));
             newEdge.set_props(std::move(props));
             req.parts[partId].emplace_back(newEdge);
-            newEdge.key.set_edge_type(-101);
+            newEdge.set_reversely(1);
             req.parts[partId].emplace_back(std::move(newEdge));
         }
         auto* processor = AddEdgesProcessor::instance(env, nullptr);
@@ -255,15 +254,22 @@ TEST(IndexTest, VerticesValueTest) {
         cpp2::AddVerticesRequest req;
         req.set_space_id(spaceId);
         req.set_overwritable(true);
+        // mock v2 vertices
+        auto tagNameRet = env->schemaMan_->toTagName(spaceId, tagId);
+        EXPECT_TRUE(tagNameRet.ok());
+        auto tagName = tagNameRet.value();
+        EXPECT_FALSE(tagName.empty());
+
         decltype(req.prop_names) propNames;
-        propNames[tagId] = {"col_bool", "col_int", "col_float",
+        propNames[tagName] = {"col_bool", "col_int", "col_float",
                             "col_float_null", "col_str", "col_date"};
         req.set_prop_names(std::move(propNames));
-        // mock v2 vertices
+
         for (auto partId = 1; partId <= 6; partId++) {
             nebula::storage::cpp2::NewVertex newVertex;
             nebula::storage::cpp2::NewTag newTag;
-            newTag.set_tag_id(tagId);
+
+            newTag.set_tag_name(tagName);
             const Date date = {2020, 1, 20};
             std::vector<Value>  props;
             props.emplace_back(Value(true));
@@ -352,10 +358,10 @@ TEST(IndexTest, VerticesValueTest) {
 }
 
 /**
- * Alter tag test. 
+ * Alter tag test.
  * If a tag is attached to an index. allows to add new columns.
  * Test the old index work well.
- * And then create new index with newly added columns. 
+ * And then create new index with newly added columns.
  * Test the all indexes works well.
  **/
 TEST(IndexTest, AlterTagIndexTest) {
@@ -386,10 +392,14 @@ TEST(IndexTest, AlterTagIndexTest) {
         req.set_space_id(spaceId);
         req.set_overwritable(true);
         // mock v2 vertices
+        auto tagNameRet = env->schemaMan_->toTagName(spaceId, tagId);
+        EXPECT_TRUE(tagNameRet.ok());
+        auto tagName = tagNameRet.value();
+        EXPECT_FALSE(tagName.empty());
         for (auto partId = 1; partId <= 6; partId++) {
             nebula::storage::cpp2::NewVertex newVertex;
             nebula::storage::cpp2::NewTag newTag;
-            newTag.set_tag_id(tagId);
+            newTag.set_tag_name(tagName);
             std::vector<Value>  props;
             props.emplace_back(Value(true));
             props.emplace_back(Value(1L));
@@ -442,10 +452,14 @@ TEST(IndexTest, AlterTagIndexTest) {
         req.set_space_id(spaceId);
         req.set_overwritable(true);
         // mock v2 vertices
+        auto tagNameRet = env->schemaMan_->toTagName(spaceId, tagId);
+        EXPECT_TRUE(tagNameRet.ok());
+        auto tagName = tagNameRet.value();
+        EXPECT_FALSE(tagName.empty());
         for (auto partId = 1; partId <= 6; partId++) {
             nebula::storage::cpp2::NewVertex newVertex;
             nebula::storage::cpp2::NewTag newTag;
-            newTag.set_tag_id(tagId);
+            newTag.set_tag_name(tagName);
             const Date date = {2020, 2, 20};
             const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600};
             std::vector<Value>  props;

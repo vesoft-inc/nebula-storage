@@ -115,6 +115,13 @@ private:
             tagId_ = tagResult.value();
         }
 
+        auto tagNameRet = mClient_->getTagNameByIdFromCache(spaceId_, tagId_);
+        if (!tagNameRet.ok()) {
+            LOG(ERROR) << "TagID not exist: " << tagId_;
+            return false;
+        }
+        tagName_ = tagNameRet.value();
+
         client_ = std::make_unique<GraphStorageClient>(threadPool_, mClient_.get());
         return true;
     }
@@ -164,8 +171,8 @@ private:
     }
 
     void addVertex(std::vector<VertexID>& prev, std::vector<VertexID>& cur, VertexID startId) {
-        std::unordered_map<TagID, std::vector<std::string>> propNames;
-        propNames[tagId_].emplace_back(propName_);
+        std::unordered_map<std::string, std::vector<std::string>> propNames;
+        propNames[tagName_].emplace_back(propName_);
         auto future = client_->addVertices(spaceId_,
                                            genVertices(prev, cur, startId), propNames, true);
         auto resp = std::move(future).get();
@@ -178,8 +185,8 @@ private:
     }
 
     std::vector<storage::cpp2::NewVertex> genVertices(std::vector<VertexID>& prev,
-                                                   std::vector<VertexID>& cur,
-                                                   VertexID startId) {
+                                                      std::vector<VertexID>& cur,
+                                                      VertexID startId) {
         // We insert add vertices of a row once a time
         std::vector<storage::cpp2::NewVertex> newVertices;
         for (size_t i = 0; i < width_; i++) {
@@ -192,7 +199,7 @@ private:
             decltype(v.tags) tags;
 
             storage::cpp2::NewTag tag;
-            tag.set_tag_id(tagId_);
+            tag.set_tag_name(tagName_);
 
             decltype(tag.props) props;
             Value val(prev[i]);
@@ -266,6 +273,7 @@ private:
     std::shared_ptr<folly::IOThreadPoolExecutor> threadPool_;
     GraphSpaceID                                 spaceId_;
     TagID                                        tagId_;
+    std::string                                  tagName_;
     std::string                                  propName_;
     size_t                                       width_;
     size_t                                       height_;

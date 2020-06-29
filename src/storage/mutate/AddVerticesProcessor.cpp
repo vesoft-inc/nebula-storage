@@ -65,12 +65,21 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
             }
 
             for (auto& newTag : newTags) {
-                auto tagId = newTag.get_tag_id();
+                auto tagName = newTag.get_tag_name();
+                auto tagRet = env_->schemaMan_->toTagID(spaceId_, tagName);
+                if (!tagRet.ok()) {
+                    LOG(ERROR) << "Space " << spaceId_ << ", Tag name " << tagName << " invalid";
+                    pushResultCode(cpp2::ErrorCode::E_TAG_NOT_FOUND, partId);
+                    onFinished();
+                    return;
+                }
+                auto tagId = tagRet.value();
+
                 VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
                         << ", TagID: " << tagId << ", TagVersion: " << version;
 
                 auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid,
-                                                        tagId, version);
+                                                     tagId, version);
                 auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
                 if (!schema) {
                     LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";
@@ -80,7 +89,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                 }
 
                 auto props = newTag.get_props();
-                auto iter = propNamesMap.find(tagId);
+                auto iter = propNamesMap.find(tagName);
                 std::vector<std::string> propNames;
                 if (iter != propNamesMap.end()) {
                     propNames = iter->second;

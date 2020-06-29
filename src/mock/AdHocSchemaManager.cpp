@@ -77,12 +77,28 @@ AdHocSchemaManager::getTagSchema(GraphSpaceID space,
     } else {
         // Looking for the specified version
         if (static_cast<size_t>(ver) >= tagIt->second.size()) {
+            if (ver == 0 && tagIt->first == 0) {
+                return tagIt->second[ver];
+            }
             // Not found
             return std::shared_ptr<const nebula::meta::NebulaSchemaProvider>();
         } else {
             return tagIt->second[ver];
         }
     }
+}
+
+std::shared_ptr<const nebula::meta::NebulaSchemaProvider>
+AdHocSchemaManager::getTagSchema(GraphSpaceID space,
+                                 const std::string &tagName,
+                                 SchemaVer ver) {
+    auto tagRet = toTagID(space, tagName);
+    if (!tagRet.ok()) {
+        // Not found
+        return std::shared_ptr<const nebula::meta::NebulaSchemaProvider>();
+    }
+    auto tag = tagRet.value();
+    return getTagSchema(space, tag, ver);
 }
 
 std::shared_ptr<const nebula::meta::NebulaSchemaProvider>
@@ -154,6 +170,19 @@ AdHocSchemaManager::getEdgeSchema(GraphSpaceID space,
             return edgeIt->second[ver];
         }
     }
+}
+
+std::shared_ptr<const nebula::meta::NebulaSchemaProvider>
+AdHocSchemaManager::getEdgeSchema(GraphSpaceID space,
+                                  const std::string &edgeName,
+                                  SchemaVer ver) {
+    auto edgeRet = toEdgeType(space, edgeName);
+    if (!edgeRet.ok()) {
+        // Not found
+        return std::shared_ptr<const nebula::meta::NebulaSchemaProvider>();
+    }
+    auto edge = edgeRet.value();
+    return getEdgeSchema(space, edge, ver);
 }
 
 std::shared_ptr<const nebula::meta::NebulaSchemaProvider>

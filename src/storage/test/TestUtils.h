@@ -38,7 +38,11 @@ void checkAddVerticesData(cpp2::AddVerticesRequest req,
             auto newTagVec = newVertex.tags;
 
             for (auto& newTag : newTagVec) {
-                auto tagId = newTag.tag_id;
+                auto tagName = newTag.tag_name;
+                auto tagRet = env->schemaMan_->toTagID(spaceId, tagName);
+                ASSERT_TRUE(tagRet.ok());
+                auto tagId = tagRet.value();
+
                 auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vid, tagId);
                 std::unique_ptr<kvstore::KVIterator> iter;
                 EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
@@ -180,20 +184,26 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
         auto partId = part.first;
         auto newEdgeVec = part.second;
         for (auto& newEdge : newEdgeVec) {
-            auto edgekey = newEdge.key;
+            auto edgeName = newEdge.edge_name;
             auto newEdgeProp = newEdge.props;
+
+            auto edgeRet = env->schemaMan_->toEdgeType(spaceId, edgeName);
+            EXPECT_TRUE(edgeRet.ok());
+            auto edgeType = edgeRet.value();
+            auto reversely = newEdge.reversely;
+            edgeType = reversely ? -edgeType : edgeType;
 
             auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
                                                      partId,
-                                                     edgekey.src,
-                                                     edgekey.edge_type,
-                                                     edgekey.ranking,
-                                                     edgekey.dst);
+                                                     newEdge.src,
+                                                     edgeType,
+                                                     newEdge.ranking,
+                                                     newEdge.dst);
             std::unique_ptr<kvstore::KVIterator> iter;
             EXPECT_EQ(kvstore::ResultCode::SUCCEEDED,
                       env->kvstore_->prefix(spaceId, partId, prefix, &iter));
 
-            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edgekey.edge_type));
+            auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edgeType));
             EXPECT_TRUE(schema != NULL);
 
             Value val;

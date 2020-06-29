@@ -979,7 +979,7 @@ nebula::storage::cpp2::AddVerticesRequest MockData::mockAddVerticesReq(int32_t p
         nebula::storage::cpp2::NewTag newTag;
         auto partId = std::hash<std::string>()(rec.vId_) % parts + 1;
 
-        newTag.set_tag_id(rec.tId_);
+        newTag.set_tag_name(std::to_string(rec.tId_));
         newTag.set_props(std::move(rec.props_));
 
         std::vector<nebula::storage::cpp2::NewTag> newTags;
@@ -1011,15 +1011,13 @@ nebula::storage::cpp2::AddEdgesRequest MockData::mockAddEdgesReq(int32_t parts) 
     auto retRecs = mockEdges();
     for (auto& rec : retRecs) {
         nebula::storage::cpp2::NewEdge newEdge;
-        nebula::storage::cpp2::EdgeKey edgeKey;
         auto partId = std::hash<std::string>()(rec.srcId_) % parts + 1;
 
-        edgeKey.src = rec.srcId_;
-        edgeKey.edge_type = rec.type_;
-        edgeKey.ranking = rec.rank_;
-        edgeKey.dst = rec.dstId_;
-
-        newEdge.set_key(std::move(edgeKey));
+        newEdge.src = rec.srcId_;
+        newEdge.edge_name = std::to_string(std::abs(rec.type_));
+        newEdge.reversely = rec.type_ > 0 ? 0 : 1;
+        newEdge.ranking = rec.rank_;
+        newEdge.dst = rec.dstId_;
         newEdge.set_props(std::move(rec.props_));
 
         req.parts[partId].emplace_back(std::move(newEdge));
@@ -1128,16 +1126,16 @@ MockData::mockAddVerticesSpecifiedOrderReq(int32_t parts) {
             std::vector<std::string> colNames{"serveTeams", "avgScore", "games", "endYear",
                                               "startYear",  "career", "playing", "age",
                                               "name"};
-            req.prop_names[1] = std::move(colNames);
+            req.prop_names[std::to_string(1)] = std::move(colNames);
         } else {
             std::vector<std::string> colNames{"name"};
-            req.prop_names[2] = std::move(colNames);
+            req.prop_names[std::to_string(2)] = std::move(colNames);
         }
 
         nebula::storage::cpp2::NewVertex newVertex;
         nebula::storage::cpp2::NewTag newTag;
 
-        newTag.set_tag_id(rec.tId_);
+        newTag.set_tag_name(std::to_string(rec.tId_));
         newTag.set_props(std::move(rec.props_));
         std::vector<nebula::storage::cpp2::NewTag> newTags;
         newTags.push_back(std::move(newTag));
@@ -1162,13 +1160,11 @@ MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
         auto partId = std::hash<std::string>()(rec.srcId_) % parts + 1;
 
         nebula::storage::cpp2::NewEdge newEdge;
-        nebula::storage::cpp2::EdgeKey edgeKey;
-        edgeKey.src = rec.srcId_;
-        edgeKey.edge_type = rec.type_;
-        edgeKey.ranking = rec.rank_;
-        edgeKey.dst = rec.dstId_;
-
-        newEdge.set_key(std::move(edgeKey));
+        newEdge.src = rec.srcId_;
+        newEdge.edge_name = std::to_string(std::abs(rec.type_));
+        newEdge.reversely = rec.type_ > 0 ? 0 : 1;
+        newEdge.ranking = rec.rank_;
+        newEdge.dst = rec.dstId_;
         newEdge.set_props(std::move(rec.props_));
         req.parts[partId].emplace_back(std::move(newEdge));
 

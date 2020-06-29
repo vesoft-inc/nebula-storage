@@ -75,8 +75,14 @@ public:
             return EXIT_FAILURE;
         }
         auto tagSchema = tagSchemaRes.value();
+        auto tagNameRet = mClient_->getTagNameByIdFromCache(spaceId_, tagId_);
+        if (!tagNameRet.ok()) {
+            LOG(ERROR) << "TagID not exist: " << tagId_;
+            return EXIT_FAILURE;
+        }
+        tagName_ = tagNameRet.value();
         for (size_t i = 0; i < tagSchema->getNumFields(); i++) {
-            tagProps_[tagId_].emplace_back(tagSchema->getFieldName(i));
+            tagProps_[tagName_].emplace_back(tagSchema->getFieldName(i));
         }
 
         auto edgeResult = mClient_->getEdgeTypeByNameFromCache(spaceId_, FLAGS_edge_name);
@@ -91,6 +97,14 @@ public:
             return EXIT_FAILURE;
         }
         auto edgeSchema = edgeSchemaRes.value();
+
+        auto edgeNameRet = mClient_->getEdgeNameByTypeFromCache(spaceId_, edgeType_);
+        if (!edgeNameRet.ok()) {
+            LOG(ERROR) << "Edge not exist: edgeType" << edgeType_;
+            return EXIT_FAILURE;
+        }
+        edgeName_ = edgeNameRet.value();
+
         for (size_t i = 0; i < edgeSchema->getNumFields(); i++) {
             edgeProps_.emplace_back(edgeSchema->getFieldName(i));
         }
@@ -191,7 +205,7 @@ private:
             vintId++;
             decltype(v.tags) newTags;
             storage::cpp2::NewTag newTag;
-            newTag.set_tag_id(tagId_);
+            newTag.set_tag_name(tagName_);
             auto props = genData(FLAGS_size);
             newTag.set_props(std::move(props));
             newTags.emplace_back(std::move(newTag));
@@ -205,12 +219,12 @@ private:
         std::vector<cpp2::NewEdge> edges;
         static int vintId = FLAGS_min_vertex_id;
         cpp2::NewEdge edge;
-        cpp2::EdgeKey eKey;
-        eKey.set_src(std::to_string(vintId));
-        eKey.set_edge_type(edgeType_);
-        eKey.set_dst(std::to_string(vintId + 1));
-        eKey.set_ranking(0);
-        edge.set_key(std::move(eKey));
+        edge.set_src(std::to_string(vintId));
+        auto reversely = edgeType_ > 0 ? 0 : 1;
+        edge.set_reversely(reversely);
+        edge.set_edge_name(edgeName_);
+        edge.set_dst(std::to_string(vintId + 1));
+        edge.set_ranking(0);
         auto props = genData(FLAGS_size);
         edge.set_props(std::move(props));
         edges.emplace_back(std::move(edge));
@@ -332,18 +346,20 @@ private:
     }
 
 private:
-    std::atomic_long                                    finishedRequests_{0};
-    std::unique_ptr<GraphStorageClient>                 graphStorageClient_;
-    std::unique_ptr<meta::MetaClient>                   mClient_;
-    std::shared_ptr<folly::IOThreadPoolExecutor>        threadPool_;
-    GraphSpaceID                                        spaceId_;
-    TagID                                               tagId_;
-    EdgeType                                            edgeType_;
-    std::unordered_map<TagID, std::vector<std::string>> tagProps_;
-    std::vector<std::string>                            edgeProps_;
-    folly::DynamicTokenBucket                           tokenBucket_;
-    folly::TimeseriesHistogram<int64_t>                 latencies_;
-    folly::TimeseriesHistogram<int64_t>                 qps_;
+    std::atomic_long                                          finishedRequests_{0};
+    std::unique_ptr<GraphStorageClient>                       graphStorageClient_;
+    std::unique_ptr<meta::MetaClient>                         mClient_;
+    std::shared_ptr<folly::IOThreadPoolExecutor>              threadPool_;
+    GraphSpaceID                                              spaceId_;
+    TagID                                                     tagId_;
+    std::string                                               tagName_;
+    EdgeType                                                  edgeType_;
+    std::string                                               edgeName_;
+    std::unordered_map<std::string, std::vector<std::string>> tagProps_;
+    std::vector<std::string>                                  edgeProps_;
+    folly::DynamicTokenBucket                                 tokenBucket_;
+    folly::TimeseriesHistogram<int64_t>                       latencies_;
+    folly::TimeseriesHistogram<int64_t>                       qps_;
 };
 
 }  // namespace storage
