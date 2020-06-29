@@ -187,7 +187,7 @@ public:
             auto vId = appendSuffix(32, vertex);
             PartitionID partId = (hash(vId) % totalParts) + 1;
             nebula::Row row;
-            row.columns.emplace_back(vId);
+            row.values.emplace_back(vId);
             req.parts[partId].emplace_back(std::move(row));
         }
         for (const auto& edge : over) {
@@ -246,19 +246,19 @@ public:
         }
         ASSERT_EQ(expectRowCount, dataSet.rows.size());
         for (const auto& row : dataSet.rows) {
-            ASSERT_EQ(expectColumnCount, row.columns.size());
-            auto vId = row.columns[0].getStr();
+            ASSERT_EQ(expectColumnCount, row.values.size());
+            auto vId = row.values[0].getStr();
             auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
             ASSERT_TRUE(iter != vertices.end());
             if (expectStats != nullptr) {
                 auto& expect = (*expectStats)[cleanSuffix(vId)];
-                auto& actual = row.columns[1].getList().values;
+                auto& actual = row.values[1].getList().values;
                 ASSERT_EQ(expect.size(), actual.size());
                 for (size_t i = 0; i < expect.size(); i++) {
                     ASSERT_EQ(expect[i], actual[i]);
                 }
             } else {
-                ASSERT_EQ(NullType::__NULL__, row.columns[1].getNull());
+                ASSERT_EQ(NullType::__NULL__, row.values[1].getNull());
             }
             checkRowProps(row, dataSet.colNames, tags, edges);
         }
@@ -273,14 +273,14 @@ public:
         ASSERT_EQ(expectColumnCount, dataSet.colNames.size());
         ASSERT_EQ(expectRowCount, dataSet.rows.size());
         for (const auto& row : dataSet.rows) {
-            ASSERT_EQ(expectColumnCount, row.columns.size());
-            auto vId = row.columns[0].getStr();
+            ASSERT_EQ(expectColumnCount, row.values.size());
+            auto vId = row.values[0].getStr();
             auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
             ASSERT_TRUE(iter != vertices.end());
             // the second column is stats
-            ASSERT_EQ(NullType::__NULL__, row.columns[1].getNull());
+            ASSERT_EQ(NullType::__NULL__, row.values[1].getNull());
             // the last column is yeild expression
-            ASSERT_EQ(NullType::__NULL__, row.columns[expectColumnCount - 1].getNull());
+            ASSERT_EQ(NullType::__NULL__, row.values[expectColumnCount - 1].getNull());
             checkRowProps(row, dataSet.colNames, {}, {});
         }
     }
@@ -598,7 +598,7 @@ public:
             const std::vector<std::string> colNames,
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
-        auto vId = cleanSuffix(row.columns[0].getStr());
+        auto vId = cleanSuffix(row.values[0].getStr());
         // skip the last column which is reserved for expression yields
         for (size_t i = 2; i < colNames.size() - 1; i++) {
             const auto& name = colNames[i];
@@ -617,10 +617,10 @@ public:
                             mock::MockData::players_.begin(), mock::MockData::players_.end(),
                             [&] (const auto& player) { return player.name_ == vId; });
                     if (iter != mock::MockData::players_.end()) {
-                        auto tagCell = row.columns[i].getList();
+                        auto tagCell = row.values[i].getList();
                         checkPlayer(props, *iter, tagCell.values);
                     } else {
-                        ASSERT_EQ(NullType::__NULL__, row.columns[i].getNull());
+                        ASSERT_EQ(NullType::__NULL__, row.values[i].getNull());
                     }
                     break;
                 }
@@ -630,11 +630,11 @@ public:
                                           mock::MockData::teams_.end(),
                                           vId);
                     if (iter != mock::MockData::teams_.end()) {
-                        auto tagCell = row.columns[i].getList();
+                        auto tagCell = row.values[i].getList();
                         ASSERT_EQ(1, tagCell.values.size());
                         ASSERT_EQ(*iter, tagCell.values[0].getStr());
                     } else {
-                        ASSERT_EQ(NullType::__NULL__, row.columns[i].getNull());
+                        ASSERT_EQ(NullType::__NULL__, row.values[i].getNull());
                     }
                     break;
                 }
@@ -642,14 +642,14 @@ public:
                     // check out edge serve
                     auto iter = mock::MockData::playerServes_.find(vId);
                     if (iter != mock::MockData::playerServes_.end()) {
-                        auto edgeCell = row.columns[i].getList();
+                        auto edgeCell = row.values[i].getList();
                         ASSERT_EQ(iter->second.size(), edgeCell.values.size());
                         for (const auto& edgeRow : edgeCell.values) {
                             auto& values = edgeRow.getList().values;
                             checkOutServe(entryId, props, iter->second, values);
                         }
                     } else {
-                        ASSERT_EQ(NullType::__NULL__, row.columns[i].getNull());
+                        ASSERT_EQ(NullType::__NULL__, row.values[i].getNull());
                     }
                     break;
                 }
@@ -657,14 +657,14 @@ public:
                     // check in edge serve
                     auto iter = mock::MockData::teamServes_.find(vId);
                     if (iter != mock::MockData::teamServes_.end()) {
-                        auto edgeCell = row.columns[i].getList();
+                        auto edgeCell = row.values[i].getList();
                         ASSERT_EQ(iter->second.size(), edgeCell.values.size());
                         for (const auto& edgeRow : edgeCell.values) {
                             auto& values = edgeRow.getList().values;
                             checkInServe(entryId, props, iter->second, values);
                         }
                     } else {
-                        ASSERT_EQ(NullType::__NULL__, row.columns[i].getNull());
+                        ASSERT_EQ(NullType::__NULL__, row.values[i].getNull());
                     }
                     break;
                 }
@@ -677,13 +677,13 @@ public:
                                                         teammate.player2_ == vId;
                                              });
                     if (iter != mock::MockData::teammates_.end()) {
-                        auto edgeCell = row.columns[i].getList();
+                        auto edgeCell = row.values[i].getList();
                         for (const auto& edgeRow : edgeCell.values) {
                             auto& values = edgeRow.getList().values;
                             checkTeammate(entryId, props, values);
                         }
                     } else {
-                        ASSERT_EQ(NullType::__NULL__, row.columns[i].getNull());
+                        ASSERT_EQ(NullType::__NULL__, row.values[i].getNull());
                     }
                     break;
                 }

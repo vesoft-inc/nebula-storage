@@ -42,9 +42,9 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
-        for (const auto& input : partEntry.second) {
-            CHECK_GE(input.columns.size(), 1);
-            auto vId = input.columns[0].getStr();
+        for (const auto& row : partEntry.second) {
+            CHECK_GE(row.values.size(), 1);
+            auto vId = row.values[0].getStr();
 
             // the first column of each row would be the vertex id
             auto ret = plan.go(partId, vId);

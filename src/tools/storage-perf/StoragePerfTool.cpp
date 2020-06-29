@@ -223,8 +223,8 @@ private:
         colNames.emplace_back("_vid");
         std::vector<Row> vertices;
         for (auto& vertex : randomVertices()) {
-            nebula::Row  row;
-            row.columns.emplace_back(vertex);
+            nebula::Row row;
+            row.values.emplace_back(vertex);
             vertices.emplace_back(row);
         }
 

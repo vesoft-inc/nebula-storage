@@ -37,7 +37,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
-                auto vId = row.columns[0].getStr();
+                auto vId = row.values[0].getStr();
                 auto ret = plan.go(partId, vId);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
@@ -52,10 +52,10 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
             auto partId = partEntry.first;
             for (const auto& row : partEntry.second) {
                 cpp2::EdgeKey edgeKey;
-                edgeKey.src = row.columns[0].getStr();
-                edgeKey.edge_type = row.columns[1].getInt();
-                edgeKey.ranking = row.columns[2].getInt();
-                edgeKey.dst = row.columns[3].getStr();
+                edgeKey.src = row.values[0].getStr();
+                edgeKey.edge_type = row.values[1].getInt();
+                edgeKey.ranking = row.values[2].getInt();
+                edgeKey.dst = row.values[3].getStr();
                 auto ret = plan.go(partId, edgeKey);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {

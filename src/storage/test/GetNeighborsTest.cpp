@@ -670,6 +670,11 @@ TEST(GetNeighborsTest, TtlTest) {
     TagID player = 1;
     EdgeType serve = 101;
 
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto vIdLen = std::move(status).value();
+
     {
         LOG(INFO) << "OutEdgeReturnAllProperty";
         std::vector<VertexID> vertices = {"Tim Duncan"};
@@ -725,10 +730,14 @@ TEST(GetNeighborsTest, TtlTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(5, resp.vertices.rows[0].columns.size());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[2].getNull());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[3].getNull());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[4].getNull());
+        // vId, stat, player, serve, expr
+        ASSERT_EQ(5, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
+                  resp.vertices.rows[0].values[0].getStr());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[1].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[2].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[3].getNull());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[4].getNull());
     }
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -747,13 +756,18 @@ TEST(GetNeighborsTest, TtlTest) {
         ASSERT_EQ(0, resp.result.failed_parts.size());
         // vId, stat, player, team, general tag, - teammate, - serve, + serve, + teammate, expr
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(10, resp.vertices.rows[0].columns.size());
-        ASSERT_TRUE(resp.vertices.rows[0].columns[2].isNull());     // player expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[5].isList());     // - teammate valid
-        ASSERT_TRUE(resp.vertices.rows[0].columns[6].isNull());     // - serve expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[7].isNull());     // + serve expired
-        ASSERT_TRUE(resp.vertices.rows[0].columns[8].isList());     // + teammate valid
-        ASSERT_TRUE(resp.vertices.rows[0].columns[9].isNull());     // expr
+        ASSERT_EQ(10, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),
+                  resp.vertices.rows[0].values[0].getStr());
+        ASSERT_TRUE(resp.vertices.rows[0].values[1].isNull());     // stat
+        ASSERT_TRUE(resp.vertices.rows[0].values[2].isNull());     // player expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[3].isNull());     // team not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[4].isNull());     // general tag not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[5].isList());     // - teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].values[6].isNull());     // - serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[7].isNull());     // + serve expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[8].isList());     // + teammate valid
+        ASSERT_TRUE(resp.vertices.rows[0].values[9].isNull());     // expr
     }
     FLAGS_mock_ttl_col = false;
 }
@@ -1281,7 +1295,7 @@ TEST(GetNeighborsTest, FilterTest) {
                                           nebula::List({"Rockets", 2004, 2010})}),
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tracy McGrady") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tracy McGrady") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1296,7 +1310,7 @@ TEST(GetNeighborsTest, FilterTest) {
                             serveEdges,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tim Duncan") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tim Duncan") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1309,7 +1323,7 @@ TEST(GetNeighborsTest, FilterTest) {
                             NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Tony Parker") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Tony Parker") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }
@@ -1323,7 +1337,7 @@ TEST(GetNeighborsTest, FilterTest) {
                             NullType::__NULL__,
                             NullType::__NULL__});
             for (size_t i = 0; i < 4; i++) {
-                if (resp.vertices.rows[i].columns[0].getStr() == "Manu Ginobili") {
+                if (resp.vertices.rows[i].values[0].getStr() == "Manu Ginobili") {
                     ASSERT_EQ(row, resp.vertices.rows[i]);
                     break;
                 }

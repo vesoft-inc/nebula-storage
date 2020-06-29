@@ -25,7 +25,7 @@ cpp2::GetPropRequest buildVertexRequest(
         auto vId = vertex + std::string(32 - vertex.size(), '\0');
         PartitionID partId = (hash(vId) % totalParts) + 1;
         nebula::Row row;
-        row.columns.emplace_back(vId);
+        row.values.emplace_back(vId);
         req.parts[partId].emplace_back(std::move(row));
     }
 
@@ -64,10 +64,10 @@ cpp2::GetPropRequest buildEdgeRequest(
         auto vId = edge.src + std::string(32 - edge.src.size(), '\0');
         PartitionID partId = (hash(vId) % totalParts) + 1;
         nebula::Row row;
-        row.columns.emplace_back(edge.src);
-        row.columns.emplace_back(edge.edge_type);
-        row.columns.emplace_back(edge.ranking);
-        row.columns.emplace_back(edge.dst);
+        row.values.emplace_back(edge.src);
+        row.values.emplace_back(edge.edge_type);
+        row.values.emplace_back(edge.ranking);
+        row.values.emplace_back(edge.dst);
         req.parts[partId].emplace_back(std::move(row));
     }
 
@@ -96,7 +96,6 @@ void verifyResult(const std::vector<nebula::Row>& expect,
     for (size_t i = 0; i < expect.size(); i++) {
         const auto& expectRow = expect[i];
         const auto& actualRow = dataSet.rows[i];
-        ASSERT_EQ(expectRow.columns.size(), actualRow.columns.size());
         ASSERT_EQ(expectRow, actualRow);
     }
 }
@@ -191,7 +190,7 @@ TEST(GetPropTest, AllPropertyTest) {
             for (size_t i = 0; i < 1 + 11; i++) {  // team and tag3
                 values.emplace_back(NullType::__NULL__);
             }
-            row.columns = std::move(values);
+            row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
             verifyResult(expected, resp.props);
@@ -243,7 +242,7 @@ TEST(GetPropTest, AllPropertyTest) {
             for (size_t i = 0; i < 5; i++) {
                 values.emplace_back(NullType::__NULL__);
             }
-            row.columns = std::move(values);
+            row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
             verifyResult(expected, resp.props);
@@ -268,7 +267,7 @@ TEST(GetPropTest, AllPropertyTest) {
             for (size_t i = 0; i < 1 + 11 + 11; i++) {
                 values.emplace_back(NullType::__NULL__);
             }
-            row.columns = std::move(values);
+            row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
             verifyResult(expected, resp.props);
