@@ -64,6 +64,7 @@ public:
                 return dstId.str();
             }
         }
+        return Status::Error(folly::stringPrintf("Invalid property %s", prop.name_.c_str()));
     }
 
     // return none if no valid ttl, else return the ttl property name and time
