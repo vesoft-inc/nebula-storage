@@ -54,7 +54,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
         tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear",
-                                                           _SRC, _TYPE, _RANK, _DST});
+                                                           kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
@@ -94,7 +94,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         tags.emplace_back(team, std::vector<std::string>{"name"});
         edges.emplace_back(-serve, std::vector<std::string>{
                            "playerName", "startYear", "teamCareer",
-                           _SRC, _TYPE, _RANK, _DST});
+                           kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
@@ -251,7 +251,7 @@ TEST(GetNeighborsTest, PropertyTest) {
             "avgScore", "serveTeams", "country", "champions"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear",
             "playerName", "teamCareer", "teamGames", "teamAvgScore", "type", "champions",
-            _SRC, _TYPE, _RANK, _DST});
+            kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
@@ -369,7 +369,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
             "avgScore", "serveTeams", "country", "champions"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear",
             "teamCareer", "teamGames", "teamAvgScore", "type", "champions",
-            _SRC, _TYPE, _RANK, _DST});
+            kSrc, kType, kRank, kDst});
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2",
             "teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);

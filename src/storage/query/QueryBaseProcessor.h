@@ -56,13 +56,13 @@ public:
     }
 
     void setPropInKey() {
-        if (name_ == _SRC) {
+        if (name_ == kSrc) {
             propInKeyType_ = PropContext::PropInKeyType::SRC;
-        } else if (name_ == _TYPE) {
+        } else if (name_ == kType) {
             propInKeyType_ = PropContext::PropInKeyType::TYPE;
-        } else if (name_ == _RANK) {
+        } else if (name_ == kRank) {
             propInKeyType_ = PropContext::PropInKeyType::RANK;
-        } else if (name_ == _DST) {
+        } else if (name_ == kDst) {
             propInKeyType_ = PropContext::PropInKeyType::DST;
         }
     }

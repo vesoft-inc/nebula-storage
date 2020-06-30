@@ -114,10 +114,10 @@ cpp2::ErrorCode GetPropProcessor::checkColumnNames(const std::vector<std::string
         isEdge_ = false;
         return cpp2::ErrorCode::SUCCEEDED;
     } else if (colNames.size() == 4 &&
-               colNames[0] == _SRC &&
-               colNames[1] == _TYPE &&
-               colNames[2] == _RANK &&
-               colNames[3] == _DST) {
+               colNames[0] == kSrc &&
+               colNames[1] == kType &&
+               colNames[2] == kRank &&
+               colNames[3] == kDst) {
         isEdge_ = true;
         return cpp2::ErrorCode::SUCCEEDED;
     }

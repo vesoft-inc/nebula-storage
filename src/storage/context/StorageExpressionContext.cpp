@@ -18,13 +18,13 @@ const Value& StorageExpressionContext::getEdgeProp(const std::string& edgeName,
     if (edgeName != name_) {
         return Value::kNullValue;
     }
-    if (prop == _SRC) {
+    if (prop == kSrc) {
         value_ = NebulaKeyUtils::getSrcId(vIdLen_, key_);
-    } else if (prop == _DST) {
+    } else if (prop == kDst) {
         value_ = NebulaKeyUtils::getDstId(vIdLen_, key_);
-    } else if (prop == _RANK) {
+    } else if (prop == kRank) {
         value_ = NebulaKeyUtils::getRank(vIdLen_, key_);
-    } else if (prop == _TYPE) {
+    } else if (prop == kType) {
         value_ = NebulaKeyUtils::getEdgeType(vIdLen_, key_);
     } else {
         // todo(doodle): const reference... wait change return value type by value,

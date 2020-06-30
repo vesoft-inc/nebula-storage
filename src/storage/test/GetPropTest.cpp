@@ -53,10 +53,10 @@ cpp2::GetPropRequest buildEdgeRequest(
     std::hash<std::string> hash;
     cpp2::GetPropRequest req;
     req.space_id = 1;
-    req.column_names.emplace_back(_SRC);
-    req.column_names.emplace_back(_TYPE);
-    req.column_names.emplace_back(_RANK);
-    req.column_names.emplace_back(_DST);
+    req.column_names.emplace_back(kSrc);
+    req.column_names.emplace_back(kType);
+    req.column_names.emplace_back(kRank);
+    req.column_names.emplace_back(kDst);
     for (const auto& edge : edgeKeys) {
         PartitionID partId = (hash(edge.src) % totalParts) + 1;
         nebula::Row row;
@@ -210,7 +210,7 @@ TEST(GetPropTest, AllPropertyInOneEntryTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         nebula::DataSet expected;
-        expected.colNames = {_SRC, _TYPE, _RANK, _DST,
+        expected.colNames = {kSrc, kType, kRank, kDst,
                              "playerName", "teamName", "startYear", "endYear", "teamCareer",
                              "teamGames", "teamAvgScore", "type", "champions"};
         nebula::Row row({"Tim Duncan",  // src

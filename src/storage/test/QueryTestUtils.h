@@ -502,21 +502,21 @@ public:
                 } else {
                     ASSERT_EQ(serve.champions_, values[i].getInt());
                 }
-            } else if (props[i] == _SRC) {
+            } else if (props[i] == kSrc) {
                 if (edgeType > 0) {
                     ASSERT_EQ(serve.playerName_, values[i].getStr());
                 } else {
                     ASSERT_EQ(serve.teamName_, values[i].getStr());
                 }
-            } else if (props[i] == _DST) {
+            } else if (props[i] == kDst) {
                 if (edgeType > 0) {
                     ASSERT_EQ(serve.teamName_, values[i].getStr());
                 } else {
                     ASSERT_EQ(serve.playerName_, values[i].getStr());
                 }
-            } else if (props[i] == _RANK) {
+            } else if (props[i] == kRank) {
                 ASSERT_EQ(serve.startYear_, values[i].getInt());
-            } else if (props[i] == _TYPE) {
+            } else if (props[i] == kType) {
                 ASSERT_EQ(edgeType, values[i].getInt());
             } else {
                 LOG(FATAL) << "Should not reach here";
