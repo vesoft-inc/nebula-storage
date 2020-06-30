@@ -190,16 +190,20 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
 
 void GetPropProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {
     for (const auto& tagProp : tagProps) {
+        auto tagId = tagProp.tag;
+        auto tagName = tagContext_.tagNames_[tagId];
         for (const auto& prop : tagProp.props) {
-            resultDataSet_.colNames.emplace_back(prop);
+            resultDataSet_.colNames.emplace_back(tagName + ":" + prop);
         }
     }
 }
 
 void GetPropProcessor::buildEdgeColName(const std::vector<cpp2::EdgeProp>& edgeProps) {
     for (const auto& edgeProp : edgeProps) {
+        auto edgeType = edgeProp.type;
+        auto edgeName = edgeContext_.edgeNames_[edgeType];
         for (const auto& prop : edgeProp.props) {
-            resultDataSet_.colNames.emplace_back(prop);
+            resultDataSet_.colNames.emplace_back(edgeName + ":" + prop);
         }
     }
 }
