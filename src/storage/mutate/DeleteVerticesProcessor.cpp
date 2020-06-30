@@ -6,8 +6,8 @@
 
 #include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/StorageFlags.h"
-#include "storage/index/IndexUtils.h"
 #include "storage/mutate/DeleteVerticesProcessor.h"
+#include "utils/IndexKeyUtils.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/OperationKeyUtils.h"
 
@@ -143,9 +143,9 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
             if (latestVVId != tagId) {
                 std::unique_ptr<RowReader> reader;
                 for (auto& index : indexes_) {
-                    auto indexId = index->get_index_id();
                     if (index->get_schema_id().get_tag_id() == tagId) {
-                        if (checkIndexLocked(spaceId_, partId)) {
+                        auto indexId = index->get_index_id();
+                        if (checkIndexLocked(spaceId_, indexId, partId)) {
                             LOG(INFO) << "The part have locked";
                             return folly::none;
                         }
@@ -162,9 +162,9 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                         }
                         std::vector<Value::Type> colsType;
                         const auto& cols = index->get_fields();
-                        auto valuesRet = IndexUtils::collectIndexValues(reader.get(),
-                                                                        cols,
-                                                                        colsType);
+                        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                                           cols,
+                                                                           colsType);
                         if (!valuesRet.ok()) {
                             continue;
                         }

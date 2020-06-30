@@ -2,7 +2,6 @@ nebula_add_library(
     storage_common_obj OBJECT
     StorageFlags.cpp
     CommonUtils.cpp
-    index/IndexUtils.cpp
 )
 
 nebula_add_library(

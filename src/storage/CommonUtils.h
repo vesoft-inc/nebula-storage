@@ -20,14 +20,16 @@ namespace nebula {
 namespace storage {
 
 enum class IndexState {
-    BUILDING,
-    LOCKED,
+    STARTING,  // The part is begin to build index, not ready for service
+    BUILDING,  // The part is building index.
+    LOCKED,    // When the minor table is less than threshold
+               // we will refuse the write operation.
+    FINISHED,  // The part is building index successfully.
 };
 
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
-using IndexGuard  = folly::ConcurrentHashMap<GraphSpaceID, IndexID>;
-using PartsGuard  = folly::ConcurrentHashMap<GraphSpaceID, std::unordered_set<PartitionID>>;
-using StateGuard  = folly::ConcurrentHashMap<std::pair<GraphSpaceID, PartitionID>, IndexState>;
+using IndexKey    = std::tuple<GraphSpaceID, IndexID, PartitionID>;
+using IndexGuard  = folly::ConcurrentHashMap<IndexKey, IndexState>;
 
 
 class StorageEnv {
@@ -36,8 +38,6 @@ public:
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
-    std::unique_ptr<PartsGuard>                     rebuildPartsGuard_{nullptr};
-    std::unique_ptr<StateGuard>                     rebuildStateGuard_{nullptr};
 };
 
 class CommonUtils final {

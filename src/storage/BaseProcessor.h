@@ -88,7 +88,7 @@ protected:
 
     bool checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID);
 
-    bool checkIndexLocked(GraphSpaceID space, PartitionID part);
+    bool checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID);
 
 protected:
     StorageEnv*                                     env_{nullptr};

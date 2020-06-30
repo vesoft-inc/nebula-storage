@@ -91,15 +91,6 @@ void Part::asyncRemove(folly::StringPiece key, KVCallback cb) {
 }
 
 
-void Part::asyncSingleRemove(const std::vector<std::string>& keys, KVCallback cb) {
-    std::string log = encodeMultiValues(OP_SINGLE_REMOVE, keys);
-
-    appendAsync(FLAGS_cluster_id, std::move(log))
-        .thenValue([this, callback = std::move(cb)] (AppendLogResult res) mutable {
-            callback(this->toResultCode(res));
-        });
-}
-
 void Part::asyncMultiRemove(const std::vector<std::string>& keys, KVCallback cb) {
     std::string log = encodeMultiValues(OP_MULTI_REMOVE, keys);
 
@@ -298,16 +289,6 @@ bool Part::commitLogs(std::unique_ptr<LogIterator> iter) {
                 commitRemovePeer(peer);
             } else {
                 LOG(INFO) << idStr_ << "Skip commit stale remove peer " << peer;
-            }
-            break;
-        }
-        case OP_SINGLE_REMOVE: {
-            auto keys = decodeMultiValues(log);
-            for (auto k : keys) {
-                if (batch->singleRemove(k) != ResultCode::SUCCEEDED) {
-                    LOG(ERROR) << idStr_ << "Failed to call WriteBatch::singleRemove()";
-                    return false;
-                }
             }
             break;
         }

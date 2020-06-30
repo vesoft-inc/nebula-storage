@@ -95,7 +95,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 11);
     writer->addTask(deleteVertices).get();
 
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
@@ -116,7 +115,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
 }
 
@@ -173,7 +172,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
 }
 
@@ -218,8 +217,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
-    RebuildIndexTest::env_->rebuildPartsGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildIndexGuard_->clear();
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
@@ -259,7 +257,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->insert(1, 12);
     writer->addTask(deleteEdges).get();
 
     auto task = std::make_shared<RebuildEdgeIndexTask>(RebuildIndexTest::env_, std::move(context));
@@ -281,7 +278,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
 }
 
@@ -338,7 +335,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
-    RebuildIndexTest::env_->rebuildIndexGuard_->erase(1);
+    RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
 }
 

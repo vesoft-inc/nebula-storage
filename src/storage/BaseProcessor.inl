@@ -185,21 +185,16 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
 
 template <typename RESP>
 bool BaseProcessor<RESP>::checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID) {
-    auto spaceIter = env_->rebuildIndexGuard_->find(space);
-    auto partsIter = env_->rebuildPartsGuard_->find(space);
-
-    return spaceIter != env_->rebuildIndexGuard_->cend() &&
-        spaceIter->second == indexID &&
-        partsIter != env_->rebuildPartsGuard_->cend() &&
-        partsIter->second.find(part) != partsIter->second.cend();
+    auto key = std::make_tuple(space, indexID, part);
+    auto iter = env_->rebuildIndexGuard_->find(std::move(key));
+    return iter != env_->rebuildIndexGuard_->cend();
 }
 
 template <typename RESP>
-bool BaseProcessor<RESP>::checkIndexLocked(GraphSpaceID space, PartitionID part) {
-    auto spaceAndPart = std::make_pair(space, part);
-    auto stateIter = env_->rebuildStateGuard_->find(std::move(spaceAndPart));
-    return stateIter != env_->rebuildStateGuard_->cend() &&
-        stateIter->second == IndexState::LOCKED;
+bool BaseProcessor<RESP>::checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID) {
+    auto key = std::make_tuple(space, indexID, part);
+    auto iter = env_->rebuildIndexGuard_->find(std::move(key));
+    return iter != env_->rebuildIndexGuard_->cend() && iter->second == IndexState::LOCKED;
 }
 }  // namespace storage
 }  // namespace nebula

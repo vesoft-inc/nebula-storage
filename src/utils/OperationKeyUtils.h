@@ -18,8 +18,6 @@ class OperationKeyUtils final {
 public:
     ~OperationKeyUtils() = default;
 
-    static bool isOperationKey(const folly::StringPiece& key);
-
     static std::string modifyOperationKey(PartitionID part, std::string key);
 
     static std::string deleteOperationKey(PartitionID part);

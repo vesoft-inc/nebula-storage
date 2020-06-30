@@ -7,10 +7,10 @@
 #include <algorithm>
 #include "common/time/WallClock.h"
 #include "codec/RowWriterV2.h"
+#include "utils/IndexKeyUtils.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/OperationKeyUtils.h"
 #include "storage/StorageFlags.h"
-#include "storage/index/IndexUtils.h"
 #include "storage/mutate/AddVerticesProcessor.h"
 
 DECLARE_bool(enable_vertex_cache);
@@ -149,7 +149,8 @@ AddVerticesProcessor::addVertices(PartitionID partId,
         auto vId = NebulaKeyUtils::getVertexId(spaceVidLen_, v.first);
         for (auto& index : indexes_) {
             if (tagId == index->get_schema_id().get_tag_id()) {
-                if (checkIndexLocked(spaceId_, partId)) {
+                auto indexId = index->get_index_id();
+                if (checkIndexLocked(spaceId_, indexId, partId)) {
                     LOG(INFO) << "The part have locked";
                     return folly::none;
                 }
@@ -165,7 +166,6 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     val = std::move(obsIdx).value();
                 }
 
-                auto indexId = index->get_index_id();
                 if (!val.empty()) {
                     auto reader = RowReader::getTagPropReader(env_->schemaMan_,
                                                               spaceId_,
@@ -242,7 +242,7 @@ std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                            RowReader* reader,
                                            std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
     std::vector<Value::Type> colsType;
-    auto values = IndexUtils::collectIndexValues(reader, index->get_fields(), colsType);
+    auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }

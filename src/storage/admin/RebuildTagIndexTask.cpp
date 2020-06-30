@@ -5,8 +5,8 @@
  */
 
 #include "storage/StorageFlags.h"
-#include "storage/index/IndexUtils.h"
 #include "storage/admin/RebuildTagIndexTask.h"
+#include "utils/IndexKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -25,7 +25,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                       const std::vector<meta::cpp2::ColumnDef>& cols) {
     if (canceled_) {
         LOG(ERROR) << "Rebuild Tag Index is Canceled";
-        return kvstore::ResultCode::ERR_IO_ERROR;
+        return kvstore::ResultCode::SUCCEEDED;
     }
 
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
@@ -52,7 +52,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Tag Index is Canceled";
-            return kvstore::ResultCode::ERR_IO_ERROR;
+            return kvstore::ResultCode::SUCCEEDED;
         }
 
         if (batchNum == FLAGS_rebuild_index_batch_num) {
@@ -92,7 +92,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         std::vector<Value::Type> colsType;
-        auto valuesRet = IndexUtils::collectIndexValues(reader.get(), cols, colsType);
+        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(), cols, colsType);
         auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
                                                       part,
                                                       indexID,

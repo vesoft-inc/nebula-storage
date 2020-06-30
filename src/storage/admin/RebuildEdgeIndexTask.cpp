@@ -5,7 +5,6 @@
  */
 
 #include "storage/StorageFlags.h"
-#include "storage/index/IndexUtils.h"
 #include "storage/admin/RebuildEdgeIndexTask.h"
 #include "utils/IndexKeyUtils.h"
 
@@ -25,7 +24,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                        const std::vector<meta::cpp2::ColumnDef>& cols) {
     if (canceled_) {
         LOG(ERROR) << "Rebuild Edge Index is Canceled";
-        return kvstore::ResultCode::ERR_IO_ERROR;
+        return kvstore::ResultCode::SUCCEEDED;
     }
 
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
@@ -54,7 +53,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Edge Index is Canceled";
-            return kvstore::ResultCode::ERR_IO_ERROR;
+            return kvstore::ResultCode::SUCCEEDED;
         }
 
         if (batchNum == FLAGS_rebuild_index_batch_num) {
@@ -67,7 +66,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             batchNum = 0;
         }
 
-        auto key = iter->key().str();
+        auto key = iter->key();
         auto val = iter->val();
         if (!NebulaKeyUtils::isEdge(vidSize, key) ||
             NebulaKeyUtils::getEdgeType(vidSize, key) != edgeType) {
@@ -100,7 +99,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         std::vector<Value::Type> colsType;
-        auto valuesRet = IndexUtils::collectIndexValues(reader.get(), cols, colsType);
+        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(), cols, colsType);
 
         auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
                                                     part,

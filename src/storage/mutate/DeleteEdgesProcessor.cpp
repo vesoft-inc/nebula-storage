@@ -6,9 +6,9 @@
 
 #include "storage/mutate/DeleteEdgesProcessor.h"
 #include <algorithm>
+#include "utils/IndexKeyUtils.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/OperationKeyUtils.h"
-#include "storage/index/IndexUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -124,9 +124,9 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
              */
             std::unique_ptr<RowReader> reader;
             for (auto& index : indexes_) {
-                auto indexId = index->get_index_id();
                 if (type == index->get_schema_id().get_edge_type()) {
-                    if (checkIndexLocked(spaceId_, partId)) {
+                    auto indexId = index->get_index_id();
+                    if (checkIndexLocked(spaceId_, indexId, partId)) {
                         LOG(INFO) << "The part have locked";
                         return folly::none;
                     }
@@ -142,9 +142,9 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                         }
                     }
                     std::vector<Value::Type> colsType;
-                    auto valuesRet = IndexUtils::collectIndexValues(reader.get(),
-                                                                    index->get_fields(),
-                                                                    colsType);
+                    auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                                       index->get_fields(),
+                                                                       colsType);
                     if (!valuesRet.ok()) {
                         continue;
                     }

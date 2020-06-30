@@ -508,19 +508,6 @@ void NebulaStore::asyncMultiRemove(GraphSpaceID spaceId,
 }
 
 
-void NebulaStore::asyncSingleRemove(GraphSpaceID spaceId,
-                                    PartitionID partId,
-                                    std::vector<std::string> keys,
-                                    KVCallback cb) {
-    auto ret = part(spaceId, partId);
-    if (!ok(ret)) {
-        cb(error(ret));
-        return;
-    }
-    auto part = nebula::value(ret);
-    part->asyncSingleRemove(std::move(keys), std::move(cb));
-}
-
 void NebulaStore::asyncRemoveRange(GraphSpaceID spaceId,
                                    PartitionID partId,
                                    const std::string& start,

@@ -21,10 +21,10 @@ public:
         : AdminTask(env, std::move(ctx)) {}
 
     ~RebuildIndexTask() {
-        if (env_->rebuildPartsGuard_ != nullptr &&
-            env_->rebuildIndexGuard_ != nullptr) {
-            env_->rebuildPartsGuard_->erase(space_);
-            env_->rebuildIndexGuard_->erase(space_);
+        LOG(INFO) << "Release Rebuild Task";
+        if (env_->rebuildIndexGuard_ != nullptr) {
+            env_->rebuildIndexGuard_->assign(std::make_tuple(space_, 0, 0),
+                                             IndexState::FINISHED);
         }
     }
 
@@ -46,6 +46,7 @@ protected:
     }
 
     kvstore::ResultCode buildIndexOnOperations(GraphSpaceID space,
+                                               IndexID indexID,
                                                PartitionID part);
 
     kvstore::ResultCode processModifyOperation(GraphSpaceID space,
@@ -70,6 +71,7 @@ protected:
 protected:
     std::atomic<bool>   canceled_{false};
     GraphSpaceID        space_;
+    std::mutex          buildLock_;
 };
 
 }  // namespace storage

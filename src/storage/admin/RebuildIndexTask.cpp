@@ -32,13 +32,21 @@ RebuildIndexTask::genSubTasks() {
         return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
     }
 
-    if (env_->rebuildIndexGuard_->find(space_) != env_->rebuildIndexGuard_->cend() &&
-        env_->rebuildPartsGuard_->find(space_) != env_->rebuildPartsGuard_->cend()) {
-        LOG(ERROR) << "Some index is rebuilding";
-        return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
+    {
+        std::lock_guard<std::mutex> g(buildLock_);
+        auto key = std::make_tuple(space_, 0, 0);
+        auto indexIter = env_->rebuildIndexGuard_->find(key);
+        if (indexIter != env_->rebuildIndexGuard_->cend() &&
+            indexIter->second != IndexState::FINISHED) {
+            LOG(ERROR) << "Some index is rebuilding";
+            return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
+        }
+
+        // For marking the space is building index.
+        env_->rebuildIndexGuard_->insert_or_assign(std::move(key),
+                                                   IndexState::STARTING);
     }
 
-    env_->rebuildIndexGuard_->emplace(space_, indexID);
     auto item = itemRet.value();
     auto schemaID = item->get_schema_id();
     if (isOffline) {
@@ -49,6 +57,8 @@ RebuildIndexTask::genSubTasks() {
 
     std::vector<AdminSubTask> tasks;
     for (const auto& part : parts) {
+        env_->rebuildIndexGuard_->insert_or_assign(std::make_tuple(space_, indexID, part),
+                                                   IndexState::STARTING);
         std::function<kvstore::ResultCode()> task = std::bind(&RebuildIndexTask::genSubTask,
                                                               this, space_, part, schemaID,
                                                               indexID, item, isOffline);
@@ -63,18 +73,8 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  IndexID indexID,
                                                  const std::shared_ptr<meta::cpp2::IndexItem> item,
                                                  bool isOffline) {
-    auto partIter = env_->rebuildPartsGuard_->find(space);
-    if (partIter == env_->rebuildPartsGuard_->cend()) {
-        std::unordered_set<PartitionID> parts{part};
-        env_->rebuildPartsGuard_->emplace(space, std::move(parts));
-    } else {
-        auto parts = env_->rebuildPartsGuard_->at(space);
-        parts.emplace(part);
-        env_->rebuildPartsGuard_->emplace(space, std::move(parts));
-    }
-
-    auto spaceAndPart = std::make_pair(space, part);
-    env_->rebuildStateGuard_->emplace(spaceAndPart, IndexState::BUILDING);
+    env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
+                                     IndexState::BUILDING);
 
     LOG(INFO) << "Start building index";
     auto result = buildIndexGlobal(space, part, schemaID, indexID, item->get_fields());
@@ -87,22 +87,21 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
 
     if (!isOffline) {
         LOG(INFO) << "Processing operation logs";
-        result = buildIndexOnOperations(space, part);
+        result = buildIndexOnOperations(space, indexID, part);
         if (result != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Building index with operation logs failed";
             return kvstore::ResultCode::E_INVALID_OPERATION;
         }
     }
 
-    auto parts = env_->rebuildPartsGuard_->find(space)->second;
-    parts.erase(part);
-    env_->rebuildPartsGuard_->emplace(space, std::move(parts));
-    env_->rebuildStateGuard_->erase(std::move(spaceAndPart));
+    env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
+                                     IndexState::FINISHED);
     LOG(INFO) << "RebuildIndexTask Finished";
     return result;
 }
 
 kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
+                                                             IndexID indexID,
                                                              PartitionID part) {
     if (canceled_) {
         LOG(ERROR) << "Rebuild index canceled";
@@ -179,11 +178,12 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
         // a short piece of time.
         if (processedOperationsNum < FLAGS_rebuild_index_locked_threshold) {
             // lock the part
-            auto spaceAndPart = std::make_pair(space, part);
-            auto stateIter = env_->rebuildStateGuard_->find(spaceAndPart);
+            auto key = std::make_tuple(space, indexID, part);
+            auto stateIter = env_->rebuildIndexGuard_->find(key);
             // If the state is LOCKED, we should finished the building index successful.
-            if (stateIter->second == IndexState::BUILDING) {
-                env_->rebuildStateGuard_->assign(spaceAndPart, IndexState::LOCKED);
+            if (stateIter != env_->rebuildIndexGuard_->cend() &&
+                stateIter->second == IndexState::BUILDING) {
+                env_->rebuildIndexGuard_->assign(std::move(key), IndexState::LOCKED);
             } else {
                 break;
             }
@@ -234,8 +234,8 @@ RebuildIndexTask::cleanupOperationLogs(GraphSpaceID space,
                                        std::vector<std::string>&& keys) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
-    env_->kvstore_->asyncSingleRemove(space, part, std::move(keys),
-                                      [&result, &baton](kvstore::ResultCode code) {
+    env_->kvstore_->asyncMultiRemove(space, part, std::move(keys),
+                                     [&result, &baton](kvstore::ResultCode code) {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Cleanup the operation log failed";
             result = code;

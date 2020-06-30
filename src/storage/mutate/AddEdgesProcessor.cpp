@@ -9,9 +9,9 @@
 #include "utils/NebulaKeyUtils.h"
 #include <algorithm>
 #include "codec/RowWriterV2.h"
+#include "utils/IndexKeyUtils.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/OperationKeyUtils.h"
-#include "storage/index/IndexUtils.h"
 #include "storage/mutate/AddEdgesProcessor.h"
 
 namespace nebula {
@@ -142,7 +142,8 @@ AddEdgesProcessor::addEdges(PartitionID partId,
         auto edgeType = NebulaKeyUtils::getEdgeType(spaceVidLen_, e.first);
         for (auto& index : indexes_) {
             if (edgeType == index->get_schema_id().get_edge_type()) {
-                if (checkIndexLocked(spaceId_, partId)) {
+                auto indexId = index->get_index_id();
+                if (checkIndexLocked(spaceId_, indexId, partId)) {
                     LOG(INFO) << "The part have locked";
                     return folly::none;
                 }
@@ -158,7 +159,6 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     val = std::move(obsIdx).value();
                 }
 
-                auto indexId = index->get_index_id();
                 if (!val.empty()) {
                     auto reader = RowReader::getEdgePropReader(env_->schemaMan_,
                                                                spaceId_,
@@ -241,7 +241,7 @@ std::string AddEdgesProcessor::indexKey(PartitionID partId,
                                         const folly::StringPiece& rawKey,
                                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
     std::vector<Value::Type> colsType;
-    auto values = IndexUtils::collectIndexValues(reader, index->get_fields(), colsType);
+    auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
     if (!values.ok()) {
         return "";
     }
