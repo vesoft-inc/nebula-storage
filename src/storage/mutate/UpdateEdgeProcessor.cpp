@@ -136,7 +136,7 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
                                                        spaceId_,
                                                        expCtx_.get(),
                                                        insertable_,
-                                                       edgeKey_.edge_type,
+                                                       edgeKey_,
                                                        spaceVidLen_);
 
     for (auto* edge : edgeUpdates) {

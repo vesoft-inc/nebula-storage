@@ -358,18 +358,38 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       filtered);
             return cpp2::ErrorCode::SUCCEEDED;
         }
+        // Need to judge the legality of edgename
         case Expression::Kind::kEdgeRank:
         case Expression::Kind::kEdgeDst:
         case Expression::Kind::kEdgeSrc:
-        case Expression::Kind::kEdgeType:
+        case Expression::Kind::kEdgeType: {
+            auto* edgeExp = static_cast<const SymbolPropertyExpression*>(exp);
+            const auto* edgeName = edgeExp->sym();
+            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeName);
+            if (!edgeRet.ok()) {
+                VLOG(1) << "Can't find edge " << *edgeName;
+                return false;
+            }
+
+            auto edgeType = edgeRet.value();
+            auto indexIter = this->edgeContext_.indexMap_.find(edgeType);
+            if (indexIter == this->edgeContext_.indexMap_.end()) {
+                std::vector<PropContext> ctxs;
+                this->edgeContext_.propContexts_.emplace_back(edgeType, std::move(ctxs));
+                this->edgeContext_.indexMap_.emplace(edgeType,
+                    this->edgeContext_.propContexts_.size() - 1);
+            }
+
+            return true;
+        }
         case Expression::Kind::kEdgeProperty: {
             auto* edgeExp = static_cast<const SymbolPropertyExpression*>(exp);
             const auto* edgeName = edgeExp->sym();
             const auto* propName = edgeExp->prop();
             auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeName);
             if (!edgeRet.ok()) {
-                VLOG(1) << "Can't find edge " << *edgeName << ", in space " << spaceId_;
-                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+                VLOG(1) << "Can't find edge " << *edgeName;
+                return false;
             }
 
             auto edgeType = edgeRet.value();

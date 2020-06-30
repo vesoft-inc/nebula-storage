@@ -96,8 +96,14 @@ public:
 
         for (auto& retExp : returnPropsExp_) {
             auto& val = retExp->eval(*expCtx_);
-            auto edgeExp = dynamic_cast<const EdgePropertyExpression*>(retExp);
-            if (edgeExp) {
+            auto edgeSrcIdExp = dynamic_cast<const EdgeSrcIdExpression*>(retExp);
+            auto edgeDstIdExp = dynamic_cast<const EdgeDstIdExpression*>(retExp);
+            auto edgeRankExp = dynamic_cast<const EdgeRankExpression*>(retExp);
+            auto edgeTypeExp = dynamic_cast<const EdgeTypeExpression*>(retExp);
+            auto edgePropExp = dynamic_cast<const EdgePropertyExpression*>(retExp);
+
+            if (edgeSrcIdExp || edgeDstIdExp || edgeRankExp || edgeTypeExp || edgePropExp) {
+                auto edgePropExp = dynamic_cast<const SymbolPropertyExpression*>(retExp)
                 result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
                                                edgeExp->sym()->c_str(),
                                                edgeExp->prop()->c_str()));
