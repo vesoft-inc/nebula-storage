@@ -21,10 +21,9 @@ cpp2::GetPropRequest buildVertexRequest(
     req.space_id = 1;
     req.column_names.emplace_back("_vid");
     for (const auto& vertex : vertices) {
-        auto vId = vertex + std::string(32 - vertex.size(), '\0');
-        PartitionID partId = (hash(vId) % totalParts) + 1;
+        PartitionID partId = (hash(vertex) % totalParts) + 1;
         nebula::Row row;
-        row.values.emplace_back(vId);
+        row.values.emplace_back(vertex);
         req.parts[partId].emplace_back(std::move(row));
     }
 
@@ -59,8 +58,7 @@ cpp2::GetPropRequest buildEdgeRequest(
     req.column_names.emplace_back(_RANK);
     req.column_names.emplace_back(_DST);
     for (const auto& edge : edgeKeys) {
-        auto vId = edge.src + std::string(32 - edge.src.size(), '\0');
-        PartitionID partId = (hash(vId) % totalParts) + 1;
+        PartitionID partId = (hash(edge.src) % totalParts) + 1;
         nebula::Row row;
         row.values.emplace_back(edge.src);
         row.values.emplace_back(edge.edge_type);
@@ -167,11 +165,6 @@ TEST(GetPropTest, AllPropertyInOneEntryTest) {
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
-    GraphSpaceID spaceId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    ASSERT_TRUE(status.ok());
-    auto vIdLen = std::move(status).value();
-
     TagID player = 1;
     EdgeType serve = 101;
 
@@ -220,10 +213,10 @@ TEST(GetPropTest, AllPropertyInOneEntryTest) {
         expected.colNames = {_SRC, _TYPE, _RANK, _DST,
                              "playerName", "teamName", "startYear", "endYear", "teamCareer",
                              "teamGames", "teamAvgScore", "type", "champions"};
-        nebula::Row row({QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"),    // src
-                         101,                                                   // type
-                         1997,                                                  // rank
-                         QueryTestUtils::appendSuffix(vIdLen, "Spurs"),         // dst
+        nebula::Row row({"Tim Duncan",  // src
+                         101,           // type
+                         1997,          // rank
+                         "Spurs",       // dst
                          "Tim Duncan", "Spurs", 1997, 2016, 19, 1392, 19.000000, "zzzzz", 5});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.props);
@@ -238,11 +231,6 @@ TEST(GetPropTest, AllPropertyInAllEntryTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
-
-    GraphSpaceID spaceId = 1;
-    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
-    ASSERT_TRUE(status.ok());
-    auto vIdLen = std::move(status).value();
 
     {
         LOG(INFO) << "GetVertexProp";
@@ -303,10 +291,10 @@ TEST(GetPropTest, AllPropertyInAllEntryTest) {
                 values.emplace_back(NullType::__NULL__);
             }
             // serve
-            values.emplace_back(QueryTestUtils::appendSuffix(vIdLen, "Tim Duncan"));    // src
-            values.emplace_back(101);                                                   // type
-            values.emplace_back(1997);                                                  // rank
-            values.emplace_back(QueryTestUtils::appendSuffix(vIdLen, "Spurs"));         // dst
+            values.emplace_back("Tim Duncan");    // src
+            values.emplace_back(101);             // type
+            values.emplace_back(1997);            // rank
+            values.emplace_back("Spurs");         // dst
             values.emplace_back("Tim Duncan");
             values.emplace_back("Spurs");
             values.emplace_back(1997);

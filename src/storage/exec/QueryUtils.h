@@ -52,7 +52,7 @@ public:
                 return readValue(reader, prop);
             }
             case PropContext::PropInKeyType::SRC: {
-                return srcId.str();
+                return srcId.subpiece(0, srcId.find_first_of('\0'));
             }
             case PropContext::PropInKeyType::TYPE: {
                 return edgeType;
@@ -61,7 +61,7 @@ public:
                 return edgeRank;
             }
             case PropContext::PropInKeyType::DST: {
-                return dstId.str();
+                return dstId.subpiece(0, dstId.find_first_of('\0'));
             }
         }
         return Status::Error(folly::stringPrintf("Invalid property %s", prop.name_.c_str()));

@@ -43,7 +43,9 @@ public:
             return ret;
         }
 
-        expCtx_->clear();
+        if (expCtx_ != nullptr) {
+            expCtx_->clear();
+        }
         result_.setList(nebula::List());
         auto& result = result_.mutableList();
 

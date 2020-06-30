@@ -24,11 +24,6 @@ namespace storage {
 
 class QueryTestUtils {
 public:
-    static std::string appendSuffix(size_t vIdLen, const std::string& id) {
-        auto result = id + std::string(vIdLen - id.size(), '\0');
-        return result;
-    }
-
     static bool mockVertexData(storage::StorageEnv* env, int32_t totalParts) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
@@ -44,8 +39,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         std::atomic<size_t> count(vertices.size());
         for (const auto& vertex : vertices) {
-            auto id = appendSuffix(spaceVidLen, vertex.vId_);
-            PartitionID partId = (hash(id) % totalParts) + 1;
+            PartitionID partId = (hash(vertex.vId_) % totalParts) + 1;
             TagID tagId = vertex.tId_;
             auto key = NebulaKeyUtils::vertexKey(spaceVidLen, partId, vertex.vId_, tagId, 0L);
             auto schema = env->schemaMan_->getTagSchema(spaceId, tagId);
@@ -84,8 +78,7 @@ public:
             std::atomic<size_t> count(edges.size());
             folly::Baton<true, std::atomic> baton;
             for (const auto& edge : edges) {
-                auto id = appendSuffix(spaceVidLen, edge.srcId_);
-                PartitionID partId = (hash(id) % totalParts) + 1;
+                PartitionID partId = (hash(edge.srcId_) % totalParts) + 1;
                 auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
                                                    edge.rank_, edge.dstId_, version);
                 auto schema = env->schemaMan_->getEdgeSchema(spaceId, std::abs(edge.type_));
@@ -184,10 +177,9 @@ public:
         req.space_id = 1;
         req.column_names.emplace_back("_vid");
         for (const auto& vertex : vertices) {
-            auto vId = appendSuffix(32, vertex);
-            PartitionID partId = (hash(vId) % totalParts) + 1;
+            PartitionID partId = (hash(vertex) % totalParts) + 1;
             nebula::Row row;
-            row.values.emplace_back(vId);
+            row.values.emplace_back(vertex);
             req.parts[partId].emplace_back(std::move(row));
         }
         for (const auto& edge : over) {
@@ -248,10 +240,10 @@ public:
         for (const auto& row : dataSet.rows) {
             ASSERT_EQ(expectColumnCount, row.values.size());
             auto vId = row.values[0].getStr();
-            auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
+            auto iter = std::find(vertices.begin(), vertices.end(), vId);
             ASSERT_TRUE(iter != vertices.end());
             if (expectStats != nullptr) {
-                auto& expect = (*expectStats)[cleanSuffix(vId)];
+                auto& expect = (*expectStats)[vId];
                 auto& actual = row.values[1].getList().values;
                 ASSERT_EQ(expect.size(), actual.size());
                 for (size_t i = 0; i < expect.size(); i++) {
@@ -275,7 +267,7 @@ public:
         for (const auto& row : dataSet.rows) {
             ASSERT_EQ(expectColumnCount, row.values.size());
             auto vId = row.values[0].getStr();
-            auto iter = std::find(vertices.begin(), vertices.end(), cleanSuffix(vId));
+            auto iter = std::find(vertices.begin(), vertices.end(), vId);
             ASSERT_TRUE(iter != vertices.end());
             // the second column is stats
             ASSERT_EQ(NullType::__NULL__, row.values[1].getNull());
@@ -446,15 +438,15 @@ public:
                                         const std::vector<Value>& values) {
         // property in key
         if (edgeType > 0) {
-            ASSERT_EQ(serve.playerName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(serve.playerName_, values[0].getStr());
             ASSERT_EQ(edgeType, values[1].getInt());
             ASSERT_EQ(serve.startYear_, values[2].getInt());
-            ASSERT_EQ(serve.teamName_, cleanSuffix(values[3].getStr()));
+            ASSERT_EQ(serve.teamName_, values[3].getStr());
         } else {
-            ASSERT_EQ(serve.teamName_, cleanSuffix(values[0].getStr()));
+            ASSERT_EQ(serve.teamName_, values[0].getStr());
             ASSERT_EQ(edgeType, values[1].getInt());
             ASSERT_EQ(serve.startYear_, values[2].getInt());
-            ASSERT_EQ(serve.playerName_, cleanSuffix(values[3].getStr()));
+            ASSERT_EQ(serve.playerName_, values[3].getStr());
         }
         // property in value
         ASSERT_EQ(serve.playerName_, values[4].getStr());
@@ -512,15 +504,15 @@ public:
                 }
             } else if (props[i] == _SRC) {
                 if (edgeType > 0) {
-                    ASSERT_EQ(serve.playerName_, cleanSuffix(values[i].getStr()));
+                    ASSERT_EQ(serve.playerName_, values[i].getStr());
                 } else {
-                    ASSERT_EQ(serve.teamName_, cleanSuffix(values[i].getStr()));
+                    ASSERT_EQ(serve.teamName_, values[i].getStr());
                 }
             } else if (props[i] == _DST) {
                 if (edgeType > 0) {
-                    ASSERT_EQ(serve.teamName_, cleanSuffix(values[i].getStr()));
+                    ASSERT_EQ(serve.teamName_, values[i].getStr());
                 } else {
-                    ASSERT_EQ(serve.playerName_, cleanSuffix(values[i].getStr()));
+                    ASSERT_EQ(serve.playerName_, values[i].getStr());
                 }
             } else if (props[i] == _RANK) {
                 ASSERT_EQ(serve.startYear_, values[i].getInt());
@@ -532,11 +524,6 @@ public:
         }
     }
 
-    static std::string cleanSuffix(const std::string& vId) {
-        auto pos = vId.find_first_of('\0');
-        return vId.substr(0, pos);
-    }
-
     static void checkTeammate(EdgeType edgeType,
                               const std::vector<std::string>& props,
                               const std::vector<Value>& values) {
@@ -545,12 +532,12 @@ public:
             auto player2 = values[5].getStr();
             const auto& teammate = findTeammate(player1, player2);
             // property in key
-            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[0].getStr()) ||
-                        teammate.player2_ == cleanSuffix(values[0].getStr()));
+            ASSERT_TRUE(teammate.player1_ == values[0].getStr() ||
+                        teammate.player2_ == values[0].getStr());
             ASSERT_EQ(edgeType, values[1].getInt());
             ASSERT_EQ(teammate.startYear_, values[2].getInt());
-            ASSERT_TRUE(teammate.player1_ == cleanSuffix(values[3].getStr()) ||
-                        teammate.player2_ == cleanSuffix(values[3].getStr()));
+            ASSERT_TRUE(teammate.player1_ == values[3].getStr() ||
+                        teammate.player2_ == values[3].getStr());
             // property in value
             ASSERT_EQ(teammate.player1_, values[4].getStr());
             ASSERT_EQ(teammate.player2_, values[5].getStr());
@@ -565,14 +552,14 @@ public:
         ASSERT_EQ("player1", props[0]);
         ASSERT_EQ("player2", props[1]);
         ASSERT_EQ(props.size(), values.size());
-        auto player1 = cleanSuffix(values[0].getStr());
-        auto player2 = cleanSuffix(values[1].getStr());
+        auto player1 = values[0].getStr();
+        auto player2 = values[1].getStr();
         const auto& teammate = findTeammate(player1, player2);
         for (size_t i = 0; i < props.size(); i++) {
             if (props[i] == "_src") {
-                ASSERT_EQ(teammate.player1_, cleanSuffix(values[i].getStr()));
+                ASSERT_EQ(teammate.player1_, values[i].getStr());
             } else if (props[i] == "_dst") {
-                ASSERT_EQ(teammate.player2_, cleanSuffix(values[i].getStr()));
+                ASSERT_EQ(teammate.player2_, values[i].getStr());
             } else if (props[i] == "_rank") {
                 ASSERT_EQ(teammate.startYear_, values[i].getInt());
             } else if (props[i] == "_type") {
@@ -598,7 +585,7 @@ public:
             const std::vector<std::string> colNames,
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
-        auto vId = cleanSuffix(row.values[0].getStr());
+        auto vId = row.values[0].getStr();
         // skip the last column which is reserved for expression yields
         for (size_t i = 2; i < colNames.size() - 1; i++) {
             const auto& name = colNames[i];
