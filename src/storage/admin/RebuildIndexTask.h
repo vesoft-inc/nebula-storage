@@ -65,13 +65,12 @@ protected:
                                    PartitionID part,
                                    meta::cpp2::SchemaID schemaID,
                                    IndexID indexID,
-                                   const std::shared_ptr<meta::cpp2::IndexItem> item,
+                                   const std::shared_ptr<meta::cpp2::IndexItem>& item,
                                    bool isOffline);
 
 protected:
     std::atomic<bool>   canceled_{false};
     GraphSpaceID        space_;
-    std::mutex          buildLock_;
 };
 
 }  // namespace storage

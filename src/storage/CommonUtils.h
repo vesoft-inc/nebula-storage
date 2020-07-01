@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 vesoft inc. All rights reserved.
+/* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -38,6 +38,18 @@ public:
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
+};
+
+class PlanContext {
+public:
+    PlanContext(StorageEnv* env, GraphSpaceID spaceId, size_t vIdLen)
+        : env_(env)
+        , spaceId_(spaceId)
+        , vIdLen_(vIdLen) {}
+
+    StorageEnv*         env_;
+    GraphSpaceID        spaceId_;
+    size_t              vIdLen_;
 };
 
 class CommonUtils final {

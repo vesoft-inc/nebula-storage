@@ -33,7 +33,6 @@ RebuildIndexTask::genSubTasks() {
     }
 
     {
-        std::lock_guard<std::mutex> g(buildLock_);
         auto key = std::make_tuple(space_, 0, 0);
         auto indexIter = env_->rebuildIndexGuard_->find(key);
         if (indexIter != env_->rebuildIndexGuard_->cend() &&
@@ -71,7 +70,7 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
                                                  PartitionID part,
                                                  meta::cpp2::SchemaID schemaID,
                                                  IndexID indexID,
-                                                 const std::shared_ptr<meta::cpp2::IndexItem> item,
+                                                 const std::shared_ptr<meta::cpp2::IndexItem>& item,
                                                  bool isOffline) {
     env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
                                      IndexState::BUILDING);
