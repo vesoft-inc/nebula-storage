@@ -15,6 +15,7 @@
 namespace nebula {
 namespace storage {
 
+<<<<<<< HEAD
 /*
 StorageExpressionContext supports both read value from a RowReader, or user set value by
 `setTagProp` and `setEdgeProp`.
@@ -36,6 +37,9 @@ the RowReader by `reset`.
 >>>>>>> modify StorageExpressionContext
 */
 class StorageExpressionContext final : public ExpressionContext {
+=======
+class StorageExpressionContext : public ExpressionContext {
+>>>>>>> rebase master
 public:
     explicit StorageExpressionContext(size_t vIdLen)
         : vIdLen_(vIdLen) {}

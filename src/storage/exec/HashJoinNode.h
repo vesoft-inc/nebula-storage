@@ -54,14 +54,16 @@ public:
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
+                [&result] (TagID, const std::vector<PropContext>*) -> kvstore::ResultCode {
                     result.values.emplace_back(NullType::__NULL__);
                     return kvstore::ResultCode::SUCCEEDED;
                 },
                 [this, &result, &tagName] (TagID tagId,
                                            RowReader* reader,
-                                           const std::vector<PropContext>* props)
+                                           const std::vector<PropContext>* props,
+                                           const folly::StringPiece& key)
                 -> kvstore::ResultCode {
+                    UNUSED(key);
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,

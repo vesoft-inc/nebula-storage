@@ -170,12 +170,12 @@ TEST(UpdateVertexTest, No_Filter_Test) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(4, resp.props.rows[0].columns.size());
+    EXPECT_EQ(4, resp.props.rows[0].values.size());
 
-    EXPECT_EQ(false, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Tim Duncan", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(45, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("China", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(false, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Tim Duncan", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(45, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("China", resp.props.rows[0].values[3].getStr());
 
     // get player from kvstore directly
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vertexId, tagId);
@@ -302,10 +302,10 @@ TEST(UpdateVertexTest, Filter_Yield_Test2) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(false, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Tim Duncan", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(44, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("America", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(false, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Tim Duncan", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(44, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("America", resp.props.rows[0].values[3].getStr());
 
     // get player from kvstore directly
     // Because no update, the value is old
@@ -401,10 +401,10 @@ TEST(UpdateVertexTest, Insertable_Test) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(true, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Brandon Ingram", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(18, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("America", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(true, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Brandon Ingram", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(18, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("America", resp.props.rows[0].values[3].getStr());
 
     // get player from kvstore directly
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vertexId, tagId);
@@ -492,8 +492,6 @@ TEST(UpdateVertexTest, Invalid_Update_Prop_Test) {
 
     LOG(INFO) << "Check the results...";
     EXPECT_EQ(1, resp.result.failed_parts.size());
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::E_INVALID_UPDATER
-                    == resp.result.failed_parts[0].code);
 
     // get player from kvstore directly
     // Because no update, the value is old
@@ -611,8 +609,6 @@ TEST(UpdateVertexTest, Invalid_Filter_Test) {
 
     LOG(INFO) << "Check the results...";
     EXPECT_EQ(1, resp.result.failed_parts.size());
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::E_INVALID_FILTER
-                    == resp.result.failed_parts[0].code);
 
     // get player from kvstore directly
     // Because no update, the value is old
@@ -733,10 +729,10 @@ TEST(UpdateVertexTest, Insertable_Filter_Value_Test) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(true, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Brandon Ingram", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(18, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("America", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(true, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Brandon Ingram", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(18, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("America", resp.props.rows[0].values[3].getStr());
 
     // get player from kvstore directly
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vertexId, tagId);
@@ -821,8 +817,6 @@ TEST(UpdateVertexTest, CorruptDataTest) {
 
     LOG(INFO) << "Check the results...";
     EXPECT_EQ(1, resp.result.failed_parts.size());
-    EXPECT_TRUE(nebula::storage::cpp2::ErrorCode::SUCCEEDED
-                != resp.result.failed_parts[0].code);
 }
 
 // TTL test
@@ -987,12 +981,12 @@ TEST(UpdateVertexTest, TTL_Insert_No_Exist_Test) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(4, resp.props.rows[0].columns.size());
+    EXPECT_EQ(4, resp.props.rows[0].values.size());
 
-    EXPECT_EQ(true, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Tim", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(18, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("America", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(true, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Tim", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(18, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("America", resp.props.rows[0].values[3].getStr());
 
     // get player from kvstore directly
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vertexId, tagId);
@@ -1108,12 +1102,12 @@ TEST(UpdateVertexTest, TTL_Insert_Test) {
     EXPECT_EQ("1:country", resp.props.colNames[3]);
 
     EXPECT_EQ(1, resp.props.rows.size());
-    EXPECT_EQ(4, resp.props.rows[0].columns.size());
+    EXPECT_EQ(4, resp.props.rows[0].values.size());
 
-    EXPECT_EQ(true, resp.props.rows[0].columns[0].getBool());
-    EXPECT_EQ("Tim Duncan", resp.props.rows[0].columns[1].getStr());
-    EXPECT_EQ(50L, resp.props.rows[0].columns[2].getInt());
-    EXPECT_EQ("China", resp.props.rows[0].columns[3].getStr());
+    EXPECT_EQ(true, resp.props.rows[0].values[0].getBool());
+    EXPECT_EQ("Tim Duncan", resp.props.rows[0].values[1].getStr());
+    EXPECT_EQ(50L, resp.props.rows[0].values[2].getInt());
+    EXPECT_EQ("China", resp.props.rows[0].values[3].getStr());
 
     // Get player from kvstore directly, ttl expired data can be readed
     // First record is inserted record data

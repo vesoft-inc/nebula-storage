@@ -130,7 +130,7 @@ public:
         } else {
             check();
         }
-    }
+
 
     bool valid() const override {
         return reader_ != nullptr;
@@ -210,6 +210,7 @@ protected:
     EdgeRanking lastRank_ = 0;
     VertexID lastDstId_ = "";
     bool firstLoop_ = true;
+    bool firstValidRec_ = true;
 };
 
 // Iterator of multiple SingleEdgeIterator, it will iterate over edges of different types

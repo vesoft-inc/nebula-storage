@@ -10,6 +10,8 @@
 #include "common/base/Base.h"
 #include "common/expression/Expression.h"
 #include "storage/exec/HashJoinNode.h"
+#include "storage/exec/UpdateContext.h"
+#include "storage/context/UpdateExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -70,15 +72,6 @@ private:
             }
         }
         return true;
-    }
-
-    folly::Optional<std::pair<std::string, int64_t>> getEdgeTTLInfo() {
-        folly::Optional<std::pair<std::string, int64_t>> ret;
-        auto edgeFound = edgeContext_->ttlInfo_.find(std::abs(edgeType_));
-        if (edgeFound != edgeContext_->ttlInfo_.end()) {
-            ret.emplace(edgeFound->second.first, edgeFound->second.second);
-        }
-        return ret;
     }
 
 private:

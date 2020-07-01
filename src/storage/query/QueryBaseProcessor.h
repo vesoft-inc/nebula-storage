@@ -108,8 +108,6 @@ struct TagContext {
         std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>> schemas_;
     // tagId -> tag ttl info
     std::unordered_map<TagID, std::pair<std::string, int64_t>>          ttlInfo_;
-    // To find prop faster, std::pair<TagID, prop_name>
-    std::unordered_set<std::pair<TagID, std::string>>                   tagIdProps_;
     VertexCache                                                        *vertexCache_ = nullptr;
 };
 
@@ -127,8 +125,6 @@ struct EdgeContext {
     // EdgeType -> edge ttl info
     std::unordered_map<EdgeType, std::pair<std::string, int64_t>>       ttlInfo_;
 
-    // To find prop faster, std::pair<EdgeType, prop_name>
-    std::unordered_set<std::pair<EdgeType, std::string>>                edgeTypeProps_;
     // offset is the start index of first edge type in a response row
     size_t                                                              offset_;
     size_t                                                              statCount_ = 0;
@@ -187,14 +183,12 @@ protected:
                                    bool filtered,
                                    const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);
 
-    bool checkExp(const Expression* exp);
-
 protected:
     GraphSpaceID                                        spaceId_;
 
     TagContext                                          tagContext_;
     EdgeContext                                         edgeContext_;
-    std::unique_ptr<Expression>                         filterExp_;
+    std::unique_ptr<Expression>                         filter_;
 
     nebula::DataSet                                     resultDataSet_;
 };

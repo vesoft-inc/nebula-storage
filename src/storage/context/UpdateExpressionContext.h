@@ -7,33 +7,16 @@
 #ifndef STORAGE_CONTEXT_UPDATEEXPRESSIONCONTEXT_H_
 #define STORAGE_CONTEXT_UPDATEEXPRESSIONCONTEXT_H_
 
-#include "common/context/ExpressionContext.h"
-#include "common/datatypes/Value.h"
+#include "common/base/Base.h"
+#include "storage/context/StorageExpressionContext.h"
 
 namespace nebula {
 namespace storage {
 
-class UpdateExpressionContext final : public ExpressionContext {
+class UpdateExpressionContext final : public StorageExpressionContext {
 public:
-    // Get the latest version value for the given variable name, such as $a, $b
-    const Value& getVar(const std::string& var) const override;
-
-    // Get the given version value for the given variable name, such as $a, $b
-    const Value& getVersionedVar(const std::string& var,
-                                 int64_t version) const override;
-
-    // Get the specified property from a variable, such as $a.prop_name
-    const Value& getVarProp(const std::string& var,
-                            const std::string& prop) const override;
-
-    // Get the specified property of tagName from the destination vertex,
-    // such as $$.tagName.prop_name
-    const Value& getDstProp(const std::string& tagName,
-                            const std::string& prop) const override;
-
-    // Get the specified property from the input, such as $-.prop_name
-    const Value& getInputProp(const std::string& prop) const override;
-
+    explicit UpdateExpressionContext(size_t vIdLen)
+        : StorageExpressionContext(vIdLen) {}
 
     // Get the specified property from the edge, such as edgename.prop_name
     const Value& getEdgeProp(const std::string& edgeName,
@@ -44,27 +27,25 @@ public:
     const Value& getSrcProp(const std::string& tagName,
                             const std::string& prop) const override;
 
-    void setVar(const std::string& var, Value val) override {
-        UNUSED(var);
-        UNUSED(val);
-    }
-
     // Set edge prop and value
-    bool setEdgeProp(const std::string& edgeName, const std::string& prop, Value val);
+    bool setEdgeProp(const std::string& edgeName, const std::string& prop,
+                     const Value& val);
 
     // Set vertex tag prop and value
-    bool setSrcProp(const std::string& tagName, const std::string& prop, Value val);
+    bool setTagProp(const std::string& tagName, const std::string& prop,
+                    const Value& value);
 
 private:
     std::string                                 tagName_;
 
     // Update(upsert) vertex only handles one tag one row
-    // For specified tag, prop> -> value
-    std::unordered_map<std::string, Value>      srcPropVals_;
+    // Tag prop -> value
+    std::unordered_map<std::string, Value>      tagPropVals_;
 
     std::string                                 edgeName_;
 
-    // Update(upsert) edge only handles one edgetype one row, not handle source vertex props
+    // Update(upsert) edge only handles one edgetype one row
+    // Edge prop -> value
     std::unordered_map<std::string, Value>      edgePropVals_;
 };
 

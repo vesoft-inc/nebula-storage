@@ -40,6 +40,8 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
         return;
     }
 
+    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
+
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Failure build contexts!";
@@ -118,34 +120,28 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
     // handle tag props, return prop, filter prop, update prop
     for (const auto& tc : tagContext_.propContexts_) {
         // Process all need attributes of one tag at a time
-        auto tagUpdate = std::make_unique<TagNode>(&tagContext_,
-                                                   env_,
-                                                   spaceId_,
-                                                   spaceVidLen_,
+        auto tagUpdate = std::make_unique<TagNode>(planContext_.get(),
+                                                   &tagContext_,
                                                    tc.first,
-                                                   &tc.second,
-                                                   nullptr);
+                                                   &tc.second);
         tagUpdates.emplace_back(tagUpdate.get());
         plan.addNode(std::move(tagUpdate));
     }
 
     auto filterNode = std::make_unique<TagFilterNode>(tagUpdates,
+                                                      planContext_.get(),
                                                       &tagContext_,
                                                       filterExp_.get(),
-                                                      env_,
-                                                      spaceId_,
                                                       expCtx_.get(),
                                                       insertable_,
-                                                      tagId_,
-                                                      spaceVidLen_);
+                                                      tagId_);
 
     for (auto* tagUpdate : tagUpdates) {
         filterNode->addDependency(tagUpdate);
     }
 
-    auto updateNode = std::make_unique<UpdateTagNode>(env_,
-                                                      spaceId_,
-                                                      spaceVidLen_,
+    auto updateNode = std::make_unique<UpdateTagNode>(planContext_.get(),
+                                                      &tagContext_,
                                                       indexes_,
                                                       updatedProps_,
                                                       filterNode.get());
@@ -178,37 +174,7 @@ cpp2::ErrorCode UpdateVertexProcessor::buildTagSchema() {
 cpp2::ErrorCode
 UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<UpdateExpressionContext>();
-    }
-
-    // Return props
-    if (req.__isset.return_props) {
-        for (auto& prop : *req.get_return_props()) {
-            auto colExp = Expression::decode(prop);
-            if (!colExp) {
-                VLOG(1) << "Can't decode the return expression";
-                return cpp2::ErrorCode::E_INVALID_FILTER;
-            }
-            if (!checkExp(colExp.get())) {
-                return cpp2::ErrorCode::E_INVALID_UPDATER;
-            }
-            returnPropsExp_.emplace_back(std::move(colExp));
-        }
-    }
-
-    // Condition
-    if (req.__isset.condition) {
-        const auto& filterStr = *req.get_condition();
-        if (!filterStr.empty()) {
-            filterExp_ = Expression::decode(filterStr);
-            if (!filterExp_) {
-                VLOG(1) << "Can't decode the filter " << filterStr;
-                return cpp2::ErrorCode::E_INVALID_FILTER;
-            }
-            if (!checkExp(filterExp_.get())) {
-                return cpp2::ErrorCode::E_INVALID_FILTER;
-            }
-        }
+        expCtx_ = std::make_unique<UpdateExpressionContext>(spaceVidLen_);
     }
 
     // Build context of the update vertex tag props
@@ -230,9 +196,10 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     for (auto& prop : updatedProps_) {
         SourcePropertyExpression sourcePropExp(new std::string(tagName),
                                                new std::string(prop.get_name()));
-        if (!checkExp(&sourcePropExp)) {
+        auto retCode = checkExp(&sourcePropExp, false, false);
+        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
             VLOG(1) << "Invalid update vertex expression!";
-            return cpp2::ErrorCode::E_INVALID_UPDATER;
+            return retCode;
         }
 
         auto updateExp = Expression::decode(prop.get_value());
@@ -240,15 +207,48 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             VLOG(1) << "Can't decode the prop's value " << prop.get_value();
             return cpp2::ErrorCode::E_INVALID_UPDATER;
         }
-        if (!checkExp(updateExp.get())) {
-            return cpp2::ErrorCode::E_INVALID_UPDATER;
+        retCode = checkExp(updateExp.get(), false, false);
+        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            return retCode;
+        }
+    }
+
+    // Return props
+    if (req.__isset.return_props) {
+        for (auto& prop : *req.get_return_props()) {
+            auto colExp = Expression::decode(prop);
+            if (!colExp) {
+                VLOG(1) << "Can't decode the return expression";
+                return cpp2::ErrorCode::E_INVALID_FILTER;
+            }
+            auto retCode = checkExp(colExp.get(), true, false);
+            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+                return retCode;
+            }
+            returnPropsExp_.emplace_back(std::move(colExp));
+        }
+    }
+
+    // Condition
+    if (req.__isset.condition) {
+        const auto& filterStr = *req.get_condition();
+        if (!filterStr.empty()) {
+            filterExp_ = Expression::decode(filterStr);
+            if (!filterExp_) {
+                VLOG(1) << "Can't decode the filter " << filterStr;
+                return cpp2::ErrorCode::E_INVALID_FILTER;
+            }
+            auto retCode = checkExp(filterExp_.get(), false, true);
+            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+                return retCode;
+            }
         }
     }
 
     // update vertex only handle one tagId
     // maybe no updated prop, filter prop, return prop
-    if (this->tagContext_.propContexts_.size() != 1 ||
-        this->tagContext_.propContexts_[0].first != tagId_) {
+    if (tagContext_.tagNames_.size() != 1 ||
+        tagContext_.tagNames_.find(tagId_) == tagContext_.tagNames_.end()) {
         VLOG(1) << "should only contain one tag in update vertex!";
         return cpp2::ErrorCode::E_INVALID_UPDATER;
     }

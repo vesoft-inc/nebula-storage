@@ -34,6 +34,8 @@ cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
         return cpp2::ErrorCode::E_INVALID_FILTER;
     case kvstore::ResultCode::ERR_INVALID_UPDATER:
         return cpp2::ErrorCode::E_INVALID_UPDATER;
+    case kvstore::ResultCode::ERR_RESULT_FILTERED:
+        return cpp2::ErrorCode::E_FILTER_OUT;
     default:
         return cpp2::ErrorCode::E_UNKNOWN;
     }

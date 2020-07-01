@@ -40,6 +40,8 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
         return;
     }
 
+    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
+
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Failure build contexts!";
@@ -58,7 +60,6 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
             << ", src: " << edgeKey_.get_src() << ", edge_type: " << edgeKey_.get_edge_type()
             << ", dst: " << edgeKey_.get_dst() << ", ranking: " << edgeKey_.get_ranking();
 
-    // Now, the index is not considered
     auto plan = buildPlan(&resultDataSet_);
 
     auto ret = plan.go(partId, edgeKey_);
@@ -118,34 +119,29 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
     // because update edgetype is one
     for (const auto& ec : edgeContext_.propContexts_) {
         // Process all need attributes of one edge at a time
-        auto edgeUpdate = std::make_unique<FetchEdgeNode>(&edgeContext_,
-                                                          env_,
-                                                          spaceId_,
-                                                          spaceVidLen_,
+        auto edgeUpdate = std::make_unique<FetchEdgeNode>(planContext_.get(),
+                                                          &edgeContext_,
                                                           ec.first,
                                                           &ec.second,
-                                                          nullptr);
+                                                          false);
         edgeUpdates.emplace_back(edgeUpdate.get());
         plan.addNode(std::move(edgeUpdate));
     }
 
     auto filterNode = std::make_unique<EdgeFilterNode>(edgeUpdates,
+                                                       planContext_.get(),
                                                        &edgeContext_,
                                                        filterExp_.get(),
-                                                       env_,
-                                                       spaceId_,
                                                        expCtx_.get(),
                                                        insertable_,
-                                                       edgeKey_,
-                                                       spaceVidLen_);
+                                                       edgeKey_);
 
     for (auto* edge : edgeUpdates) {
         filterNode->addDependency(edge);
     }
 
-    auto updateNode = std::make_unique<UpdateEdgeNode>(env_,
-                                                       spaceId_,
-                                                       spaceVidLen_,
+    auto updateNode = std::make_unique<UpdateEdgeNode>(planContext_.get(),
+                                                       &edgeContext_,
                                                        indexes_,
                                                        updatedProps_,
                                                        filterNode.get());
@@ -173,13 +169,46 @@ cpp2::ErrorCode UpdateEdgeProcessor::buildEdgeSchema() {
 }
 
 // edgeContext.propContexts_ return prop, filter prop, update prop
-// returnPropsExp_ has return expression
-// filterExp_      has filter expression
-// updatedEdgeProps_  has update expression
 cpp2::ErrorCode
 UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
     if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<UpdateExpressionContext>();
+        expCtx_ = std::make_unique<UpdateExpressionContext>(spaceVidLen_);
+    }
+
+    // Build default edge context
+    auto edgeNameRet = env_->schemaMan_->toEdgeName(spaceId_, std::abs(edgeKey_.edge_type));
+    if (!edgeNameRet.ok()) {
+        VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType "
+                << std::abs(edgeKey_.edge_type);
+        return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+    }
+    auto edgeName = edgeNameRet.value();
+
+    std::vector<PropContext> ctxs;
+    edgeContext_.propContexts_.emplace_back(edgeKey_.edge_type, std::move(ctxs));
+    edgeContext_.indexMap_.emplace(edgeKey_.edge_type, edgeContext_.propContexts_.size() - 1);
+    edgeContext_.edgeNames_.emplace(edgeKey_.edge_type, edgeName);
+
+    // Build context of the update edge prop
+    for (auto& edgeProp : updatedProps_) {
+        EdgePropertyExpression edgePropExp(new std::string(edgeName),
+                                           new std::string(edgeProp.get_name()));
+        auto retCode = checkExp(&edgePropExp, false, false);
+        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            VLOG(1) << "Invalid update edge expression!";
+            return retCode;
+        }
+
+
+        auto updateExp = Expression::decode(edgeProp.get_value());
+        if (!updateExp) {
+            VLOG(1) << "Can't decode the prop's value " << edgeProp.get_value();
+            return cpp2::ErrorCode::E_INVALID_UPDATER;
+        }
+        retCode = checkExp(updateExp.get(), false, false);
+        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            return retCode;
+        }
     }
 
     // Return props
@@ -190,8 +219,9 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
                 VLOG(1) << "Can't decode the return expression";
                 return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
-            if (!checkExp(colExp.get())) {
-                return cpp2::ErrorCode::E_INVALID_UPDATER;
+            auto retCode = checkExp(colExp.get(), true, false);
+            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+                return retCode;
             }
             returnPropsExp_.emplace_back(std::move(colExp));
         }
@@ -206,34 +236,10 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
                 VLOG(1) << "Can't decode the filter " << filterStr;
                 return cpp2::ErrorCode::E_INVALID_FILTER;
             }
-            if (!checkExp(filterExp_.get())) {
-                return cpp2::ErrorCode::E_INVALID_FILTER;
+            auto retCode = checkExp(filterExp_.get(), false, true);
+            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+                return retCode;
             }
-        }
-    }
-
-    // Build context of the update edge prop
-    for (auto& edgeProp : updatedProps_) {
-        auto edgeName = env_->schemaMan_->toEdgeName(spaceId_, edgeKey_.edge_type);
-        if (!edgeName.ok()) {
-            VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeKey_.edge_type;
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
-        }
-
-        EdgePropertyExpression edgePropExp(new std::string(edgeName.value()),
-                                           new std::string(edgeProp.get_name()));
-        if (!checkExp(&edgePropExp)) {
-            VLOG(1) << "Invalid update edge expression!";
-            return cpp2::ErrorCode::E_INVALID_UPDATER;
-        }
-
-        auto updateExp = Expression::decode(edgeProp.get_value());
-        if (!updateExp) {
-            VLOG(1) << "Can't decode the prop's value " << edgeProp.get_value();
-            return cpp2::ErrorCode::E_INVALID_UPDATER;
-        }
-        if (!checkExp(updateExp.get())) {
-            return cpp2::ErrorCode::E_INVALID_UPDATER;
         }
     }
 

@@ -31,14 +31,13 @@ public:
             return ret;
         }
 
-        filter_ = updateTagNode_->getFilterCont();
         insert_ = updateTagNode_->getInsert();
         expCtx_ = updateTagNode_->getExpressionContext();
 
         // Note: If filtered out, the result of tag prop is old
         result_->colNames.emplace_back("_inserted");
-        nebula::Row row;
-        row.columns.emplace_back(insert_);
+        std::vector<Value> row;
+        row.emplace_back(insert_);
 
         for (auto& retExp : returnPropsExp_) {
             auto& val = retExp->eval(*expCtx_);
@@ -51,7 +50,7 @@ public:
                 VLOG(1) << "Can't get expression name";
                 result_->colNames.emplace_back("NULL");
             }
-            row.columns.emplace_back(std::move(val));
+            row.emplace_back(std::move(val));
         }
         result_->rows.emplace_back(std::move(row));
         return ret;
@@ -64,7 +63,6 @@ private:
 
     // return prop sets
     nebula::DataSet                                                                *result_;
-    FilterContext                                                                  *filter_;
     bool                                                                            insert_{false};
 };
 
@@ -85,14 +83,13 @@ public:
             return ret;
         }
 
-        filter_ = updateEdgeNode_->getFilterCont();
         insert_ = updateEdgeNode_->getInsert();
         expCtx_ = updateEdgeNode_->getExpressionContext();
 
         // Note: If filtered out, the result of edge prop is old
         result_->colNames.emplace_back("_inserted");
-        nebula::Row row;
-        row.columns.emplace_back(insert_);
+        std::vector<Value> row;
+        row.emplace_back(insert_);
 
         for (auto& retExp : returnPropsExp_) {
             auto& val = retExp->eval(*expCtx_);
@@ -103,7 +100,7 @@ public:
             auto edgePropExp = dynamic_cast<const EdgePropertyExpression*>(retExp);
 
             if (edgeSrcIdExp || edgeDstIdExp || edgeRankExp || edgeTypeExp || edgePropExp) {
-                auto edgePropExp = dynamic_cast<const SymbolPropertyExpression*>(retExp)
+                auto edgeExp = dynamic_cast<const SymbolPropertyExpression*>(retExp);
                 result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
                                                edgeExp->sym()->c_str(),
                                                edgeExp->prop()->c_str()));
@@ -111,7 +108,7 @@ public:
                 VLOG(1) << "Can't get expression name";
                 result_->colNames.emplace_back("NULL");
             }
-            row.columns.emplace_back(std::move(val));
+            row.emplace_back(std::move(val));
         }
         result_->rows.emplace_back(std::move(row));
         return ret;
@@ -124,7 +121,6 @@ private:
 
     // return prop sets
     nebula::DataSet                                                                *result_;
-    FilterContext                                                                  *filter_;
     bool                                                                            insert_{false};
 };
 

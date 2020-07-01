@@ -100,15 +100,13 @@ public:
         return tagName_;
     }
 
-protected:
+private:
     PlanContext                                                          *planContext_;
     TagContext                                                           *tagContext_;
-    StorageEnv                                                           *env_;
-    GraphSpaceID                                                          spaceId_;
-    size_t                                                                vIdLen_;
     TagID                                                                 tagId_;
     const std::vector<PropContext>                                       *props_;
-    const Expression                                                     *exp_;
+    ExpressionContext                                                    *expCtx_;
+    Expression                                                           *exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
     folly::Optional<std::pair<std::string, int64_t>> ttl_;
     std::string tagName_;

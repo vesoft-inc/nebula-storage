@@ -9,37 +9,6 @@
 namespace nebula {
 namespace storage {
 
-const Value& UpdateExpressionContext::getVar(const std::string& var) const {
-    UNUSED(var);
-    return kNullValue;
-}
-
-const Value& UpdateExpressionContext::getVersionedVar(const std::string& var,
-                                                      int64_t version) const {
-    UNUSED(var);
-    UNUSED(version);
-    return kNullValue;
-}
-
-const Value& UpdateExpressionContext::getVarProp(const std::string& var,
-                                                 const std::string& prop) const {
-    UNUSED(var);
-    UNUSED(prop);
-    return kNullValue;
-}
-
-const Value& UpdateExpressionContext::getDstProp(const std::string& tagName,
-                                                 const std::string& prop) const {
-    UNUSED(tagName);
-    UNUSED(prop);
-    return kNullValue;
-}
-
-const Value& UpdateExpressionContext::getInputProp(const std::string& prop) const {
-    UNUSED(prop);
-    return kNullValue;
-}
-
 const Value& UpdateExpressionContext::getEdgeProp(const std::string& edgeName,
                                                   const std::string& prop) const {
     if (!edgeName.compare(edgeName_)) {
@@ -48,23 +17,23 @@ const Value& UpdateExpressionContext::getEdgeProp(const std::string& edgeName,
             return iter->second;
         }
     }
-    return kNullValue;
+    return Value::kNullValue;
 }
 
 const Value& UpdateExpressionContext::getSrcProp(const std::string& tagName,
                                                  const std::string& prop) const {
     if (!tagName.compare(tagName_)) {
-        auto iter = srcPropVals_.find(prop);
-        if (iter != srcPropVals_.end()) {
+        auto iter = tagPropVals_.find(prop);
+        if (iter != tagPropVals_.end()) {
             return iter->second;
         }
     }
-    return kNullValue;
+    return Value::kNullValue;
 }
 
 bool UpdateExpressionContext::setEdgeProp(const std::string& edgeName,
                                           const std::string& prop,
-                                          Value val) {
+                                          const Value& val) {
     if (!edgeName_.empty() && edgeName.compare(edgeName_)) {
         return false;
     }
@@ -75,16 +44,16 @@ bool UpdateExpressionContext::setEdgeProp(const std::string& edgeName,
     return true;
 }
 
-bool UpdateExpressionContext::setSrcProp(const std::string& tagName,
+bool UpdateExpressionContext::setTagProp(const std::string& tagName,
                                          const std::string& prop,
-                                         Value val) {
+                                         const Value& val) {
     if (!tagName_.empty() && tagName.compare(tagName_)) {
         return false;
     }
     if (tagName_.empty()) {
         tagName_ = tagName;
     }
-    srcPropVals_[prop] = val;
+    tagPropVals_[prop] = val;
     return true;
 }
 

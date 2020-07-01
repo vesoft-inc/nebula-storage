@@ -60,12 +60,14 @@ protected:
              EdgeContext* ctx,
              EdgeType edgeType,
              const std::vector<PropContext>* props,
+             bool firstValidRec,
              ExpressionContext* expCtx,
              Expression* exp)
         : planContext_(planCtx)
         , edgeContext_(ctx)
         , edgeType_(edgeType)
         , props_(props)
+        , firstValidRec_(firstValidRec)
         , expCtx_(expCtx)
         , exp_(exp) {
         UNUSED(expCtx_); UNUSED(exp_);
@@ -73,7 +75,7 @@ protected:
         CHECK(schemaIter != edgeContext_->schemas_.end());
         CHECK(!schemaIter->second.empty());
         schemas_ = &(schemaIter->second);
-        ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, edgeType_);
+        ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, std::abs(edgeType_));
         edgeName_ = edgeContext_->edgeNames_[edgeType_];
     }
 
@@ -105,9 +107,10 @@ public:
                   EdgeContext* ctx,
                   EdgeType edgeType,
                   const std::vector<PropContext>* props,
+                  bool firstValidRec = true,
                   ExpressionContext* expCtx = nullptr,
                   Expression* exp = nullptr)
-        : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
+        : EdgeNode(planCtx, ctx, edgeType, props, firstValidRec, expCtx, exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::execute(partId, edgeKey);
@@ -148,7 +151,7 @@ public:
                    const std::vector<PropContext>* props,
                    ExpressionContext* expCtx = nullptr,
                    Expression* exp = nullptr)
-        : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
+        : EdgeNode(planCtx, ctx, edgeType, props, true, expCtx, exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);

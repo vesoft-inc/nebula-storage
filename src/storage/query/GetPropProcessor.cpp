@@ -91,7 +91,7 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(
-            planContext_.get(), &edgeContext_, ec.first, &ec.second);
+            planContext_.get(), &edgeContext_, ec.first, &ec.second, false);
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }

@@ -21,26 +21,24 @@ namespace storage {
 // Update records, write to kvstore
 class UpdateTagNode : public RelNode<VertexID> {
 public:
-    UpdateTagNode(StorageEnv* env,
-                  GraphSpaceID spaceId,
-                  size_t vIdLen,
+    UpdateTagNode(PlanContext* planCtx,
+                  TagContext* tagContext,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                   std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                   TagFilterNode* filterNode)
-        : env_(env)
-        , spaceId_(spaceId)
-        , vIdLen_(vIdLen)
+        : planContext_(planCtx)
+        , tagContext_(tagContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode) {
         }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        CHECK_NOTNULL(env_->kvstore_);
+        CHECK_NOTNULL(planContext_->env_->kvstore_);
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
-        env_->kvstore_->asyncAtomicOp(spaceId_, partId,
+        planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
             [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
@@ -49,14 +47,14 @@ public:
                     this->key_ = filterNode_->getKey();
                     this->val_ = filterNode_->getValue();
                     this->rowWriter_ = filterNode_->getRowWriter();
-                    this->filter_ = filterNode_->getFilterCont();
+                    this->updateContext_ = filterNode_->getUpdateContext();
                     this->insert_ = filterNode_->getInsert();
                     this->expCtx_ = filterNode_->getExpressionContext();
                     return this->updateAndWriteBack(partId, vId);
                 } else {
                     if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                         this->tagId_ = filterNode_->getTagId();
-                        this->filter_ = filterNode_->getFilterCont();
+                        this->updateContext_ = filterNode_->getUpdateContext();
                         this->insert_ = filterNode_->getInsert();
                         this->expCtx_ = filterNode_->getExpressionContext();
                     }
@@ -79,6 +77,13 @@ public:
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const VertexID vId) {
+        auto iter = tagContext_->tagNames_.find(tagId_);
+        if (iter == tagContext_->tagNames_.end()) {
+            VLOG(1) << "Can't find spaceId " << planContext_->spaceId_
+                    << " tagId " << tagId_;
+            return folly::none;
+        }
+
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -87,19 +92,13 @@ public:
                 return folly::none;
             }
             auto updateVal = updateExp->eval(*expCtx_);
-            // update prop value to filter_
-            filter_->fillTagProp(tagId_, propName, updateVal);
-
+            // update prop value to updateContext_
+            updateContext_->fillTagProp(tagId_, propName, updateVal);
             // update expression context
-            auto tagName = env_->schemaMan_->toTagName(spaceId_, tagId_);
-            if (!tagName.ok()) {
-                LOG(ERROR) << "Can't find spaceId " << spaceId_ << " tagId " << tagId_;
-                return folly::none;
-            }
-            expCtx_->setSrcProp(tagName.value(), propName, updateVal);
+            expCtx_->setTagProp(iter->second, propName, updateVal);
         }
 
-        auto tagPropMap = filter_->getTagFilter();
+        auto tagPropMap = updateContext_->getTagUpdateCon();
         for (auto& e : tagPropMap) {
             if (e.first.first == tagId_) {
                 auto wRet = rowWriter_->setValue(e.first.second, e.second);
@@ -133,8 +132,8 @@ public:
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
                         if (!oReader) {
-                            oReader = RowReader::getTagPropReader(env_->schemaMan_,
-                                                                  spaceId_,
+                            oReader = RowReader::getTagPropReader(planContext_->env_->schemaMan_,
+                                                                  planContext_->spaceId_,
                                                                   tagId_,
                                                                   val_);
                         }
@@ -150,8 +149,8 @@ public:
 
                     // step 2, insert new vertex index
                     if (!nReader) {
-                        nReader = RowReader::getTagPropReader(env_->schemaMan_,
-                                                              spaceId_,
+                        nReader = RowReader::getTagPropReader(planContext_->env_->schemaMan_,
+                                                              planContext_->spaceId_,
                                                               tagId_,
                                                               nVal);
                     }
@@ -180,12 +179,8 @@ public:
         if (!values.ok()) {
             return "";
         }
-        return IndexKeyUtils::vertexIndexKey(vIdLen_, partId, index->get_index_id(),
+        return IndexKeyUtils::vertexIndexKey(planContext_->vIdLen_, partId, index->get_index_id(),
                                              vId, values.value(), colsType);
-    }
-
-    FilterContext* getFilterCont() {
-        return filter_;
     }
 
     bool getInsert() {
@@ -199,9 +194,8 @@ public:
 
 private:
     // ============================ input =====================================================
-    StorageEnv                                                             *env_;
-    GraphSpaceID                                                            spaceId_;
-    size_t                                                                  vIdLen_;
+    PlanContext                                                            *planContext_;
+    TagContext                                                             *tagContext_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
     // update <tagID, prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
@@ -212,10 +206,9 @@ private:
     // use to save old row value
     std::string                                                             val_;
     RowWriterV2*                                                            rowWriter_;
-
     // ============================ output ====================================================
     // input and update, then output
-    FilterContext                                                          *filter_;
+    UpdateContext                                                          *updateContext_;
     bool                                                                    insert_{false};
     UpdateExpressionContext                                                *expCtx_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
@@ -225,26 +218,24 @@ private:
 // Update records, write to kvstore
 class UpdateEdgeNode : public RelNode<cpp2::EdgeKey> {
 public:
-    UpdateEdgeNode(StorageEnv* env,
-                   GraphSpaceID spaceId,
-                   size_t vIdLen,
+    UpdateEdgeNode(PlanContext* planCtx,
+                   EdgeContext* edgeContext,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                    EdgeFilterNode* filterNode)
-        : env_(env)
-        , spaceId_(spaceId)
-        , vIdLen_(vIdLen)
+        : planContext_(planCtx)
+        , edgeContext_(edgeContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode) {
         }
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
-        CHECK_NOTNULL(env_->kvstore_);
+        CHECK_NOTNULL(planContext_->env_->kvstore_);
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
-        env_->kvstore_->asyncAtomicOp(spaceId_, partId,
+        planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
             [&partId, &edgeKey, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, edgeKey);
@@ -253,14 +244,14 @@ public:
                     this->key_ = filterNode_->getKey();
                     this->val_ = filterNode_->getValue();
                     this->rowWriter_ = filterNode_->getRowWriter();
-                    this->filter_ = filterNode_->getFilterCont();
+                    this->updateContext_ = filterNode_->getUpdateContext();
                     this->insert_ = filterNode_->getInsert();
                     this->expCtx_ = filterNode_->getExpressionContext();
                     return this->updateAndWriteBack(partId, edgeKey);
                 } else {
                     if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                         this->edgeType_ = filterNode_->getEdgeType();
-                        this->filter_ = filterNode_->getFilterCont();
+                        this->updateContext_ = filterNode_->getUpdateContext();
                         this->insert_ = filterNode_->getInsert();
                         this->expCtx_ = filterNode_->getExpressionContext();
                     }
@@ -288,14 +279,12 @@ public:
             return folly::none;
         }
 
-        // update expression context
-        auto edgeRet = env_->schemaMan_->toEdgeName(spaceId_, edgeType_);
-        if (!edgeRet.ok()) {
-            VLOG(1) << "Can't find spaceId " << spaceId_
+        auto iter = edgeContext_->edgeNames_.find(edgeType_);
+        if (iter == edgeContext_->edgeNames_.end()) {
+            VLOG(1) << "Can't find spaceId " << planContext_->spaceId_
                     << " edgeType " << edgeType_;
             return folly::none;
         }
-        auto edgeName = edgeRet.value();
 
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
@@ -304,13 +293,13 @@ public:
                 return folly::none;
             }
             auto updateVal = updateExp->eval(*expCtx_);
-            // update prop value to filter_
-            filter_->fillEdgeProp(edgeType_, propName, updateVal);
-            expCtx_->setEdgeProp(edgeName, propName, updateVal);
+            // update prop value to updateContext_
+            updateContext_->fillEdgeProp(edgeType_, propName, updateVal);
+        // update expression context
+            expCtx_->setEdgeProp(iter->second, propName, updateVal);
         }
 
-
-        auto edgePropMap = filter_->getEdgeFilter();
+        auto edgePropMap = updateContext_->getEdgeUpdateCon();
         for (auto& e : edgePropMap) {
             if (e.first.first == edgeType_) {
                 auto wRet = rowWriter_->setValue(e.first.second, e.second);
@@ -343,9 +332,9 @@ public:
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
                         if (!oReader) {
-                            oReader = RowReader::getEdgePropReader(env_->schemaMan_,
-                                                                   spaceId_,
-                                                                   edgeType_,
+                            oReader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
+                                                                   planContext_->spaceId_,
+                                                                   std::abs(edgeType_),
                                                                    val_);
                         }
                         if (!oReader) {
@@ -360,9 +349,9 @@ public:
 
                     // step 2, insert new edge index
                     if (!nReader) {
-                        nReader = RowReader::getEdgePropReader(env_->schemaMan_,
-                                                               spaceId_,
-                                                               edgeType_,
+                        nReader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
+                                                               planContext_->spaceId_,
+                                                               std::abs(edgeType_),
                                                                nVal);
                     }
                     if (!nReader) {
@@ -390,7 +379,7 @@ public:
         if (!values.ok()) {
             return "";
         }
-        return IndexKeyUtils::edgeIndexKey(vIdLen_,
+        return IndexKeyUtils::edgeIndexKey(planContext_->vIdLen_,
                                            partId,
                                            index->get_index_id(),
                                            edgeKey.get_src(),
@@ -398,10 +387,6 @@ public:
                                            edgeKey.get_dst(),
                                            values.value(),
                                            colsType);
-    }
-
-    FilterContext* getFilterCont() {
-        return filter_;
     }
 
     bool getInsert() {
@@ -415,9 +400,8 @@ public:
 
 private:
     // ============================ input =====================================================
-    StorageEnv                                                             *env_;
-    GraphSpaceID                                                            spaceId_;
-    size_t                                                                  vIdLen_;
+    PlanContext                                                            *planContext_;
+    EdgeContext                                                            *edgeContext_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
@@ -431,7 +415,7 @@ private:
 
     // ============================ output ====================================================
     // input and update, then output
-    FilterContext                                                          *filter_;
+    UpdateContext                                                          *updateContext_;
     bool                                                                    insert_{false};
     UpdateExpressionContext                                                *expCtx_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
