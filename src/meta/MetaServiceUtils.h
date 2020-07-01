@@ -12,6 +12,10 @@
 #include "common/datatypes/HostAddr.h"
 #include "common/interface/gen-cpp2/meta_types.h"
 #include "kvstore/NebulaStore.h"
+/*
+#include "kvstore/Common.h"
+#include "common/base/ThriftTypes.h"
+*/
 
 namespace nebula {
 namespace meta {
@@ -158,9 +162,13 @@ public:
     static std::string assembleSegmentKey(const std::string& segment, const std::string& key);
 
     static cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
-                                           cpp2::SchemaProp&  prop,
-                                           const cpp2::ColumnDef col,
-                                           const cpp2::AlterSchemaOp op);
+                                           cpp2::SchemaProp& prop,
+                                           std::vector<kvstore::KV>& defaultKVs,
+                                           std::vector<std::string>& removeDefaultKeys,
+                                           GraphSpaceID spaceId,
+                                           TagID /*EdgeType*/ id,
+                                           cpp2::ColumnDef col,
+                                           cpp2::AlterSchemaOp op);
 
     static cpp2::ErrorCode alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
                                            cpp2::SchemaProp&  schemaProp,
@@ -189,13 +197,9 @@ public:
 
     static std::string parseRoleStr(folly::StringPiece key);
 
-    static std::string tagDefaultKey(GraphSpaceID spaceId,
-                                     TagID tag,
-                                     const std::string& field);
-
-    static std::string edgeDefaultKey(GraphSpaceID spaceId,
-                                      EdgeType edge,
-                                      const std::string& field);
+    static std::string defaultKey(GraphSpaceID spaceId,
+                                  TagID/*EdgeType*/ id,
+                                  const std::string& field);
 
     static const std::string& defaultPrefix();
 

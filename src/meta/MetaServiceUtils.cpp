@@ -481,9 +481,74 @@ std::string MetaServiceUtils::assembleSegmentKey(const std::string& segment,
 }
 
 cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
-                                                  cpp2::SchemaProp&  prop,
+                                                  cpp2::SchemaProp& prop,
+                                                  std::vector<kvstore::KV>& defaultKVs,
+                                                  std::vector<std::string>& removeDefaultKeys,
+                                                  const GraphSpaceID spaceId,
+                                                  const TagID Id,
                                                   const cpp2::ColumnDef col,
                                                   const cpp2::AlterSchemaOp op) {
+    static_assert(std::is_same<TagID, EdgeType>::value, "");
+    auto name = col.get_name();
+    auto dKey = MetaServiceUtils::defaultKey(spaceId, Id, name);
+    std::string defaultValue;
+    if (col.__isset.default_value) {
+        auto value = col.get_default_value();
+        switch (col.get_type()) {
+            case cpp2::PropertyType::BOOL:
+                if (value->type() != Value::Type::BOOL) {
+                    LOG(ERROR) << "Handle Column Failed: " << name
+                                << " type mismatch";
+                    return cpp2::ErrorCode::E_CONFLICT;
+                }
+                defaultValue = folly::to<std::string>(value->getBool());
+                break;
+            case cpp2::PropertyType::INT8:
+            case cpp2::PropertyType::INT16:
+            case cpp2::PropertyType::INT32:
+            case cpp2::PropertyType::INT64:
+                if (value->type() != Value::Type::INT) {
+                    LOG(ERROR) << "Handle Column Failed: " << name
+                                << " type mismatch";
+                    return cpp2::ErrorCode::E_CONFLICT;
+                }
+                defaultValue = folly::to<std::string>(value->getInt());
+                break;
+            case cpp2::PropertyType::FLOAT:
+            case cpp2::PropertyType::DOUBLE:
+                if (value->type() != Value::Type::FLOAT) {
+                    LOG(ERROR) << "Handle Column Failed: " << name
+                                << " type mismatch";
+                    return  cpp2::ErrorCode::E_CONFLICT;
+                }
+                defaultValue = folly::to<std::string>(value->getFloat());
+                break;
+            case cpp2::PropertyType::STRING:
+            case cpp2::PropertyType::FIXED_STRING:
+                if (value->type() != Value::Type::STRING) {
+                    LOG(ERROR) << "Handle Column Failed: " << name
+                                << " type mismatch";
+                    return cpp2::ErrorCode::E_CONFLICT;
+                }
+                defaultValue = folly::to<std::string>(value->getStr());
+                break;
+            case cpp2::PropertyType::TIMESTAMP:
+                if (value->type() != Value::Type::INT) {
+                    LOG(ERROR) << "Handle Column Failed: " << name
+                                << " type mismatch";
+                    return cpp2::ErrorCode::E_CONFLICT;
+                }
+                defaultValue = folly::to<std::string>(value->getInt());
+                break;
+            default:
+                LOG(ERROR) << "Unsupported type";
+                return cpp2::ErrorCode::E_CONFLICT;
+        }
+
+        LOG(INFO) << "Get Tag Default value: Property Name " << name
+                << ", Value " << defaultValue;
+    }
+
     switch (op) {
         case cpp2::AlterSchemaOp::ADD:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
@@ -493,6 +558,9 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                 }
             }
             cols.emplace_back(std::move(col));
+            if (col.__isset.default_value) {
+                defaultKVs.emplace_back(std::move(dKey), std::move(defaultValue));
+            }
             return cpp2::ErrorCode::SUCCEEDED;
         case cpp2::AlterSchemaOp::CHANGE:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
@@ -504,6 +572,11 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                         return cpp2::ErrorCode::E_UNSUPPORTED;
                     }
                     *it = col;
+                    if (col.__isset.default_value) {
+                        defaultKVs.emplace_back(std::move(dKey), std::move(defaultValue));
+                    } else {
+                        removeDefaultKeys.emplace_back(std::move(dKey));
+                    }
                     return cpp2::ErrorCode::SUCCEEDED;
                 }
             }
@@ -518,6 +591,9 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                         prop.set_ttl_col("");
                     }
                     cols.erase(it);
+                    if (it->__isset.default_value) {
+                        removeDefaultKeys.emplace_back(std::move(dKey));
+                    }
                     return cpp2::ErrorCode::SUCCEEDED;
                 }
             }
@@ -673,26 +749,16 @@ std::string MetaServiceUtils::parseRoleStr(folly::StringPiece key) {
     return role;
 }
 
-std::string MetaServiceUtils::tagDefaultKey(GraphSpaceID spaceId,
-                                            TagID tag,
-                                            const std::string& field) {
+std::string MetaServiceUtils::defaultKey(GraphSpaceID spaceId,
+                                         TagID id,
+                                         const std::string& field) {
+    // Assume edge/tag default value key is same formated
+    static_assert(std::is_same<TagID, EdgeType>::value, "");
     std::string key;
     key.reserve(kDefaultTable.size() + sizeof(GraphSpaceID) + sizeof(TagID));
     key.append(kDefaultTable.data(), kDefaultTable.size())
        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-       .append(reinterpret_cast<const char*>(&tag), sizeof(TagID))
-       .append(field);
-    return key;
-}
-
-std::string MetaServiceUtils::edgeDefaultKey(GraphSpaceID spaceId,
-                                             EdgeType edge,
-                                             const std::string& field) {
-    std::string key;
-    key.reserve(kDefaultTable.size() + sizeof(GraphSpaceID) + sizeof(EdgeType));
-    key.append(kDefaultTable.data(), kDefaultTable.size())
-       .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-       .append(reinterpret_cast<const char*>(&edge), sizeof(EdgeType))
+       .append(reinterpret_cast<const char*>(&id), sizeof(TagID))
        .append(field);
     return key;
 }
