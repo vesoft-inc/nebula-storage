@@ -106,6 +106,10 @@ public:
                 return false;
             }
             auto reader = nebula::RowReader::getTagPropReader(schemaMan_, spaceId, tagId, val);
+            if (reader == nullptr) {
+                VLOG(3) << "Remove the bad format vertex";
+                return false;
+            }
             return checkDataTtlValid(schema.get(), reader.get());
         } else if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
             auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
@@ -118,6 +122,10 @@ public:
                                                                spaceId,
                                                                std::abs(edgeType),
                                                                val);
+            if (reader == nullptr) {
+                VLOG(3) << "Remove the bad format edge!";
+                return false;
+            }
             return checkDataTtlValid(schema.get(), reader.get());
         }
         return true;
