@@ -32,3 +32,5 @@ DEFINE_bool(enable_reservoir_sampling, false, "Will do reservoir sampling if set
 
 DEFINE_bool(enable_multi_versions, true, "If true, the insert timestamp will be the wall clock. "
                                          "If false, always has the same timestamp of max");
+
+DEFINE_string(reader_handlers_type, "cpu", "Type of reader handlers, options: cpu,io");
