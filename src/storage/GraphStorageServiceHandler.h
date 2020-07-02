@@ -70,7 +70,7 @@ public:
 private:
     StorageEnv*                                     env_{nullptr};
     VertexCache                                     vertexCache_;
-    std::unique_ptr<folly::Executor>                readerPool_;
+    std::shared_ptr<folly::Executor>                readerPool_;
 
     stats::Stats                                    addVerticesQpsStat_;
     stats::Stats                                    addEdgesQpsStat_;
