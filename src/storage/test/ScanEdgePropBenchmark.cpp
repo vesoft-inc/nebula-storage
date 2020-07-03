@@ -150,7 +150,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             ASSERT_TRUE(schema != nullptr);
             auto wrapper = std::make_unique<RowReaderWrapper>();
             ASSERT_TRUE(wrapper->reset(schema.get(), val, readerVer));
-            auto code = node.collectEdgeProps(edgeType, "serve", wrapper.get(),
+            auto code = node.collectEdgeProps(edgeType, wrapper.get(),
                                               key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
@@ -177,7 +177,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
                                                   std::abs(edgeType), val);
             ASSERT_TRUE(reader.get() != nullptr);
-            auto code = node.collectEdgeProps(edgeType, "serve", reader.get(),
+            auto code = node.collectEdgeProps(edgeType, reader.get(),
                                               key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
@@ -209,7 +209,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
                 ASSERT_TRUE(reader->resetEdgePropReader(env->schemaMan_, spaceId,
                                                         std::abs(edgeType), val));
             }
-            auto code = node.collectEdgeProps(edgeType, "serve", reader.get(),
+            auto code = node.collectEdgeProps(edgeType, reader.get(),
                                               key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
@@ -248,7 +248,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             } else {
                 ASSERT_TRUE(reader->reset(schemas, val));
             }
-            auto code = node.collectEdgeProps(edgeType, "serve", reader.get(),
+            auto code = node.collectEdgeProps(edgeType, reader.get(),
                                               key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
