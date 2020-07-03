@@ -38,7 +38,16 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
         return;
     }
 
-    auto plan = buildPlan(&resultDataSet_);
+    int64_t limit = 0;
+    bool random = false;
+    if (req.__isset.limit) {
+        limit = req.limit;
+        if (req.__isset.random) {
+            random = req.random;
+        }
+    }
+
+    auto plan = buildPlan(&resultDataSet_, limit, random);
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
@@ -60,7 +69,9 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) {
+StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
+                                                       int64_t limit,
+                                                       bool random) {
     /*
     The StoragePlan looks like this:
                  +--------+---------+
@@ -110,8 +121,14 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
     filter->addDependency(hashJoin.get());
     auto agg = std::make_unique<AggregateNode>(filter.get(), &edgeContext_);
     agg->addDependency(filter.get());
-    auto output = std::make_unique<GetNeighborsNode>(
-            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result);
+    std::unique_ptr<GetNeighborsNode> output;
+    if (random) {
+        output = std::make_unique<GetNeighborsSampleNode>(
+            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+    } else {
+        output = std::make_unique<GetNeighborsNode>(
+            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+    }
     output->addDependency(agg.get());
 
     plan.addNode(std::move(hashJoin));

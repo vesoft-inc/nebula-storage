@@ -91,7 +91,6 @@ public:
     }
 
     bool valid() const override {
-        // todo(doodle): could add max rows limit here
         return iter_->valid();
     }
 
