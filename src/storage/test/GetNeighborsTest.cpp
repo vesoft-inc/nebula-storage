@@ -521,8 +521,7 @@ TEST(GetNeighborsTest, StatTest) {
     }
 }
 
-/*
-TEST(GetNeighborsTest, SampleTest) {
+TEST(GetNeighborsTest, LimitSampleTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
     mock::MockCluster cluster;
     cluster.initStorageKV(rootPath.path());
@@ -537,8 +536,7 @@ TEST(GetNeighborsTest, SampleTest) {
     EdgeType teammate = 102;
 
     {
-        FLAGS_max_edge_returned_per_vertex = 10;
-        LOG(INFO) << "SingleEdgeTypeCutOff";
+        LOG(INFO) << "SingleEdgeTypeLimit";
         std::vector<VertexID> vertices = {"Spurs"};
         std::vector<EdgeType> over = {-serve};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -547,6 +545,7 @@ TEST(GetNeighborsTest, SampleTest) {
         edges.emplace_back(-serve, std::vector<std::string>{
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.set_limit(10);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -554,13 +553,12 @@ TEST(GetNeighborsTest, SampleTest) {
         auto resp = std::move(fut).get();
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        // 4 column, vId, stat, team, -serve
-        ASSERT_EQ(4, resp.vertices.rows[0].columns.size());
-        ASSERT_EQ(10, resp.vertices.rows[0].columns[3].getDataSet().rows.size());
+        // vId, stat, team, -serve, expr
+        ASSERT_EQ(5, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(10, resp.vertices.rows[0].values[3].getList().values.size());
     }
     {
-        FLAGS_max_edge_returned_per_vertex = 4;
-        LOG(INFO) << "MultiEdgeTypeCutOff";
+        LOG(INFO) << "MultiEdgeTypeLimit";
         std::vector<VertexID> vertices = {"Dwyane Wade"};
         std::vector<EdgeType> over = {serve, teammate};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
@@ -570,32 +568,84 @@ TEST(GetNeighborsTest, SampleTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.set_limit(4);
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
 
-        // 5 column, vId, stat, player, serve, teammate
+        // vId, stat, player, serve, teammate, expr
         // Dwyane Wad has 4 serve edge, 2 teammate edge
-        // with cut off = 4, only serve edges will be returned
+        // with limit = 4, return all serve edges, none of the teammate edges will be returned
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(5, resp.vertices.rows[0].columns.size());
-        ASSERT_EQ(4, resp.vertices.rows[0].columns[3].getDataSet().rows.size());
-        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].columns[4].getNull());
+        ASSERT_EQ(6, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(4, resp.vertices.rows[0].values[3].getList().values.size());
+        ASSERT_EQ(NullType::__NULL__, resp.vertices.rows[0].values[4].getNull());
     }
     {
-        FLAGS_max_edge_returned_per_vertex = 5;
-        LOG(INFO) << "MultiEdgeTypeCutOff";
+        LOG(INFO) << "SingleEdgeTypeSample";
+        std::vector<VertexID> vertices = {"Spurs"};
+        std::vector<EdgeType> over = {-serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(team, std::vector<std::string>{"name"});
+        edges.emplace_back(-serve, std::vector<std::string>{
+                           "playerName", "startYear", "teamCareer"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.set_limit(10);
+        req.set_random(true);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        ASSERT_EQ(1, resp.vertices.rows.size());
+        // vId, stat, team, -serve, expr
+        ASSERT_EQ(5, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(10, resp.vertices.rows[0].values[3].getList().values.size());
+    }
+    {
+        LOG(INFO) << "MultiEdgeTypeSample";
         std::vector<VertexID> vertices = {"Dwyane Wade"};
         std::vector<EdgeType> over = {serve, teammate};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
         std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
         tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
-        edges.emplace_back(teammate, std::vector<std::string>{"playe1", "player2", "teamName"});
+        edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.set_limit(4);
+        req.set_random(true);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        // vId, stat, player, serve, teammate, expr
+        // Dwyane Wad has 4 serve edge, 2 teammate edge
+        // with sample = 4
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        ASSERT_EQ(1, resp.vertices.rows.size());
+        ASSERT_EQ(6, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(4, resp.vertices.rows[0].values[3].getList().values.size() +
+                     resp.vertices.rows[0].values[4].getList().values.size());
+    }
+    {
+        LOG(INFO) << "MultiEdgeTypeSample";
+        std::vector<VertexID> vertices = {"Dwyane Wade"};
+        std::vector<EdgeType> over = {serve, teammate};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
+
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+        req.set_limit(5);
+        req.set_random(true);
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
@@ -603,16 +653,14 @@ TEST(GetNeighborsTest, SampleTest) {
 
         // 5 column, vId, stat, player, serve, teammate
         // Dwyane Wad has 4 serve edge, 2 teammate edge
-        // with cut off = 5, 4 serve edges and 1 teammate edge will be returned
+        // with sample = 5
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
-        ASSERT_EQ(5, resp.vertices.rows[0].columns.size());
-        ASSERT_EQ(4, resp.vertices.rows[0].columns[3].getDataSet().rows.size());
-        ASSERT_EQ(1, resp.vertices.rows[0].columns[4].getDataSet().rows.size());
+        ASSERT_EQ(6, resp.vertices.rows[0].values.size());
+        ASSERT_EQ(5, resp.vertices.rows[0].values[3].getList().values.size() +
+                     resp.vertices.rows[0].values[4].getList().values.size());
     }
-    FLAGS_max_edge_returned_per_vertex = INT_MAX;
 }
-*/
 
 TEST(GetNeighborsTest, VertexCacheTest) {
     fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
