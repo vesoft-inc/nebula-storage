@@ -86,11 +86,9 @@ protected:
             auto reader = aggregateNode_->reader();
             auto props = aggregateNode_->props();
             auto columnIdx = aggregateNode_->idx();
-            const auto& edgeName = aggregateNode_->edgeName();
 
             // collect props need to return
             auto ret = collectEdgeProps(edgeType,
-                                        edgeName,
                                         reader,
                                         key,
                                         planContext_->vIdLen_,
@@ -133,7 +131,6 @@ private:
     using Sample = std::tuple<EdgeType,
                               std::string,
                               std::string,
-                              std::string,
                               const std::vector<PropContext>*,
                               size_t>;
 
@@ -142,27 +139,24 @@ private:
         nebula::List list;
         for (; aggregateNode_->valid(); aggregateNode_->next(), ++edgeRowCount) {
             auto edgeType = aggregateNode_->edgeType();
-            const auto& edgeName = aggregateNode_->edgeName();
             auto val = aggregateNode_->val();
             auto key = aggregateNode_->key();
             auto props = aggregateNode_->props();
             auto columnIdx = aggregateNode_->idx();
-
-            sampler_->sampling(std::make_tuple(
-                edgeType, edgeName, val.str(), key.str(), props, columnIdx));
+            sampler_->sampling(std::make_tuple(edgeType, val.str(), key.str(), props, columnIdx));
         }
 
         std::unique_ptr<RowReader> reader;
         auto samples = std::move(*sampler_).samples();
         for (auto& sample : samples) {
-            auto edgeType = std::get<0>(sample);
-            auto val = std::get<2>(sample);
-            auto columnIdx = std::get<5>(sample);
+            auto columnIdx = std::get<4>(sample);
             // add edge prop value to the target column
             if (row[columnIdx].type() == Value::Type::NULLVALUE) {
                 row[columnIdx].setList(nebula::List());
             }
 
+            auto edgeType = std::get<0>(sample);
+            auto val = std::get<1>(sample);
             if (!reader) {
                 reader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
                                                       planContext_->spaceId_,
@@ -178,12 +172,11 @@ private:
                 continue;
             }
 
-            auto ret = collectEdgeProps(std::get<0>(sample),
-                                        std::get<1>(sample),
+            auto ret = collectEdgeProps(edgeType,
                                         reader.get(),
-                                        std::get<3>(sample),
+                                        std::get<2>(sample),
                                         planContext_->vIdLen_,
-                                        std::get<4>(sample),
+                                        std::get<3>(sample),
                                         list);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 continue;

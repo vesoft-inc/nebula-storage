@@ -82,13 +82,11 @@ protected:
     // if yields is not empty, will eval the yield expression, otherwize, collect property
     kvstore::ResultCode collectEdgeProps(
             EdgeType edgeType,
-            const std::string& edgeName,
             RowReader* reader,
             folly::StringPiece key,
             size_t vIdLen,
             const std::vector<PropContext>* props,
             nebula::List& list) {
-        UNUSED(edgeName);
         for (const auto& prop : *props) {
             if (prop.returned_) {
                 auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
