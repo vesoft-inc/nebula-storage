@@ -15,7 +15,6 @@
 namespace nebula {
 namespace storage {
 
-
 // GetNeighborsNode will generate a row in response of GetNeighbors, so it need to get the tag
 // result from HashJoinNode, and the stat info and edge iterator from AggregateNode. Then collect
 // some edge props, and put them into the target cell of a row.
