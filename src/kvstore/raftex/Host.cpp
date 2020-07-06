@@ -18,6 +18,7 @@ DEFINE_uint32(max_outstanding_requests, 1024,
 DEFINE_int32(raft_rpc_timeout_ms, 500, "rpc timeout for raft client");
 
 DECLARE_bool(trace_raft);
+DECLARE_uint32(raft_heartbeat_interval_secs);
 
 namespace nebula {
 namespace raftex {
@@ -79,7 +80,8 @@ folly::Future<cpp2::AskForVoteResponse> Host::askForVote(
             return resp;
         }
     }
-    auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
+    auto client =
+        part_->clientMan_->client(addr_, eb, false, FLAGS_raft_heartbeat_interval_secs * 1000);
     return client->future_askForVote(req);
 }
 
