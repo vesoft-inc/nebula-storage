@@ -1138,6 +1138,7 @@ TEST(GetNeighborsTest, FilterTest) {
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
     TagID player = 1;
+    TagID team = 2;
     EdgeType serve = 101;
     EdgeType teammate = 102;
 
@@ -1167,7 +1168,7 @@ TEST(GetNeighborsTest, FilterTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         nebula::DataSet expected;
         expected.colNames = {"_vid",
                              "_stats",
@@ -1265,7 +1266,7 @@ TEST(GetNeighborsTest, FilterTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         nebula::DataSet expected;
         expected.colNames = {"_vid",
                              "_stats",
@@ -1316,7 +1317,7 @@ TEST(GetNeighborsTest, FilterTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         nebula::DataSet expected;
         expected.colNames = {"_vid",
                              "_stats",
@@ -1367,7 +1368,7 @@ TEST(GetNeighborsTest, FilterTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         nebula::DataSet expected;
         expected.colNames = {"_vid",
                              "_stats",
@@ -1406,6 +1407,8 @@ TEST(GetNeighborsTest, FilterTest) {
             }
         }
         {
+            // same as 1.0, tag data is returned even if can't pass the filter.
+            // no edge satisfies the filter
             nebula::Row row({"Tony Parker",
                             NullType::__NULL__,
                             nebula::List({"Tony Parker", 38, 15.5}),
@@ -1419,7 +1422,8 @@ TEST(GetNeighborsTest, FilterTest) {
             }
         }
         {
-            // same as 1.0, tag data is returned even if can't pass the filter
+            // same as 1.0, tag data is returned even if can't pass the filter.
+            // no edge satisfies the filter
             nebula::Row row({"Manu Ginobili",
                             NullType::__NULL__,
                             nebula::List({"Manu Ginobili", 42, 13.3}),
@@ -1460,7 +1464,7 @@ TEST(GetNeighborsTest, FilterTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        // vId, stat, player, serve
+        // vId, stat, player, serve, expr
         nebula::DataSet expected;
         expected.colNames = {"_vid",
                              "_stats",
@@ -1480,6 +1484,102 @@ TEST(GetNeighborsTest, FilterTest) {
                          NullType::__NULL__});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.vertices);
+    }
+    {
+        LOG(INFO) << "FilterOnReverseEdge";
+        std::vector<VertexID> vertices = {"Spurs"};
+        std::vector<EdgeType> over = {-serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(team, std::vector<std::string>{"name"});
+        edges.emplace_back(-serve, std::vector<std::string>{"teamName", "startYear", "endYear",
+                                                            kSrc, kDst});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        {
+            // The edgeName in exp will be unique, we don't distinguish it from reverse edges.
+            // where reverseServe.teamAvgScore >= 10
+            RelationalExpression exp(
+                Expression::Kind::kRelGE,
+                new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
+                                           new std::string("teamAvgScore")),
+                new ConstantExpression(Value(15)));
+            req.set_filter(Expression::encode(exp));
+        }
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // vId, stat, player, serve, expr
+        nebula::DataSet expected;
+        expected.colNames = {
+            "_vid",
+            "_stats",
+            "_tag:2:name",
+            folly::stringPrintf("_edge:-101:teamName:startYear:endYear:%s:%s", kSrc, kDst),
+            "_expr"};
+        nebula::Row row({
+            "Spurs",
+            NullType::__NULL__,
+            nebula::List({"Spurs"}),
+            nebula::List({nebula::List({"Spurs", 1997, 2016, "Spurs", "Tim Duncan"}),
+                            nebula::List({"Spurs", 2001, 2018, "Spurs", "Tony Parker"}),
+                            nebula::List({"Spurs", 2015, 2020, "Spurs", "LaMarcus Aldridge"})}),
+            NullType::__NULL__});
+        expected.rows.emplace_back(std::move(row));
+        ASSERT_EQ(expected, resp.vertices);
+    }
+    {
+        LOG(INFO) << "FilterOnBidirectEdge";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {teammate, -teammate};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        edges.emplace_back(teammate, std::vector<std::string>{kSrc, kType, kDst,
+                                                              "teamName", "startYear", "endYear"});
+        edges.emplace_back(-teammate, std::vector<std::string>{kSrc, kType, kDst,
+                                                               "teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        {
+            // The edgeName in exp will be unique, we don't distinguish it from reverse edges.
+            // where teammate.startYear < 2002
+            RelationalExpression exp(
+                Expression::Kind::kRelLT,
+                new EdgePropertyExpression(new std::string(folly::to<std::string>(teammate)),
+                                           new std::string("startYear")),
+                new ConstantExpression(Value(2002)));
+            req.set_filter(Expression::encode(exp));
+        }
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        // vId, stat, player, teammate, -teammate, expr
+        nebula::DataSet expected;
+        expected.colNames = {
+            "_vid",
+            "_stats",
+            "_tag:1:name:age:avgScore",
+            folly::stringPrintf("_edge:+102:%s:%s:%s:teamName:startYear:endYear",
+                                kSrc, kType, kDst),
+            folly::stringPrintf("_edge:-102:%s:%s:%s:teamName:startYear:endYear",
+                                kSrc, kType, kDst),
+            "_expr"};
+        nebula::Row row({
+            "Tim Duncan",
+            NullType::__NULL__,
+            nebula::List({"Tim Duncan", 44, 19.0}),
+            nebula::List(nebula::List({"Tim Duncan", 102, "Tony Parker", "Spurs", 2001, 2016})),
+            nebula::List(nebula::List({"Tim Duncan", -102, "Tony Parker", "Spurs", 2001, 2016})),
+            NullType::__NULL__,
+            NullType::__NULL__});
     }
 }
 
