@@ -14,16 +14,20 @@
 namespace nebula {
 namespace storage {
 
-// FilterNode will receive the result from a HashJoinNode, check whether tag data and edge data
+// FilterNode will receive the result from upstream, check whether tag data or edge data
 // could pass the expression filter
-class FilterNode : public IterateEdgeNode<VertexID> {
+class FilterNode : public IterateNode<VertexID> {
 public:
-    FilterNode(IterateEdgeNode* hashJoinNode,
+    FilterNode(PlanContext* planCtx,
+               IterateNode* upstream,
                StorageExpressionContext* expCtx = nullptr,
                Expression* exp = nullptr)
-        : IterateEdgeNode(hashJoinNode)
+        : IterateNode(upstream)
+        , planContext_(planCtx)
         , expCtx_(expCtx)
-        , exp_(exp) {}
+        , exp_(exp) {
+        UNUSED(planContext_);
+    }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -41,7 +45,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (exp_ != nullptr) {
-            expCtx_->reset(upstream_->reader(), upstream_->key(), upstream_->edgeName());
+            expCtx_->reset(upstream_->reader(), upstream_->key());
             auto result = exp_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
@@ -53,6 +57,7 @@ private:
     }
 
 private:
+    PlanContext* planContext_;
     StorageExpressionContext* expCtx_;
     Expression* exp_;
 };

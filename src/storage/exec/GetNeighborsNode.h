@@ -81,11 +81,11 @@ protected:
             if (limit_ > 0 && edgeRowCount >= limit_) {
                 return kvstore::ResultCode::SUCCEEDED;
             }
-            auto edgeType = aggregateNode_->edgeType();
             auto key = aggregateNode_->key();
             auto reader = aggregateNode_->reader();
-            auto props = aggregateNode_->props();
-            auto columnIdx = aggregateNode_->idx();
+            auto edgeType = planContext_->edgeType_;
+            auto props = planContext_->props_;
+            auto columnIdx = planContext_->columnIdx_;
 
             // collect props need to return
             auto ret = collectEdgeProps(edgeType,
@@ -138,11 +138,11 @@ private:
         int64_t edgeRowCount = 0;
         nebula::List list;
         for (; aggregateNode_->valid(); aggregateNode_->next(), ++edgeRowCount) {
-            auto edgeType = aggregateNode_->edgeType();
             auto val = aggregateNode_->val();
             auto key = aggregateNode_->key();
-            auto props = aggregateNode_->props();
-            auto columnIdx = aggregateNode_->idx();
+            auto edgeType = planContext_->edgeType_;
+            auto props = planContext_->props_;
+            auto columnIdx = planContext_->columnIdx_;
             sampler_->sampling(std::make_tuple(edgeType, val.str(), key.str(), props, columnIdx));
         }
 

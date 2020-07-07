@@ -27,6 +27,8 @@ public:
     meta::IndexManager*                             indexMan_{nullptr};
 };
 
+struct PropContext;
+
 class PlanContext {
 public:
     PlanContext(StorageEnv* env, GraphSpaceID spaceId, size_t vIdLen)
@@ -37,6 +39,12 @@ public:
     StorageEnv*         env_;
     GraphSpaceID        spaceId_;
     size_t              vIdLen_;
+
+    // used for GetNeighbors
+    EdgeType                            edgeType_ = 0;
+    std::string                         edgeName_ = "";
+    size_t                              columnIdx_ = 0;
+    const std::vector<PropContext>*     props_ = nullptr;
 };
 
 class CommonUtils final {

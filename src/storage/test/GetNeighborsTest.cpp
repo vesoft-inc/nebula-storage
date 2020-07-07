@@ -630,8 +630,14 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         ASSERT_EQ(0, resp.result.failed_parts.size());
         ASSERT_EQ(1, resp.vertices.rows.size());
         ASSERT_EQ(6, resp.vertices.rows[0].values.size());
-        ASSERT_EQ(4, resp.vertices.rows[0].values[3].getList().values.size() +
-                     resp.vertices.rows[0].values[4].getList().values.size());
+        size_t actual = 0;
+        if (resp.vertices.rows[0].values[3].type() == Value::Type::LIST) {
+            actual += resp.vertices.rows[0].values[3].getList().values.size();
+        }
+        if (resp.vertices.rows[0].values[4].type() == Value::Type::LIST) {
+            actual += resp.vertices.rows[0].values[4].getList().values.size();
+        }
+        ASSERT_EQ(4, actual);
     }
     {
         LOG(INFO) << "MultiEdgeTypeSample";
