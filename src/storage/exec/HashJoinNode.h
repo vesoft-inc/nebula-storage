@@ -117,7 +117,7 @@ public:
 
 private:
     // return true when the value iter points to a value which can pass ttl and filter
-    bool setCurrentEdgeInfo() {
+    void setCurrentEdgeInfo() {
         EdgeType type = iter_->edgeType();
         // update info when edgeType changes while iterating over different edgeTypes
         if (type != planContext_->edgeType_) {
@@ -136,7 +136,6 @@ private:
             planContext_->columnIdx_ = edgeContext_->offset_ + idx;
             planContext_->props_ = &(edgeContext_->propContexts_[idx].second);
         }
-        return true;
     }
 
 private:

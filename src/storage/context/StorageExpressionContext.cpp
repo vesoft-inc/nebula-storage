@@ -15,31 +15,46 @@ Value StorageExpressionContext::value_ = NullType::__NULL__;
 // Get the specified property from the edge, such as edgename.prop_name
 const Value& StorageExpressionContext::getEdgeProp(const std::string& edgeName,
                                                    const std::string& prop) const {
-    UNUSED(edgeName);
-    if (prop == kSrc) {
-        value_ = NebulaKeyUtils::getSrcId(vIdLen_, key_);
-    } else if (prop == kDst) {
-        value_ = NebulaKeyUtils::getDstId(vIdLen_, key_);
-    } else if (prop == kRank) {
-        value_ = NebulaKeyUtils::getRank(vIdLen_, key_);
-    } else if (prop == kType) {
-        value_ = NebulaKeyUtils::getEdgeType(vIdLen_, key_);
+    if (isEdge_ && reader_ != nullptr) {
+        if (prop == kSrc) {
+            value_ = NebulaKeyUtils::getSrcId(vIdLen_, key_);
+        } else if (prop == kDst) {
+            value_ = NebulaKeyUtils::getDstId(vIdLen_, key_);
+        } else if (prop == kRank) {
+            value_ = NebulaKeyUtils::getRank(vIdLen_, key_);
+        } else if (prop == kType) {
+            value_ = NebulaKeyUtils::getEdgeType(vIdLen_, key_);
+        } else {
+            // todo(doodle): const reference... wait change return value type by value,
+            // and we need to use schema to get default value if necessary
+            value_ = reader_->getValueByName(prop);
+        }
+        return value_;
     } else {
-        // todo(doodle): const reference... wait change return value type by value,
-        // and we need to use schema to get default value if necessary
-        value_ = reader_->getValueByName(prop);
+        auto iter = edgeFilters_.find(std::make_pair(edgeName, prop));
+        if (iter == edgeFilters_.end()) {
+            return Value::kNullValue;
+        }
+        VLOG(1) << "Hit srcProp filter for edge " << edgeName << ", prop " << prop;
+        return iter->second;
     }
-    return value_;
 }
 
 const Value& StorageExpressionContext::getSrcProp(const std::string& tagName,
                                                   const std::string& prop) const {
-    auto iter = tagFilters_.find(std::make_pair(tagName, prop));
-    if (iter == tagFilters_.end()) {
-        return Value::kNullValue;
+    if (!isEdge_ && reader_ != nullptr) {
+        // todo(doodle): const reference... wait change return value type by value,
+        // and we need to use schema to get default value if necessary
+        value_ = reader_->getValueByName(prop);
+        return value_;
+    } else {
+        auto iter = tagFilters_.find(std::make_pair(tagName, prop));
+        if (iter == tagFilters_.end()) {
+            return Value::kNullValue;
+        }
+        VLOG(1) << "Hit srcProp filter for tag " << tagName << ", prop " << prop;
+        return iter->second;
     }
-    VLOG(1) << "Hit srcProp filter for tag " << tagName << ", prop " << prop;
-    return iter->second;
 }
 
 }  // namespace storage

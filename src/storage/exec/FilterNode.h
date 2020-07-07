@@ -45,7 +45,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (exp_ != nullptr) {
-            expCtx_->reset(upstream_->reader(), upstream_->key());
+            expCtx_->reset(upstream_->reader(), upstream_->key(), true);
             auto result = exp_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();

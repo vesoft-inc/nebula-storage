@@ -133,9 +133,15 @@ protected:
     Value result_;
 };
 
-// IterateNode is a typical volcano node, it will have a upstream node.
-// It keeps moving forward the iterator by calling `next`, if you need to filter some data,
-// implement the `check` just like FilterNode and HashJoinNode.
+/*
+IterateNode is a typical volcano node, it will have a upstream node. It keeps moving forward
+the iterator by calling `next`. If you need to filter some data, implement the `check` just
+like FilterNode.
+
+The difference between QueryNode and IterateNode is that, the latter one derives from
+StorageIterator, which makes IterateNode has a output of RowReader. If the reader is not null,
+user can get property from the reader.
+*/
 template<typename T>
 class IterateNode : public QueryNode<T>, public StorageIterator {
 public:
