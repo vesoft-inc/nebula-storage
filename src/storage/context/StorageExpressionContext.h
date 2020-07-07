@@ -37,6 +37,11 @@ public:
         , schema_(schema)
         , isEdge_(isEdge) {}
 
+    void reset(RowReader* reader, folly::StringPiece key) {
+        reader_ = reader;
+        key_ = key;
+    }
+
     // Get the latest version value for the given variable name, such as $a, $b
     const Value& getVar(const std::string&) const override {
         return Value::kNullValue;
