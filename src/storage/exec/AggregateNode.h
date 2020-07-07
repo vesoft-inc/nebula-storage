@@ -31,11 +31,13 @@ struct PropStat {
 // valid edges of a vertex. It could be used in ScanVertex or ScanEdge later.
 // The stat is collected during we iterate over edges via `next`, so if you want to get the
 // final result, be sure to call `calculateStat` and then retrieve the reuslt
-class AggregateNode : public IterateEdgeNode<VertexID> {
+class AggregateNode : public IterateNode<VertexID> {
 public:
-    AggregateNode(IterateEdgeNode* filterNode,
+    AggregateNode(PlanContext* planCtx,
+                  IterateNode* upstream,
                   EdgeContext* edgeContext)
-        : IterateEdgeNode(filterNode)
+        : IterateNode(upstream)
+        , planContext_(planCtx)
         , edgeContext_(edgeContext) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -52,9 +54,12 @@ public:
     }
 
     void next() override {
-        // we need to collect the stat during `next`
-        collectEdgeStats(srcId(), edgeType(), edgeRank(), dstId(), reader(), props());
-        IterateEdgeNode::next();
+        if (!stats_.empty()) {
+            // we need to collect the stat during `next`
+            collectEdgeStats(srcId(), edgeType(), edgeRank(), dstId(),
+                             reader(), planContext_->props_);
+        }
+        IterateNode::next();
     }
 
     void calculateStat() {
@@ -80,6 +85,22 @@ public:
     }
 
 private:
+    VertexIDSlice srcId() const {
+        return NebulaKeyUtils::getSrcId(planContext_->vIdLen_, upstream_->key());
+    }
+
+    EdgeType edgeType() const {
+        return NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, upstream_->key());
+    }
+
+    EdgeRanking edgeRank() const {
+        return NebulaKeyUtils::getRank(planContext_->vIdLen_, upstream_->key());
+    }
+
+    VertexIDSlice dstId() const {
+        return NebulaKeyUtils::getDstId(planContext_->vIdLen_, upstream_->key());
+    }
+
     void initStatValue(EdgeContext* edgeContext) {
         stats_.clear();
         // initialize all stat value of all edgeTypes
@@ -104,9 +125,6 @@ private:
                                          VertexIDSlice dstId,
                                          RowReader* reader,
                                          const std::vector<PropContext>* props) {
-        if (stats_.empty()) {
-            return kvstore::ResultCode::SUCCEEDED;
-        }
         for (const auto& prop : *props) {
             if (prop.hasStat_) {
                 for (const auto statIndex : prop.statIndex_) {
@@ -137,6 +155,7 @@ private:
     }
 
 private:
+    PlanContext* planContext_;
     EdgeContext* edgeContext_;
     std::vector<PropStat> stats_;
 };

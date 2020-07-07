@@ -20,10 +20,9 @@ public:
     explicit StorageExpressionContext(size_t vIdLen)
         : vIdLen_(vIdLen) {}
 
-    void reset(RowReader* reader, folly::StringPiece key, folly::StringPiece edgeName) {
+    void reset(RowReader* reader, folly::StringPiece key) {
         reader_ = reader;
         key_ = key;
-        name_ = edgeName;
     }
 
     // Get the latest version value for the given variable name, such as $a, $b
@@ -79,8 +78,6 @@ private:
     static Value value_;
     folly::StringPiece key_;
     RowReader* reader_;
-    // tag or edge name
-    folly::StringPiece name_;
 
     // <tagName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> tagFilters_;

@@ -15,9 +15,7 @@ Value StorageExpressionContext::value_ = NullType::__NULL__;
 // Get the specified property from the edge, such as edgename.prop_name
 const Value& StorageExpressionContext::getEdgeProp(const std::string& edgeName,
                                                    const std::string& prop) const {
-    if (edgeName != name_) {
-        return Value::kNullValue;
-    }
+    UNUSED(edgeName);
     if (prop == kSrc) {
         value_ = NebulaKeyUtils::getSrcId(vIdLen_, key_);
     } else if (prop == kDst) {

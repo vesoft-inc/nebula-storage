@@ -110,24 +110,25 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     }
 
     auto hashJoin = std::make_unique<HashJoinNode>(
-            tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
+            planContext_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
     for (auto* tag : tags) {
         hashJoin->addDependency(tag);
     }
     for (auto* edge : edges) {
         hashJoin->addDependency(edge);
     }
-    auto filter = std::make_unique<FilterNode>(hashJoin.get(), expCtx_.get(), filter_.get());
+    auto filter = std::make_unique<FilterNode>(
+            planContext_.get(), hashJoin.get(), expCtx_.get(), filter_.get());
     filter->addDependency(hashJoin.get());
-    auto agg = std::make_unique<AggregateNode>(filter.get(), &edgeContext_);
+    auto agg = std::make_unique<AggregateNode>(planContext_.get(), filter.get(), &edgeContext_);
     agg->addDependency(filter.get());
     std::unique_ptr<GetNeighborsNode> output;
     if (random) {
         output = std::make_unique<GetNeighborsSampleNode>(
-            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+                planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
     } else {
         output = std::make_unique<GetNeighborsNode>(
-            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+                planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
     }
     output->addDependency(agg.get());
 

@@ -39,7 +39,6 @@ class RelNode {
     friend class StoragePlan<T>;
 public:
     virtual kvstore::ResultCode execute(PartitionID partId, const T& input) {
-        DVLOG(1) << name_;
         for (auto* dependency : dependencies_) {
             auto ret = dependency->execute(partId, input);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
@@ -134,15 +133,15 @@ protected:
     Value result_;
 };
 
-// IterateEdgeNode is a typical volcano node, it will have a upstream node.
+// IterateNode is a typical volcano node, it will have a upstream node.
 // It keeps moving forward the iterator by calling `next`, if you need to filter some data,
 // implement the `check` just like FilterNode and HashJoinNode.
 template<typename T>
-class IterateEdgeNode : public QueryNode<T>, public EdgeIterator {
+class IterateNode : public QueryNode<T>, public StorageIterator {
 public:
-    IterateEdgeNode() = default;
+    IterateNode() = default;
 
-    explicit IterateEdgeNode(IterateEdgeNode* node) : upstream_(node) {}
+    explicit IterateNode(IterateNode* node) : upstream_(node) {}
 
     bool valid() const override {
         return upstream_->valid();
@@ -162,39 +161,9 @@ public:
         return upstream_->val();
     }
 
-    VertexIDSlice srcId() const override {
-        return upstream_->srcId();
-    }
-
-    EdgeType edgeType() const override {
-        return upstream_->edgeType();
-    }
-
-    EdgeRanking edgeRank() const override {
-        return upstream_->edgeRank();
-    }
-
-    VertexIDSlice dstId() const override {
-        return upstream_->dstId();
-    }
-
     // return the edge row reader which could pass filter
     RowReader* reader() const override {
         return upstream_->reader();
-    }
-
-    virtual const std::string& edgeName() const {
-        return upstream_->edgeName();
-    }
-
-    // return the column index in result row, used for GetNeighbors
-    virtual size_t idx() const {
-        return upstream_->idx();
-    }
-
-    // return the edge props need to return
-    virtual const std::vector<PropContext>* props() const {
-        return upstream_->props();
     }
 
 protected:
@@ -203,7 +172,7 @@ protected:
         return true;
     }
 
-    IterateEdgeNode* upstream_;
+    IterateNode* upstream_;
 };
 
 }  // namespace storage
