@@ -81,7 +81,6 @@ private:
     Expression* exp_;
 };
 
-
 }  // namespace storage
 }  // namespace nebula
 

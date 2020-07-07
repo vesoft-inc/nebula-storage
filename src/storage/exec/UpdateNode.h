@@ -25,12 +25,15 @@ public:
                   TagContext* tagContext,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                   std::vector<storage::cpp2::UpdatedProp>& updatedProps,
-                  TagFilterNode* filterNode)
+                  TagFilterNode* filterNode,
+                  bool insertable)
         : planContext_(planCtx)
         , tagContext_(tagContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
-        , filterNode_(filterNode) {
+        , filterNode_(filterNode)
+        , insertable_(insertable) {
+            tagId_ = planContext_->tagId_;
         }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -42,22 +45,28 @@ public:
             [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
+
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                    this->tagId_ = filterNode_->getTagId();
                     this->key_ = filterNode_->getKey();
-                    this->val_ = filterNode_->getValue();
-                    this->rowWriter_ = filterNode_->getRowWriter();
-                    this->updateContext_ = filterNode_->getUpdateContext();
-                    this->insert_ = filterNode_->getInsert();
-                    this->expCtx_ = filterNode_->getExpressionContext();
-                    return this->updateAndWriteBack(partId, vId);
-                } else {
-                    if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
-                        this->tagId_ = filterNode_->getTagId();
-                        this->updateContext_ = filterNode_->getUpdateContext();
-                        this->insert_ = filterNode_->getInsert();
-                        this->expCtx_ = filterNode_->getExpressionContext();
+                    this->reader_ = filterNode_->reader();
+
+                    if (!this->reader_ && this->insertable_) {
+                        this->exeResult_ = this->insertTagProps(partId, vId);
+                    } else if (this->reader_) {
+                        this->exeResult_ = this->collTagProp();
+                    } else {
+                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
+
+                    if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                        return folly::none;
+                    } else {
+                        return this->updateAndWriteBack(partId, vId);
+                    }
+
+                } else {
+                    // if filter out, StorageExpressionContext is set in filterNode
+                    // if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                     return folly::none;
                 }
             },
@@ -75,15 +84,109 @@ public:
         return ret;
     }
 
-    folly::Optional<std::string>
-    updateAndWriteBack(const PartitionID partId, const VertexID vId) {
+    kvstore::ResultCode getLatestTagSchemaAndName() {
+        auto schemaIter = tagContext_->schemas_.find(tagId_);
+        if (schemaIter == tagContext_->schemas_.end() ||
+            schemaIter->second.empty()) {
+            return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
+        }
+        schema_ = schemaIter->second.back().get();
+        if (!schema_) {
+            LOG(ERROR) << "Get nullptr schema";
+            return kvstore::ResultCode::ERR_UNKNOWN;
+        }
+
         auto iter = tagContext_->tagNames_.find(tagId_);
         if (iter == tagContext_->tagNames_.end()) {
             VLOG(1) << "Can't find spaceId " << planContext_->spaceId_
                     << " tagId " << tagId_;
-            return folly::none;
+            return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
+        }
+        tagName_ = iter->second;
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+
+    // Insert props row,
+    // For insert, condition is always true,
+    // Props must have default value or nullable
+    kvstore::ResultCode insertTagProps(PartitionID partId, const VertexID& vId) {
+        insert_ = true;
+        auto ret = getLatestTagSchemaAndName();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
         }
 
+        // props must have default value or nullable
+        // all fields values of this edge puts props_
+        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
+            auto field = schema_->field(index);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+            if (field->hasDefault()) {
+                props_[field->name()] = field->defaultValue();
+            } else if (field->nullable()) {
+                props_[field->name()] = NullType::__NULL__;
+            } else {
+                return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+            }
+        }
+
+        for (auto &e : props_) {
+            expCtx_->setTagProp(tagName_, e.first, e.second);
+        }
+
+        // build key, value is emtpy
+        auto version = std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        // Switch version to big-endian, make sure the key is in ordered.
+        version = folly::Endian::big(version);
+        key_ = NebulaKeyUtils::vertexKey(planContext_->vIdLen_,
+                                         partId, vId, tagId_, version);
+        rowWriter_ = std::make_unique<RowWriterV2>(schema);
+
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+
+    // collect tag prop
+    kvstore::ResultCode collTagProp() {
+        auto ret = getLatestTagSchemaAndName();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
+        }
+
+        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
+            auto propName = std::string(schema_->getFieldName(index));
+            VLOG(1) << "Collect prop " << propName << ", type " << tagId_;
+
+            // read prop value, If the RowReader contains this field,
+            // read from the rowreader, otherwise read the default value
+            // or null value from the latest schema
+            auto retVal = QueryUtils::readValue(reader_, propName, schema_);
+            if (!retVal.ok()) {
+                VLOG(1) << "Bad value for tag: " << tagId_;
+                        << ", prop " << propName;
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+            props_[propName] = std::move(retVal.value());
+        }
+
+        for (auto &e : props_) {
+            expCtx_->setTagProp(tagName_, e.first, e.second);
+        }
+
+        // After alter tag, the schema get from meta and the schema in RowReader
+        // may be inconsistent, so the following method cannot be used
+        // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
+        rowWriter_ = std::make_unique<RowWriterV2>(schema_);
+        val_ = reader->getData();
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    folly::Optional<std::string>
+    updateAndWriteBack(const PartitionID partId, const VertexID vId) {
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -92,20 +195,17 @@ public:
                 return folly::none;
             }
             auto updateVal = updateExp->eval(*expCtx_);
-            // update prop value to updateContext_
-            updateContext_->fillTagProp(tagId_, propName, updateVal);
+            // update prop value to props_
+            props_[propName] = updateVal;
             // update expression context
-            expCtx_->setTagProp(iter->second, propName, updateVal);
+            expCtx_->setTagProp(tagName_, propName, std::move(updateVal));
         }
 
-        auto tagPropMap = updateContext_->getTagUpdateCon();
-        for (auto& e : tagPropMap) {
-            if (e.first.first == tagId_) {
-                auto wRet = rowWriter_->setValue(e.first.second, e.second);
-                if (wRet != WriteResult::SUCCEEDED) {
-                    LOG(ERROR) << "Add field faild ";
-                    return folly::none;
-                }
+        for (auto& e : props_) {
+            auto wRet = rowWriter_->setValue(e.first, e.second);
+            if (wRet != WriteResult::SUCCEEDED) {
+                LOG(ERROR) << "Add field faild ";
+                return folly::none;
             }
         }
 
@@ -126,22 +226,16 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader, oReader;
+            std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
-                        if (!oReader) {
-                            oReader = RowReader::getTagPropReader(planContext_->env_->schemaMan_,
-                                                                  planContext_->spaceId_,
-                                                                  tagId_,
-                                                                  val_);
-                        }
-                        if (!oReader) {
+                        if (!reader_) {
                             LOG(ERROR) << "Bad format row";
                             return folly::none;
                         }
-                        auto oi = indexKey(partId, vId, oReader.get(), index);
+                        auto oi = indexKey(partId, vId, reader_, index);
                         if (!oi.empty()) {
                             batchHolder->remove(std::move(oi));
                         }
@@ -197,22 +291,34 @@ private:
     PlanContext                                                            *planContext_;
     TagContext                                                             *tagContext_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
-    // update <tagID, prop name, new value expression>
+    // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
     TagFilterNode                                                          *filterNode_;
-
+    // Whether to allow insert
+    bool                                                                    insertable_{false};
     TagID                                                                   tagId_;
+
     std::string                                                             key_;
+    RowReader                                                              *reader_{nullptr};
+
+    meta::SchemaProviderIf                                                 *schema_{nullptr};
+    std::string                                                             tagName_;
+
     // use to save old row value
     std::string                                                             val_;
-    RowWriterV2*                                                            rowWriter_;
+    std::unique_ptr<RowWriterV2>                                            rowWriter_;
+    // tagId_ prop -> value
+    std::unordered_map<std::string, Value>                                  props_;
+
     // ============================ output ====================================================
     // input and update, then output
     UpdateContext                                                          *updateContext_;
+    // Whether an insert has occurred
     bool                                                                    insert_{false};
     UpdateExpressionContext                                                *expCtx_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
+
 
 // Only use for update edge
 // Update records, write to kvstore
@@ -222,12 +328,15 @@ public:
                    EdgeContext* edgeContext,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
-                   EdgeFilterNode* filterNode)
+                   EdgeFilterNode* filterNode,
+                   bool insertable)
         : planContext_(planCtx)
         , edgeContext_(edgeContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
-        , filterNode_(filterNode) {
+        , filterNode_(filterNode)
+        , insertable_(insertable) {
+            edgeType_ = planContext_->edgeType_;
         }
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
@@ -240,21 +349,31 @@ public:
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, edgeKey);
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                    this->edgeType_ = filterNode_->getEdgeType();
-                    this->key_ = filterNode_->getKey();
-                    this->val_ = filterNode_->getValue();
-                    this->rowWriter_ = filterNode_->getRowWriter();
-                    this->updateContext_ = filterNode_->getUpdateContext();
-                    this->insert_ = filterNode_->getInsert();
-                    this->expCtx_ = filterNode_->getExpressionContext();
-                    return this->updateAndWriteBack(partId, edgeKey);
-                } else {
-                    if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
-                        this->edgeType_ = filterNode_->getEdgeType();
-                        this->updateContext_ = filterNode_->getUpdateContext();
-                        this->insert_ = filterNode_->getInsert();
-                        this->expCtx_ = filterNode_->getExpressionContext();
+                    if (edgeKey.edge_type != this->edgeType_) {
+                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                        return folly::none;
                     }
+
+                    this->key_ = filterNode_->getKey();
+                    this->reader_ = filterNode_->reader();
+
+                    if (!this->reader_ && this->insertable_) {
+                        this->exeResult_ = this->insertEdgeProps(partId, edgeKey);
+                    } else if (this->reader_) {
+                        this->exeResult_ = this->collEdgeProp();
+                    } else {
+                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                    }
+
+                    if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                        return folly::none;
+                    } else {
+                        return this->updateAndWriteBack(partId, edgeKey);
+                    }
+
+                } else {
+                    // If filter out, StorageExpressionContext is set in filterNode
+                    // if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                     return folly::none;
                 }
             },
@@ -272,20 +391,124 @@ public:
         return ret;
     }
 
-    folly::Optional<std::string>
-    updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
-        if (edgeType_ != edgeKey.edge_type) {
-            VLOG(1) << "Update edge faild ";
-            return folly::none;
+    kvstore::ResultCode getLatestEdgeSchemaAndName() {
+        auto schemaIter = edgeContext_->schemas_.find(std::abs(edgeType_));
+        if (schemaIter == edgeContext_->schemas_.end() ||
+            schemaIter->second.empty()) {
+            return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
+        }
+        schema_ = schemaIter->second.back().get();
+        if (!schema_) {
+            LOG(ERROR) << "Get nullptr schema";
+            return kvstore::ResultCode::ERR_UNKNOWN;
         }
 
         auto iter = edgeContext_->edgeNames_.find(edgeType_);
         if (iter == edgeContext_->edgeNames_.end()) {
             VLOG(1) << "Can't find spaceId " << planContext_->spaceId_
                     << " edgeType " << edgeType_;
-            return folly::none;
+            return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
+        }
+        edgeName_ = iter->second;
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    // Insert props row,
+    // Operator props must have default value or nullable
+    kvstore::ResultCode insertEdgeProps(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
+        insert_ = true;
+        auto ret = getLatestEdgeSchemaAndName();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
         }
 
+        // props must have default value or nullable
+        // all fields values of this edge puts updateContext_
+        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
+            auto field = schema_->field(index);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+            }
+            if (field->hasDefault()) {
+                props_[field->name()] = field->defaultValue();
+            } else if (field->nullable()) {
+                props_[field->name()] = NullType::__NULL__;
+            } else {
+                return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+            }
+        }
+
+        // build expression context
+        // add _src, _type, _rank, _dst
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey_.src);
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey_.dst);
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey_.ranking);
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey_.edge_type);
+
+        for (auto &e : props_) {
+            expCtx_->setEdgeProp(edgeName_, e.first, e.second);
+        }
+
+        // build key, value is emtpy
+        auto version =
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        // Switch version to big-endian, make sure the key is in ordered.
+        version = folly::Endian::big(version);
+        key_ = NebulaKeyUtils::edgeKey(planContext_->vIdLen_,
+                                       partId,
+                                       edgeKey.src,
+                                       edgeKey.edge_type,
+                                       edgeKey.ranking,
+                                       edgeKey.dst,
+                                       version);
+        rowWriter_ = std::make_unique<RowWriterV2>(schema_);
+
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    // Collect edge prop
+    kvstore::ResultCode collEdgeProp() {
+        auto ret = getLatestEdgeSchemaAndName();
+
+        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
+            auto propName = std::string(schema_->getFieldName(index));
+            VLOG(1) << "Collect prop " << propName << ", edgeType " << edgeType_;
+
+            // Read prop value, If the RowReader contains this field,
+            // read from the rowreader, otherwise read the default value
+            // or null value from the latest schema
+            auto retVal = QueryUtils::readValue(reader_, propName, schema_);
+            if (!retVal.ok()) {
+                VLOG(1) << "Bad value for edge: " << edgeType_
+                        << ", prop " << propName;
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+            }
+            props_[propName] = std::move(retVal.value());
+        }
+
+        // build expression context
+        // add _src, _type, _rank, _dst
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey_.src);
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey_.dst);
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey_.ranking);
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey_.edge_type);
+
+        for (auto &e : props_) {
+            expCtx_->setEdgeProp(edgeName_, e.first, e.second);
+        }
+
+        // After alter edge, the schema get from meta and the schema in RowReader
+        // may be inconsistent, so the following method cannot be used
+        // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
+        rowWriter_ = std::make_unique<RowWriterV2>(schema_);
+        val_ = reader_->getData();
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+
+    folly::Optional<std::string>
+    updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -294,19 +517,16 @@ public:
             }
             auto updateVal = updateExp->eval(*expCtx_);
             // update prop value to updateContext_
-            updateContext_->fillEdgeProp(edgeType_, propName, updateVal);
+            props_[propName] = updateVal;
         // update expression context
-            expCtx_->setEdgeProp(iter->second, propName, updateVal);
+            expCtx_->setEdgeProp(edgeName_, propName, std::move(updateVal));
         }
 
-        auto edgePropMap = updateContext_->getEdgeUpdateCon();
-        for (auto& e : edgePropMap) {
-            if (e.first.first == edgeType_) {
-                auto wRet = rowWriter_->setValue(e.first.second, e.second);
-                if (wRet != WriteResult::SUCCEEDED) {
-                    VLOG(1) << "Add field faild ";
-                    return folly::none;
-                }
+        for (auto& e : props_) {
+            auto wRet = rowWriter_->setValue(e.first.second, e.second);
+            if (wRet != WriteResult::SUCCEEDED) {
+                VLOG(1) << "Add field faild ";
+                return folly::none;
             }
         }
 
@@ -326,18 +546,12 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader, oReader;
+            std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
-                        if (!oReader) {
-                            oReader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
-                                                                   planContext_->spaceId_,
-                                                                   std::abs(edgeType_),
-                                                                   val_);
-                        }
-                        if (!oReader) {
+                        if (!reader_) {
                             LOG(ERROR) << "Bad format row";
                             return folly::none;
                         }
@@ -407,11 +621,21 @@ private:
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
     EdgeFilterNode                                                         *filterNode_;
 
+    // Whether to allow insert
+    bool                                                                    insertable_{false};
     EdgeType                                                                edgeType_;
+
     std::string                                                             key_;
+    RowReader                                                              *reader_{nullptr};
+
+    meta::SchemaProviderIf                                                 *schema_{nullptr};
+    std::string                                                             edgeName_;
     // use to save old row value
     std::string                                                             val_;
-    RowWriterV2*                                                            rowWriter_;
+    std::unique_ptr<RowWriterV2>                                            rowWriter_;
+
+    // edgeType_ prop -> value
+    std::unordered_map<std::string, Value>                                  props_;
 
     // ============================ output ====================================================
     // input and update, then output
