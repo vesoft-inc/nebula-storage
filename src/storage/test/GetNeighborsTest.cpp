@@ -545,7 +545,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         edges.emplace_back(-serve, std::vector<std::string>{
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        req.set_limit(10);
+        req.traverse_spec.set_limit(10);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -568,7 +568,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        req.set_limit(4);
+        req.traverse_spec.set_limit(4);
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
@@ -593,8 +593,8 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         edges.emplace_back(-serve, std::vector<std::string>{
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        req.set_limit(10);
-        req.set_random(true);
+        req.traverse_spec.set_limit(10);
+        req.traverse_spec.set_random(true);
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -617,8 +617,8 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        req.set_limit(4);
-        req.set_random(true);
+        req.traverse_spec.set_limit(4);
+        req.traverse_spec.set_random(true);
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
@@ -650,8 +650,8 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        req.set_limit(5);
-        req.set_random(true);
+        req.traverse_spec.set_limit(5);
+        req.traverse_spec.set_random(true);
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1510,7 +1510,7 @@ TEST(GetNeighborsTest, FilterTest) {
                 new EdgePropertyExpression(new std::string(folly::to<std::string>(serve)),
                                            new std::string("teamAvgScore")),
                 new ConstantExpression(Value(15)));
-            req.set_filter(Expression::encode(exp));
+            req.traverse_spec.set_filter(Expression::encode(exp));
         }
 
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
@@ -1559,7 +1559,7 @@ TEST(GetNeighborsTest, FilterTest) {
                 new EdgePropertyExpression(new std::string(folly::to<std::string>(teammate)),
                                            new std::string("startYear")),
                 new ConstantExpression(Value(2002)));
-            req.set_filter(Expression::encode(exp));
+            req.traverse_spec.set_filter(Expression::encode(exp));
         }
         auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();

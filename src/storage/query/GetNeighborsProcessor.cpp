@@ -40,10 +40,10 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
 
     int64_t limit = 0;
     bool random = false;
-    if (req.__isset.limit) {
-        limit = req.limit;
-        if (req.__isset.random) {
-            random = req.random;
+    if (req.traverse_spec.__isset.limit) {
+        limit = req.traverse_spec.limit;
+        if (req.traverse_spec.__isset.random) {
+            random = req.traverse_spec.random;
         }
     }
 
