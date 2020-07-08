@@ -19,21 +19,17 @@
 namespace nebula {
 namespace storage {
 
-using TagNullHandler = std::function<kvstore::ResultCode(TagID,
-                                                         const std::vector<PropContext>*)>;
 
-using EdgeNullHandler = std::function<kvstore::ResultCode(EdgeType,
-                                                          const std::vector<PropContext>*)>;
+using NullHandler = std::function<kvstore::ResultCode(const std::vector<PropContext>*)>;
 
 using TagPropHandler = std::function<kvstore::ResultCode(TagID,
                                                          RowReader*,
-                                                         const std::vector<PropContext>* props,
-                                                         const folly::StringPiece& key)>;
+                                                         const std::vector<PropContext>* props)>;
 
 using EdgePropHandler = std::function<kvstore::ResultCode(EdgeType,
+                                                          folly::StringPiece,
                                                           RowReader*,
-                                                          const std::vector<PropContext>* props,
-                                                          folly::StringPiece& key)>;
+                                                          const std::vector<PropContext>* props)>;
 
 template<typename T> class StoragePlan;
 
@@ -175,6 +171,11 @@ public:
     // return the edge row reader which could pass filter
     RowReader* reader() const override {
         return upstream_->reader();
+    }
+
+    // only update use
+    bool dataError() const override {
+        return upstream_->dataError();
     }
 
 protected:

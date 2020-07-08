@@ -28,6 +28,8 @@ public:
     virtual folly::StringPiece val() const = 0;
 
     virtual RowReader* reader() const = 0;
+
+    virtual bool dataError() const = 0;
 };
 
 class SingleTagIterator : public StorageIterator {
@@ -75,11 +77,18 @@ public:
         return reader_.get();
     }
 
+    // only update use
+    bool dataError() const override {
+        return dataError_;
+    }
+
 protected:
     // return true when the value iter to a valid tag value
     bool check(folly::StringPiece val) {
+        dataError_ = false;
         reader_ = RowReader::getRowReader(*schemas_, val);
         if (!reader_) {
+            dataError_ = true;
             return false;
         }
 
@@ -95,13 +104,14 @@ protected:
         return true;
     }
 
-    std::unique_ptr<kvstore::KVIterator> iter_;
-    TagID tagId_;
-    size_t vIdLen_;
-    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
-    const folly::Optional<std::pair<std::string, int64_t>>* ttl_ = nullptr;
+    std::unique_ptr<kvstore::KVIterator>                                  iter_;
+    TagID                                                                 tagId_;
+    size_t                                                                vIdLen_;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
+    const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
 
-    std::unique_ptr<RowReader> reader_;
+    std::unique_ptr<RowReader>                                            reader_;
+    bool                                                                  dataError_ = false;
 };
 
 // Iterator of single specified type
@@ -130,7 +140,7 @@ public:
         } else {
             check();
         }
-
+    }
 
     bool valid() const override {
         return reader_ != nullptr;
@@ -162,10 +172,16 @@ public:
         return edgeType_;
     }
 
+    // only update use
+    bool dataError() const override {
+        return dataError_;
+    }
+
 protected:
     // return true when the value iter to a valid edge value
     bool check() {
         reader_.reset();
+        dataError_ = false;
         auto key = iter_->key();
         auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
         auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
@@ -178,9 +194,11 @@ protected:
         if (!reader_) {
             reader_ = RowReader::getRowReader(*schemas_, val);
             if (!reader_) {
+                dataError_ = true;
                 return false;
             }
         } else if (!reader_->reset(*schemas_, val)) {
+            dataError_ = true;
             return false;
         }
 
@@ -200,17 +218,17 @@ protected:
         return true;
     }
 
-    std::unique_ptr<kvstore::KVIterator> iter_;
-    EdgeType edgeType_;
-    size_t vIdLen_;
-    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
-    const folly::Optional<std::pair<std::string, int64_t>>* ttl_ = nullptr;
+    std::unique_ptr<kvstore::KVIterator>                                  iter_;
+    EdgeType                                                              edgeType_;
+    size_t                                                                vIdLen_;
+    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
+    const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
 
-    std::unique_ptr<RowReader> reader_;
-    EdgeRanking lastRank_ = 0;
-    VertexID lastDstId_ = "";
-    bool firstLoop_ = true;
-    bool firstValidRec_ = true;
+    std::unique_ptr<RowReader>                                            reader_;
+    EdgeRanking                                                           lastRank_ = 0;
+    VertexID                                                              lastDstId_ = "";
+    bool                                                                  firstLoop_ = true;
+    bool                                                                  dataError_ = false;
 };
 
 // Iterator of multiple SingleEdgeIterator, it will iterate over edges of different types
@@ -252,6 +270,10 @@ public:
     // return the index of multiple iterators
     size_t getIdx() const {
         return curIter_;
+    }
+
+    bool dataError() const override {
+        return false;
     }
 
 private:

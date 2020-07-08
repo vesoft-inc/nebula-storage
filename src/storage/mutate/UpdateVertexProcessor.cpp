@@ -107,7 +107,7 @@ The storage plan of update(upsert) vertex looks like this:
              +--------+---------+
                       |
              +--------+---------+
-             |   TagFilterNode  |
+             |    FilterNode    |
              +--------+---------+
                       |
              +--------+---------+
@@ -116,41 +116,35 @@ The storage plan of update(upsert) vertex looks like this:
 */
 StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) {
     StoragePlan<VertexID> plan;
-    std::vector<TagNode*> tagUpdates;
     // handle tag props, return prop, filter prop, update prop
-    for (const auto& tc : tagContext_.propContexts_) {
-        // Process all need attributes of one tag at a time
-        auto tagUpdate = std::make_unique<TagNode>(planContext_.get(),
-                                                   &tagContext_,
-                                                   tc.first,
-                                                   &tc.second);
-        tagUpdates.emplace_back(tagUpdate.get());
-        plan.addNode(std::move(tagUpdate));
-    }
+    auto tagUpdate = std::make_unique<TagNode>(planContext_.get(),
+                                               &tagContext_,
+                                               tagContext_.propContexts_[0].first,
+                                               &(tagContext_.propContexts_[0].second));
 
-    auto filterNode = std::make_unique<TagFilterNode>(tagUpdates,
-                                                      planContext_.get(),
-                                                      &tagContext_,
-                                                      filterExp_.get(),
-                                                      expCtx_.get(),
-                                                      insertable_,
-                                                      tagId_);
-
-    for (auto* tagUpdate : tagUpdates) {
-        filterNode->addDependency(tagUpdate);
-    }
+    auto filterNode = std::make_unique<FilterNode<VertexID>>(planContext_.get(),
+                                                             tagUpdate.get(),
+                                                             false,
+                                                             expCtx_.get(),
+                                                             filterExp_.get(),
+                                                             true,
+                                                             &tagContext_);
+    filterNode->addDependency(tagUpdate.get());
 
     auto updateNode = std::make_unique<UpdateTagNode>(planContext_.get(),
                                                       &tagContext_,
                                                       indexes_,
                                                       updatedProps_,
-                                                      filterNode.get());
+                                                      filterNode.get(),
+                                                      insertable_,
+                                                      expCtx_.get());
     updateNode->addDependency(filterNode.get());
 
     auto resultNode = std::make_unique<UpdateTagResNode>(updateNode.get(),
                                                          getReturnPropsExp(),
                                                          result);
     resultNode->addDependency(updateNode.get());
+    plan.addNode(std::move(tagUpdate));
     plan.addNode(std::move(filterNode));
     plan.addNode(std::move(updateNode));
     plan.addNode(std::move(resultNode));
@@ -174,7 +168,7 @@ cpp2::ErrorCode UpdateVertexProcessor::buildTagSchema() {
 cpp2::ErrorCode
 UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<UpdateExpressionContext>(spaceVidLen_);
+        expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_);
     }
 
     // Build context of the update vertex tag props
@@ -219,7 +213,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             auto colExp = Expression::decode(prop);
             if (!colExp) {
                 VLOG(1) << "Can't decode the return expression";
-                return cpp2::ErrorCode::E_INVALID_FILTER;
+                return cpp2::ErrorCode::E_INVALID_UPDATER;
             }
             auto retCode = checkExp(colExp.get(), true, false);
             if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -251,6 +245,28 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         tagContext_.tagNames_.find(tagId_) == tagContext_.tagNames_.end()) {
         VLOG(1) << "should only contain one tag in update vertex!";
         return cpp2::ErrorCode::E_INVALID_UPDATER;
+    }
+
+    planContext_->tagId_ = tagId_;
+    auto iter = tagContext_.tagNames_.find(tagId_);
+    if (iter == tagContext_.tagNames_.end()) {
+        return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+    }
+
+    planContext_->tagName_ = iter->second;
+    auto schemaMap = tagContext_.schemas_;
+    auto iterSchema = schemaMap.find(tagId_);
+    if (iterSchema != schemaMap.end()) {
+        auto schemas = iterSchema->second;
+        auto schema = schemas.back().get();
+        if (!schema) {
+            VLOG(1) << "Fail to get schema in TagId " << tagId_;
+            return cpp2::ErrorCode::E_UNKNOWN;
+        }
+        planContext_->tagSchema_ = schema;
+    } else {
+        VLOG(1) << "Fail to get schema in TagId " << tagId_;
+        return cpp2::ErrorCode::E_TAG_NOT_FOUND;
     }
 
     return cpp2::ErrorCode::SUCCEEDED;

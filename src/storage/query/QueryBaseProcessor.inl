@@ -373,19 +373,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             auto edgeType = edgeRet.value();
 
-            auto edIter = std::find_if(edgeContext_.edgeNames_.begin(),
-                                       edgeContext_.edgeNames_.end(),
-                                       [&edgeType] (const auto& e) {
-                                return std::abs(e.first) == std::abs(edgeType); });
-
-            if (edIter == edgeContext_.edgeNames_.end()) {
-                // expression edgetype not in EdgeContext
-                VLOG(1) << "EdgeType " << edgeType << " not in EdgeContext";
-                return cpp2::ErrorCode::E_INVALID_FILTER;
-            } else {
-                edgeType = edIter->first;
-            }
-
             auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
             if (iter == edgeContext_.schemas_.end()) {
                 VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);

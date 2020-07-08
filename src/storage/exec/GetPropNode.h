@@ -31,9 +31,7 @@ public:
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&row] (TagID tagId,
-                        const std::vector<PropContext>* props) -> kvstore::ResultCode {
-                    UNUSED(tagId);
+                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
                             row.emplace_back(NullType::__NULL__);
@@ -43,10 +41,8 @@ public:
                 },
                 [this, &row, &tagName] (TagID tagId,
                                         RowReader* reader,
-                                        const std::vector<PropContext>* props,
-                                        const folly::StringPiece& key)
+                                        const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
-                    UNUSED(key);
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,
@@ -92,9 +88,7 @@ public:
         std::vector<Value> row;
         for (auto* edgeNode : edgeNodes_) {
             ret = edgeNode->collectEdgePropsIfValid(
-                [&row] (EdgeType edgeType,
-                        const std::vector<PropContext>* props) -> kvstore::ResultCode {
-                    UNUSED(edgeType);
+                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
                             row.emplace_back(NullType::__NULL__);

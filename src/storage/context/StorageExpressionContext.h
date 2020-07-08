@@ -15,31 +15,23 @@
 namespace nebula {
 namespace storage {
 
-<<<<<<< HEAD
 /*
 StorageExpressionContext supports both read value from a RowReader, or user set value by
 `setTagProp` and `setEdgeProp`.
 
-<<<<<<< HEAD
 If we need to read value from the RowReader, be sure to set the reader by calling `reset`. For now,
 it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
 This mode is used in GetNeighbors at present.
 
-If we need to read value from not from user defined plase, just set the related value by
-`setTagProp` and `setEdgeProp`. Be sure about not pass the RowReader by `reset`.
-=======
-If we need to read from the RowReader, be sure to set the reader by calling `reset`. For now,
+If we need to read value from the RowReader, be sure to set the reader by calling `reset`. For now,
 it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
 This mode is used in GetNeighbors at present.
 
-If we need to read from not from a RowReader, just set the related value. Be sure about not pass
+If we need to read value from a user defined plase, just set the related value by
+`setTagProp` and `setEdgeProp`. Be sure about not pass the RowReader by `reset`.
 the RowReader by `reset`.
->>>>>>> modify StorageExpressionContext
 */
-class StorageExpressionContext final : public ExpressionContext {
-=======
 class StorageExpressionContext : public ExpressionContext {
->>>>>>> rebase master
 public:
     explicit StorageExpressionContext(size_t vIdLen)
         : vIdLen_(vIdLen) {}
@@ -84,34 +76,35 @@ public:
 
     void setVar(const std::string&, Value) override {}
 
-<<<<<<< HEAD
-    void reset(RowReader* reader, folly::StringPiece key, folly::StringPiece name, bool isEdge) {
+    void reset(RowReader* reader,
+               folly::StringPiece key,
+               std::string name,
+               const meta::NebulaSchemaProvider* schema,
+               bool isEdge) {
         reader_ = reader;
         key_ = key;
         name_ = name;
-=======
-    void reset(RowReader* reader, folly::StringPiece key, bool isEdge) {
-        reader_ = reader;
-        key_ = key;
->>>>>>> modify StorageExpressionContext
+        schema_ = schema;
         isEdge_ = isEdge;
     }
 
     void reset() {
         reader_ = nullptr;
         key_ = "";
+        name_ = "";
+        schema_ = nullptr;
     }
 
     void setTagProp(const std::string& tagName,
                     const std::string& prop,
                     nebula::Value value) {
-        tagFilters_.emplace(std::make_pair(tagName, prop), std::move(value));
+        tagFilters_[std::make_pair(tagName, prop)] = std::move(value);
     }
 
     void setEdgeProp(const std::string& edgeName,
                      const std::string& prop,
                      nebula::Value value) {
-        edgeFilters_.emplace(std::make_pair(edgeName, prop), std::move(value));
+        edgeFilters_[std::make_pair(edgeName, prop)] = std::move(value);
     }
 
     void clear() {
@@ -119,17 +112,22 @@ public:
         edgeFilters_.clear();
     }
 
-private:
-    size_t vIdLen_;
+    const Value& readValue(RowReader* reader,
+                    const std::string& propName,
+                    const meta::NebulaSchemaProvider* schema) const;
 
-    folly::StringPiece key_;
-    RowReader* reader_;
-<<<<<<< HEAD
+private:
+    size_t                             vIdLen_;
+
+    // todo(doodle): temp solution because need to return const reference
+    static Value                       value_;
+    RowReader                         *reader_;
+    folly::StringPiece                 key_;
     // tag or edge name
-    folly::StringPiece name_;
-=======
->>>>>>> modify StorageExpressionContext
-    bool isEdge_;
+    std::string                        name_;
+    // tag or edge name lastest schema
+    const meta::NebulaSchemaProvider  *schema_;
+    bool                               isEdge_;
 
     // <tagName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> tagFilters_;

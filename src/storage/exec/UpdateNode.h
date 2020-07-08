@@ -9,7 +9,7 @@
 
 #include "common/base/Base.h"
 #include "common/expression/Expression.h"
-#include "storage/context/UpdateExpressionContext.h"
+#include "storage/context/StorageExpressionContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
 #include "kvstore/LogEncoder.h"
@@ -25,14 +25,16 @@ public:
                   TagContext* tagContext,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                   std::vector<storage::cpp2::UpdatedProp>& updatedProps,
-                  TagFilterNode* filterNode,
-                  bool insertable)
+                  FilterNode<VertexID>* filterNode,
+                  bool insertable,
+                  StorageExpressionContext* expCtx = nullptr)
         : planContext_(planCtx)
         , tagContext_(tagContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
-        , insertable_(insertable) {
+        , insertable_(insertable)
+        , expCtx_(expCtx) {
             tagId_ = planContext_->tagId_;
         }
 
@@ -47,12 +49,14 @@ public:
                 this->exeResult_ = RelNode::execute(partId, vId);
 
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                    this->key_ = filterNode_->getKey();
                     this->reader_ = filterNode_->reader();
+                    // reset StorageExpressionContext reader_ to nullptr
+                    this->expCtx_->reset();
 
                     if (!this->reader_ && this->insertable_) {
                         this->exeResult_ = this->insertTagProps(partId, vId);
                     } else if (this->reader_) {
+                        this->key_ = filterNode_->key().str();
                         this->exeResult_ = this->collTagProp();
                     } else {
                         this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
@@ -139,12 +143,13 @@ public:
         }
 
         // build key, value is emtpy
-        auto version = std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version =
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
         // Switch version to big-endian, make sure the key is in ordered.
         version = folly::Endian::big(version);
         key_ = NebulaKeyUtils::vertexKey(planContext_->vIdLen_,
                                          partId, vId, tagId_, version);
-        rowWriter_ = std::make_unique<RowWriterV2>(schema);
+        rowWriter_ = std::make_unique<RowWriterV2>(schema_);
 
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -166,7 +171,7 @@ public:
             // or null value from the latest schema
             auto retVal = QueryUtils::readValue(reader_, propName, schema_);
             if (!retVal.ok()) {
-                VLOG(1) << "Bad value for tag: " << tagId_;
+                VLOG(1) << "Bad value for tag: " << tagId_
                         << ", prop " << propName;
                 return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
             }
@@ -181,7 +186,7 @@ public:
         // may be inconsistent, so the following method cannot be used
         // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
         rowWriter_ = std::make_unique<RowWriterV2>(schema_);
-        val_ = reader->getData();
+        val_ = reader_->getData();
         return kvstore::ResultCode::SUCCEEDED;
     }
 
@@ -281,7 +286,7 @@ public:
         return insert_;
     }
 
-    UpdateExpressionContext* getExpressionContext() {
+    StorageExpressionContext* getExpressionContext() {
         return expCtx_;
     }
 
@@ -293,7 +298,7 @@ private:
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
-    TagFilterNode                                                          *filterNode_;
+    FilterNode<VertexID>                                                   *filterNode_;
     // Whether to allow insert
     bool                                                                    insertable_{false};
     TagID                                                                   tagId_;
@@ -301,7 +306,7 @@ private:
     std::string                                                             key_;
     RowReader                                                              *reader_{nullptr};
 
-    meta::SchemaProviderIf                                                 *schema_{nullptr};
+    const meta::NebulaSchemaProvider                                       *schema_{nullptr};
     std::string                                                             tagName_;
 
     // use to save old row value
@@ -311,11 +316,9 @@ private:
     std::unordered_map<std::string, Value>                                  props_;
 
     // ============================ output ====================================================
-    // input and update, then output
-    UpdateContext                                                          *updateContext_;
     // Whether an insert has occurred
     bool                                                                    insert_{false};
-    UpdateExpressionContext                                                *expCtx_;
+    StorageExpressionContext                                               *expCtx_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
 
@@ -328,14 +331,16 @@ public:
                    EdgeContext* edgeContext,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
-                   EdgeFilterNode* filterNode,
-                   bool insertable)
+                   FilterNode<cpp2::EdgeKey>* filterNode,
+                   bool insertable,
+                   StorageExpressionContext* expCtx = nullptr)
         : planContext_(planCtx)
         , edgeContext_(edgeContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
-        , insertable_(insertable) {
+        , insertable_(insertable)
+        , expCtx_(expCtx) {
             edgeType_ = planContext_->edgeType_;
         }
 
@@ -354,13 +359,15 @@ public:
                         return folly::none;
                     }
 
-                    this->key_ = filterNode_->getKey();
                     this->reader_ = filterNode_->reader();
+                    // reset StorageExpressionContext reader_ to nullptr
+                    this->expCtx_->reset();
 
                     if (!this->reader_ && this->insertable_) {
                         this->exeResult_ = this->insertEdgeProps(partId, edgeKey);
                     } else if (this->reader_) {
-                        this->exeResult_ = this->collEdgeProp();
+                        this->key_ = filterNode_->key().str();
+                        this->exeResult_ = this->collEdgeProp(edgeKey);
                     } else {
                         this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
@@ -441,10 +448,10 @@ public:
 
         // build expression context
         // add _src, _type, _rank, _dst
-        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey_.src);
-        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey_.dst);
-        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey_.ranking);
-        expCtx_->setEdgeProp(edgeName_, kType, edgeKey_.edge_type);
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.edge_type);
 
         for (auto &e : props_) {
             expCtx_->setEdgeProp(edgeName_, e.first, e.second);
@@ -468,8 +475,11 @@ public:
     }
 
     // Collect edge prop
-    kvstore::ResultCode collEdgeProp() {
+    kvstore::ResultCode collEdgeProp(const cpp2::EdgeKey& edgeKey) {
         auto ret = getLatestEdgeSchemaAndName();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
+        }
 
         for (auto index = 0UL; index < schema_->getNumFields(); index++) {
             auto propName = std::string(schema_->getFieldName(index));
@@ -489,10 +499,10 @@ public:
 
         // build expression context
         // add _src, _type, _rank, _dst
-        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey_.src);
-        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey_.dst);
-        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey_.ranking);
-        expCtx_->setEdgeProp(edgeName_, kType, edgeKey_.edge_type);
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.edge_type);
 
         for (auto &e : props_) {
             expCtx_->setEdgeProp(edgeName_, e.first, e.second);
@@ -523,7 +533,7 @@ public:
         }
 
         for (auto& e : props_) {
-            auto wRet = rowWriter_->setValue(e.first.second, e.second);
+            auto wRet = rowWriter_->setValue(e.first, e.second);
             if (wRet != WriteResult::SUCCEEDED) {
                 VLOG(1) << "Add field faild ";
                 return folly::none;
@@ -555,7 +565,7 @@ public:
                             LOG(ERROR) << "Bad format row";
                             return folly::none;
                         }
-                        auto oi = indexKey(partId, oReader.get(), edgeKey, index);
+                        auto oi = indexKey(partId, reader_, edgeKey, index);
                         if (!oi.empty()) {
                             batchHolder->remove(std::move(oi));
                         }
@@ -607,7 +617,7 @@ public:
         return insert_;
     }
 
-    UpdateExpressionContext* getExpressionContext() {
+    StorageExpressionContext* getExpressionContext() {
         return expCtx_;
     }
 
@@ -619,7 +629,7 @@ private:
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
-    EdgeFilterNode                                                         *filterNode_;
+    FilterNode<cpp2::EdgeKey>                                              *filterNode_;
 
     // Whether to allow insert
     bool                                                                    insertable_{false};
@@ -628,7 +638,7 @@ private:
     std::string                                                             key_;
     RowReader                                                              *reader_{nullptr};
 
-    meta::SchemaProviderIf                                                 *schema_{nullptr};
+    const meta::NebulaSchemaProvider                                       *schema_{nullptr};
     std::string                                                             edgeName_;
     // use to save old row value
     std::string                                                             val_;
@@ -639,9 +649,8 @@ private:
 
     // ============================ output ====================================================
     // input and update, then output
-    UpdateContext                                                          *updateContext_;
     bool                                                                    insert_{false};
-    UpdateExpressionContext                                                *expCtx_;
+    StorageExpressionContext                                               *expCtx_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
 

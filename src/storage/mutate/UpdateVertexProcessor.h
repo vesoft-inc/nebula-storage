@@ -10,7 +10,7 @@
 #include "storage/query/QueryBaseProcessor.h"
 #include "storage/exec/StoragePlan.h"
 #include "common/expression/Expression.h"
-#include "storage/context/UpdateExpressionContext.h"
+#include "storage/context/StorageExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -60,7 +60,7 @@ private:
 
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>     indexes_;
 
-    std::unique_ptr<UpdateExpressionContext>                        expCtx_;
+    std::unique_ptr<StorageExpressionContext>                       expCtx_;
 
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                         updatedProps_;

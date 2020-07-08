@@ -56,6 +56,7 @@ public:
         return readValue(reader, propName, field);
     }
 
+
     static StatusOr<nebula::Value> readEdgeProp(VertexIDSlice srcId,
                                                 EdgeType edgeType,
                                                 EdgeRanking edgeRank,

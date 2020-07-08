@@ -9,7 +9,7 @@
 
 #include "common/base/Base.h"
 #include "storage/exec/UpdateNode.h"
-#include "storage/context/UpdateExpressionContext.h"
+#include "storage/context/StorageExpressionContext.h"
 
 namespace nebula {
 namespace storage {
@@ -59,7 +59,7 @@ public:
 private:
     UpdateTagNode                                                                  *updateTagNode_;
     std::vector<Expression*>                                                        returnPropsExp_;
-    UpdateExpressionContext                                                        *expCtx_;
+    StorageExpressionContext                                                       *expCtx_;
 
     // return prop sets
     nebula::DataSet                                                                *result_;
@@ -117,7 +117,7 @@ public:
 private:
     UpdateEdgeNode                                                                 *updateEdgeNode_;
     std::vector<Expression*>                                                        returnPropsExp_;
-    UpdateExpressionContext                                                        *expCtx_;
+    StorageExpressionContext                                                       *expCtx_;
 
     // return prop sets
     nebula::DataSet                                                                *result_;

@@ -30,12 +30,14 @@ cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
         return cpp2::ErrorCode::E_PARTIAL_RESULT;
     case kvstore::ResultCode::ERR_INVALID_FIELD_VALUE:
         return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
-    case kvstore::ResultCode::ERR_INVALID_FILTER:
-        return cpp2::ErrorCode::E_INVALID_FILTER;
-    case kvstore::ResultCode::ERR_INVALID_UPDATER:
-        return cpp2::ErrorCode::E_INVALID_UPDATER;
     case kvstore::ResultCode::ERR_RESULT_FILTERED:
         return cpp2::ErrorCode::E_FILTER_OUT;
+    case kvstore::ResultCode::ERR_EDGE_NOT_FOUND:
+        return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+    case kvstore::ResultCode::ERR_TAG_NOT_FOUND:
+        return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+    case kvstore::ResultCode::ERR_INVALID_DATA:
+        return cpp2::ErrorCode::E_INVALID_DATA;
     default:
         return cpp2::ErrorCode::E_UNKNOWN;
     }

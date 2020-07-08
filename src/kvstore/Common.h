@@ -39,6 +39,7 @@ enum ResultCode {
     ERR_INVALID_FIELD_VALUE = -19,
     ERR_INVALID_FILTER      = -20,
     ERR_INVALID_UPDATER     = -21,
+    ERR_INVALID_DATA        = -22,
     ERR_USER_CANCELLED      = -98,
     ERR_PARTIAL_RESULT      = -99,
     ERR_UNKNOWN             = -100,

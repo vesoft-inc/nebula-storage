@@ -10,13 +10,15 @@
 #include "common/base/Base.h"
 #include "common/expression/Expression.h"
 #include "storage/exec/HashJoinNode.h"
-#include "storage/exec/UpdateContext.h"
-#include "storage/context/UpdateExpressionContext.h"
+#include "storage/context/StorageExpressionContext.h"
 
 namespace nebula {
 namespace storage {
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> unify filterNode
 /*
 FilterNode will receive the result from upstream, check whether tag data or edge data
 could pass the expression filter. FilterNode can only accept one upstream node, user
@@ -32,16 +34,20 @@ class FilterNode : public IterateNode<T> {
 public:
     FilterNode(PlanContext* planCtx,
                IterateNode<T>* upstream,
-               bool isEdge,
+               bool isEdge = true,
                StorageExpressionContext* expCtx = nullptr,
-               Expression* exp = nullptr)
+               Expression* exp = nullptr,
+               bool isUpdate = false,
+               TagContext* tctx = nullptr,
+               EdgeContext* ectx = nullptr)
         : IterateNode<T>(upstream)
         , planContext_(planCtx)
         , isEdge_(isEdge)
         , expCtx_(expCtx)
-        , exp_(exp) {
-        UNUSED(planContext_);
-    }
+        , filterExp_(exp)
+        , isUpdate_(isUpdate)
+        , tagContext_(tctx)
+        , edgeContext_(ectx) {}
 
     kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::execute(partId, vId);
@@ -49,24 +55,54 @@ public:
             return ret;
         }
 
-        while (this->valid() && !check()) {
-            this->next();
+        if (isEdge_) {
+            entryName_ = planContext_->edgeName_;
+            schema_ = planContext_->edgeSchema_;
+        } else {
+            entryName_ = planContext_->tagName_;
+            schema_ = planContext_->tagSchema_;
         }
-        return kvstore::ResultCode::SUCCEEDED;
+
+        if (isUpdate_) {
+            if (isEdge_) {
+                if (!schema_) {
+                    VLOG(1) << "Fail to get schema in edgeType " << planContext_->edgeType_;
+                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
+                }
+            } else {
+                if (!schema_) {
+                    VLOG(1) << "Fail to get schema in TagId " << planContext_->tagId_;
+                    return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
+                }
+            }
+            // when this->valid() is false, filter is always true
+            if (this->dataError()) {
+                return kvstore::ResultCode::ERR_INVALID_DATA;
+            }
+            if (this->valid() && !check()) {
+                return kvstore::ResultCode::ERR_RESULT_FILTERED;
+            } else {
+                return kvstore::ResultCode::SUCCEEDED;
+            }
+        } else {
+            while (this->valid() && !check()) {
+                this->next();
+            }
+            return kvstore::ResultCode::SUCCEEDED;
+        }
     }
 
 private:
     // return true when the value iter points to a value which can filter
     bool check() override {
-        if (exp_ != nullptr) {
-            if (isEdge_) {
-                expCtx_->reset(this->reader(), this->key(), planContext_->edgeName_, isEdge_);
-            } else {
-                expCtx_->reset(this->reader(), this->key(), planContext_->tagName_, isEdge_);
-            }
-            auto result = exp_->eval(*expCtx_);
-            if (result.type() == Value::Type::BOOL) {
-                return result.getBool();
+        if (filterExp_ != nullptr) {
+            expCtx_->reset(this->reader(), this->key(), entryName_, schema_, isEdge_);
+            // result is false when filter out
+            auto result = filterExp_->eval(*expCtx_);
+            // NULL is always false
+            auto ret = result.toBool();
+            if (ret.ok() && ret.value()) {
+                return true;
             } else {
                 return false;
             }
@@ -75,10 +111,15 @@ private:
     }
 
 private:
-    PlanContext* planContext_;
-    bool isEdge_;
-    StorageExpressionContext* expCtx_;
-    Expression* exp_;
+    PlanContext                      *planContext_;
+    bool                              isEdge_;
+    StorageExpressionContext         *expCtx_;
+    Expression                       *filterExp_;
+    bool                              isUpdate_;
+    TagContext                       *tagContext_;
+    EdgeContext                      *edgeContext_;
+    const meta::NebulaSchemaProvider *schema_;
+    std::string                       entryName_;
 };
 
 }  // namespace storage

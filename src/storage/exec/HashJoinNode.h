@@ -54,16 +54,14 @@ public:
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&result] (TagID, const std::vector<PropContext>*) -> kvstore::ResultCode {
+                [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
                     result.values.emplace_back(NullType::__NULL__);
                     return kvstore::ResultCode::SUCCEEDED;
                 },
                 [this, &result, &tagName] (TagID tagId,
                                            RowReader* reader,
-                                           const std::vector<PropContext>* props,
-                                           const folly::StringPiece& key)
+                                           const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
-                    UNUSED(key);
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,
@@ -129,6 +127,7 @@ private:
             CHECK(schemaIter != edgeContext_->schemas_.end());
             CHECK(!schemaIter->second.empty());
 
+            planContext_->edgeSchema_ = schemaIter->second.back().get();
             // idx is the index in all edges need to return
             auto idx = idxIter->second;
             planContext_->edgeType_ = type;
