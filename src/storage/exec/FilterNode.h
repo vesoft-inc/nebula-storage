@@ -14,17 +14,27 @@
 namespace nebula {
 namespace storage {
 
-// FilterNode will receive the result from upstream, check whether tag data or edge data
-// could pass the expression filter
+/*
+FilterNode will receive the result from upstream, check whether tag data or edge data
+could pass the expression filter. FilterNode can only accept one upstream node, user
+must make sure that the upstream only output only tag data or edge data, but not both.
+
+As for GetNeighbors, it will have filter that involves both tag and edge expression. In
+that case, FilterNode has a upstream of HashJoinNode, which will keeps poping out edge
+data. All tage data has been put into ExpressionContext before FilterNode is executed. 
+By that means, it can check the filter of tag + edge.
+*/
 template<typename T>
 class FilterNode : public IterateNode<T> {
 public:
     FilterNode(PlanContext* planCtx,
                IterateNode<T>* upstream,
+               bool isEdge,
                StorageExpressionContext* expCtx = nullptr,
                Expression* exp = nullptr)
         : IterateNode<T>(upstream)
         , planContext_(planCtx)
+        , isEdge_(isEdge)
         , expCtx_(expCtx)
         , exp_(exp) {
         UNUSED(planContext_);
@@ -46,7 +56,11 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (exp_ != nullptr) {
-            expCtx_->reset(this->reader(), this->key(), true);
+            if (isEdge_) {
+                expCtx_->reset(this->reader(), this->key(), planContext_->edgeName_, isEdge_);
+            } else {
+                expCtx_->reset(this->reader(), this->key(), planContext_->tagName_, isEdge_);
+            }
             auto result = exp_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
@@ -59,6 +73,7 @@ private:
 
 private:
     PlanContext* planContext_;
+    bool isEdge_;
     StorageExpressionContext* expCtx_;
     Expression* exp_;
 };

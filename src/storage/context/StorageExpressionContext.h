@@ -19,12 +19,12 @@ namespace storage {
 StorageExpressionContext supports both read value from a RowReader, or user set value by
 `setTagProp` and `setEdgeProp`.
 
-If we need to read from the RowReader, be sure to set the reader by calling `reset`. For now,
+If we need to read value from the RowReader, be sure to set the reader by calling `reset`. For now,
 it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
 This mode is used in GetNeighbors at present.
 
-If we need to read from not from a RowReader, just set the related value. Be sure about not pass
-the RowReader by `reset`.
+If we need to read value from not from user defined plase, just set the related value by
+`setTagProp` and `setEdgeProp`. Be sure about not pass the RowReader by `reset`.
 */
 class StorageExpressionContext final : public ExpressionContext {
 public:
@@ -66,9 +66,10 @@ public:
 
     void setVar(const std::string&, Value) override {}
 
-    void reset(RowReader* reader, folly::StringPiece key, bool isEdge) {
+    void reset(RowReader* reader, folly::StringPiece key, folly::StringPiece name, bool isEdge) {
         reader_ = reader;
         key_ = key;
+        name_ = name;
         isEdge_ = isEdge;
     }
 
@@ -99,6 +100,8 @@ private:
 
     folly::StringPiece key_;
     RowReader* reader_;
+    // tag or edge name
+    folly::StringPiece name_;
     bool isEdge_;
 
     // <tagName, property> -> value
