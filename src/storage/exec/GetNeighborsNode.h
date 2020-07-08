@@ -24,7 +24,7 @@ class GetNeighborsNode : public QueryNode<VertexID> {
 public:
     GetNeighborsNode(PlanContext* planCtx,
                      HashJoinNode* hashJoinNode,
-                     AggregateNode* aggregateNode,
+                     AggregateNode<VertexID>* aggregateNode,
                      EdgeContext* edgeContext,
                      nebula::DataSet* resultDataSet,
                      int64_t limit = 0)
@@ -110,7 +110,7 @@ protected:
 
     PlanContext* planContext_;
     HashJoinNode* hashJoinNode_;
-    AggregateNode* aggregateNode_;
+    AggregateNode<VertexID>* aggregateNode_;
     EdgeContext* edgeContext_;
     nebula::DataSet* resultDataSet_;
     int64_t limit_;
@@ -120,7 +120,7 @@ class GetNeighborsSampleNode : public GetNeighborsNode {
 public:
     GetNeighborsSampleNode(PlanContext* planCtx,
                            HashJoinNode* hashJoinNode,
-                           AggregateNode* aggregateNode,
+                           AggregateNode<VertexID>* aggregateNode,
                            EdgeContext* edgeContext,
                            nebula::DataSet* resultDataSet,
                            int64_t limit)

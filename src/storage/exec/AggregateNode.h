@@ -31,17 +31,18 @@ struct PropStat {
 // valid edges of a vertex. It could be used in ScanVertex or ScanEdge later.
 // The stat is collected during we iterate over edges via `next`, so if you want to get the
 // final result, be sure to call `calculateStat` and then retrieve the reuslt
-class AggregateNode : public IterateNode<VertexID> {
+template<typename T>
+class AggregateNode : public IterateNode<T> {
 public:
     AggregateNode(PlanContext* planCtx,
-                  IterateNode* upstream,
+                  IterateNode<T>* upstream,
                   EdgeContext* edgeContext)
-        : IterateNode(upstream)
+        : IterateNode<T>(upstream)
         , planContext_(planCtx)
         , edgeContext_(edgeContext) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+        auto ret = RelNode<T>::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
@@ -49,7 +50,7 @@ public:
         if (edgeContext_->statCount_ > 0) {
             initStatValue(edgeContext_);
         }
-        result_ = NullType::__NULL__;
+        this->result_ = NullType::__NULL__;
         return kvstore::ResultCode::SUCCEEDED;
     }
 
@@ -57,9 +58,9 @@ public:
         if (!stats_.empty()) {
             // we need to collect the stat during `next`
             collectEdgeStats(srcId(), edgeType(), edgeRank(), dstId(),
-                             reader(), planContext_->props_);
+                             this->reader(), planContext_->props_);
         }
-        IterateNode::next();
+        IterateNode<T>::next();
     }
 
     void calculateStat() {
@@ -81,24 +82,24 @@ public:
                 result.values.emplace_back(stat.min_);
             }
         }
-        result_.setList(std::move(result));
+        this->result_.setList(std::move(result));
     }
 
 private:
     VertexIDSlice srcId() const {
-        return NebulaKeyUtils::getSrcId(planContext_->vIdLen_, upstream_->key());
+        return NebulaKeyUtils::getSrcId(planContext_->vIdLen_, this->key());
     }
 
     EdgeType edgeType() const {
-        return NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, upstream_->key());
+        return NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, this->key());
     }
 
     EdgeRanking edgeRank() const {
-        return NebulaKeyUtils::getRank(planContext_->vIdLen_, upstream_->key());
+        return NebulaKeyUtils::getRank(planContext_->vIdLen_, this->key());
     }
 
     VertexIDSlice dstId() const {
-        return NebulaKeyUtils::getDstId(planContext_->vIdLen_, upstream_->key());
+        return NebulaKeyUtils::getDstId(planContext_->vIdLen_, this->key());
     }
 
     void initStatValue(EdgeContext* edgeContext) {

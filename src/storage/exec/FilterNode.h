@@ -16,27 +16,28 @@ namespace storage {
 
 // FilterNode will receive the result from upstream, check whether tag data or edge data
 // could pass the expression filter
-class FilterNode : public IterateNode<VertexID> {
+template<typename T>
+class FilterNode : public IterateNode<T> {
 public:
     FilterNode(PlanContext* planCtx,
-               IterateNode* upstream,
+               IterateNode<T>* upstream,
                StorageExpressionContext* expCtx = nullptr,
                Expression* exp = nullptr)
-        : IterateNode(upstream)
+        : IterateNode<T>(upstream)
         , planContext_(planCtx)
         , expCtx_(expCtx)
         , exp_(exp) {
         UNUSED(planContext_);
     }
 
-    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
 
-        while (upstream_->valid() && !check()) {
-            upstream_->next();
+        while (this->valid() && !check()) {
+            this->next();
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -45,7 +46,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (exp_ != nullptr) {
-            expCtx_->reset(upstream_->reader(), upstream_->key(), true);
+            expCtx_->reset(this->reader(), this->key(), true);
             auto result = exp_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();

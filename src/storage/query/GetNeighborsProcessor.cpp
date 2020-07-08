@@ -117,10 +117,11 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     for (auto* edge : edges) {
         hashJoin->addDependency(edge);
     }
-    auto filter = std::make_unique<FilterNode>(
+    auto filter = std::make_unique<FilterNode<VertexID>>(
             planContext_.get(), hashJoin.get(), expCtx_.get(), filter_.get());
     filter->addDependency(hashJoin.get());
-    auto agg = std::make_unique<AggregateNode>(planContext_.get(), filter.get(), &edgeContext_);
+    auto agg = std::make_unique<AggregateNode<VertexID>>(
+            planContext_.get(), filter.get(), &edgeContext_);
     agg->addDependency(filter.get());
     std::unique_ptr<GetNeighborsNode> output;
     if (random) {
