@@ -98,6 +98,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "_build")
 # Set the project home dir
 set(NEBULA_HOME ${CMAKE_CURRENT_SOURCE_DIR})
 add_definitions(-DNEBULA_HOME=${NEBULA_HOME})
+set(PACKAGE_NAME "nebula-storage")
 
 # Let s2 use glog
 add_definitions(-DS2_USE_GLOG)
@@ -355,6 +356,12 @@ endmacro()
 # including the precompiled header, a.k.a Base.h.gch, and thrift headers.
 macro(nebula_add_library name type)
     add_library(${name} ${type} ${ARGN})
+    export(
+        TARGETS ${name}
+        NAMESPACE "storage_"
+        APPEND
+        FILE ${CMAKE_BINARY_DIR}/${PACKAGE_NAME}-config.cmake
+    )
     add_dependencies(
         ${name}
         common_project
@@ -514,7 +521,7 @@ set(CPACK_PACKAGE_DESCRIPTION "nebula-graph")
 set(CPACK_PACKAGE_CONTACT "nebula-graph")
 set(CPACK_PACKAGE_VERSION ${NEBULA_BUILD_VERSION})
 set(CPACK_RPM_PACKAGE_LICENSE "Apache 2.0 + Common Clause 1.0")
-set(CPACK_PACKAGE_NAME nebula-graph)
+set(CPACK_PACKAGE_NAME nebula-storage)
 set(CPACK_SET_DESTDIR TRUE)
 set(CPACK_PACKAGE_RELOCATABLE FALSE)
 set(CPACK_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
