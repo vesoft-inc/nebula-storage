@@ -5,6 +5,7 @@
  */
 
 #include "storage/context/StorageExpressionContext.h"
+#include <utils/IndexKeyUtils.h>
 #include "utils/NebulaKeyUtils.h"
 
 namespace nebula {
@@ -33,6 +34,9 @@ Value StorageExpressionContext::readValue(const std::string& propName) const {
 // Get the specified property from the edge, such as edgename.prop_name
 Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
                                             const std::string& prop) const {
+    if (isIndex_) {
+        return getIndexValue(prop);
+    }
     if (isEdge_ && reader_ != nullptr) {
         if (edgeName != name_) {
             return Value::kNullValue;
@@ -60,6 +64,9 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
 
 Value StorageExpressionContext::getSrcProp(const std::string& tagName,
                                            const std::string& prop) const {
+    if (isIndex_) {
+        return getIndexValue(prop);
+    }
     if (!isEdge_ && reader_ != nullptr) {
         if (tagName != name_) {
             return Value::kNullValue;
@@ -73,6 +80,11 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
         VLOG(1) << "Hit srcProp filter for tag " << tagName << ", prop " << prop;
         return iter->second;
     }
+}
+
+Value StorageExpressionContext::getIndexValue(const std::string& prop) const {
+    return IndexKeyUtils::getValueFromIndexKey(vIdLen_, vColNum_, key_, prop,
+                                               indexCols_, isEdge_, hasNullableCol_);
 }
 
 }  // namespace storage
