@@ -13,6 +13,7 @@
 #   NEBULA_OTHER_ROOT              -- Specify the root directory for user build
 #                                  -- Split with ":", exp: DIR:DIR
 #
+#   NEBULA_COMMON_PATH             -- Path to nebula-common source directory
 #   NEBULA_COMMON_REPO_URL         -- Git URL for the nebula-common repo
 #   NEBULA_COMMON_REPO_TAG         -- Tag/branch of the nebula-common repo
 #
@@ -145,7 +146,13 @@ endif()
 message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
 SET(NEBULA_COMMON_PACKAGE "nebula-common")
-SET(nebula-common_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules/common)
+if (NOT "${NEBULA_COMMON_PATH}" STREQUAL "")
+    message(STATUS "NEBULA_COMMON_PATH: " ${NEBULA_COMMON_PATH})
+    execute_process(
+        COMMAND mkdir -p ${NEBULA_HOME}/modules
+        COMMAND ln -snf ${NEBULA_COMMON_PATH} ${NEBULA_HOME}/modules/common
+    )
+endif()
 
 # Configure the dependent projects
 include(AddDependentProject)
