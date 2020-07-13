@@ -263,7 +263,7 @@ public:
                                       int32_t vColNum,
                                       const folly::StringPiece& key,
                                       const folly::StringPiece& prop,
-                                      std::vector<std::pair<std::string, Value::Type>>& cols,
+                                      const std::vector<std::pair<std::string, Value::Type>>& cols,
                                       bool isEdgeIndex = false,
                                       bool hasNullableCol = false) {
         size_t len = 0;

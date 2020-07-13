@@ -34,6 +34,9 @@ struct PropStat {
 template<typename T>
 class AggregateNode : public IterateNode<T> {
 public:
+    explicit AggregateNode(nebula::DataSet* resultSet)
+    : resultSet_(resultSet) {}
+
     AggregateNode(PlanContext* planCtx,
                   IterateNode<T>* upstream,
                   EdgeContext* edgeContext)
@@ -41,8 +44,8 @@ public:
         , planContext_(planCtx)
         , edgeContext_(edgeContext) {}
 
-    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode<T>::execute(partId, vId);
+    kvstore::ResultCode execute(PartitionID partId, const T& input) override {
+        auto ret = RelNode<T>::execute(partId, input);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
@@ -51,6 +54,14 @@ public:
             initStatValue(edgeContext_);
         }
         this->result_ = Value();
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    kvstore::ResultCode execute(PartitionID partId) override {
+        auto ret = RelNode<T>::execute(partId);
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
+        }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
@@ -159,6 +170,7 @@ private:
     PlanContext* planContext_;
     EdgeContext* edgeContext_;
     std::vector<PropStat> stats_;
+    nebula::DataSet* resultSet_;
 };
 
 }  // namespace storage

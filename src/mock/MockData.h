@@ -87,9 +87,15 @@ public:
 
     static std::vector<nebula::meta::cpp2::ColumnDef> mockGeneralTagIndexColumns();
 
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockPlayerTagIndexColumns();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockTeamTagIndexColumns();
+
     static std::vector<nebula::meta::cpp2::ColumnDef> mockSimpleTagIndexColumns();
 
-    static std::vector<nebula::meta::cpp2::ColumnDef> mockEdgeIndexColumns();
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockServeEdgeIndexColumns();
+
+    static std::vector<nebula::meta::cpp2::ColumnDef> mockTeammateEdgeIndexColumns();
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockGeneralTagSchemaV1();
 

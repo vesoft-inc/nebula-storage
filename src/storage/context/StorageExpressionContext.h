@@ -37,6 +37,16 @@ public:
         , schema_(schema)
         , isEdge_(isEdge) {}
 
+    StorageExpressionContext(size_t vIdLen, int32_t vColNum,
+                             bool hasNullableCol,
+                             const std::vector<std::pair<std::string, Value::Type>>& indexCols)
+        : vIdLen_(vIdLen)
+        , vColNum_(vColNum)
+        , hasNullableCol_(hasNullableCol)
+        , indexCols_(indexCols) {
+        isIndex_ = true;
+    }
+
     // Get the latest version value for the given variable name, such as $a, $b
     const Value& getVar(const std::string&) const override {
         return Value::kNullValue;
@@ -86,10 +96,21 @@ public:
     }
 
     // isEdge_ set in ctor
-    void reset(RowReader* reader,
-               folly::StringPiece key) {
+    void reset(RowReader* reader, folly::StringPiece key) {
         reader_ = reader;
         key_ = key;
+    }
+
+    void reset(RowReader* reader, const std::string& key, const std::string& name, bool isEdge) {
+        reader_ = reader;
+        key_ = key;
+        name_ = name;
+        isEdge_ = isEdge;
+    }
+
+    void reset(const std::string& key, bool isEdge) {
+        key_ = key;
+        isEdge_ = isEdge;
     }
 
     void reset() {
@@ -126,6 +147,8 @@ public:
 
     Value readValue(const std::string& propName) const;
 
+    Value getIndexValue(const std::string& prop) const;
+
 private:
     size_t                             vIdLen_;
 
@@ -137,11 +160,19 @@ private:
     const meta::NebulaSchemaProvider  *schema_;
     bool                               isEdge_;
 
+    // index
+    bool isIndex_ = false;
+    int32_t vColNum_ = 0;
+    bool hasNullableCol_ = false;
+
     // <tagName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> tagFilters_;
 
     // <edgeName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> edgeFilters_;
+
+    // Index Columns
+    std::vector<std::pair<std::string, Value::Type>>  indexCols_{};
 };
 
 }  // namespace storage
