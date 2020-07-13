@@ -33,6 +33,7 @@ nebula_add_library(
     mutate/UpdateEdgeProcessor.cpp
     query/GetNeighborsProcessor.cpp
     query/GetPropProcessor.cpp
+    index/LookupProcessor.cpp
 )
 
 nebula_add_library(
