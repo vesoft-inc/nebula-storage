@@ -95,25 +95,21 @@ public:
     RowReader* reader() const override {
         if (iter_) {
             return iter_->reader();
-        } else {
-            return nullptr;
         }
+        return nullptr;
     }
 
     const std::string& getTagName() {
         return tagName_;
     }
 
-
     // only update use
     bool dataError() const override {
         if (iter_) {
             return iter_->dataError();
-        } else {
-            return false;
         }
+        return false;
     }
-
 
 private:
     PlanContext                                                          *planContext_;
@@ -123,12 +119,12 @@ private:
     ExpressionContext                                                    *expCtx_;
     Expression                                                           *exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
-    folly::Optional<std::pair<std::string, int64_t>> ttl_;
-    std::string tagName_;
+    folly::Optional<std::pair<std::string, int64_t>>                      ttl_;
+    std::string                                                           tagName_;
 
-    std::unique_ptr<StorageIterator> iter_;
-    std::string prefix_;
-    std::string cacheResult_;
+    std::unique_ptr<StorageIterator>                                      iter_;
+    std::string                                                           prefix_;
+    std::string                                                           cacheResult_;
 };
 
 }  // namespace storage

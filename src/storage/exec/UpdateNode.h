@@ -64,13 +64,10 @@ public:
 
                     if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
-                    } else {
-                        return this->updateAndWriteBack(partId, vId);
                     }
-
+                    return this->updateAndWriteBack(partId, vId);
                 } else {
                     // if filter out, StorageExpressionContext is set in filterNode
-                    // if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                     return folly::none;
                 }
             },
@@ -314,12 +311,12 @@ private:
     std::unique_ptr<RowWriterV2>                                            rowWriter_;
     // tagId_ prop -> value
     std::unordered_map<std::string, Value>                                  props_;
+    std::atomic<kvstore::ResultCode>                                        exeResult_;
 
     // ============================ output ====================================================
     // Whether an insert has occurred
     bool                                                                    insert_{false};
     StorageExpressionContext                                               *expCtx_;
-    std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
 
 
@@ -374,13 +371,10 @@ public:
 
                     if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
-                    } else {
-                        return this->updateAndWriteBack(partId, edgeKey);
                     }
-
+                    return this->updateAndWriteBack(partId, edgeKey);
                 } else {
                     // If filter out, StorageExpressionContext is set in filterNode
-                    // if (this->exeResult_ == kvstore::ResultCode::ERR_RESULT_FILTERED) {
                     return folly::none;
                 }
             },
@@ -528,7 +522,7 @@ public:
             auto updateVal = updateExp->eval(*expCtx_);
             // update prop value to updateContext_
             props_[propName] = updateVal;
-        // update expression context
+            // update expression context
             expCtx_->setEdgeProp(edgeName_, propName, std::move(updateVal));
         }
 
@@ -646,12 +640,11 @@ private:
 
     // edgeType_ prop -> value
     std::unordered_map<std::string, Value>                                  props_;
-
+    std::atomic<kvstore::ResultCode>                                        exeResult_;
     // ============================ output ====================================================
     // input and update, then output
     bool                                                                    insert_{false};
     StorageExpressionContext                                               *expCtx_;
-    std::atomic<kvstore::ResultCode>                                        exeResult_;
 };
 
 }  // namespace storage

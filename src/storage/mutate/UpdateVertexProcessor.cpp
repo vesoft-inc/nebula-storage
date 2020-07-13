@@ -39,7 +39,6 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
         onFinished();
         return;
     }
-
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
 
     retCode = checkAndBuildContexts(req);
@@ -58,10 +57,7 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
 
     VLOG(3) << "Update vertex, spaceId: " << spaceId_
             << ", partId: " << partId << ", vId: " << vId;
-
-    // Now, the index is not considered
     auto plan = buildPlan(&resultDataSet_);
-
     auto ret = plan.go(partId, vId);
 
     if (ret != kvstore::ResultCode::SUCCEEDED) {
@@ -92,7 +88,6 @@ UpdateVertexProcessor::checkAndBuildContexts(const cpp2::UpdateVertexRequest& re
 
     // Build tagContext_.ttlInfo_
     buildTagTTLInfo();
-
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -127,8 +122,7 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
                                                              false,
                                                              expCtx_.get(),
                                                              filterExp_.get(),
-                                                             true,
-                                                             &tagContext_);
+                                                             true);
     filterNode->addDependency(tagUpdate.get());
 
     auto updateNode = std::make_unique<UpdateTagNode>(planContext_.get(),
@@ -268,7 +262,6 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         VLOG(1) << "Fail to get schema in TagId " << tagId_;
         return cpp2::ErrorCode::E_TAG_NOT_FOUND;
     }
-
     return cpp2::ErrorCode::SUCCEEDED;
 }
 

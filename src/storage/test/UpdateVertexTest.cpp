@@ -187,10 +187,8 @@ TEST(UpdateVertexTest, No_Filter_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(45, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("China", val.getStr());
 }
@@ -208,7 +206,6 @@ TEST(UpdateVertexTest, Filter_Yield_Test2) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateVertexRequest...";
@@ -318,10 +315,8 @@ TEST(UpdateVertexTest, Filter_Yield_Test2) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(44, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("America", val.getStr());
 }
@@ -339,7 +334,6 @@ TEST(UpdateVertexTest, Insertable_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateVertexRequest...";
@@ -416,10 +410,8 @@ TEST(UpdateVertexTest, Insertable_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Brandon Ingram", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(18, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("America", val.getStr());
 }
@@ -437,7 +429,6 @@ TEST(UpdateVertexTest, Invalid_Update_Prop_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateVertexRequest...";
@@ -504,7 +495,6 @@ TEST(UpdateVertexTest, Invalid_Update_Prop_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(44, val.getInt());
 }
@@ -621,10 +611,8 @@ TEST(UpdateVertexTest, Invalid_Filter_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(44, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("America", val.getStr());
 }
@@ -642,7 +630,6 @@ TEST(UpdateVertexTest, Insertable_Filter_Value_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateVertexRequest...";
@@ -744,10 +731,8 @@ TEST(UpdateVertexTest, Insertable_Filter_Value_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Brandon Ingram", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(18, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("America", val.getStr());
 }
@@ -998,10 +983,8 @@ TEST(UpdateVertexTest, TTL_Insert_No_Exist_Test) {
     auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Tim", val.getStr());
-
     val = reader->getValueByName("age");
     EXPECT_EQ(18, val.getInt());
-
     val = reader->getValueByName("country");
     EXPECT_EQ("America", val.getStr());
 }

@@ -262,13 +262,16 @@ nebula_add_test(
         gtest
 )
 
+
 nebula_add_executable(
     NAME
-        update_vertex_edge_bm
+        add_update_vertex_edge_bm
     SOURCES
-        UpdateVertexAndEdgeBenchmark.cpp
+        AddAndUpdateVertexAndEdgeBenchmark.cpp
+        ../../codec/test/RowWriterV1.cpp
     OBJECTS
         ${storage_test_deps}
+        $<TARGET_OBJECTS:codec_test_obj>
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}

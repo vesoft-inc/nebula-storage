@@ -15,10 +15,6 @@
 namespace nebula {
 namespace storage {
 
-<<<<<<< HEAD
-
-=======
->>>>>>> unify filterNode
 /*
 FilterNode will receive the result from upstream, check whether tag data or edge data
 could pass the expression filter. FilterNode can only accept one upstream node, user
@@ -37,17 +33,13 @@ public:
                bool isEdge = true,
                StorageExpressionContext* expCtx = nullptr,
                Expression* exp = nullptr,
-               bool isUpdate = false,
-               TagContext* tctx = nullptr,
-               EdgeContext* ectx = nullptr)
+               bool isUpdate = false)
         : IterateNode<T>(upstream)
         , planContext_(planCtx)
         , isEdge_(isEdge)
         , expCtx_(expCtx)
         , filterExp_(exp)
-        , isUpdate_(isUpdate)
-        , tagContext_(tctx)
-        , edgeContext_(ectx) {}
+        , isUpdate_(isUpdate) {}
 
     kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::execute(partId, vId);
@@ -64,26 +56,21 @@ public:
         }
 
         if (isUpdate_) {
-            if (isEdge_) {
-                if (!schema_) {
-                    VLOG(1) << "Fail to get schema in edgeType " << planContext_->edgeType_;
-                    return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-                }
-            } else {
-                if (!schema_) {
-                    VLOG(1) << "Fail to get schema in TagId " << planContext_->tagId_;
-                    return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
-                }
+            if (!schema_ && isEdge_) {
+                VLOG(1) << "Fail to get schema in edgeType " << planContext_->edgeType_;
+                return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
+            } else if (!schema_ && !isEdge_) {
+                VLOG(1) << "Fail to get schema in TagId " << planContext_->tagId_;
+                return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
-            // when this->valid() is false, filter is always true
             if (this->dataError()) {
                 return kvstore::ResultCode::ERR_INVALID_DATA;
             }
+            // when this->valid() is false, filter is always true
             if (this->valid() && !check()) {
                 return kvstore::ResultCode::ERR_RESULT_FILTERED;
-            } else {
-                return kvstore::ResultCode::SUCCEEDED;
             }
+            return kvstore::ResultCode::SUCCEEDED;
         } else {
             while (this->valid() && !check()) {
                 this->next();
@@ -103,9 +90,8 @@ private:
             auto ret = result.toBool();
             if (ret.ok() && ret.value()) {
                 return true;
-            } else {
-                return false;
             }
+            return false;
         }
         return true;
     }
@@ -116,8 +102,6 @@ private:
     StorageExpressionContext         *expCtx_;
     Expression                       *filterExp_;
     bool                              isUpdate_;
-    TagContext                       *tagContext_;
-    EdgeContext                      *edgeContext_;
     const meta::NebulaSchemaProvider *schema_;
     std::string                       entryName_;
 };

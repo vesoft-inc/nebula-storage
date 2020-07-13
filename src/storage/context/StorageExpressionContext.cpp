@@ -10,27 +10,23 @@
 namespace nebula {
 namespace storage {
 
-Value StorageExpressionContext::value_ = NullType::__NULL__;
-
-const Value& StorageExpressionContext::readValue(RowReader* reader,
-                                                const std::string& propName,
-                                                const meta::NebulaSchemaProvider* schema) const {
+Value StorageExpressionContext::readValue(RowReader* reader,
+                                          const std::string& propName,
+                                          const meta::NebulaSchemaProvider* schema) const {
     auto field = schema->field(propName);
     if (!field) {
        return Value::kNullValue;
     }
-    value_ = reader->getValueByName(propName);
-    if (value_.type() == Value::Type::NULLVALUE) {
+    auto value = reader->getValueByName(propName);
+    if (value.type() == Value::Type::NULLVALUE) {
         // read null value
-        auto nullType = value_.getNull();
-        if (nullType == NullType::UNKNOWN_PROP) {
-            if (field->hasDefault()) {
-                return field->defaultValue();
-            }
+        auto nullType = value.getNull();
+        if (nullType == NullType::UNKNOWN_PROP && field->hasDefault()) {
+            return field->defaultValue();
         }
         return Value::kNullValue;
     }
-    return value_;
+    return value;
 }
 
 // Get the specified property from the edge, such as edgename.prop_name
@@ -49,13 +45,10 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
         } else if (prop == kType) {
             return NebulaKeyUtils::getEdgeType(vIdLen_, key_);
         } else {
-            // todo(doodle): const reference... wait change return value type by value,
-            // and we need to use schema to get default value if necessary
             if (schema_) {
-                value_ = readValue(reader_, prop, schema_);
-            } else {
-                value_ = Value::kNullValue;
+                return readValue(reader_, prop, schema_);
             }
+            return Value::kNullValue;
         }
     } else {
         auto iter = edgeFilters_.find(std::make_pair(edgeName, prop));
@@ -73,14 +66,10 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
         if (tagName != name_) {
             return Value::kNullValue;
         }
-        // todo(doodle): const reference... wait change return value type by value,
-        // and we need to use schema to get default value if necessary
         if (schema_) {
-            value_ = readValue(reader_, prop, schema_);
-        } else {
-            value_ = Value::kNullValue;
+            return readValue(reader_, prop, schema_);
         }
-        return value_;
+        return Value::kNullValue;
     } else {
         auto iter = tagFilters_.find(std::make_pair(tagName, prop));
         if (iter == tagFilters_.end()) {

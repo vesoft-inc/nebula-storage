@@ -184,7 +184,6 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
 
         EXPECT_EQ(1, resp.props.rows.size());
         EXPECT_EQ(5, resp.props.rows[0].values.size());
-
         EXPECT_EQ(false, resp.props.rows[0].values[0].getBool());
         EXPECT_EQ("Tim Duncan", resp.props.rows[0].values[1].getStr());
         EXPECT_EQ("Spurs", resp.props.rows[0].values[2].getStr());
@@ -207,10 +206,8 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
 
         val = edgeReader->getValueByName("teamName");
         EXPECT_EQ("Spurs", val.getStr());
-
         val = edgeReader->getValueByName("teamCareer");
         EXPECT_EQ(20, val.getInt());
-
         val = edgeReader->getValueByName("type");
         EXPECT_EQ("trade", val.getStr());
     }
@@ -295,7 +292,6 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
 
         EXPECT_EQ(1, resp.props.rows.size());
         EXPECT_EQ(5, resp.props.rows[0].values.size());
-
         EXPECT_EQ(false, resp.props.rows[0].values[0].getBool());
         EXPECT_EQ("Tim Duncan", resp.props.rows[0].values[1].getStr());
         EXPECT_EQ("Spurs", resp.props.rows[0].values[2].getStr());
@@ -315,13 +311,10 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
                                                        iter->val());
         auto val = edgeReader->getValueByName("playerName");
         EXPECT_EQ("Tim Duncan", val.getStr());
-
         val = edgeReader->getValueByName("teamName");
         EXPECT_EQ("Spurs", val.getStr());
-
         val = edgeReader->getValueByName("teamCareer");
         EXPECT_EQ(20, val.getInt());
-
         val = edgeReader->getValueByName("type");
         EXPECT_EQ("trade", val.getStr());
     }
@@ -468,13 +461,10 @@ TEST(UpdateEdgeTest, Filter_Yield_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(19, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("zzzzz", val.getStr());
 }
@@ -491,7 +481,6 @@ TEST(UpdateEdgeTest, Insertable_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -582,7 +571,6 @@ TEST(UpdateEdgeTest, Insertable_Test) {
 
     EXPECT_EQ(1, resp.props.rows.size());
     EXPECT_EQ(5, resp.props.rows[0].values.size());
-
     EXPECT_EQ(true, resp.props.rows[0].values[0].getBool());
     EXPECT_EQ("Brandon Ingram", resp.props.rows[0].values[1].getStr());
     EXPECT_EQ("Lakers", resp.props.rows[0].values[2].getStr());
@@ -602,13 +590,10 @@ TEST(UpdateEdgeTest, Insertable_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Brandon Ingram", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Lakers", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(1, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("trade", val.getStr());
 }
@@ -625,7 +610,6 @@ TEST(UpdateEdgeTest, Invalid_Update_Prop_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -712,13 +696,10 @@ TEST(UpdateEdgeTest, Invalid_Update_Prop_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(19, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("zzzzz", val.getStr());
 }
@@ -735,7 +716,6 @@ TEST(UpdateEdgeTest, Invalid_Filter_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -847,13 +827,10 @@ TEST(UpdateEdgeTest, Invalid_Filter_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(19, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("zzzzz", val.getStr());
 }
@@ -870,7 +847,6 @@ TEST(UpdateEdgeTest, Insertable_Filter_value_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -1007,13 +983,10 @@ TEST(UpdateEdgeTest, Insertable_Filter_value_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Brandon Ingram", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Lakers", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(1, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("trade", val.getStr());
 }
@@ -1311,13 +1284,10 @@ TEST(UpdateEdgeTest, TTL_Insert_No_Exist_Test) {
                                                iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Tim", val.getStr());
-
     val = reader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(1, val.getInt());
-
     val = reader->getValueByName("type");
     EXPECT_EQ("trade", val.getStr());
 }
@@ -1336,7 +1306,6 @@ TEST(UpdateEdgeTest, TTL_Insert_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -1458,13 +1427,11 @@ TEST(UpdateEdgeTest, TTL_Insert_Test) {
         if (count == 1) {
             val = edgeReader->getValueByName("teamCareer");
             EXPECT_EQ(19, val.getInt());
-
             val = edgeReader->getValueByName("type");
             EXPECT_EQ("zzzzz", val.getStr());
         } else {
             val = edgeReader->getValueByName("teamCareer");
             EXPECT_EQ(40, val.getInt());
-
             val = edgeReader->getValueByName("type");
             EXPECT_EQ("trade", val.getStr());
         }
@@ -1611,13 +1578,10 @@ TEST(UpdateEdgeTest, Yield_Key_Test) {
                                                    iter->val());
     auto val = edgeReader->getValueByName("playerName");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = edgeReader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = edgeReader->getValueByName("teamCareer");
     EXPECT_EQ(20, val.getInt());
-
     val = edgeReader->getValueByName("type");
     EXPECT_EQ("trade", val.getStr());
 }
@@ -1634,7 +1598,6 @@ TEST(UpdateEdgeTest, Yield_Illegal_Key_Test) {
     auto status = env->schemaMan_->getSpaceVidLen(spaceId);
     ASSERT_TRUE(status.ok());
     auto spaceVidLen = status.value();
-
     EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
 
     LOG(INFO) << "Build UpdateEdgeRequest...";
@@ -1736,13 +1699,10 @@ TEST(UpdateEdgeTest, Yield_Illegal_Key_Test) {
                                                    iter->val());
     auto val = edgeReader->getValueByName("playerName");
     EXPECT_EQ("Tim Duncan", val.getStr());
-
     val = edgeReader->getValueByName("teamName");
     EXPECT_EQ("Spurs", val.getStr());
-
     val = edgeReader->getValueByName("teamCareer");
     EXPECT_EQ(19, val.getInt());
-
     val = edgeReader->getValueByName("type");
     EXPECT_EQ("zzzzz", val.getStr());
 }

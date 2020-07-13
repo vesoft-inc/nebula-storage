@@ -50,22 +50,20 @@ public:
     RowReader* reader() const override {
         if (iter_) {
             return iter_->reader();
-        } else {
-            return nullptr;
         }
+        return nullptr;
     }
 
     const std::string& getEdgeName() {
         return edgeName_;
     }
 
-    // only update use
+    // Only update use
     bool dataError() const override {
         if (iter_) {
             return iter_->dataError();
-        } else {
-            return false;
         }
+        return false;
     }
 
 protected:

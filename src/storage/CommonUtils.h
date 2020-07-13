@@ -41,12 +41,14 @@ public:
     GraphSpaceID        spaceId_;
     size_t              vIdLen_;
 
-    TagID                               tagId_    = 0;
-    std::string                         tagName_  = "";
-    const meta::NebulaSchemaProvider   *tagSchema_ = nullptr;
+    TagID                               tagId_ = 0;
+    std::string                         tagName_ = "";
+    const meta::NebulaSchemaProvider   *tagSchema_{nullptr};
+
     EdgeType                            edgeType_ = 0;
     std::string                         edgeName_ = "";
-    const meta::NebulaSchemaProvider   *edgeSchema_ = nullptr;
+    const meta::NebulaSchemaProvider   *edgeSchema_{nullptr};
+
     // used for GetNeighbors
     size_t                              columnIdx_ = 0;
     const std::vector<PropContext>*     props_ = nullptr;

@@ -91,7 +91,6 @@ UpdateEdgeProcessor::checkAndBuildContexts(const cpp2::UpdateEdgeRequest& req) {
 
     // Build edgeContext_.ttlInfo_
     buildEdgeTTLInfo();
-
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
@@ -126,10 +125,7 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
                                                                   true,
                                                                   expCtx_.get(),
                                                                   filterExp_.get(),
-                                                                  true,
-                                                                  nullptr,
-                                                                  &edgeContext_);
-
+                                                                  true);
     filterNode->addDependency(edgeUpdate.get());
 
     auto updateNode = std::make_unique<UpdateEdgeNode>(planContext_.get(),
@@ -193,7 +189,6 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
             VLOG(1) << "Invalid update edge expression!";
             return retCode;
         }
-
 
         auto updateExp = Expression::decode(edgeProp.get_value());
         if (!updateExp) {

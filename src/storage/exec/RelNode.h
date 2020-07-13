@@ -19,7 +19,6 @@
 namespace nebula {
 namespace storage {
 
-
 using NullHandler = std::function<kvstore::ResultCode(const std::vector<PropContext>*)>;
 
 using TagPropHandler = std::function<kvstore::ResultCode(TagID,

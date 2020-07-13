@@ -371,8 +371,8 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                 VLOG(1) << "Can't find edge " << *edgeName << ", in space " << spaceId_;
                 return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
             }
-            auto edgeType = edgeRet.value();
 
+            auto edgeType = edgeRet.value();
             auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
             if (iter == edgeContext_.schemas_.end()) {
                 VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);

@@ -23,15 +23,10 @@ If we need to read value from the RowReader, be sure to set the reader by callin
 it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
 This mode is used in GetNeighbors at present.
 
-If we need to read value from the RowReader, be sure to set the reader by calling `reset`. For now,
-it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
-This mode is used in GetNeighbors at present.
-
 If we need to read value from a user defined plase, just set the related value by
 `setTagProp` and `setEdgeProp`. Be sure about not pass the RowReader by `reset`.
-the RowReader by `reset`.
 */
-class StorageExpressionContext : public ExpressionContext {
+class StorageExpressionContext final : public ExpressionContext {
 public:
     explicit StorageExpressionContext(size_t vIdLen)
         : vIdLen_(vIdLen) {}
@@ -112,20 +107,18 @@ public:
         edgeFilters_.clear();
     }
 
-    const Value& readValue(RowReader* reader,
+    Value readValue(RowReader* reader,
                     const std::string& propName,
                     const meta::NebulaSchemaProvider* schema) const;
 
 private:
     size_t                             vIdLen_;
 
-    // todo(doodle): temp solution because need to return const reference
-    static Value                       value_;
     RowReader                         *reader_;
     folly::StringPiece                 key_;
     // tag or edge name
     std::string                        name_;
-    // tag or edge name lastest schema
+    // tag or edge latest schema
     const meta::NebulaSchemaProvider  *schema_;
     bool                               isEdge_;
 
