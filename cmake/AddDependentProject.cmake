@@ -65,7 +65,7 @@ endif()
 # Add a custom target to build the project
 add_custom_target(
     ${name}_project ALL
-    COMMAND make -j
+    COMMAND make -j $(nproc)
     WORKING_DIRECTORY ${base}/${name}
 )
 
