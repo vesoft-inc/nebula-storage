@@ -149,7 +149,6 @@ SET(NEBULA_COMMON_PACKAGE "nebula-common")
 if (NOT "${NEBULA_COMMON_PATH}" STREQUAL "")
     message(STATUS "NEBULA_COMMON_PATH: " ${NEBULA_COMMON_PATH})
     execute_process(
-        COMMAND mkdir -p ${NEBULA_HOME}/modules
         COMMAND ln -snf ${NEBULA_COMMON_PATH} ${NEBULA_HOME}/modules/common
     )
 endif()
