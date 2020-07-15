@@ -395,6 +395,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             So when checkExp is called, user need to make sure that related contexts have been
             set correctly, which are propContexts_, indexMap_, edgeNames_ in EdgeContext.
             */
+            CHECK(sizeof(SchemaID) == sizeof(EdgeType));
             if (edgeContext_.indexMap_.count(edgeType)) {
                 addPropContextIfNotExists(edgeContext_.propContexts_,
                                           edgeContext_.indexMap_,
@@ -437,9 +438,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
 
 template <typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
-        std::vector<std::pair<int32_t, std::vector<PropContext>>>& propContexts,
-        std::unordered_map<int32_t, size_t>& indexMap,
-        std::unordered_map<int32_t, std::string>& names,
+        std::vector<std::pair<SchemaID, std::vector<PropContext>>>& propContexts,
+        std::unordered_map<SchemaID, size_t>& indexMap,
+        std::unordered_map<SchemaID, std::string>& names,
         int32_t entryId,
         const std::string* entryName,
         const std::string* propName,

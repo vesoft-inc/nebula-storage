@@ -164,16 +164,17 @@ protected:
                               const char* propName,
                               const meta::SchemaProviderIf::Field* field);
 
-    void addPropContextIfNotExists(std::vector<std::pair<TagID, std::vector<PropContext>>>& props,
-                                   std::unordered_map<int32_t, size_t>& indexMap,
-                                   std::unordered_map<int32_t, std::string>& names,
-                                   int32_t entryId,
-                                   const std::string* entryName,
-                                   const std::string* propName,
-                                   const meta::SchemaProviderIf::Field* field,
-                                   bool returned,
-                                   bool filtered,
-                                   const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);
+    void addPropContextIfNotExists(
+            std::vector<std::pair<SchemaID, std::vector<PropContext>>>& props,
+            std::unordered_map<SchemaID, size_t>& indexMap,
+            std::unordered_map<SchemaID, std::string>& names,
+            int32_t entryId,
+            const std::string* entryName,
+            const std::string* propName,
+            const meta::SchemaProviderIf::Field* field,
+            bool returned,
+            bool filtered,
+            const std::pair<size_t, cpp2::StatType>* statInfo = nullptr);
 
 protected:
     GraphSpaceID                                        spaceId_;

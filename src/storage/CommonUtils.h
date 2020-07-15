@@ -20,6 +20,9 @@ namespace storage {
 
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 
+// unify TagID, EdgeType, before use, CHECK(sizeof(SchemaID) == sizeof(EdgeType))
+using SchemaID = TagID;
+
 class StorageEnv {
 public:
     kvstore::KVStore*                               kvstore_{nullptr};
