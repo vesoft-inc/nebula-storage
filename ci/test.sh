@@ -13,15 +13,14 @@ TOOLSET_DIR=/opt/vesoft/toolset/clang/9.0.0
 
 mkdir -p $BUILD_DIR
 
-function prepare() {
-    $PROJ_DIR/ci/deploy.sh
+function lint() {
+    cd $PROJ_DIR
+    ln -snf $PROJ_DIR/.linters/cpp/hooks/pre-commit.sh $PROJ_DIR/.linters/cpp/pre-commit.sh
+    $PROJ_DIR/.linters/cpp/pre-commit.sh $(git --no-pager diff --diff-filter=d --name-only HEAD^ HEAD)
 }
 
 function build_common() {
-    pushd $PROJ_DIR/modules/common
-    cmake .
-    make -j8
-    popd
+    cmake --build $PROJ_DIR/modules/common -j$(nproc)
 }
 
 function gcc_compile() {
@@ -32,10 +31,11 @@ function gcc_compile() {
         -DCMAKE_BUILD_TYPE=Release \
         -DENABLE_TESTING=on \
         -DCMAKE_PREFIX_PATH=modules/common \
+        -DNEBULA_COMMON_REPO_URL=$NEBULA_COMMON_REPO_URL \
         -DNEBULA_THIRDPARTY_ROOT=/opt/vesoft/third-party/ \
         -B $BUILD_DIR
     build_common
-    cmake --build $BUILD_DIR -j $(nproc)
+    cmake --build $BUILD_DIR -j$(nproc)
 }
 
 function clang_compile() {
@@ -47,22 +47,23 @@ function clang_compile() {
         -DENABLE_ASAN=on \
         -DENABLE_TESTING=on \
         -DCMAKE_PREFIX_PATH=modules/common \
+        -DNEBULA_COMMON_REPO_URL=$NEBULA_COMMON_REPO_URL \
         -DNEBULA_THIRDPARTY_ROOT=/opt/vesoft/third-party \
         -B $BUILD_DIR
     build_common
-    cmake --build $BUILD_DIR -j $(nproc)
+    cmake --build $BUILD_DIR -j$(nproc)
 }
 
 function run_test() {
     cd $BUILD_DIR
-    ctest -j $(nproc) \
+    ctest -j$(nproc) \
           --timeout 400 \
           --output-on-failure
 }
 
 case "$1" in
-    prepare)
-        prepare
+    lint)
+        lint
         ;;
     clang)
         clang_compile
@@ -74,7 +75,6 @@ case "$1" in
         run_test
         ;;
     *)
-        prepare
         gcc_compile
         run_test
         ;;
