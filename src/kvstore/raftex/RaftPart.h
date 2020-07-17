@@ -331,7 +331,7 @@ private:
 
     bool needToStartElection();
 
-    void statusPolling();
+    void statusPolling(int64_t startTime);
 
     bool needToCleanupSnapshot();
 
