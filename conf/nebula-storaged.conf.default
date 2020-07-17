@@ -63,8 +63,6 @@
 # In order to disable compression for level 0/1, set it to "no:no"
 --rocksdb_compression_per_level=
 
---rocksdb_disable_wal=true
-
 ############## rocksdb Options ##############
 --rocksdb_disable_wal=true
 # rocksdb DBOptions in json, each name and value of option is a string, given as "option_name":"option_value" separated by comma
