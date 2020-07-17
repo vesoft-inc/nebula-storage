@@ -14,25 +14,29 @@
 namespace nebula {
 namespace storage {
 
-class UpdateTagResNode : public RelNode<VertexID>  {
+template<typename T>
+class UpdateResNode : public RelNode<T>  {
 public:
-    UpdateTagResNode(UpdateTagNode* updateTagNode,
-                     std::vector<Expression*> returnPropsExp,
-                     nebula::DataSet* result)
-        : updateTagNode_(updateTagNode)
+    UpdateResNode(PlanContext* planCtx,
+                  RelNode<T>* updateNode,
+                  std::vector<Expression*> returnPropsExp,
+                  StorageExpressionContext* expCtx,
+                  nebula::DataSet* result)
+        : planContext_(planCtx)
+        , updateNode_(updateNode)
         , returnPropsExp_(returnPropsExp)
+        , expCtx_(expCtx)
         , result_(result) {
         }
 
-    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED &&
             ret != kvstore::ResultCode::ERR_RESULT_FILTERED) {
             return ret;
         }
 
-        insert_ = updateTagNode_->getInsert();
-        expCtx_ = updateTagNode_->getExpressionContext();
+        insert_ = planContext_->insert_;
 
         // Note: If filtered out, the result of tag prop is old
         result_->colNames.emplace_back("_inserted");
@@ -41,11 +45,11 @@ public:
 
         for (auto& retExp : returnPropsExp_) {
             auto& val = retExp->eval(*expCtx_);
-            auto sourceExp = dynamic_cast<const SourcePropertyExpression*>(retExp);
-            if (sourceExp) {
+            auto exp = dynamic_cast<const SymbolPropertyExpression*>(retExp);
+            if (exp) {
                 result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
-                                               sourceExp->sym()->c_str(),
-                                               sourceExp->prop()->c_str()));
+                                               exp->sym()->c_str(),
+                                               exp->prop()->c_str()));
             } else {
                 VLOG(1) << "Can't get expression name";
                 result_->colNames.emplace_back("NULL");
@@ -57,71 +61,14 @@ public:
     }
 
 private:
-    UpdateTagNode                                                                  *updateTagNode_;
-    std::vector<Expression*>                                                        returnPropsExp_;
-    StorageExpressionContext                                                       *expCtx_;
+    PlanContext                                             *planContext_;
+    RelNode<T>                                              *updateNode_;
+    std::vector<Expression*>                                 returnPropsExp_;
+    StorageExpressionContext                                *expCtx_;
 
     // return prop sets
-    nebula::DataSet                                                                *result_;
-    bool                                                                            insert_{false};
-};
-
-class UpdateEdgeResNode : public RelNode<cpp2::EdgeKey>  {
-public:
-    UpdateEdgeResNode(UpdateEdgeNode* updateEdgeNode,
-                     std::vector<Expression*> returnPropsExp,
-                     nebula::DataSet* result)
-        : updateEdgeNode_(updateEdgeNode)
-        , returnPropsExp_(returnPropsExp)
-        , result_(result) {
-        }
-
-    kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
-        auto ret = RelNode::execute(partId, edgeKey);
-        if (ret != kvstore::ResultCode::SUCCEEDED &&
-            ret != kvstore::ResultCode::ERR_RESULT_FILTERED) {
-            return ret;
-        }
-
-        insert_ = updateEdgeNode_->getInsert();
-        expCtx_ = updateEdgeNode_->getExpressionContext();
-
-        // Note: If filtered out, the result of edge prop is old
-        result_->colNames.emplace_back("_inserted");
-        std::vector<Value> row;
-        row.emplace_back(insert_);
-
-        for (auto& retExp : returnPropsExp_) {
-            auto& val = retExp->eval(*expCtx_);
-            auto edgeSrcIdExp = dynamic_cast<const EdgeSrcIdExpression*>(retExp);
-            auto edgeDstIdExp = dynamic_cast<const EdgeDstIdExpression*>(retExp);
-            auto edgeRankExp = dynamic_cast<const EdgeRankExpression*>(retExp);
-            auto edgeTypeExp = dynamic_cast<const EdgeTypeExpression*>(retExp);
-            auto edgePropExp = dynamic_cast<const EdgePropertyExpression*>(retExp);
-
-            if (edgeSrcIdExp || edgeDstIdExp || edgeRankExp || edgeTypeExp || edgePropExp) {
-                auto edgeExp = dynamic_cast<const SymbolPropertyExpression*>(retExp);
-                result_->colNames.emplace_back(folly::stringPrintf("%s:%s",
-                                               edgeExp->sym()->c_str(),
-                                               edgeExp->prop()->c_str()));
-            } else {
-                VLOG(1) << "Can't get expression name";
-                result_->colNames.emplace_back("NULL");
-            }
-            row.emplace_back(std::move(val));
-        }
-        result_->rows.emplace_back(std::move(row));
-        return ret;
-    }
-
-private:
-    UpdateEdgeNode                                                                 *updateEdgeNode_;
-    std::vector<Expression*>                                                        returnPropsExp_;
-    StorageExpressionContext                                                       *expCtx_;
-
-    // return prop sets
-    nebula::DataSet                                                                *result_;
-    bool                                                                            insert_{false};
+    nebula::DataSet                                         *result_;
+    bool                                                     insert_{false};
 };
 
 }  // namespace storage

@@ -56,6 +56,9 @@ public:
     // used for GetNeighbors
     size_t                              columnIdx_ = 0;
     const std::vector<PropContext>*     props_ = nullptr;
+
+    // used for update
+    bool                                insert_ = false;
 };
 
 class CommonUtils final {

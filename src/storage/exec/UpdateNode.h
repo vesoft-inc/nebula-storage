@@ -112,7 +112,7 @@ public:
     // For insert, condition is always true,
     // Props must have default value or nullable
     kvstore::ResultCode insertTagProps(PartitionID partId, const VertexID& vId) {
-        insert_ = true;
+        planContext_->insert_ = true;
         auto ret = getLatestTagSchemaAndName();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
@@ -279,15 +279,6 @@ public:
                                              vId, values.value(), colsType);
     }
 
-    bool getInsert() {
-        return insert_;
-    }
-
-    StorageExpressionContext* getExpressionContext() {
-        return expCtx_;
-    }
-
-
 private:
     // ============================ input =====================================================
     PlanContext                                                            *planContext_;
@@ -313,9 +304,6 @@ private:
     std::unordered_map<std::string, Value>                                  props_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
 
-    // ============================ output ====================================================
-    // Whether an insert has occurred
-    bool                                                                    insert_{false};
     StorageExpressionContext                                               *expCtx_;
 };
 
@@ -417,7 +405,7 @@ public:
     // Insert props row,
     // Operator props must have default value or nullable
     kvstore::ResultCode insertEdgeProps(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
-        insert_ = true;
+        planContext_->insert_ = true;
         auto ret = getLatestEdgeSchemaAndName();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
@@ -607,15 +595,6 @@ public:
                                            colsType);
     }
 
-    bool getInsert() {
-        return insert_;
-    }
-
-    StorageExpressionContext* getExpressionContext() {
-        return expCtx_;
-    }
-
-
 private:
     // ============================ input =====================================================
     PlanContext                                                            *planContext_;
@@ -641,9 +620,7 @@ private:
     // edgeType_ prop -> value
     std::unordered_map<std::string, Value>                                  props_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
-    // ============================ output ====================================================
-    // input and update, then output
-    bool                                                                    insert_{false};
+
     StorageExpressionContext                                               *expCtx_;
 };
 
