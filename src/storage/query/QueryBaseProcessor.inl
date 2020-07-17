@@ -395,7 +395,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             So when checkExp is called, user need to make sure that related contexts have been
             set correctly, which are propContexts_, indexMap_, edgeNames_ in EdgeContext.
             */
-            CHECK(sizeof(SchemaID) == sizeof(EdgeType));
             if (edgeContext_.indexMap_.count(edgeType)) {
                 addPropContextIfNotExists(edgeContext_.propContexts_,
                                           edgeContext_.indexMap_,

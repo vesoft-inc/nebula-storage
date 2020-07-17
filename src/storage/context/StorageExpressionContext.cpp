@@ -11,9 +11,11 @@ namespace nebula {
 namespace storage {
 
 Value StorageExpressionContext::readValue(RowReader* reader,
-                                          const std::string& propName,
-                                          const meta::NebulaSchemaProvider* schema) const {
-    auto field = schema->field(propName);
+                                          const std::string& propName) const {
+    if (!schema_) {
+        return Value::kNullValue;
+    }
+    auto field = schema_->field(propName);
     if (!field) {
        return Value::kNullValue;
     }
@@ -45,10 +47,7 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
         } else if (prop == kType) {
             return NebulaKeyUtils::getEdgeType(vIdLen_, key_);
         } else {
-            if (schema_) {
-                return readValue(reader_, prop, schema_);
-            }
-            return Value::kNullValue;
+            return readValue(reader_, prop);
         }
     } else {
         auto iter = edgeFilters_.find(std::make_pair(edgeName, prop));
@@ -66,10 +65,7 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
         if (tagName != name_) {
             return Value::kNullValue;
         }
-        if (schema_) {
-            return readValue(reader_, prop, schema_);
-        }
-        return Value::kNullValue;
+        return readValue(reader_, prop);
     } else {
         auto iter = tagFilters_.find(std::make_pair(tagName, prop));
         if (iter == tagFilters_.end()) {

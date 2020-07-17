@@ -47,22 +47,7 @@ public:
             return ret;
         }
 
-        if (isEdge_) {
-            entryName_ = planContext_->edgeName_;
-            schema_ = planContext_->edgeSchema_;
-        } else {
-            entryName_ = planContext_->tagName_;
-            schema_ = planContext_->tagSchema_;
-        }
-
         if (isUpdate_) {
-            if (!schema_ && isEdge_) {
-                VLOG(1) << "Fail to get schema in edgeType " << planContext_->edgeType_;
-                return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
-            } else if (!schema_ && !isEdge_) {
-                VLOG(1) << "Fail to get schema in TagId " << planContext_->tagId_;
-                return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
-            }
             if (this->dataError()) {
                 return kvstore::ResultCode::ERR_INVALID_DATA;
             }
@@ -83,7 +68,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (filterExp_ != nullptr) {
-            expCtx_->reset(this->reader(), this->key(), entryName_, schema_, isEdge_);
+            expCtx_->reset(this->reader(), this->key(), isEdge_);
             // result is false when filter out
             auto result = filterExp_->eval(*expCtx_);
             // NULL is always false
@@ -102,8 +87,6 @@ private:
     StorageExpressionContext         *expCtx_;
     Expression                       *filterExp_;
     bool                              isUpdate_;
-    const meta::NebulaSchemaProvider *schema_;
-    std::string                       entryName_;
 };
 
 }  // namespace storage

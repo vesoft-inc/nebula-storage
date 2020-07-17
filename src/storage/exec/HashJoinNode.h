@@ -136,6 +136,8 @@ private:
             // the offset of tags and other fields
             planContext_->columnIdx_ = edgeContext_->offset_ + idx;
             planContext_->props_ = &(edgeContext_->propContexts_[idx].second);
+
+            expCtx_->resetSchema(planContext_->edgeName_,  planContext_->edgeSchema_, true);
         }
     }
 

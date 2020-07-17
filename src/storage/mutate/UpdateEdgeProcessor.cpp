@@ -162,10 +162,6 @@ cpp2::ErrorCode UpdateEdgeProcessor::buildEdgeSchema() {
 // edgeContext.propContexts_ return prop, filter prop, update prop
 cpp2::ErrorCode
 UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
-    if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_);
-    }
-
     // Build default edge context
     auto edgeNameRet = env_->schemaMan_->toEdgeName(spaceId_, std::abs(edgeKey_.edge_type));
     if (!edgeNameRet.ok()) {
@@ -261,6 +257,13 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
     } else {
         VLOG(1) << "Fail to get schema in edgeType " << edgeKey_.edge_type;
         return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+    }
+
+    if (expCtx_ == nullptr) {
+        expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_,
+                                                             planContext_->edgeName_,
+                                                             planContext_->edgeSchema_,
+                                                             true);
     }
 
     return cpp2::ErrorCode::SUCCEEDED;

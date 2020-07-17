@@ -161,10 +161,6 @@ cpp2::ErrorCode UpdateVertexProcessor::buildTagSchema() {
 // updatedVertexProps_  has update expression
 cpp2::ErrorCode
 UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
-    if (expCtx_ == nullptr) {
-        expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_);
-    }
-
     // Build context of the update vertex tag props
     auto partId = req.get_part_id();
     auto vId = req.get_vertex_id();
@@ -261,6 +257,13 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     } else {
         VLOG(1) << "Fail to get schema in TagId " << tagId_;
         return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+    }
+
+    if (expCtx_ == nullptr) {
+        expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_,
+                                                             planContext_->tagName_,
+                                                             planContext_->tagSchema_,
+                                                             false);
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }

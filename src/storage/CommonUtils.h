@@ -20,8 +20,9 @@ namespace storage {
 
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 
-// unify TagID, EdgeType, before use, CHECK(sizeof(SchemaID) == sizeof(EdgeType))
+// unify TagID, EdgeType
 using SchemaID = TagID;
+static_assert(sizeof(SchemaID) == sizeof(EdgeType), "sizeof(TagID) != sizeof(EdgeType)");
 
 class StorageEnv {
 public:

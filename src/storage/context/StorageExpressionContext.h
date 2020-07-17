@@ -28,8 +28,14 @@ If we need to read value from a user defined plase, just set the related value b
 */
 class StorageExpressionContext final : public ExpressionContext {
 public:
-    explicit StorageExpressionContext(size_t vIdLen)
-        : vIdLen_(vIdLen) {}
+    explicit StorageExpressionContext(size_t vIdLen,
+                                      const std::string& name = "",
+                                      const meta::NebulaSchemaProvider* schema = nullptr,
+                                      bool isEdge = false)
+        : vIdLen_(vIdLen)
+        , name_(name)
+        , schema_(schema)
+        , isEdge_(isEdge) {}
 
     // Get the latest version value for the given variable name, such as $a, $b
     const Value& getVar(const std::string&) const override {
@@ -73,14 +79,10 @@ public:
 
     void reset(RowReader* reader,
                folly::StringPiece key,
-               std::string name,
-               const meta::NebulaSchemaProvider* schema,
                bool isEdge) {
+        CHECK_EQ(isEdge_, isEdge);
         reader_ = reader;
         key_ = key;
-        name_ = name;
-        schema_ = schema;
-        isEdge_ = isEdge;
     }
 
     void reset() {
@@ -88,6 +90,14 @@ public:
         key_ = "";
         name_ = "";
         schema_ = nullptr;
+    }
+
+    void resetSchema(const std::string& name,
+                     const meta::NebulaSchemaProvider* schema,
+                     bool isEdge) {
+        name_ = name;
+        schema_ = schema;
+        isEdge_ = isEdge;
     }
 
     void setTagProp(const std::string& tagName,
@@ -108,8 +118,7 @@ public:
     }
 
     Value readValue(RowReader* reader,
-                    const std::string& propName,
-                    const meta::NebulaSchemaProvider* schema) const;
+                    const std::string& propName) const;
 
 private:
     size_t                             vIdLen_;
