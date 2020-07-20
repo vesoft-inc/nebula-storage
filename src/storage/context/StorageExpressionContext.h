@@ -15,16 +15,21 @@
 namespace nebula {
 namespace storage {
 
+/*
+StorageExpressionContext supports both read value from a RowReader, or user set value by
+`setTagProp` and `setEdgeProp`.
+
+If we need to read value from the RowReader, be sure to set the reader by calling `reset`. For now,
+it only supports read from **one row**. So the reader is either a row of vertex or a row of edge.
+This mode is used in GetNeighbors at present.
+
+If we need to read value from not from user defined plase, just set the related value by
+`setTagProp` and `setEdgeProp`. Be sure about not pass the RowReader by `reset`.
+*/
 class StorageExpressionContext final : public ExpressionContext {
 public:
     explicit StorageExpressionContext(size_t vIdLen)
         : vIdLen_(vIdLen) {}
-
-    void reset(RowReader* reader, folly::StringPiece key, folly::StringPiece edgeName) {
-        reader_ = reader;
-        key_ = key;
-        name_ = edgeName;
-    }
 
     // Get the latest version value for the given variable name, such as $a, $b
     const Value& getVar(const std::string&) const override {
@@ -52,38 +57,63 @@ public:
         return Value::kNullValue;
     }
 
+    // Get the specified property from the tag, such as tag.prop_name
+    Value getTagProp(const std::string&, const std::string&) const override {
+        return Value::kNullValue;
+    }
+
     // Get the specified property from the edge, such as edgename.prop_name
-    const Value& getEdgeProp(const std::string& edgeName,
-                             const std::string& prop) const override;
+    Value getEdgeProp(const std::string& edgeName, const std::string& prop) const override;
 
     // Get the specified property of tagName from the source vertex,
     // such as $^.tagName.prop_name
-    const Value& getSrcProp(const std::string& tagName, const std::string& prop) const override;
+    Value getSrcProp(const std::string& tagName, const std::string& prop) const override;
 
     void setVar(const std::string&, Value) override {}
 
+    void reset(RowReader* reader, folly::StringPiece key, folly::StringPiece name, bool isEdge) {
+        reader_ = reader;
+        key_ = key;
+        name_ = name;
+        isEdge_ = isEdge;
+    }
+
+    void reset() {
+        reader_ = nullptr;
+        key_ = "";
+    }
+
     void setTagProp(const std::string& tagName,
                     const std::string& prop,
-                    const nebula::Value& value) {
-        tagFilters_.emplace(std::make_pair(tagName, prop), value);
+                    nebula::Value value) {
+        tagFilters_.emplace(std::make_pair(tagName, prop), std::move(value));
+    }
+
+    void setEdgeProp(const std::string& edgeName,
+                     const std::string& prop,
+                     nebula::Value value) {
+        edgeFilters_.emplace(std::make_pair(edgeName, prop), std::move(value));
     }
 
     void clear() {
         tagFilters_.clear();
+        edgeFilters_.clear();
     }
 
 private:
     size_t vIdLen_;
 
-    // todo(doodle): temp solution because need to return const reference
-    static Value value_;
     folly::StringPiece key_;
     RowReader* reader_;
     // tag or edge name
     folly::StringPiece name_;
+    bool isEdge_;
 
     // <tagName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> tagFilters_;
+
+    // <edgeName, property> -> value
+    std::unordered_map<std::pair<std::string, std::string>, nebula::Value> edgeFilters_;
 };
 
 }  // namespace storage

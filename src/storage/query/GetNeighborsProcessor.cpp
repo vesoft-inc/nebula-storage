@@ -38,7 +38,16 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
         return;
     }
 
-    auto plan = buildPlan(&resultDataSet_);
+    int64_t limit = 0;
+    bool random = false;
+    if (req.traverse_spec.__isset.limit) {
+        limit = req.traverse_spec.limit;
+        if (req.traverse_spec.__isset.random) {
+            random = req.traverse_spec.random;
+        }
+    }
+
+    auto plan = buildPlan(&resultDataSet_, limit, random);
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
@@ -60,7 +69,9 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) {
+StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
+                                                       int64_t limit,
+                                                       bool random) {
     /*
     The StoragePlan looks like this:
                  +--------+---------+
@@ -99,19 +110,27 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result) 
     }
 
     auto hashJoin = std::make_unique<HashJoinNode>(
-            tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
+            planContext_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
     for (auto* tag : tags) {
         hashJoin->addDependency(tag);
     }
     for (auto* edge : edges) {
         hashJoin->addDependency(edge);
     }
-    auto filter = std::make_unique<FilterNode>(hashJoin.get(), expCtx_.get(), filter_.get());
+    auto filter = std::make_unique<FilterNode<VertexID>>(
+            planContext_.get(), hashJoin.get(), true, expCtx_.get(), filter_.get());
     filter->addDependency(hashJoin.get());
-    auto agg = std::make_unique<AggregateNode>(filter.get(), &edgeContext_);
+    auto agg = std::make_unique<AggregateNode<VertexID>>(
+            planContext_.get(), filter.get(), &edgeContext_);
     agg->addDependency(filter.get());
-    auto output = std::make_unique<GetNeighborsNode>(
-            planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result);
+    std::unique_ptr<GetNeighborsNode> output;
+    if (random) {
+        output = std::make_unique<GetNeighborsSampleNode>(
+                planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+    } else {
+        output = std::make_unique<GetNeighborsNode>(
+                planContext_.get(), hashJoin.get(), agg.get(), &edgeContext_, result, limit);
+    }
     output->addDependency(agg.get());
 
     plan.addNode(std::move(hashJoin));
@@ -134,11 +153,11 @@ cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeig
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildTagContext(req);
+    code = buildTagContext(req.get_traverse_spec());
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildEdgeContext(req);
+    code = buildEdgeContext(req.get_traverse_spec());
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
@@ -153,7 +172,7 @@ cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeig
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsRequest& req) {
+cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::TraverseSpec& req) {
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
     if (!req.__isset.vertex_props) {
         // If the list is not given, no prop will be returned.
@@ -179,7 +198,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::GetNeighborsR
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighborsRequest& req) {
+cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::TraverseSpec& req) {
     edgeContext_.offset_ = tagContext_.propContexts_.size() + 2;
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
     if (!req.__isset.edge_props) {
@@ -202,6 +221,7 @@ cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::GetNeighbors
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
+    // TODO : verify req.__isset.stat_props
     ret = handleEdgeStatProps(req.stat_props);
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
         return ret;
@@ -218,7 +238,7 @@ void GetNeighborsProcessor::buildTagColName(const std::vector<cpp2::VertexProp>&
         for (const auto& prop : tagProp.props) {
             colName += ":" + std::move(prop);
         }
-        DVLOG(1) << "append col name: " << colName;
+        VLOG(1) << "append col name: " << colName;
         resultDataSet_.colNames.emplace_back(std::move(colName));
     }
 }
@@ -233,7 +253,7 @@ void GetNeighborsProcessor::buildEdgeColName(const std::vector<cpp2::EdgeProp>& 
         for (const auto& prop : edgeProp.props) {
             colName += ":" + std::move(prop);
         }
-        DVLOG(1) << "append col name: " << colName;
+        VLOG(1) << "append col name: " << colName;
         resultDataSet_.colNames.emplace_back(std::move(colName));
     }
 }

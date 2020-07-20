@@ -130,8 +130,9 @@ void QueryBaseProcessor<REQ, RESP>::addReturnPropContext(
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
+    const auto& traverseSpec = req.get_traverse_spec();
     resultDataSet_.colNames.emplace_back("_expr");
-    if (!req.__isset.expressions) {
+    if (!traverseSpec.__isset.expressions) {
         return cpp2::ErrorCode::SUCCEEDED;
     }
     // todo(doodle): support expression yields later
@@ -140,10 +141,11 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
-    if (!req.__isset.filter) {
+    const auto& traverseSpec = req.get_traverse_spec();
+    if (!traverseSpec.__isset.filter) {
         return cpp2::ErrorCode::SUCCEEDED;
     }
-    const auto& filterStr = *req.get_filter();
+    const auto& filterStr = *traverseSpec.get_filter();
     if (!filterStr.empty()) {
         // the filter expression **must** return a bool
         filter_ = std::move(Expression::decode(filterStr));
@@ -387,15 +389,34 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                     return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
                 }
             }
-            addPropContextIfNotExists(edgeContext_.propContexts_,
-                                      edgeContext_.indexMap_,
-                                      edgeContext_.edgeNames_,
-                                      edgeType,
-                                      edgeName,
-                                      propName,
-                                      field,
-                                      returned,
-                                      filtered);
+            /*
+            Because we can't distinguish the edgeType should be positive or negative by edge
+            name, as for expression of edge properties, we need extra information to decide.
+            So when checkExp is called, user need to make sure that related contexts have been
+            set correctly, which are propContexts_, indexMap_, edgeNames_ in EdgeContext.
+            */
+            if (edgeContext_.indexMap_.count(edgeType)) {
+                addPropContextIfNotExists(edgeContext_.propContexts_,
+                                          edgeContext_.indexMap_,
+                                          edgeContext_.edgeNames_,
+                                          edgeType,
+                                          edgeName,
+                                          propName,
+                                          field,
+                                          returned,
+                                          filtered);
+            }
+            if (edgeContext_.indexMap_.count(-edgeType)) {
+                addPropContextIfNotExists(edgeContext_.propContexts_,
+                                          edgeContext_.indexMap_,
+                                          edgeContext_.edgeNames_,
+                                          -edgeType,
+                                          edgeName,
+                                          propName,
+                                          field,
+                                          returned,
+                                          filtered);
+            }
             return cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kInputProperty:
