@@ -47,21 +47,19 @@ public:
             return ret;
         }
 
-        if (isUpdate_) {
+        do {
             if (this->dataError()) {
-                return kvstore::ResultCode::ERR_INVALID_DATA;
+                planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
+                break;
             }
-            // when this->valid() is false, filter is always true
             if (this->valid() && !check()) {
-                return kvstore::ResultCode::ERR_RESULT_FILTERED;
-            }
-            return kvstore::ResultCode::SUCCEEDED;
-        } else {
-            while (this->valid() && !check()) {
+                planContext_->resultStat_ = ResultStatus::FILTER_OUT;
                 this->next();
+                continue;
             }
-            return kvstore::ResultCode::SUCCEEDED;
-        }
+            break;
+        } while (true);
+        return kvstore::ResultCode::SUCCEEDED;
     }
 
 private:

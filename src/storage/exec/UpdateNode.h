@@ -49,6 +49,14 @@ public:
                 this->exeResult_ = RelNode::execute(partId, vId);
 
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
+                    if (this->planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
+                        this->exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
+                        return folly::none;
+                    } else if (this->planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
+                        this->exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
+                        return folly::none;
+                    }
+
                     this->reader_ = filterNode_->reader();
                     // reset StorageExpressionContext reader_ to nullptr
                     this->expCtx_->reset();
@@ -67,7 +75,7 @@ public:
                     }
                     return this->updateAndWriteBack(partId, vId);
                 } else {
-                    // if filter out, StorageExpressionContext is set in filterNode
+                    // if tagnode/edgenode error
                     return folly::none;
                 }
             },
@@ -341,6 +349,13 @@ public:
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
                     if (edgeKey.edge_type != this->edgeType_) {
                         this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                        return folly::none;
+                    }
+                    if (this->planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
+                        this->exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
+                        return folly::none;
+                    } else if (this->planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
+                        this->exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
                         return folly::none;
                     }
 

@@ -103,7 +103,6 @@ public:
         return tagName_;
     }
 
-    // only update use
     bool dataError() const override {
         if (iter_) {
             return iter_->dataError();

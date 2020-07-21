@@ -31,6 +31,12 @@ public:
     meta::IndexManager*                             indexMan_{nullptr};
 };
 
+enum class ResultStatus {
+    NORMAL = 0,
+    ILLEGAL_DATA = -1,
+    FILTER_OUT = -2,
+};
+
 struct PropContext;
 
 // PlanContext stores some information during the process
@@ -59,6 +65,8 @@ public:
 
     // used for update
     bool                                insert_ = false;
+
+    ResultStatus                        resultStat_{ResultStatus::NORMAL};
 };
 
 class CommonUtils final {

@@ -44,6 +44,7 @@ public:
         , vIdLen_(vIdLen)
         , schemas_(schemas)
         , ttl_(ttl) {
+        lookupOne_ = true;
         check(iter_->val());
     }
 
@@ -52,17 +53,16 @@ public:
                       const folly::Optional<std::pair<std::string, int64_t>>* ttl)
         : schemas_(schemas)
         , ttl_(ttl) {
+        lookupOne_ = true;
         check(val);
     }
 
     bool valid() const override {
-        return reader_ != nullptr;
+        return lookupOne_ && reader_ != nullptr;
     }
 
     void next() override {
-        do {
-            iter_->next();
-        } while (iter_->valid() && !check(iter_->val()));
+        lookupOne_ = false;
     }
 
     folly::StringPiece key() const override {
@@ -109,6 +109,7 @@ protected:
     size_t                                                                vIdLen_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
     const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
+    bool                                                                  lookupOne_ = true;
 
     std::unique_ptr<RowReader>                                            reader_;
     bool                                                                  dataError_ = false;
@@ -128,12 +129,14 @@ public:
         , edgeType_(edgeType)
         , vIdLen_(vIdLen)
         , schemas_(schemas)
-        , ttl_(ttl) {
+        , ttl_(ttl)
+        , moveToValidRecord_(moveToValidRecord) {
         CHECK(!!iter_);
+        lookupOne_ = true;
         // If moveToValidRecord is true, iterator will try to move to first valid record,
         // which is used in GetNeighbors. If it is false, it will only check the latest record,
         // which is used in GetProps and UpdateEdge.
-        if (moveToValidRecord) {
+        if (moveToValidRecord_) {
             while (iter_->valid() && !check()) {
                 iter_->next();
             }
@@ -143,10 +146,14 @@ public:
     }
 
     bool valid() const override {
-        return reader_ != nullptr;
+        return lookupOne_ && reader_ != nullptr;
     }
 
     void next() override {
+        if (!moveToValidRecord_) {
+            lookupOne_ = false;
+            return;
+        }
         do {
             iter_->next();
             if (!iter_->valid()) {
@@ -223,6 +230,8 @@ protected:
     size_t                                                                vIdLen_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
     const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
+    bool                                                                  moveToValidRecord_{true};
+    bool                                                                  lookupOne_ = true;
 
     std::unique_ptr<RowReader>                                            reader_;
     EdgeRanking                                                           lastRank_ = 0;
@@ -273,6 +282,12 @@ public:
     }
 
     bool dataError() const override {
+        if (iters_.empty() || !iters_[curIter_]) {
+            return false;
+        }
+        if (curIter_ < iters_.size()) {
+            return iters_[curIter_]->dataError();
+        }
         return false;
     }
 

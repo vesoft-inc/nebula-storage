@@ -52,6 +52,10 @@ public:
 
         // add result of each tag node to tagResult
         for (auto* tagNode : tagNodes_) {
+            if (tagNode->dataError()) {
+                return kvstore::ResultCode::ERR_INVALID_DATA;
+            }
+
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
                 [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
@@ -113,6 +117,13 @@ public:
     // return the edge row reader which could pass filter
     RowReader* reader() const override {
         return iter_->reader();
+    }
+
+    bool dataError() const override {
+        if (iter_) {
+            return iter_->dataError();
+        }
+        return false;
     }
 
 private:
