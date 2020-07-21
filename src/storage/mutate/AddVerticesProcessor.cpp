@@ -220,15 +220,15 @@ std::string AddVerticesProcessor::indexKey(PartitionID partId,
                                            VertexID vId,
                                            RowReader* reader,
                                            std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
-    std::vector<Value::Type> colsType;
-    auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
+    bool nullable = false;
+    auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), nullable);
     if (!values.ok()) {
         return "";
     }
     return IndexKeyUtils::vertexIndexKey(spaceVidLen_, partId,
                                          index->get_index_id(),
                                          vId, values.value(),
-                                         colsType);
+                                         nullable);
 }
 
 }  // namespace storage

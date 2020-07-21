@@ -456,9 +456,9 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_float", meta::cpp2::PropertyType::FLOAT);
     schema->addField("col_float_null", meta::cpp2::PropertyType::FLOAT, 0, true);
     schema->addField("col_float_default", meta::cpp2::PropertyType::FLOAT, 0, false, 2.2F);
-    schema->addField("col_str", meta::cpp2::PropertyType::STRING);
-    schema->addField("col_str_null", meta::cpp2::PropertyType::STRING, 0, true);
-    schema->addField("col_str_default", meta::cpp2::PropertyType::STRING, 0, false, "sky");
+    schema->addField("col_str", meta::cpp2::PropertyType::FIXED_STRING, 6);
+    schema->addField("col_str_null", meta::cpp2::PropertyType::FIXED_STRING, 6, true);
+    schema->addField("col_str_default", meta::cpp2::PropertyType::FIXED_STRING, 6, false, "sky");
     schema->addField("col_date", meta::cpp2::PropertyType::DATE);
     schema->addField("col_date_null", meta::cpp2::PropertyType::DATE, 0, true);
 
@@ -511,12 +511,14 @@ MockData::mockTypicaIndexColumns() {
 
     meta::cpp2::ColumnDef col_str;
     col_str.name = "col_str";
-    col_str.type = meta::cpp2::PropertyType::STRING;
+    col_str.type = meta::cpp2::PropertyType::FIXED_STRING;
+    col_str.set_type_length(6);
     cols.emplace_back(std::move(col_str));
 
     meta::cpp2::ColumnDef col_str_null;
     col_str_null.name = "col_str_null";
-    col_str_null.type = meta::cpp2::PropertyType::STRING;
+    col_str_null.type = meta::cpp2::PropertyType::FIXED_STRING;
+    col_str_null.set_type_length(6);
     col_str_null.set_nullable(true);
     cols.emplace_back(std::move(col_str_null));
 

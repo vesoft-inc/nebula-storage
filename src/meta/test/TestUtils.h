@@ -220,7 +220,10 @@ public:
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
                 column.name = folly::stringPrintf("tag_%d_col_%d", tagId, i);
-                column.type = i < 1 ? PropertyType::INT64 : PropertyType::STRING;
+                column.type = i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING;
+                if (i > 0) {
+                    column.set_type_length(8);
+                }
                 if (nullable) {
                     column.set_nullable(nullable);
                 }
@@ -251,7 +254,10 @@ public:
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
                 column.name = folly::stringPrintf("edge_%d_col_%d", edgeType, i);
-                column.type = i < 1 ? PropertyType::INT64 : PropertyType::STRING;
+                column.type = i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING;
+                if (i > 0) {
+                    column.set_type_length(8);
+                }
                 if (nullable) {
                     column.set_nullable(nullable);
                 }

@@ -17,6 +17,9 @@ namespace nebula {
 
 using PropertyType = nebula::meta::cpp2::PropertyType;
 
+// std::tuple<Value /*Allows null value*/, Value Type, Value Length /*for fixed string length*/>
+using IndexValue = std::tuple<Value, Value::Type, size_t>;
+
 /**
  * This class supply some utils for index in kvstore.
  * */
@@ -39,20 +42,20 @@ public:
             case PropertyType::FLOAT :
             case PropertyType::DOUBLE :
                 return Value::Type::FLOAT;
-            case PropertyType::STRING :
             case PropertyType::FIXED_STRING :
                 return Value::Type::STRING;
             case PropertyType::DATE :
                 return Value::Type::DATE;
             case PropertyType::DATETIME :
                 return Value::Type::DATETIME;
+            case PropertyType::STRING :
             case PropertyType::UNKNOWN :
                 return Value::Type::__EMPTY__;
         }
         return Value::Type::__EMPTY__;
     }
 
-    static std::string encodeNullValue(Value::Type type) {
+    static size_t valueLength(const Value::Type& type, size_t typeLen = 0) {
         size_t len = 0;
         switch (type) {
             case Value::Type::INT : {
@@ -68,7 +71,7 @@ public:
                 break;
             }
             case Value::Type::STRING : {
-                len = 1;
+                len = typeLen;
                 break;
             }
             case Value::Type::DATE : {
@@ -82,39 +85,60 @@ public:
             default :
                 LOG(ERROR) << "Unsupported default value type";
         }
+        return len;
+    }
+
+    static size_t valueLength(const nebula::meta::cpp2::ColumnDef& col) {
+        size_t len = 0;
+        auto type = toValueType(col.get_type());
+        if (type == Value::Type::STRING) {
+            return static_cast<size_t>(*col.get_type_length());
+        }
+        len = valueLength(type);
+        return len;
+    }
+
+    static std::string encodeNullValue(const size_t& len) {
         std::string raw;
         raw.reserve(len);
         raw.append(len, '\0');
         return raw;
     }
 
-    static std::string encodeValue(const Value& v) {
-        switch (v.type()) {
+    static std::string encodeValue(const IndexValue& v) {
+        switch (std::get<1>(v)) {
             case Value::Type::INT :
-                return encodeInt64(v.getInt());
+                return encodeInt64(std::get<0>(v).getInt());
             case Value::Type::FLOAT :
-                return encodeDouble(v.getFloat());
+                return encodeDouble(std::get<0>(v).getFloat());
             case Value::Type::BOOL: {
-                auto val = v.getBool();
+                auto val = std::get<0>(v).getBool();
                 std::string raw;
                 raw.reserve(sizeof(bool));
                 raw.append(reinterpret_cast<const char*>(&val), sizeof(bool));
                 return raw;
             }
-            case Value::Type::STRING :
-                return v.getStr();
+            case Value::Type::STRING : {
+                auto val = std::get<0>(v).getStr();
+                std::string raw;
+                raw.reserve(std::get<2>(v));
+                raw.append(val)
+                    .append(std::get<2>(v) - val.size(), '\0');
+                return raw;
+            }
             case Value::Type::DATE : {
+                auto d = std::get<0>(v).getDate();
                 std::string buf;
                 buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
-                buf.append(reinterpret_cast<const char*>(&v.getDate().year), sizeof(int16_t))
-                   .append(reinterpret_cast<const char*>(&v.getDate().month), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&v.getDate().day), sizeof(int8_t));
+                buf.append(reinterpret_cast<const char*>(&d.year), sizeof(int16_t))
+                   .append(reinterpret_cast<const char*>(&d.month), sizeof(int8_t))
+                   .append(reinterpret_cast<const char*>(&d.day), sizeof(int8_t));
                 return buf;
             }
             case Value::Type::DATETIME : {
                 std::string buf;
                 buf.reserve(sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5);
-                auto dt = v.getDateTime();
+                auto dt = std::get<0>(v).getDateTime();
                 buf.append(reinterpret_cast<const char*>(&dt.year), sizeof(int16_t))
                    .append(reinterpret_cast<const char*>(&dt.month), sizeof(int8_t))
                    .append(reinterpret_cast<const char*>(&dt.day), sizeof(int8_t))
@@ -263,14 +287,13 @@ public:
     }
 
     static Value getValueFromIndexKey(size_t vIdLen,
-                                      int32_t vColNum,
                                       const folly::StringPiece& key,
                                       const folly::StringPiece& prop,
                                       std::vector<std::pair<std::string, Value::Type>>& cols,
+                                      size_t fixedStrLen = 0,
                                       bool isEdgeIndex = false,
                                       bool hasNullableCol = false) {
         size_t len = 0;
-        int32_t vCount = vColNum;
         std::bitset<16> nullableBit;
         int8_t nullableColPosit = 15;
         size_t offset = sizeof(PartitionID) + sizeof(IndexID);
@@ -286,13 +309,13 @@ public:
         auto type = it->second;
 
         if (hasNullableCol) {
-            auto bitOffset = key.size() - tailLen - sizeof(u_short) - vCount * sizeof(int32_t);
+            auto bitOffset = key.size() - tailLen - sizeof(u_short);
             auto v = *reinterpret_cast<const u_short*>(key.begin() + bitOffset);
             nullableBit = v;
         }
 
         for (const auto& col : cols) {
-            if (hasNullableCol && col.first == prop.str() && nullableBit.test(nullableColPosit)) {
+            if (hasNullableCol && col.first == prop.str() && !nullableBit.test(nullableColPosit)) {
                     return Value(NullType::__NULL__);
             }
             switch (col.second) {
@@ -309,9 +332,7 @@ public:
                     break;
                 }
                 case Value::Type::STRING: {
-                    auto off = key.size() - vCount * sizeof(int32_t) - tailLen;
-                    len = *reinterpret_cast<const int32_t*>(key.data() + off);
-                    --vCount;
+                    len = fixedStrLen;
                     break;
                 }
                 case Value::Type::DATE : {
@@ -378,11 +399,8 @@ public:
     /**
      * Generate vertex|edge index key for kv store
      **/
-    static void encodeValues(const std::vector<Value>& values, std::string& raw);
-
-    static void encodeValuesWithNull(const std::vector<Value>& values,
-                                     const std::vector<Value::Type>& colsType,
-                                     std::string& raw);
+    static void encodeValues(const std::vector<IndexValue>& values,
+                             std::string& raw, bool nullable = false);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -390,8 +408,8 @@ public:
      **/
     static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
                                       IndexID indexId, VertexID vId,
-                                      const std::vector<Value>& values,
-                                      const std::vector<Value::Type>& valueTypes = {});
+                                      const std::vector<IndexValue>& values,
+                                      bool nullable = false);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -400,8 +418,8 @@ public:
     static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
                                     IndexID indexId, VertexID srcId,
                                     EdgeRanking rank, VertexID dstId,
-                                    const std::vector<Value>& values,
-                                    const std::vector<Value::Type>& valueTypes = {});
+                                    const std::vector<IndexValue>& values,
+                                    bool nullable = false);
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 

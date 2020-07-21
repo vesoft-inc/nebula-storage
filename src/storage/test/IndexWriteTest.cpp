@@ -294,49 +294,48 @@ TEST(IndexTest, VerticesValueTest) {
         }
 
         LOG(INFO) << "Check insert index...";
-        std::vector<Value> values;
-        std::vector<Value::Type> colsType;
+        std::vector<IndexValue> values;
         Value nullValue = Value(NullType::__NULL__);
         // col_bool
-        values.emplace_back(Value(true));
-        colsType.emplace_back(Value::Type::BOOL);
+        values.emplace_back(std::make_tuple(Value(true), Value::Type::BOOL,
+                                            IndexKeyUtils::valueLength(Value::Type::BOOL)));
         // col_bool_null
-        values.emplace_back(nullValue);
-        colsType.emplace_back(Value::Type::BOOL);
+        values.emplace_back(std::make_tuple(nullValue, Value::Type::BOOL,
+                                            IndexKeyUtils::valueLength(Value::Type::BOOL)));
         // col_bool_default
-        values.emplace_back(Value(true));
-        colsType.emplace_back(Value::Type::BOOL);
+        values.emplace_back(std::make_tuple(Value(true), Value::Type::BOOL,
+                                            IndexKeyUtils::valueLength(Value::Type::BOOL)));
         // col_int
-        values.emplace_back(Value(1L));
-        colsType.emplace_back(Value::Type::INT);
+        values.emplace_back(std::make_tuple(Value(1L), Value::Type::INT,
+                                            IndexKeyUtils::valueLength(Value::Type::INT)));
         // col_int_null
-        values.emplace_back(nullValue);
-        colsType.emplace_back(Value::Type::INT);
+        values.emplace_back(std::make_tuple(nullValue, Value::Type::INT,
+                                            IndexKeyUtils::valueLength(Value::Type::INT)));
         // col_float
-        values.emplace_back(Value(1.1f));
-        colsType.emplace_back(Value::Type::FLOAT);
+        values.emplace_back(std::make_tuple(Value(1.1f), Value::Type::FLOAT,
+                                            IndexKeyUtils::valueLength(Value::Type::FLOAT)));
         // col_float_null
-        values.emplace_back(Value(5.5f));
-        colsType.emplace_back(Value::Type::FLOAT);
+        values.emplace_back(std::make_tuple(Value(5.5f), Value::Type::FLOAT,
+                                            IndexKeyUtils::valueLength(Value::Type::FLOAT)));
         // col_str
-        values.emplace_back(Value("string"));
-        colsType.emplace_back(Value::Type::STRING);
+        values.emplace_back(std::make_tuple(Value("string"), Value::Type::STRING,
+                                            IndexKeyUtils::valueLength(Value::Type::STRING, 6)));
         // col_str_null
-        values.emplace_back(nullValue);
-        colsType.emplace_back(Value::Type::STRING);
+        values.emplace_back(std::make_tuple(nullValue, Value::Type::STRING,
+                                            IndexKeyUtils::valueLength(Value::Type::STRING, 6)));
         // col_date
         const Date date = {2020, 1, 20};
-        values.emplace_back(Value(date));
-        colsType.emplace_back(Value::Type::DATE);
+        values.emplace_back(std::make_tuple(Value(date), Value::Type::DATE,
+                                            IndexKeyUtils::valueLength(Value::Type::DATE)));
         // col_date_null
-        values.emplace_back(nullValue);
-        colsType.emplace_back(Value::Type::DATE);
+        values.emplace_back(std::make_tuple(nullValue, Value::Type::DATE,
+                                            IndexKeyUtils::valueLength(Value::Type::DATE)));
 
         for (auto partId = 1; partId <= 6; partId++) {
             auto prefix = IndexKeyUtils::indexPrefix(partId, indexId);
             auto indexKey = IndexKeyUtils::vertexIndexKey(vIdLen, partId, indexId,
                                                           convertVertexId(vIdLen, partId),
-                                                          values, colsType);
+                                                          values, true);
             std::unique_ptr<kvstore::KVIterator> iter;
             auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
             EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);

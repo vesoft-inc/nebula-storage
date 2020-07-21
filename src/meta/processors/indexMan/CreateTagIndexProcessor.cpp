@@ -112,6 +112,12 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
             onFinished();
             return;
         } else {
+            if (iter->get_type() == cpp2::PropertyType::STRING) {
+                LOG(ERROR) << "The string type does not allow indexing";
+                handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
+                onFinished();
+                return;
+            }
             columns.emplace_back(*iter);
         }
     }

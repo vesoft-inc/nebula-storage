@@ -192,6 +192,5 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
 
     return std::move(rowWrite).moveEncodedStr();
 }
-
 }  // namespace storage
 }  // namespace nebula
