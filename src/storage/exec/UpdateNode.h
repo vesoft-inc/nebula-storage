@@ -115,7 +115,6 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-
     // Insert props row,
     // For insert, condition is always true,
     // Props must have default value or nullable
@@ -158,7 +157,6 @@ public:
 
         return kvstore::ResultCode::SUCCEEDED;
     }
-
 
     // collect tag prop
     kvstore::ResultCode collTagProp() {
@@ -314,7 +312,6 @@ private:
 
     StorageExpressionContext                                               *expCtx_;
 };
-
 
 // Only use for update edge
 // Update records, write to kvstore
@@ -512,7 +509,6 @@ public:
         val_ = reader_->getData();
         return kvstore::ResultCode::SUCCEEDED;
     }
-
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {

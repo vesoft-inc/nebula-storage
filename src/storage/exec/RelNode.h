@@ -172,11 +172,6 @@ public:
         return upstream_->reader();
     }
 
-    // only update use
-    bool dataError() const override {
-        return upstream_->dataError();
-    }
-
 protected:
     // return true when the iterator points to a valid value
     virtual bool check() {

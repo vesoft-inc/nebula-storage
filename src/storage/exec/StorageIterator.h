@@ -28,30 +28,30 @@ public:
     virtual folly::StringPiece val() const = 0;
 
     virtual RowReader* reader() const = 0;
-
-    virtual bool dataError() const = 0;
 };
 
 class SingleTagIterator : public StorageIterator {
 public:
-    SingleTagIterator(std::unique_ptr<kvstore::KVIterator> iter,
+    SingleTagIterator(PlanContext* planCtx,
+                      std::unique_ptr<kvstore::KVIterator> iter,
                       TagID tagId,
-                      size_t vIdLen,
                       const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
                       const folly::Optional<std::pair<std::string, int64_t>>* ttl)
-        : iter_(std::move(iter))
+        : planContext_(planCtx)
+        , iter_(std::move(iter))
         , tagId_(tagId)
-        , vIdLen_(vIdLen)
         , schemas_(schemas)
         , ttl_(ttl) {
         lookupOne_ = true;
         check(iter_->val());
     }
 
-    SingleTagIterator(folly::StringPiece val,
+    SingleTagIterator(PlanContext* planCtx,
+                      folly::StringPiece val,
                       const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
                       const folly::Optional<std::pair<std::string, int64_t>>* ttl)
-        : schemas_(schemas)
+        : planContext_(planCtx)
+        , schemas_(schemas)
         , ttl_(ttl) {
         lookupOne_ = true;
         check(val);
@@ -77,18 +77,12 @@ public:
         return reader_.get();
     }
 
-    // only update use
-    bool dataError() const override {
-        return dataError_;
-    }
-
 protected:
     // return true when the value iter to a valid tag value
     bool check(folly::StringPiece val) {
-        dataError_ = false;
         reader_ = RowReader::getRowReader(*schemas_, val);
         if (!reader_) {
-            dataError_ = true;
+            planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
         }
 
@@ -104,30 +98,29 @@ protected:
         return true;
     }
 
+    PlanContext                                                          *planContext_ = nullptr;
     std::unique_ptr<kvstore::KVIterator>                                  iter_;
     TagID                                                                 tagId_;
-    size_t                                                                vIdLen_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
     const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
     bool                                                                  lookupOne_ = true;
 
     std::unique_ptr<RowReader>                                            reader_;
-    bool                                                                  dataError_ = false;
 };
 
 // Iterator of single specified type
 class SingleEdgeIterator : public StorageIterator {
 public:
     SingleEdgeIterator(
+            PlanContext* planCtx,
             std::unique_ptr<kvstore::KVIterator> iter,
             EdgeType edgeType,
-            size_t vIdLen,
             const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
             const folly::Optional<std::pair<std::string, int64_t>>* ttl,
             bool moveToValidRecord = true)
-        : iter_(std::move(iter))
+        : planContext_(planCtx)
+        , iter_(std::move(iter))
         , edgeType_(edgeType)
-        , vIdLen_(vIdLen)
         , schemas_(schemas)
         , ttl_(ttl)
         , moveToValidRecord_(moveToValidRecord) {
@@ -179,19 +172,13 @@ public:
         return edgeType_;
     }
 
-    // only update use
-    bool dataError() const override {
-        return dataError_;
-    }
-
 protected:
     // return true when the value iter to a valid edge value
     bool check() {
         reader_.reset();
-        dataError_ = false;
         auto key = iter_->key();
-        auto rank = NebulaKeyUtils::getRank(vIdLen_, key);
-        auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key);
+        auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, key);
+        auto dstId = NebulaKeyUtils::getDstId(planContext_->vIdLen_, key);
         if (!firstLoop_ && rank == lastRank_ && lastDstId_ == dstId) {
             // pass old version data of same edge
             return false;
@@ -201,11 +188,11 @@ protected:
         if (!reader_) {
             reader_ = RowReader::getRowReader(*schemas_, val);
             if (!reader_) {
-                dataError_ = true;
+                planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
                 return false;
             }
         } else if (!reader_->reset(*schemas_, val)) {
-            dataError_ = true;
+            planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
         }
 
@@ -225,9 +212,9 @@ protected:
         return true;
     }
 
+    PlanContext                                                          *planContext_;
     std::unique_ptr<kvstore::KVIterator>                                  iter_;
     EdgeType                                                              edgeType_;
-    size_t                                                                vIdLen_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
     const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
     bool                                                                  moveToValidRecord_{true};
@@ -237,7 +224,6 @@ protected:
     EdgeRanking                                                           lastRank_ = 0;
     VertexID                                                              lastDstId_ = "";
     bool                                                                  firstLoop_ = true;
-    bool                                                                  dataError_ = false;
 };
 
 // Iterator of multiple SingleEdgeIterator, it will iterate over edges of different types
@@ -279,16 +265,6 @@ public:
     // return the index of multiple iterators
     size_t getIdx() const {
         return curIter_;
-    }
-
-    bool dataError() const override {
-        if (iters_.empty() || !iters_[curIter_]) {
-            return false;
-        }
-        if (curIter_ < iters_.size()) {
-            return iters_[curIter_]->dataError();
-        }
-        return false;
     }
 
 private:

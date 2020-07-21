@@ -53,10 +53,6 @@ public:
         return reader_.get();
     }
 
-    bool dataError() const override {
-        return false;
-    }
-
 private:
     // return true when the value iter to a valid edge value
     bool check() {

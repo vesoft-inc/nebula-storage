@@ -51,7 +51,7 @@ public:
             auto result = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_), partId);
             if (result.ok()) {
                 cacheResult_ = std::move(result).value();
-                iter_.reset(new SingleTagIterator(cacheResult_, schemas_, &ttl_));
+                iter_.reset(new SingleTagIterator(planContext_, cacheResult_, schemas_, &ttl_));
                 return kvstore::ResultCode::SUCCEEDED;
             }
         }
@@ -60,7 +60,7 @@ public:
         prefix_ = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId, vId, tagId_);
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            iter_.reset(new SingleTagIterator(std::move(iter), tagId_, planContext_->vIdLen_,
+            iter_.reset(new SingleTagIterator(planContext_, std::move(iter), tagId_,
                                               schemas_, &ttl_));
         } else {
             iter_.reset();
@@ -101,13 +101,6 @@ public:
 
     const std::string& getTagName() {
         return tagName_;
-    }
-
-    bool dataError() const override {
-        if (iter_) {
-            return iter_->dataError();
-        }
-        return false;
     }
 
 private:

@@ -30,16 +30,12 @@ class FilterNode : public IterateNode<T> {
 public:
     FilterNode(PlanContext* planCtx,
                IterateNode<T>* upstream,
-               bool isEdge = true,
                StorageExpressionContext* expCtx = nullptr,
-               Expression* exp = nullptr,
-               bool isUpdate = false)
+               Expression* exp = nullptr)
         : IterateNode<T>(upstream)
         , planContext_(planCtx)
-        , isEdge_(isEdge)
         , expCtx_(expCtx)
-        , filterExp_(exp)
-        , isUpdate_(isUpdate) {}
+        , filterExp_(exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::execute(partId, vId);
@@ -48,8 +44,7 @@ public:
         }
 
         do {
-            if (this->dataError()) {
-                planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
+            if (planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
                 break;
             }
             if (this->valid() && !check()) {
@@ -66,7 +61,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (filterExp_ != nullptr) {
-            expCtx_->reset(this->reader(), this->key(), isEdge_);
+            expCtx_->reset(this->reader(), this->key());
             // result is false when filter out
             auto result = filterExp_->eval(*expCtx_);
             // NULL is always false
@@ -81,10 +76,8 @@ private:
 
 private:
     PlanContext                      *planContext_;
-    bool                              isEdge_;
     StorageExpressionContext         *expCtx_;
     Expression                       *filterExp_;
-    bool                              isUpdate_;
 };
 
 }  // namespace storage

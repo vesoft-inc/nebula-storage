@@ -77,10 +77,9 @@ public:
 
     void setVar(const std::string&, Value) override {}
 
+    // isEdge_ set in ctor
     void reset(RowReader* reader,
-               folly::StringPiece key,
-               bool isEdge) {
-        CHECK_EQ(isEdge_, isEdge);
+               folly::StringPiece key) {
         reader_ = reader;
         key_ = key;
     }
@@ -117,8 +116,7 @@ public:
         edgeFilters_.clear();
     }
 
-    Value readValue(RowReader* reader,
-                    const std::string& propName) const;
+    Value readValue(const std::string& propName) const;
 
 private:
     size_t                             vIdLen_;

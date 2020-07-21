@@ -58,14 +58,6 @@ public:
         return edgeName_;
     }
 
-    // Only update use
-    bool dataError() const override {
-        if (iter_) {
-            return iter_->dataError();
-        }
-        return false;
-    }
-
 protected:
     EdgeNode(PlanContext* planCtx,
              EdgeContext* ctx,
@@ -142,7 +134,7 @@ public:
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
             iter_.reset(new SingleEdgeIterator(
-                std::move(iter), edgeType_, planContext_->vIdLen_, schemas_, &ttl_, false));
+                planContext_, std::move(iter), edgeType_, schemas_, &ttl_, false));
         } else {
             iter_.reset();
         }
@@ -174,7 +166,7 @@ public:
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
             iter_.reset(new SingleEdgeIterator(
-                std::move(iter), edgeType_, planContext_->vIdLen_, schemas_, &ttl_));
+                planContext_, std::move(iter), edgeType_, schemas_, &ttl_));
         } else {
             iter_.reset();
         }
