@@ -972,7 +972,7 @@ TEST(ProcessorTest, ListOrGetTagsTest) {
         ASSERT_EQ(cols.size(), 2);
         for (auto i = 0; i < 2; i++) {
             ASSERT_EQ(folly::stringPrintf("tag_%d_col_%d", 0, i), cols[i].get_name());
-            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::STRING),
+            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING),
                       cols[i].get_type());
         }
     }
@@ -994,7 +994,7 @@ TEST(ProcessorTest, ListOrGetTagsTest) {
         ASSERT_EQ(cols.size(), 2);
         for (auto i = 0; i < 2; i++) {
             ASSERT_EQ(folly::stringPrintf("tag_%d_col_%d", 0, i), cols[i].get_name());
-            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::STRING),
+            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING),
                       cols[i].get_type());
         }
     }
@@ -1047,7 +1047,7 @@ TEST(ProcessorTest, ListOrGetEdgesTest) {
             ASSERT_EQ(cols.size(), 2);
             for (auto i = 0; i < 2; i++) {
                 ASSERT_EQ(folly::stringPrintf("edge_%d_col_%d", t, i), cols[i].get_name());
-                ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::STRING),
+                ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING),
                 cols[i].get_type());
             }
         }
@@ -1070,7 +1070,7 @@ TEST(ProcessorTest, ListOrGetEdgesTest) {
         ASSERT_EQ(cols.size(), 2);
         for (auto i = 0; i < 2; i++) {
             ASSERT_EQ(folly::stringPrintf("edge_%d_col_%d", 0, i), cols[i].get_name());
-            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::STRING),
+            ASSERT_EQ((i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING),
                       cols[i].get_type());
         }
     }
@@ -2295,7 +2295,7 @@ TEST(ProcessorTest, TagIndexTest) {
 
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("tag_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
             columns.emplace_back(std::move(stringColumn));
 
             auto multiItem = items[1];
@@ -2307,7 +2307,7 @@ TEST(ProcessorTest, TagIndexTest) {
             std::vector<cpp2::ColumnDef> columns;
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("tag_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
             columns.emplace_back(std::move(stringColumn));
             cpp2::ColumnDef intColumn;
             intColumn.set_name("tag_0_col_0");
@@ -2589,7 +2589,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
 
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("edge_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
             columns.emplace_back(std::move(stringColumn));
 
             auto multiItem = items[1];
@@ -2601,7 +2601,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
             std::vector<cpp2::ColumnDef> columns;
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("edge_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
             columns.emplace_back(std::move(stringColumn));
             cpp2::ColumnDef intColumn;
             intColumn.set_name("edge_0_col_0");

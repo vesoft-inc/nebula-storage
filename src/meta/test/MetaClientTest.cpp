@@ -571,6 +571,27 @@ TEST(MetaClientTest, TagIndexTest) {
     IndexID singleFieldIndexID;
     IndexID multiFieldIndexID;
     {
+        std::vector<cpp2::ColumnDef> columns;
+        cpp2::ColumnDef column0;
+        column0.set_name("col_string");
+        column0.set_type(PropertyType::STRING);
+        columns.emplace_back(std::move(column0));
+        cpp2::Schema schema;
+        schema.set_columns(std::move(columns));
+        auto result = client->createTagSchema(space,
+                                               folly::stringPrintf("tag_string"),
+                                               schema).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        std::vector<std::string>&& fields {"col_string"};
+        auto result = client->createTagIndex(space,
+                                              "string_index",
+                                              "tag_string",
+                                              std::move(fields)).get();
+        ASSERT_FALSE(result.ok());
+    }
+    {
         for (auto i = 0; i < 2; i++) {
             std::vector<cpp2::ColumnDef> columns;
             cpp2::ColumnDef column0;
@@ -580,7 +601,8 @@ TEST(MetaClientTest, TagIndexTest) {
 
             cpp2::ColumnDef column1;
             column1.set_name(folly::stringPrintf("tag_%d_col_1", i));
-            column1.set_type(PropertyType::STRING);
+            column1.set_type(PropertyType::FIXED_STRING);
+            column1.set_type_length(20);
             columns.emplace_back(std::move(column1));
 
             cpp2::Schema schema;
@@ -659,7 +681,8 @@ TEST(MetaClientTest, TagIndexTest) {
 
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("tag_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
+            stringColumn.set_type_length(20);
             columns.emplace_back(std::move(stringColumn));
 
             auto multiFieldResult = values[1].get_fields();
@@ -730,6 +753,27 @@ TEST(MetaClientTest, EdgeIndexTest) {
     IndexID singleFieldIndexID;
     IndexID multiFieldIndexID;
     {
+        std::vector<cpp2::ColumnDef> columns;
+        cpp2::ColumnDef column0;
+        column0.set_name("col_string");
+        column0.set_type(PropertyType::STRING);
+        columns.emplace_back(std::move(column0));
+        cpp2::Schema schema;
+        schema.set_columns(std::move(columns));
+        auto result = client->createEdgeSchema(space,
+                                               folly::stringPrintf("edge_string"),
+                                               schema).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        std::vector<std::string>&& fields {"col_string"};
+        auto result = client->createEdgeIndex(space,
+                                              "string_edge",
+                                              "edge_string",
+                                              std::move(fields)).get();
+        ASSERT_FALSE(result.ok());
+    }
+    {
         for (auto i = 0; i < 2; i++) {
             std::vector<cpp2::ColumnDef> columns;
             cpp2::ColumnDef column0;
@@ -739,7 +783,8 @@ TEST(MetaClientTest, EdgeIndexTest) {
 
             cpp2::ColumnDef column1;
             column1.set_name(folly::stringPrintf("edge_%d_col_1", i));
-            column1.set_type(PropertyType::STRING);
+            column1.set_type(PropertyType::FIXED_STRING);
+            column1.set_type_length(20);
             columns.emplace_back(std::move(column1));
 
             cpp2::Schema schema;
@@ -819,7 +864,8 @@ TEST(MetaClientTest, EdgeIndexTest) {
             columns.emplace_back(std::move(intColumn));
             cpp2::ColumnDef stringColumn;
             stringColumn.set_name("edge_0_col_1");
-            stringColumn.set_type(PropertyType::STRING);
+            stringColumn.set_type(PropertyType::FIXED_STRING);
+            stringColumn.set_type_length(20);
             columns.emplace_back(std::move(stringColumn));
             auto multiFieldResult = values[1].get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, multiFieldResult));
