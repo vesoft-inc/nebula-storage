@@ -578,7 +578,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         context1.set_column_hints(std::move(columnHints));
         RelationalExpression expr(
             Expression::Kind::kRelEQ,
-            new EdgePropertyExpression(
+            new TagPropertyExpression(
                 new std::string(folly::to<std::string>("player")),
                 new std::string("age")),
             new ConstantExpression(Value(34L)));
@@ -652,7 +652,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         context1.set_column_hints(std::move(columnHints));
         RelationalExpression expr(
             Expression::Kind::kRelGT,
-            new EdgePropertyExpression(
+            new TagPropertyExpression(
                 new std::string(folly::to<std::string>("player")),
                 new std::string("age")),
             new ConstantExpression(Value(34L)));
