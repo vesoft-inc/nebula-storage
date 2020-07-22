@@ -18,10 +18,10 @@ public:
     IndexEdgeNode(PlanContext* planCtx,
                   IndexScanNode<T>* indexScanNode,
                   std::shared_ptr<const meta::NebulaSchemaProvider> schema,
-                  std::string& schemaName)
+                  std::string&& schemaName)
         : planContext_(planCtx)
         , indexScanNode_(indexScanNode)
-        , schema_(std::move(schema))
+        , schema_(schema)
         , schemaName_(std::move(schemaName)) {}
 
     kvstore::ResultCode execute(PartitionID partId) override {
@@ -30,14 +30,24 @@ public:
             return ret;
         }
         data_.clear();
+        std::vector<storage::cpp2::EdgeKey> edges;
         auto* iter = static_cast<EdgeIndexIterator*>(indexScanNode_->iterator());
         while (iter && iter->valid()) {
+            storage::cpp2::EdgeKey edge;
+            edge.set_src(iter->srcId());
+            edge.set_edge_type(planContext_->edgeType_);
+            edge.set_ranking(iter->ranking());
+            edge.set_dst(iter->dstId());
+            edges.emplace_back(std::move(edge));
+            iter->next();
+        }
+        for (const auto& edge : edges) {
             auto prefix = NebulaKeyUtils::edgePrefix(planContext_->vIdLen_,
                                                      partId,
-                                                     iter->srcId(),
+                                                     edge.get_src(),
                                                      planContext_->edgeType_,
-                                                     iter->ranking(),
-                                                     iter->dstId());
+                                                     edge.get_ranking(),
+                                                     edge.get_dst());
             std::unique_ptr<kvstore::KVIterator> eIter;
             ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_,
                                                        partId, prefix, &eIter);
@@ -46,13 +56,12 @@ public:
             } else {
                 return ret;
             }
-            iter->next();
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     const std::vector<kvstore::KV>& getData() const {
-        return std::move(data_);
+        return data_;
     }
 
     const meta::NebulaSchemaProvider* getSchema() {
