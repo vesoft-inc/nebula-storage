@@ -74,9 +74,7 @@ public:
     }
 
     // Get the specified property from the tag, such as tag.prop_name
-    Value getTagProp(const std::string&, const std::string&) const override {
-        return Value::kNullValue;
-    }
+    Value getTagProp(const std::string& tagName, const std::string& prop) const override;
 
     // Get the specified property from the edge, such as edgename.prop_name
     Value getEdgeProp(const std::string& edgeName, const std::string& prop) const override;
@@ -87,22 +85,15 @@ public:
 
     void setVar(const std::string&, Value) override {}
 
+    // index key
+    void reset(folly::StringPiece key) {
+        key_ = key;
+    }
+
     // isEdge_ set in ctor
     void reset(RowReader* reader, folly::StringPiece key) {
         reader_ = reader;
         key_ = key;
-    }
-
-    void reset(RowReader* reader, const std::string& key, const std::string& name, bool isEdge) {
-        reader_ = reader;
-        key_ = key;
-        name_ = name;
-        isEdge_ = isEdge;
-    }
-
-    void reset(const std::string& key, bool isEdge) {
-        key_ = key;
-        isEdge_ = isEdge;
     }
 
     void reset() {
@@ -139,7 +130,7 @@ public:
 
     Value readValue(const std::string& propName) const;
 
-    Value getIndexValue(const std::string& prop) const;
+    Value getIndexValue(const std::string& prop, bool isEdge) const;
 
 private:
     size_t                             vIdLen_;
