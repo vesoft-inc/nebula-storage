@@ -20,11 +20,11 @@ public:
                     VertexCache* vertexCache,
                     IndexScanNode<T>* indexScanNode,
                     std::shared_ptr<const meta::NebulaSchemaProvider> schema,
-                    std::string& schemaName)
+                    std::string&& schemaName)
         : planContext_(planCtx)
         , vertexCache_(vertexCache)
         , indexScanNode_(indexScanNode)
-        , schema_(std::move(schema))
+        , schema_(schema)
         , schemaName_(std::move(schemaName)) {}
 
     kvstore::ResultCode execute(PartitionID partId) override {
@@ -33,9 +33,13 @@ public:
             return ret;
         }
         data_.clear();
+        std::vector<VertexID> vids;
         auto* iter = static_cast<VertexIndexIterator*>(indexScanNode_->iterator());
         while (iter && iter->valid()) {
-            auto vId = iter->vId();
+            vids.emplace_back(iter->vId());
+            iter->next();
+        }
+        for (const auto& vId : vids) {
             VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << planContext_->tagId_;
             if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
                 auto result = vertexCache_->get(std::make_pair(vId, planContext_->tagId_), partId);
@@ -62,13 +66,12 @@ public:
             } else {
                 return ret;
             }
-            iter->next();
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     const std::vector<kvstore::KV>& getData() const {
-        return std::move(data_);
+        return data_;
     }
 
     const meta::NebulaSchemaProvider* getSchema() {
