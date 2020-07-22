@@ -102,16 +102,25 @@ std::string IndexKeyUtils::edgeIndexKey(size_t vIdLen, PartitionID partId,
 }
 
 // static
+std::string IndexKeyUtils::indexPrefix(PartitionID partId, IndexID indexId) {
+    PartitionID item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(PartitionID))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
+    return key;
+}
+
+// static
 StatusOr<std::vector<Value>>
 IndexKeyUtils::collectIndexValues(RowReader* reader,
-                                  const std::vector<meta::cpp2::ColumnDef>& cols,
+                                  const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
                                   std::vector<Value::Type>& colsType) {
     std::vector<Value> values;
     bool haveNullCol = false;
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
     }
-
     for (auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
         auto isNullable = col.__isset.nullable && *(col.get_nullable());
@@ -131,16 +140,6 @@ IndexKeyUtils::collectIndexValues(RowReader* reader,
         colsType.clear();
     }
     return values;
-}
-
-// static
-std::string IndexKeyUtils::indexPrefix(PartitionID partId, IndexID indexId) {
-    PartitionID item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
-    std::string key;
-    key.reserve(sizeof(PartitionID) + sizeof(IndexID));
-    key.append(reinterpret_cast<const char*>(&item), sizeof(PartitionID))
-       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
-    return key;
 }
 
 // static

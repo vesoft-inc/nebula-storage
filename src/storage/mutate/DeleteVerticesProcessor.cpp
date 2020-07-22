@@ -4,7 +4,6 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/StorageFlags.h"
 #include "storage/mutate/DeleteVerticesProcessor.h"
 #include "utils/IndexKeyUtils.h"

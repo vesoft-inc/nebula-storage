@@ -73,7 +73,7 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                         << ", TagID: " << tagId << ", TagVersion: " << version;
 
                 auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid,
-                                                        tagId, version);
+                                                     tagId, version);
                 auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
                 if (!schema) {
                     LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";

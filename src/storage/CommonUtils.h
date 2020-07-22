@@ -32,12 +32,22 @@ using IndexKey    = std::tuple<GraphSpaceID, IndexID, PartitionID>;
 using IndexGuard  = folly::ConcurrentHashMap<IndexKey, IndexState>;
 
 
+// unify TagID, EdgeType
+using SchemaID = TagID;
+static_assert(sizeof(SchemaID) == sizeof(EdgeType), "sizeof(TagID) != sizeof(EdgeType)");
+
 class StorageEnv {
 public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
+};
+
+enum class ResultStatus {
+    NORMAL = 0,
+    ILLEGAL_DATA = -1,
+    FILTER_OUT = -2,
 };
 
 struct PropContext;
@@ -56,11 +66,20 @@ public:
 
     TagID                               tagId_ = 0;
     std::string                         tagName_ = "";
+    const meta::NebulaSchemaProvider   *tagSchema_{nullptr};
+
     EdgeType                            edgeType_ = 0;
     std::string                         edgeName_ = "";
+    const meta::NebulaSchemaProvider   *edgeSchema_{nullptr};
+
     // used for GetNeighbors
     size_t                              columnIdx_ = 0;
     const std::vector<PropContext>*     props_ = nullptr;
+
+    // used for update
+    bool                                insert_ = false;
+
+    ResultStatus                        resultStat_{ResultStatus::NORMAL};
 };
 
 class CommonUtils final {

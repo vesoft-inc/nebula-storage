@@ -12,6 +12,7 @@
 #include "common/interface/gen-cpp2/meta_types.h"
 #include "codec/RowReader.h"
 #include "utils/Types.h"
+#include "codec/RowReader.h"
 
 namespace nebula {
 
@@ -393,11 +394,6 @@ public:
                                       const std::vector<Value>& values,
                                       const std::vector<Value::Type>& valueTypes = {});
 
-    static StatusOr<std::vector<Value>>
-    collectIndexValues(RowReader* reader,
-                       const std::vector<meta::cpp2::ColumnDef>& cols,
-                       std::vector<Value::Type>& colsType);
-
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
      *                     in the index, the parameter can be empty.
@@ -409,6 +405,11 @@ public:
                                     const std::vector<Value::Type>& valueTypes = {});
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
+
+    static StatusOr<std::vector<Value>>
+    collectIndexValues(RowReader* reader,
+                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
+                       std::vector<Value::Type>& colsType);
 
 private:
     IndexKeyUtils() = delete;
