@@ -79,13 +79,11 @@ public:
             } else {
                 const auto* schema = isEdge_ ? indexEdgeNode_->getSchema()
                                              : indexVertexNode_->getSchema();
-                const auto& schemaName = isEdge_ ? indexEdgeNode_->getSchemaName()
-                                                 : indexVertexNode_->getSchemaName();
                 auto reader = RowReader::getRowReader(schema, k.second);
                 if (!reader) {
                     continue;
                 }
-                if (check(reader.get(), schemaName, k.first)) {
+                if (check(reader.get(), k.first)) {
                     data_.emplace_back(k.first, k.second);
                 }
             }
@@ -120,7 +118,7 @@ public:
 private:
     bool check(folly::StringPiece raw) {
         if (expr_ != nullptr) {
-            expCtx_->reset(raw.str(), isEdge_);
+            expCtx_->reset(raw.str());
             auto result = expr_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
@@ -131,9 +129,9 @@ private:
         return false;
     }
 
-    bool check(RowReader* reader, folly::StringPiece name, folly::StringPiece raw) {
+    bool check(RowReader* reader, folly::StringPiece raw) {
         if (expr_ != nullptr) {
-            expCtx_->reset(reader, raw.str(), name.str(), isEdge_);
+            expCtx_->reset(reader, raw.str());
             auto result = expr_->eval(*expCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();

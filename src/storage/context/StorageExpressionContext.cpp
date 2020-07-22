@@ -31,11 +31,34 @@ Value StorageExpressionContext::readValue(const std::string& propName) const {
     return value;
 }
 
+// Get the specified property from the tag, such as tag_name.prop_name
+Value StorageExpressionContext::getTagProp(const std::string& tagName,
+                                           const std::string& prop) const {
+    if (isIndex_) {
+        return getIndexValue(prop, false);
+    }
+    if (reader_ != nullptr) {
+        if (tagName != name_) {
+            return Value::kNullValue;
+        }
+        if (prop == kVid) {
+            return NebulaKeyUtils::getVertexId(vIdLen_, key_);
+        } else {
+            return readValue(prop);
+        }
+    } else {
+        auto iter = tagFilters_.find(std::make_pair(tagName, prop));
+        if (iter == tagFilters_.end()) {
+            return Value::kNullValue;
+        }
+        return iter->second;
+    }
+}
 // Get the specified property from the edge, such as edgename.prop_name
 Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
                                             const std::string& prop) const {
     if (isIndex_) {
-        return getIndexValue(prop);
+        return getIndexValue(prop, true);
     }
     if (isEdge_ && reader_ != nullptr) {
         if (edgeName != name_) {
@@ -64,9 +87,6 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
 
 Value StorageExpressionContext::getSrcProp(const std::string& tagName,
                                            const std::string& prop) const {
-    if (isIndex_) {
-        return getIndexValue(prop);
-    }
     if (!isEdge_ && reader_ != nullptr) {
         if (tagName != name_) {
             return Value::kNullValue;
@@ -82,9 +102,9 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
     }
 }
 
-Value StorageExpressionContext::getIndexValue(const std::string& prop) const {
+Value StorageExpressionContext::getIndexValue(const std::string& prop, bool isEdge) const {
     return IndexKeyUtils::getValueFromIndexKey(vIdLen_, vColNum_, key_, prop,
-                                               indexCols_, isEdge_, hasNullableCol_);
+                                               indexCols_, isEdge, hasNullableCol_);
 }
 
 }  // namespace storage
