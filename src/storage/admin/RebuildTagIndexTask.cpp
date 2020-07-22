@@ -56,13 +56,13 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         if (batchNum == FLAGS_rebuild_index_batch_num) {
-            auto result = processModifyOperation(space, part, std::move(data));
+            auto result = processModifyOperation(space, part, data);
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
                 return kvstore::ResultCode::ERR_IO_ERROR;
             }
 
-            data.reserve(FLAGS_rebuild_index_batch_num);
+            data.clear();
             batchNum = 0;
         }
 

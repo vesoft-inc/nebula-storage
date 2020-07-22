@@ -51,7 +51,7 @@ protected:
 
     kvstore::ResultCode processModifyOperation(GraphSpaceID space,
                                                PartitionID part,
-                                               std::vector<kvstore::KV>&& data);
+                                               std::vector<kvstore::KV> data);
 
     kvstore::ResultCode processRemoveOperation(GraphSpaceID space,
                                                PartitionID part,
@@ -65,8 +65,7 @@ protected:
                                    PartitionID part,
                                    meta::cpp2::SchemaID schemaID,
                                    IndexID indexID,
-                                   const std::shared_ptr<meta::cpp2::IndexItem>& item,
-                                   bool isOffline);
+                                   const std::shared_ptr<meta::cpp2::IndexItem>& item);
 
 protected:
     std::atomic<bool>   canceled_{false};

@@ -113,14 +113,12 @@ public:
     folly::Future<Status> rebuildTagIndex(const HostAddr& address,
                                           GraphSpaceID spaceId,
                                           IndexID indexID,
-                                          std::vector<PartitionID> parts,
-                                          bool isOffline);
+                                          std::vector<PartitionID> parts);
 
     folly::Future<Status> rebuildEdgeIndex(const HostAddr& address,
                                            GraphSpaceID spaceId,
                                            IndexID indexID,
-                                           std::vector<PartitionID> parts,
-                                           bool isOffline);
+                                           std::vector<PartitionID> parts);
 
     folly::Future<Status> addTask(cpp2::AdminCmd cmd,
                                   int32_t jobId,

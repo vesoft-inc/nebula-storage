@@ -17,14 +17,13 @@ RebuildIndexTask::genSubTasks() {
     CHECK_NOTNULL(env_->kvstore_);
     space_ = ctx_.parameters_.space_id;
     auto parts = ctx_.parameters_.parts;
-    if (ctx_.parameters_.task_specfic_paras.size() != 2) {
-        LOG(ERROR) << "The parameter should be two, the index ID and the type";
+    if (ctx_.parameters_.task_specfic_paras.size() != 1) {
+        LOG(ERROR) << "The parameter should include index ID";
         return cpp2::ErrorCode::E_INVALID_TASK_PARA;
     }
 
     auto parameters = ctx_.parameters_;
     auto indexID = std::stoi(parameters.task_specfic_paras[0]);
-    bool isOffline = "offline" == parameters.task_specfic_paras[1];
 
     auto itemRet = getIndex(space_, indexID);
     if (!itemRet.ok()) {
@@ -42,17 +41,11 @@ RebuildIndexTask::genSubTasks() {
         }
 
         // For marking the space is building index.
-        env_->rebuildIndexGuard_->insert_or_assign(std::move(key),
-                                                   IndexState::STARTING);
+        env_->rebuildIndexGuard_->insert_or_assign(std::move(key), IndexState::STARTING);
     }
 
     auto item = itemRet.value();
     auto schemaID = item->get_schema_id();
-    if (isOffline) {
-        LOG(INFO) << "Offline Rebuild Index Space: " << space_ << " Index: " << indexID;
-    } else {
-        LOG(INFO) << "Online Rebuild Index Space: " << space_ << " Index: " << indexID;
-    }
 
     std::vector<AdminSubTask> tasks;
     for (const auto& part : parts) {
@@ -60,18 +53,18 @@ RebuildIndexTask::genSubTasks() {
                                                    IndexState::STARTING);
         std::function<kvstore::ResultCode()> task = std::bind(&RebuildIndexTask::genSubTask,
                                                               this, space_, part, schemaID,
-                                                              indexID, item, isOffline);
+                                                              indexID, item);
         tasks.emplace_back(std::move(task));
     }
     return tasks;
 }
 
-kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
-                                                 PartitionID part,
-                                                 meta::cpp2::SchemaID schemaID,
-                                                 IndexID indexID,
-                                                 const std::shared_ptr<meta::cpp2::IndexItem>& item,
-                                                 bool isOffline) {
+kvstore::ResultCode
+RebuildIndexTask::genSubTask(GraphSpaceID space,
+                             PartitionID part,
+                             meta::cpp2::SchemaID schemaID,
+                             IndexID indexID,
+                             const std::shared_ptr<meta::cpp2::IndexItem>& item) {
     env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
                                      IndexState::BUILDING);
 
@@ -84,13 +77,11 @@ kvstore::ResultCode RebuildIndexTask::genSubTask(GraphSpaceID space,
         LOG(INFO) << "Building index successful";
     }
 
-    if (!isOffline) {
-        LOG(INFO) << "Processing operation logs";
-        result = buildIndexOnOperations(space, indexID, part);
-        if (result != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR) << "Building index with operation logs failed";
-            return kvstore::ResultCode::E_INVALID_OPERATION;
-        }
+    LOG(INFO) << "Processing operation logs";
+    result = buildIndexOnOperations(space, indexID, part);
+    if (result != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Building index with operation logs failed";
+        return kvstore::ResultCode::E_INVALID_OPERATION;
     }
 
     env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
@@ -194,7 +185,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
 kvstore::ResultCode
 RebuildIndexTask::processModifyOperation(GraphSpaceID space,
                                          PartitionID part,
-                                         std::vector<kvstore::KV>&& data) {
+                                         std::vector<kvstore::KV> data) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
     env_->kvstore_->asyncMultiPut(space, part, std::move(data),

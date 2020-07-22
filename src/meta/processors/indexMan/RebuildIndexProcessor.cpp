@@ -17,7 +17,6 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     auto space = req.get_space_id();
     CHECK_SPACE_ID_AND_RETURN(space);
     const auto &indexName = req.get_index_name();
-    auto isOffline = req.get_is_offline();
     LOG(INFO) << "Rebuild Index Space " << space << ", Index Name " << indexName;
 
     const auto& hostPrefix = MetaServiceUtils::leaderPrefix();
@@ -61,7 +60,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
         if (std::find(activeHosts.begin(), activeHosts.end(), hostAddr) != activeHosts.end()) {
             auto leaderParts = MetaServiceUtils::parseLeaderVal(leaderIter->val());
             auto& partIds = leaderParts[space];
-            auto future = caller(hostAddr, space, indexID, std::move(partIds), isOffline);
+            auto future = caller(hostAddr, space, indexID, std::move(partIds));
             results.emplace_back(std::move(future));
         }
         leaderIter->next();

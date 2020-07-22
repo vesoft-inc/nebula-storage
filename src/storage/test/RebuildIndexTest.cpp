@@ -57,7 +57,7 @@ AdminTaskManager* RebuildIndexTest::manager_{nullptr};
 std::unique_ptr<fs::TempDir> RebuildIndexTest::rootPath_{nullptr};
 std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 
-TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
+TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
     auto writer = std::make_unique<thread::GenericWorker>();
     EXPECT_TRUE(writer->start());
 
@@ -83,7 +83,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11", "online"};
+    std::vector<std::string> taskParameters = {"11"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
@@ -119,7 +119,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithDelete) {
     writer->stop();
 }
 
-TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
+TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
     auto writer = std::make_unique<thread::GenericWorker>();
     EXPECT_TRUE(writer->start());
 
@@ -144,7 +144,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11", "online"};
+    std::vector<std::string> taskParameters = {"11"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
@@ -176,7 +176,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOnlineWithAppend) {
     writer->stop();
 }
 
-TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
+TEST_F(RebuildIndexTest, RebuildTagIndex) {
     // Add Vertices
     auto* processor = AddVerticesProcessor::instance(RebuildIndexTest::env_, nullptr);
     cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
@@ -189,7 +189,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11", "offline"};
+    std::vector<std::string> taskParameters = {"11"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
@@ -220,7 +220,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexOffline) {
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
 }
 
-TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
+TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
     auto writer = std::make_unique<thread::GenericWorker>();
     EXPECT_TRUE(writer->start());
 
@@ -245,7 +245,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12", "online"};
+    std::vector<std::string> taskParameters = {"12"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
@@ -282,7 +282,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithDelete) {
     writer->stop();
 }
 
-TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
+TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
     auto writer = std::make_unique<thread::GenericWorker>();
     EXPECT_TRUE(writer->start());
 
@@ -308,7 +308,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12", "online"};
+    std::vector<std::string> taskParameters = {"12"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
@@ -339,7 +339,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOnlineWithAppend) {
     writer->stop();
 }
 
-TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
+TEST_F(RebuildIndexTest, RebuildEdgeIndex) {
     // Add Edges
     auto* processor = AddEdgesProcessor::instance(RebuildIndexTest::env_, nullptr);
     cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
@@ -352,7 +352,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexOffline) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12", "offline"};
+    std::vector<std::string> taskParameters = {"12"};
     parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;

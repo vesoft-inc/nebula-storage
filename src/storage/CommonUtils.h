@@ -20,9 +20,9 @@ namespace nebula {
 namespace storage {
 
 enum class IndexState {
-    STARTING,  // The part is begin to build index, not ready for service
+    STARTING,  // The part is begin to build index.
     BUILDING,  // The part is building index.
-    LOCKED,    // When the minor table is less than threshold
+    LOCKED,    // When the minor table is less than threshold.
                // we will refuse the write operation.
     FINISHED,  // The part is building index successfully.
 };
