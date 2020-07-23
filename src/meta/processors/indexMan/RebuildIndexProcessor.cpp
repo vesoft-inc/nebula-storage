@@ -17,6 +17,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     auto space = req.get_space_id();
     CHECK_SPACE_ID_AND_RETURN(space);
     const auto &indexName = req.get_index_name();
+
     LOG(INFO) << "Rebuild Index Space " << space << ", Index Name " << indexName;
 
     const auto& hostPrefix = MetaServiceUtils::leaderPrefix();

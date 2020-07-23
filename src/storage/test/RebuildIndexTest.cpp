@@ -117,6 +117,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
+    sleep(1);
 }
 
 TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
@@ -174,6 +175,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
+    sleep(1);
 }
 
 TEST_F(RebuildIndexTest, RebuildTagIndex) {
@@ -218,6 +220,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndex) {
     }
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
+    sleep(1);
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
@@ -280,6 +283,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
+    sleep(1);
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
@@ -337,6 +341,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     writer->stop();
+    sleep(1);
 }
 
 TEST_F(RebuildIndexTest, RebuildEdgeIndex) {

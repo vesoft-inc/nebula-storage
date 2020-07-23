@@ -45,9 +45,9 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
     }
 
     int32_t batchNum = 0;
-    VertexID currentSrcVertex;
-    VertexID currentDstVertex;
-    EdgeRanking currentRanking;
+    VertexID currentSrcVertex = "";
+    VertexID currentDstVertex = "";
+    EdgeRanking currentRanking = 0;
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
     while (iter && iter->valid()) {
