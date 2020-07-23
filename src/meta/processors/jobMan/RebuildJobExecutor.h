@@ -32,7 +32,6 @@ public:
 
 protected:
     IndexID                  indexId_;
-    bool                     isOffline_;
 };
 
 }  // namespace meta

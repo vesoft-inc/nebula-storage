@@ -31,6 +31,8 @@ set(storage_test_deps
     $<TARGET_OBJECTS:common_conf_obj>
     $<TARGET_OBJECTS:common_datatypes_obj>
     $<TARGET_OBJECTS:common_base_obj>
+    $<TARGET_OBJECTS:common_expression_obj>
+    $<TARGET_OBJECTS:common_function_manager_obj>
 )
 
 nebula_add_test(
@@ -94,6 +96,34 @@ nebula_add_test(
         delete_edges_test
     SOURCES
         DeleteEdgesTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        update_vertex_test
+    SOURCES
+        UpdateVertexTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        update_edge_test
+    SOURCES
+        UpdateEdgeTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
@@ -190,6 +220,22 @@ nebula_add_test(
 
 nebula_add_executable(
     NAME
+        get_neighbors_bm
+    SOURCES
+        GetNeighborsBenchmark.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+        follybenchmark
+        boost_regex
+)
+
+nebula_add_executable(
+    NAME
         scan_edge_prop_bm
     SOURCES
         ScanEdgePropBenchmark.cpp
@@ -215,6 +261,25 @@ nebula_add_test(
         wangle
         gtest
 )
+
+
+nebula_add_executable(
+    NAME
+        add_update_vertex_edge_bm
+    SOURCES
+        AddAndUpdateVertexAndEdgeBenchmark.cpp
+        ../../codec/test/RowWriterV1.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:codec_test_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
+)
+
 
 #nebula_add_test(
 #    NAME
@@ -358,35 +423,6 @@ nebula_add_test(
 #        gtest
 #)
 #
-#
-#nebula_add_test(
-#    NAME
-#        update_vertex_test
-#    SOURCES
-#        UpdateVertexTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        update_edge_test
-#    SOURCES
-#        UpdateEdgeTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
 #
 #nebula_add_test(
 #    NAME

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 vesoft inc. All rights reserved.
+/* Copyright (c) 2020 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -20,11 +20,53 @@ namespace storage {
 
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 
+// unify TagID, EdgeType
+using SchemaID = TagID;
+static_assert(sizeof(SchemaID) == sizeof(EdgeType), "sizeof(TagID) != sizeof(EdgeType)");
+
 class StorageEnv {
 public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
+};
+
+enum class ResultStatus {
+    NORMAL = 0,
+    ILLEGAL_DATA = -1,
+    FILTER_OUT = -2,
+};
+
+struct PropContext;
+
+// PlanContext stores some information during the process
+class PlanContext {
+public:
+    PlanContext(StorageEnv* env, GraphSpaceID spaceId, size_t vIdLen)
+        : env_(env)
+        , spaceId_(spaceId)
+        , vIdLen_(vIdLen) {}
+
+    StorageEnv*         env_;
+    GraphSpaceID        spaceId_;
+    size_t              vIdLen_;
+
+    TagID                               tagId_ = 0;
+    std::string                         tagName_ = "";
+    const meta::NebulaSchemaProvider   *tagSchema_{nullptr};
+
+    EdgeType                            edgeType_ = 0;
+    std::string                         edgeName_ = "";
+    const meta::NebulaSchemaProvider   *edgeSchema_{nullptr};
+
+    // used for GetNeighbors
+    size_t                              columnIdx_ = 0;
+    const std::vector<PropContext>*     props_ = nullptr;
+
+    // used for update
+    bool                                insert_ = false;
+
+    ResultStatus                        resultStat_{ResultStatus::NORMAL};
 };
 
 class CommonUtils final {

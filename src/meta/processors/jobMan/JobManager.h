@@ -51,7 +51,7 @@ public:
 
     cpp2::ErrorCode stopJob(JobID iJob);
 
-    ErrorOr<kvstore::ResultCode, JobID> recoverJob();
+    ErrorOr<cpp2::ErrorCode, JobID> recoverJob();
 
 private:
     JobManager() = default;

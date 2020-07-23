@@ -17,7 +17,7 @@ namespace nebula {
 namespace meta {
 
 bool RebuildJobExecutor::check() {
-    return paras_.size() == 3;
+    return paras_.size() == 2;
 }
 
 cpp2::ErrorCode RebuildJobExecutor::prepare() {
@@ -37,9 +37,7 @@ cpp2::ErrorCode RebuildJobExecutor::prepare() {
     }
 
     indexId_ = *reinterpret_cast<const IndexID*>(indexValue.c_str());
-    isOffline_ = paras_[2] == "offline" ? true : false;
-    LOG(INFO) << "Rebuild Index Space " << space_ << ", Index "
-              << indexId_ << " " << isOffline_;
+    LOG(INFO) << "Rebuild Index Space " << space_ << ", Index " << indexId_;
     return cpp2::ErrorCode::SUCCEEDED;
 }
 

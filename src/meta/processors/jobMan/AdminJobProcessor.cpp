@@ -107,7 +107,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             if (nebula::ok(ret)) {
                 result.set_recovered_job_num(nebula::value(ret));
             } else {
-                errorCode = MetaCommon::to(nebula::error(ret));
+                errorCode = nebula::error(ret);
             }
             break;
         }

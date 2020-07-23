@@ -15,26 +15,27 @@ namespace nebula {
 namespace storage {
 
 // TagNode will return a DataSet of specified props of tagId
-class TagNode final : public RelNode<VertexID> {
+class TagNode final : public IterateNode<VertexID> {
 public:
-    TagNode(TagContext* ctx,
-            StorageEnv* env,
-            GraphSpaceID spaceId,
-            size_t vIdLen,
+    TagNode(PlanContext* planCtx,
+            TagContext* ctx,
             TagID tagId,
             const std::vector<PropContext>* props,
-            const Expression* exp = nullptr)
-        : tagContext_(ctx)
-        , env_(env)
-        , spaceId_(spaceId)
-        , vIdLen_(vIdLen)
+            ExpressionContext* expCtx = nullptr,
+            Expression* exp = nullptr)
+        : planContext_(planCtx)
+        , tagContext_(ctx)
         , tagId_(tagId)
         , props_(props)
+        , expCtx_(expCtx)
         , exp_(exp) {
+        UNUSED(expCtx_); UNUSED(exp_);
         auto schemaIter = tagContext_->schemas_.find(tagId_);
         CHECK(schemaIter != tagContext_->schemas_.end());
         CHECK(!schemaIter->second.empty());
         schemas_ = &(schemaIter->second);
+        ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
+        tagName_ = tagContext_->tagNames_[tagId_];
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -45,23 +46,22 @@ public:
         VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tagId_
                 << ", prop size " << props_->size();
 
+        // when update, has already evicted
         if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
             auto result = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_), partId);
             if (result.ok()) {
                 cacheResult_ = std::move(result).value();
-                hitCache_ = true;
+                iter_.reset(new SingleTagIterator(planContext_, cacheResult_, schemas_, &ttl_));
                 return kvstore::ResultCode::SUCCEEDED;
-            } else {
-                hitCache_ = false;
-                VLOG(1) << "Miss cache for vId " << vId << ", tagId " << tagId_;
             }
         }
 
         std::unique_ptr<kvstore::KVIterator> iter;
-        prefix_ = NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId, tagId_);
-        ret = env_->kvstore_->prefix(spaceId_, partId, prefix_, &iter);
+        prefix_ = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId, vId, tagId_);
+        ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            iter_.reset(new SingleTagIterator(std::move(iter), tagId_, vIdLen_));
+            iter_.reset(new SingleTagIterator(planContext_, std::move(iter), tagId_,
+                                              schemas_, &ttl_));
         } else {
             iter_.reset();
         }
@@ -70,49 +70,53 @@ public:
 
     kvstore::ResultCode collectTagPropsIfValid(NullHandler nullHandler,
                                                TagPropHandler valueHandler) {
-        folly::StringPiece value;
-        if (hitCache_) {
-            value = cacheResult_;
-        } else if (iter_ && iter_->valid()) {
-            value = iter_->val();
-        } else {
+        if (!iter_ || !iter_->valid()) {
             return nullHandler(props_);
         }
+        return valueHandler(tagId_, iter_->reader(), props_);
+    }
 
-        auto reader = RowReader::getRowReader(*schemas_, value);
-        if (!reader) {
-            VLOG(1) << "Can't get tag reader of " << tagId_;
-            return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
+    bool valid() const override {
+        return iter_ && iter_->valid();
+    }
+
+    void next() override {
+        iter_->next();
+    }
+
+    folly::StringPiece key() const override {
+        return iter_->key();
+    }
+
+    folly::StringPiece val() const override {
+        return iter_->val();
+    }
+
+    RowReader* reader() const override {
+        if (iter_) {
+            return iter_->reader();
         }
-        auto ttl = getTagTTLInfo(tagContext_, tagId_);
-        if (ttl.hasValue()) {
-            auto ttlValue = ttl.value();
-            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader.get(),
-                                                    ttlValue.first, ttlValue.second)) {
-                return nullHandler(props_);
-            }
-        }
-        if (exp_ != nullptr) {
-            // todo(doodle): eval the expression which can be applied to the tag node
-            // exp_->eval();
-        }
-        return valueHandler(tagId_, reader.get(), props_);
+        return nullptr;
+    }
+
+    const std::string& getTagName() {
+        return tagName_;
     }
 
 private:
-    TagContext* tagContext_;
-    StorageEnv* env_;
-    GraphSpaceID spaceId_;
-    size_t vIdLen_;
-    TagID tagId_;
-    const std::vector<PropContext>* props_;
-    const Expression* exp_;
+    PlanContext                                                          *planContext_;
+    TagContext                                                           *tagContext_;
+    TagID                                                                 tagId_;
+    const std::vector<PropContext>                                       *props_;
+    ExpressionContext                                                    *expCtx_;
+    Expression                                                           *exp_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas_ = nullptr;
+    folly::Optional<std::pair<std::string, int64_t>>                      ttl_;
+    std::string                                                           tagName_;
 
-    std::unique_ptr<StorageIterator> iter_;
-    std::string prefix_;
-    std::string cacheResult_;
-    bool hitCache_ = false;
+    std::unique_ptr<StorageIterator>                                      iter_;
+    std::string                                                           prefix_;
+    std::string                                                           cacheResult_;
 };
 
 }  // namespace storage

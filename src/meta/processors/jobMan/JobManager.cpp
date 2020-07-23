@@ -270,13 +270,13 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
 /*
  * Return: recovered job num.
  * */
-ErrorOr<ResultCode, JobID> JobManager::recoverJob() {
+ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
     int32_t recoveredJobNum = 0;
     std::unique_ptr<kvstore::KVIterator> iter;
     auto rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, JobUtil::jobPrefix(), &iter);
     if (rc != nebula::kvstore::SUCCEEDED) {
         LOG(ERROR) << "Can't find jobs";
-        return rc;
+        return cpp2::ErrorCode::E_NOT_FOUND;
     }
 
     for (; iter->valid(); iter->next()) {

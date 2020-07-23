@@ -13,14 +13,7 @@ folly::Future<Status>
 RebuildTagJobExecutor::executeInternal(HostAddr&& address,
                                        std::vector<PartitionID>&& parts) {
     std::vector<std::string> taskParameters;
-    taskParameters.reserve(2);
     taskParameters.emplace_back(folly::to<std::string>(indexId_));
-    if (isOffline_) {
-        taskParameters.emplace_back("offline");
-    } else {
-        taskParameters.emplace_back("online");
-    }
-
     return adminClient_->addTask(cpp2::AdminCmd::REBUILD_TAG_INDEX, jobId_, taskId_++,
                                  space_, {std::move(address)}, std::move(taskParameters),
                                  std::move(parts), concurrency_);
