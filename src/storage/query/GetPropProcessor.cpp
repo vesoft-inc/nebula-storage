@@ -130,6 +130,7 @@ cpp2::ErrorCode GetPropProcessor::checkAndBuildContexts(const cpp2::GetPropReque
         return code;
     }
     if (!isEdge_) {
+        resultDataSet_.colNames.emplace_back("_vid");
         code = getSpaceVertexSchema();
         if (code != cpp2::ErrorCode::SUCCEEDED) {
             return code;
