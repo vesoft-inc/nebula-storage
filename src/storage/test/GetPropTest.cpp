@@ -19,7 +19,7 @@ cpp2::GetPropRequest buildVertexRequest(
     std::hash<std::string> hash;
     cpp2::GetPropRequest req;
     req.space_id = 1;
-    req.column_names.emplace_back("_vid");
+    req.column_names.emplace_back(kVid);
     for (const auto& vertex : vertices) {
         PartitionID partId = (hash(vertex) % totalParts) + 1;
         nebula::Row row;
@@ -122,7 +122,7 @@ TEST(GetPropTest, PropertyTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         nebula::DataSet expected;
-        expected.colNames = {"_vid", "1:name", "1:age", "1:avgScore"};
+        expected.colNames = {kVid, "1:name", "1:age", "1:avgScore"};
         nebula::Row row({"Tim Duncan", "Tim Duncan", 44, 19.0});
         expected.rows.emplace_back(std::move(row));
         LOG(INFO) << resp.props;
@@ -183,7 +183,7 @@ TEST(GetPropTest, AllPropertyInOneSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         nebula::DataSet expected;
-        expected.colNames = {"_vid", "1:name", "1:age", "1:playing", "1:career",
+        expected.colNames = {kVid, "1:name", "1:age", "1:playing", "1:career",
                              "1:startYear", "1:endYear", "1:games", "1:avgScore",
                              "1:serveTeams", "1:country", "1:champions"};
         nebula::Row row({"Tim Duncan", "Tim Duncan", 44, false, 19, 1997, 2016, 1392, 19.0, 1,
