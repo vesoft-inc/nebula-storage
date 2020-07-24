@@ -146,6 +146,7 @@ endif()
 message(STATUS "NEBULA_COMMON_REPO_TAG: " ${NEBULA_COMMON_REPO_TAG})
 
 SET(NEBULA_COMMON_PACKAGE "nebula-common")
+SET(nebula-common_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules/common)
 if (NOT "${NEBULA_COMMON_PATH}" STREQUAL "")
     message(STATUS "NEBULA_COMMON_PATH: " ${NEBULA_COMMON_PATH})
     execute_process(
