@@ -102,7 +102,7 @@ public:
         schema_ = schemaIter->second.back().get();
         if (!schema_) {
             LOG(ERROR) << "Get nullptr schema";
-            return kvstore::ResultCode::ERR_UNKNOWN;
+            return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
         }
 
         auto iter = tagContext_->tagNames_.find(tagId_);
@@ -126,7 +126,7 @@ public:
         }
 
         // props must have default value or nullable
-        // all fields values of this edge puts props_
+        // all fields values of this tag puts props_
         for (auto index = 0UL; index < schema_->getNumFields(); index++) {
             auto field = schema_->field(index);
             if (!field) {
@@ -401,7 +401,7 @@ public:
         schema_ = schemaIter->second.back().get();
         if (!schema_) {
             LOG(ERROR) << "Get nullptr schema";
-            return kvstore::ResultCode::ERR_UNKNOWN;
+            return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
         }
 
         auto iter = edgeContext_->edgeNames_.find(edgeType_);
