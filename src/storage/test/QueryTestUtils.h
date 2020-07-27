@@ -174,9 +174,9 @@ public:
     }
 
     static bool encode(const meta::NebulaSchemaProvider* schema,
-                        const std::string& key,
-                        const std::vector<Value>& props,
-                        std::vector<kvstore::KV>& data) {
+                       const std::string& key,
+                       const std::vector<Value>& props,
+                       std::vector<kvstore::KV>& data) {
         RowWriterV2 writer(schema);
         for (size_t i = 0; i < props.size(); i++) {
             auto r = writer.setValue(i, props[i]);
