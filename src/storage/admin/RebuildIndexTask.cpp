@@ -40,8 +40,12 @@ RebuildIndexTask::genSubTasks() {
             return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
         }
 
-        // For marking the space is building index.
+        // Marking the space is building index.
         env_->rebuildIndexGuard_->insert_or_assign(std::move(key), IndexState::STARTING);
+
+        // Marking the space and the index is building.
+        auto indexKey = std::make_tuple(space_, indexID, 0);
+        env_->rebuildIndexGuard_->insert_or_assign(std::move(indexKey), IndexState::STARTING);
     }
 
     auto item = itemRet.value();
@@ -112,9 +116,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
 
         std::vector<std::string> operations;
         operations.reserve(FLAGS_rebuild_index_batch_num);
-        int32_t processedOperationsNum = 0;
         while (operationIter->valid()) {
-            processedOperationsNum += 1;
             auto opKey = operationIter->key();
             auto opVal = operationIter->val();
             // replay operation record
@@ -143,21 +145,19 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             }
 
             operations.emplace_back(std::move(opKey));
-            if (processedOperationsNum % FLAGS_rebuild_index_batch_num == 0) {
-                auto ret = cleanupOperationLogs(space, part,
-                                                std::move(operations));
+            if (static_cast<int32_t>(operations.size()) == FLAGS_rebuild_index_batch_num) {
+                auto ret = cleanupOperationLogs(space, part, operations);
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
                     LOG(ERROR) << "Delete Operation Failed";
                     return ret;
                 }
 
-                operations.reserve(FLAGS_rebuild_index_batch_num);
+                operations.clear();
             }
             operationIter->next();
         }
 
-        auto ret = cleanupOperationLogs(space, part,
-                                        std::move(operations));
+        auto ret = cleanupOperationLogs(space, part, operations);
         if (kvstore::ResultCode::SUCCEEDED != ret) {
             LOG(ERROR) << "Cleanup Operation Failed";
             return ret;
@@ -166,7 +166,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
         // When the processed operation number is less than the locked threshold,
         // we will mark the lock's building in StorageEnv and refuse writing for
         // a short piece of time.
-        if (processedOperationsNum < FLAGS_rebuild_index_locked_threshold) {
+        if (static_cast<int32_t>(operations.size()) < FLAGS_rebuild_index_locked_threshold) {
             // lock the part
             auto key = std::make_tuple(space, indexID, part);
             auto stateIter = env_->rebuildIndexGuard_->find(key);
@@ -221,7 +221,7 @@ RebuildIndexTask::processRemoveOperation(GraphSpaceID space,
 kvstore::ResultCode
 RebuildIndexTask::cleanupOperationLogs(GraphSpaceID space,
                                        PartitionID part,
-                                       std::vector<std::string>&& keys) {
+                                       std::vector<std::string> keys) {
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode result = kvstore::ResultCode::SUCCEEDED;
     env_->kvstore_->asyncMultiRemove(space, part, std::move(keys),

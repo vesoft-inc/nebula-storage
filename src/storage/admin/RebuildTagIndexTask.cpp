@@ -66,7 +66,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             batchNum = 0;
         }
 
-        auto key = iter->key().str();
+        auto key = iter->key();
         auto val = iter->val();
         if (!NebulaKeyUtils::isVertex(vidSize, key) ||
             NebulaKeyUtils::getTagId(vidSize, key) != tagID) {

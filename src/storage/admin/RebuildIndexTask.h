@@ -59,7 +59,7 @@ protected:
 
     kvstore::ResultCode cleanupOperationLogs(GraphSpaceID space,
                                              PartitionID part,
-                                             std::vector<std::string>&& keys);
+                                             std::vector<std::string> keys);
 
     kvstore::ResultCode genSubTask(GraphSpaceID space,
                                    PartitionID part,
