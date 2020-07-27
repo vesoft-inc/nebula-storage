@@ -276,13 +276,13 @@ public:
                          VertexID vId,
                          RowReader* reader,
                          std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
-        std::vector<Value::Type> colsType;
-        auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
+        bool nullable = false;
+        auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), nullable);
         if (!values.ok()) {
             return "";
         }
         return IndexKeyUtils::vertexIndexKey(planContext_->vIdLen_, partId, index->get_index_id(),
-                                             vId, values.value(), colsType);
+                                             vId, values.value(), nullable);
     }
 
 private:
@@ -591,8 +591,8 @@ public:
                          RowReader* reader,
                          const cpp2::EdgeKey& edgeKey,
                          std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
-        std::vector<Value::Type> colsType;
-        auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
+        bool nullable = false;
+        auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), nullable);
         if (!values.ok()) {
             return "";
         }
@@ -603,7 +603,7 @@ public:
                                            edgeKey.get_ranking(),
                                            edgeKey.get_dst(),
                                            values.value(),
-                                           colsType);
+                                           nullable);
     }
 
 private:

@@ -79,11 +79,11 @@ std::string IndexKeyUtils::indexPrefix(PartitionID partId, IndexID indexId) {
 }
 
 // static
-StatusOr<std::vector<Value>>
+StatusOr<std::vector<IndexValue>>
 IndexKeyUtils::collectIndexValues(RowReader* reader,
                                   const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
-                                  std::vector<Value::Type>& colsType) {
-    std::vector<Value> values;
+                                  bool& nullable) {
+    std::vector<IndexValue> values;
     bool haveNullCol = false;
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
@@ -94,18 +94,21 @@ IndexKeyUtils::collectIndexValues(RowReader* reader,
         if (isNullable && !haveNullCol) {
             haveNullCol = true;
         }
-        colsType.emplace_back(IndexKeyUtils::toValueType(col.get_type()));
         auto ret = checkValue(v, isNullable);
         if (!ret.ok()) {
             LOG(ERROR) << "prop error by : " << col.get_name()
                        << ". status : " << ret;
             return ret;
         }
-        values.emplace_back(std::move(v));
+        if (col.get_type() == meta::cpp2::PropertyType::FIXED_STRING && !col.__isset.type_length) {
+            LOG(ERROR) << "prop type error by : " << col.get_name();
+            return Status::Error("Invalid prop type length");
+        }
+        values.emplace_back(std::make_tuple(std::move(v),
+                                            toValueType(col.get_type()),
+                                            valueLength(col)));
     }
-    if (!haveNullCol) {
-        colsType.clear();
-    }
+    nullable = haveNullCol;
     return values;
 }
 
