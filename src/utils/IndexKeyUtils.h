@@ -423,10 +423,10 @@ public:
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
-    static StatusOr<std::vector<Value>>
+    static StatusOr<std::vector<IndexValue>>
     collectIndexValues(RowReader* reader,
                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
-                       std::vector<Value::Type>& colsType);
+                       bool& nullable);
 
     static Status checkValue(const Value& v, bool isNullable);
 
