@@ -27,6 +27,7 @@ public:
                   std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                   FilterNode<VertexID>* filterNode,
                   bool insertable,
+                  std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
                   StorageExpressionContext* expCtx = nullptr)
         : planContext_(planCtx)
         , tagContext_(tagContext)
@@ -34,6 +35,7 @@ public:
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
         , insertable_(insertable)
+        , depPropMap_(depPropMap)
         , expCtx_(expCtx) {
             tagId_ = planContext_->tagId_;
         }
@@ -117,7 +119,7 @@ public:
 
     // Insert props row,
     // For insert, condition is always true,
-    // Props must have default value or nullable
+    // Props must have default value or nullable, or set in UpdatedProp_
     kvstore::ResultCode insertTagProps(PartitionID partId, const VertexID& vId) {
         planContext_->insert_ = true;
         auto ret = getLatestTagSchemaAndName();
@@ -125,20 +127,64 @@ public:
             return ret;
         }
 
-        // props must have default value or nullable
-        // all fields values of this edge puts props_
+        // Store checked props
+        // For example:
+        // set a = 1, b = a + 1, c = 2, a does not require default value and nullable
+        // set a = 1, b = c + 1, c = 2, c requires default value and nullable
+        // set a = 1, b = (a + 1) + 1, c = 2, support recursion multiple times
+        // set a = 1, c = 2, b = (a + 1) + (c + 1) support multiple properties
+        std::unordered_set<std::string> checkedProp;
+
+        // check depPropMap_ in set clause
+        // this props must have default value or nullable, or set int UpdatedProp_
+        for (auto& prop : depPropMap_) {
+            for (auto& p :  prop.second) {
+                auto it = checkedProp.find(p);
+                if (it == checkedProp.end()) {
+                    auto field = schema_->field(p);
+                    if (!field) {
+                        VLOG(1) << "Fail to read prop";
+                        return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                    }
+
+                    if (field->hasDefault()) {
+                        props_[p] = field->defaultValue();
+                    } else if (field->nullable()) {
+                        props_[p] = NullType::__NULL__;
+                    } else {
+                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                    }
+                    checkedProp.emplace(p);
+                }
+            }
+
+            // set field not need default value or nullable
+            auto field = schema_->field(prop.first);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+            checkedProp.emplace(prop.first);
+        }
+
+        // props not in set clause must have default value or nullable
         for (auto index = 0UL; index < schema_->getNumFields(); index++) {
             auto field = schema_->field(index);
             if (!field) {
                 VLOG(1) << "Fail to read prop";
                 return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
             }
-            if (field->hasDefault()) {
-                props_[field->name()] = field->defaultValue();
-            } else if (field->nullable()) {
-                props_[field->name()] = NullType::__NULL__;
-            } else {
-                return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+
+            auto propName = field->name();
+            auto findIter = checkedProp.find(propName);
+            if (findIter == checkedProp.end()) {
+                if (field->hasDefault()) {
+                    props_[propName] = field->defaultValue();
+                } else if (field->nullable()) {
+                    props_[propName] = NullType::__NULL__;
+                } else {
+                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                }
             }
         }
 
@@ -310,6 +356,9 @@ private:
     std::unordered_map<std::string, Value>                                  props_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
 
+    // updatedProps_ dependent props in value expression
+    std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
+
     StorageExpressionContext                                               *expCtx_;
 };
 
@@ -323,6 +372,7 @@ public:
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                    FilterNode<cpp2::EdgeKey>* filterNode,
                    bool insertable,
+                   std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
                    StorageExpressionContext* expCtx = nullptr)
         : planContext_(planCtx)
         , edgeContext_(edgeContext)
@@ -330,6 +380,7 @@ public:
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
         , insertable_(insertable)
+        , depPropMap_(depPropMap)
         , expCtx_(expCtx) {
             edgeType_ = planContext_->edgeType_;
         }
@@ -415,7 +466,7 @@ public:
     }
 
     // Insert props row,
-    // Operator props must have default value or nullable
+    // Operator props must have default value or nullable, or set in UpdatedProp_
     kvstore::ResultCode insertEdgeProps(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
         planContext_->insert_ = true;
         auto ret = getLatestEdgeSchemaAndName();
@@ -423,20 +474,64 @@ public:
             return ret;
         }
 
-        // props must have default value or nullable
-        // all fields values of this edge puts updateContext_
+        // Store checked props
+        // For example:
+        // set a = 1, b = a + 1, c = 2, a does not require default value and nullable
+        // set a = 1, b = c + 1, c = 2, c requires default value and nullable
+        // set a = 1, b = (a + 1) + 1, c = 2, support recursion multiple times
+        // set a = 1, c = 2, b = (a + 1) + (c + 1) support multiple properties
+        std::unordered_set<std::string> checkedProp;
+
+        // check depPropMap_ in set clause
+        // this props must have default value or nullable, or set int UpdatedProp_
+        for (auto& prop : depPropMap_) {
+            for (auto& p :  prop.second) {
+                auto it = checkedProp.find(p);
+                if (it == checkedProp.end()) {
+                    auto field = schema_->field(p);
+                    if (!field) {
+                        VLOG(1) << "Fail to read prop";
+                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                    }
+
+                    if (field->hasDefault()) {
+                        props_[p] = field->defaultValue();
+                    } else if (field->nullable()) {
+                        props_[p] = NullType::__NULL__;
+                    } else {
+                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                    }
+                    checkedProp.emplace(p);
+                }
+            }
+
+            // set field not need default value or nullable
+            auto field = schema_->field(prop.first);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+            }
+            checkedProp.emplace(prop.first);
+        }
+
+        // props not in set clause must have default value or nullable
         for (auto index = 0UL; index < schema_->getNumFields(); index++) {
             auto field = schema_->field(index);
             if (!field) {
                 VLOG(1) << "Fail to read prop";
                 return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
             }
-            if (field->hasDefault()) {
-                props_[field->name()] = field->defaultValue();
-            } else if (field->nullable()) {
-                props_[field->name()] = NullType::__NULL__;
-            } else {
-                return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+
+            auto propName = field->name();
+            auto findIter = checkedProp.find(propName);
+            if (findIter == checkedProp.end()) {
+                if (field->hasDefault()) {
+                    props_[propName] = field->defaultValue();
+                } else if (field->nullable()) {
+                    props_[propName] = NullType::__NULL__;
+                } else {
+                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                }
             }
         }
 
@@ -631,6 +726,9 @@ private:
     // edgeType_ prop -> value
     std::unordered_map<std::string, Value>                                  props_;
     std::atomic<kvstore::ResultCode>                                        exeResult_;
+
+    // updatedProps_ dependent props in value expression
+    std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
 
     StorageExpressionContext                                               *expCtx_;
 };
