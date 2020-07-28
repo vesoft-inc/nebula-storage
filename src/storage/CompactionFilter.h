@@ -210,8 +210,8 @@ private:
 
 class StorageCompactionFilterFactoryBuilder : public kvstore::CompactionFilterFactoryBuilder {
 public:
-    explicit StorageCompactionFilterFactoryBuilder(meta::SchemaManager* schemaMan,
-                                                   meta::IndexManager* indexMan)
+    StorageCompactionFilterFactoryBuilder(meta::SchemaManager* schemaMan,
+                                          meta::IndexManager* indexMan)
         : schemaMan_(schemaMan)
         , indexMan_(indexMan) {}
 

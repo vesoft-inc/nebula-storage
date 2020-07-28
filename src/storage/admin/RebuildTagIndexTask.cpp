@@ -11,18 +11,17 @@
 namespace nebula {
 namespace storage {
 
-StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
-RebuildTagIndexTask::getIndex(GraphSpaceID space, IndexID indexID) {
-    return env_->indexMan_->getTagIndex(space, indexID);
+StatusOr<IndexItems>
+RebuildTagIndexTask::getIndexes(GraphSpaceID space) {
+    return env_->indexMan_->getTagIndexes(space);
 }
 
 
 kvstore::ResultCode
 RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                       PartitionID part,
-                                      meta::cpp2::SchemaID schemaID,
                                       IndexID indexID,
-                                      const std::vector<meta::cpp2::ColumnDef>& cols) {
+                                      const IndexItems& items) {
     if (canceled_) {
         LOG(ERROR) << "Rebuild Tag Index is Canceled";
         return kvstore::ResultCode::SUCCEEDED;
@@ -35,8 +34,6 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     }
 
     auto vidSize = vidSizeRet.value();
-    auto tagID = schemaID.get_tag_id();
-
     std::unique_ptr<kvstore::KVIterator> iter;
     auto prefix = NebulaKeyUtils::partPrefix(part);
     auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
@@ -45,7 +42,6 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         return ret;
     }
 
-    int32_t batchNum = 0;
     VertexID currentVertex = "";
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
@@ -55,26 +51,26 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             return kvstore::ResultCode::SUCCEEDED;
         }
 
-        if (batchNum == FLAGS_rebuild_index_batch_num) {
-            auto result = processModifyOperation(space, part, data);
+        if (static_cast<int32_t>(data.size()) == FLAGS_rebuild_index_batch_num) {
+            auto result = writeData(space, part, data);
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
                 return kvstore::ResultCode::ERR_IO_ERROR;
             }
 
             data.clear();
-            batchNum = 0;
         }
 
         auto key = iter->key();
         auto val = iter->val();
-        if (!NebulaKeyUtils::isVertex(vidSize, key) ||
-            NebulaKeyUtils::getTagId(vidSize, key) != tagID) {
+        if (!NebulaKeyUtils::isVertex(vidSize, key)) {
             iter->next();
             continue;
         }
 
+        auto tagID = NebulaKeyUtils::getTagId(vidSize, key);
         auto vertex = NebulaKeyUtils::getVertexId(vidSize, key);
+        VLOG(3) << "Tag ID" << tagID << " Vertex ID " << vertex;
         if (currentVertex == vertex) {
             iter->next();
             continue;
@@ -91,20 +87,26 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
-        std::vector<Value::Type> colsType;
-        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(), cols, colsType);
-        auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
-                                                      part,
-                                                      indexID,
-                                                      vertex.data(),
-                                                      valuesRet.value(),
-                                                      std::move(colsType));
-        data.emplace_back(std::move(indexKey), "");
-        batchNum += 1;
+        for (auto& item : items) {
+            if (item->get_schema_id().get_tag_id() != tagID) {
+                continue;
+            }
+            std::vector<Value::Type> colsType;
+            auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                               item->get_fields(),
+                                                               colsType);
+            auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
+                                                          part,
+                                                          indexID,
+                                                          vertex.data(),
+                                                          valuesRet.value(),
+                                                          std::move(colsType));
+            data.emplace_back(std::move(indexKey), "");
+        }
         iter->next();
     }
 
-    auto result = processModifyOperation(space, part, std::move(data));
+    auto result = writeData(space, part, std::move(data));
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Write Part " << part << " Index Failed";
         return kvstore::ResultCode::ERR_IO_ERROR;

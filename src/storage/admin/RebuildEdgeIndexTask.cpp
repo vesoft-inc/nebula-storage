@@ -11,17 +11,16 @@
 namespace nebula {
 namespace storage {
 
-StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
-RebuildEdgeIndexTask::getIndex(GraphSpaceID space, IndexID indexID) {
-    return env_->indexMan_->getEdgeIndex(space, indexID);
+StatusOr<IndexItems>
+RebuildEdgeIndexTask::getIndexes(GraphSpaceID space) {
+    return env_->indexMan_->getEdgeIndexes(space);
 }
 
 kvstore::ResultCode
 RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                        PartitionID part,
-                                       meta::cpp2::SchemaID schemaID,
                                        IndexID indexID,
-                                       const std::vector<meta::cpp2::ColumnDef>& cols) {
+                                       const IndexItems& items) {
     if (canceled_) {
         LOG(ERROR) << "Rebuild Edge Index is Canceled";
         return kvstore::ResultCode::SUCCEEDED;
@@ -34,8 +33,6 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
     }
 
     auto vidSize = vidSizeRet.value();
-    auto edgeType = schemaID.get_edge_type();
-
     std::unique_ptr<kvstore::KVIterator> iter;
     auto prefix = NebulaKeyUtils::partPrefix(part);
     auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
@@ -44,7 +41,6 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         return ret;
     }
 
-    int32_t batchNum = 0;
     VertexID currentSrcVertex = "";
     VertexID currentDstVertex = "";
     EdgeRanking currentRanking = 0;
@@ -56,20 +52,24 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             return kvstore::ResultCode::SUCCEEDED;
         }
 
-        if (batchNum == FLAGS_rebuild_index_batch_num) {
-            auto result = processModifyOperation(space, part, data);
+        if (static_cast<int32_t>(data.size()) == FLAGS_rebuild_index_batch_num) {
+            auto result = writeData(space, part, data);
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
                 return kvstore::ResultCode::ERR_IO_ERROR;
             }
             data.clear();
-            batchNum = 0;
         }
 
         auto key = iter->key();
         auto val = iter->val();
-        if (!NebulaKeyUtils::isEdge(vidSize, key) ||
-            NebulaKeyUtils::getEdgeType(vidSize, key) != edgeType) {
+        if (!NebulaKeyUtils::isEdge(vidSize, key)) {
+            iter->next();
+            continue;
+        }
+
+        auto edgeType = NebulaKeyUtils::getEdgeType(vidSize, key);
+        if (edgeType < 0) {
             iter->next();
             continue;
         }
@@ -77,7 +77,8 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         auto source = NebulaKeyUtils::getSrcId(vidSize, key);
         auto destination = NebulaKeyUtils::getDstId(vidSize, key);
         auto ranking = NebulaKeyUtils::getRank(vidSize, key);
-
+        VLOG(3) << "Source " << source << " Destination " << destination
+                << " Ranking " << ranking << " Edge Type " << edgeType;
         if (currentSrcVertex == source &&
             currentDstVertex == destination &&
             currentRanking == ranking) {
@@ -98,23 +99,28 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
-        std::vector<Value::Type> colsType;
-        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(), cols, colsType);
-
-        auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
-                                                    part,
-                                                    indexID,
-                                                    source.data(),
-                                                    ranking,
-                                                    destination.data(),
-                                                    valuesRet.value(),
-                                                    std::move(colsType));
-        data.emplace_back(std::move(indexKey), "");
-        batchNum += 1;
+        for (auto& item : items) {
+            if (item->get_schema_id().get_edge_type() != edgeType) {
+                continue;
+            }
+            std::vector<Value::Type> colsType;
+            auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                               item->get_fields(),
+                                                               colsType);
+            auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
+                                                        part,
+                                                        indexID,
+                                                        source.data(),
+                                                        ranking,
+                                                        destination.data(),
+                                                        valuesRet.value(),
+                                                        std::move(colsType));
+            data.emplace_back(std::move(indexKey), "");
+        }
         iter->next();
     }
 
-    auto result = processModifyOperation(space, part, std::move(data));
+    auto result = writeData(space, part, std::move(data));
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Write Part " << part << " Index Failed";
         return kvstore::ResultCode::ERR_IO_ERROR;

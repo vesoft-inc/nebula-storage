@@ -83,8 +83,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
@@ -145,8 +143,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
@@ -191,8 +187,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndex) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"11"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
@@ -248,8 +242,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
@@ -312,8 +304,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
@@ -357,8 +347,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndex) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(std::move(parts));
-    std::vector<std::string> taskParameters = {"12"};
-    parameter.set_task_specfic_paras(std::move(taskParameters));
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);

@@ -41,6 +41,7 @@ public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
+    folly::SharedMutex                              lock;
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
 };
 

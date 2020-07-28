@@ -15,6 +15,8 @@
 namespace nebula {
 namespace storage {
 
+using IndexItems = std::vector<std::shared_ptr<meta::cpp2::IndexItem>>;
+
 class RebuildIndexTask : public AdminTask {
 public:
     explicit RebuildIndexTask(StorageEnv* env, TaskContext&& ctx)
@@ -22,24 +24,19 @@ public:
 
     ~RebuildIndexTask() {
         LOG(INFO) << "Release Rebuild Task";
-        if (env_->rebuildIndexGuard_ != nullptr) {
-            env_->rebuildIndexGuard_->assign(std::make_tuple(space_, 0, 0),
-                                             IndexState::FINISHED);
-        }
     }
 
     ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
 protected:
-    virtual StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
-    getIndex(GraphSpaceID space, IndexID indexID) = 0;
+    virtual StatusOr<IndexItems>
+    getIndexes(GraphSpaceID space) = 0;
 
     virtual kvstore::ResultCode
     buildIndexGlobal(GraphSpaceID space,
                      PartitionID part,
-                     meta::cpp2::SchemaID SchemaID,
                      IndexID indexID,
-                     const std::vector<meta::cpp2::ColumnDef>& cols) = 0;
+                     const IndexItems& cols) = 0;
 
     void cancel() override {
         canceled_ = true;
@@ -49,13 +46,13 @@ protected:
                                                IndexID indexID,
                                                PartitionID part);
 
-    kvstore::ResultCode processModifyOperation(GraphSpaceID space,
-                                               PartitionID part,
-                                               std::vector<kvstore::KV> data);
+    kvstore::ResultCode writeData(GraphSpaceID space,
+                                  PartitionID part,
+                                  std::vector<kvstore::KV> data);
 
-    kvstore::ResultCode processRemoveOperation(GraphSpaceID space,
-                                               PartitionID part,
-                                               std::string&& key);
+    kvstore::ResultCode removeData(GraphSpaceID space,
+                                   PartitionID part,
+                                   std::string&& key);
 
     kvstore::ResultCode cleanupOperationLogs(GraphSpaceID space,
                                              PartitionID part,
@@ -63,9 +60,8 @@ protected:
 
     kvstore::ResultCode genSubTask(GraphSpaceID space,
                                    PartitionID part,
-                                   meta::cpp2::SchemaID schemaID,
                                    IndexID indexID,
-                                   const std::shared_ptr<meta::cpp2::IndexItem>& item);
+                                   const IndexItems& items);
 
 protected:
     std::atomic<bool>   canceled_{false};

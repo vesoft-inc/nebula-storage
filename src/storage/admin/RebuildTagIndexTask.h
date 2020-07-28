@@ -20,14 +20,13 @@ public:
         : RebuildIndexTask(env, std::move(ctx)) {}
 
 private:
-    StatusOr<std::shared_ptr<nebula::meta::cpp2::IndexItem>>
-    getIndex(GraphSpaceID space, IndexID indexID) override;
+    StatusOr<IndexItems>
+    getIndexes(GraphSpaceID space) override;
 
     kvstore::ResultCode buildIndexGlobal(GraphSpaceID space,
                                          PartitionID part,
-                                         meta::cpp2::SchemaID SchemaID,
                                          IndexID indexID,
-                                         const std::vector<meta::cpp2::ColumnDef>& cols) override;
+                                         const IndexItems& items) override;
 };
 
 }  // namespace storage
