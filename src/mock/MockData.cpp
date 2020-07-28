@@ -297,7 +297,8 @@ std::unordered_map<std::string, std::vector<Serve>> MockData::teamServes_ = team
 std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema(SchemaVer ver) {
     std::shared_ptr<meta::NebulaSchemaProvider> schema(new meta::NebulaSchemaProvider(ver));
     schema->addField("name", meta::cpp2::PropertyType::STRING, 0, false, "");
-    schema->addField("age", meta::cpp2::PropertyType::INT64, 0, false, 18L);
+    // only age filed has no default value and nullable is false
+    schema->addField("age", meta::cpp2::PropertyType::INT64, 0, false);
     schema->addField("playing", meta::cpp2::PropertyType::BOOL, 0, false, true);
     schema->addField("career", meta::cpp2::PropertyType::INT64, 0, false, 10L);
     schema->addField("startYear", meta::cpp2::PropertyType::INT64, 0, false, 0L);
