@@ -45,6 +45,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     VertexID currentVertex = "";
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
+    std::unique_ptr<RowReader> reader;
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Tag Index is Canceled";
@@ -55,7 +56,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             auto result = writeData(space, part, data);
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
-                return kvstore::ResultCode::ERR_IO_ERROR;
+                return result;
             }
 
             data.clear();
@@ -70,7 +71,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
 
         auto tagID = NebulaKeyUtils::getTagId(vidSize, key);
         auto vertex = NebulaKeyUtils::getVertexId(vidSize, key);
-        VLOG(3) << "Tag ID" << tagID << " Vertex ID " << vertex;
+        VLOG(3) << "Tag ID " << tagID << " Vertex ID " << vertex;
         if (currentVertex == vertex) {
             iter->next();
             continue;
@@ -78,13 +79,17 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             currentVertex = vertex.data();
         }
 
-        auto reader = RowReader::getTagPropReader(env_->schemaMan_,
-                                                  space,
-                                                  tagID,
-                                                  std::move(val));
-        if (reader == nullptr) {
-            iter->next();
-            continue;
+        if (!reader) {
+            reader = RowReader::getTagPropReader(env_->schemaMan_, space, tagID, val);
+            if (reader == nullptr) {
+                iter->next();
+                continue;
+            }
+        } else {
+            if (!reader->resetTagPropReader(env_->schemaMan_, space, tagID, val)) {
+                iter->next();
+                continue;
+            }
         }
 
         for (auto& item : items) {

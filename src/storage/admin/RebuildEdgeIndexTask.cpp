@@ -46,6 +46,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
     EdgeRanking currentRanking = 0;
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
+    std::unique_ptr<RowReader> reader;
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Edge Index is Canceled";
@@ -56,7 +57,7 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             auto result = writeData(space, part, data);
             if (result != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Write Part " << part << " Index Failed";
-                return kvstore::ResultCode::ERR_IO_ERROR;
+                return result;
             }
             data.clear();
         }
@@ -90,13 +91,17 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             currentRanking = ranking;
         }
 
-        auto reader = RowReader::getEdgePropReader(env_->schemaMan_,
-                                                   space,
-                                                   edgeType,
-                                                   std::move(val));
-        if (reader == nullptr) {
-            iter->next();
-            continue;
+        if (!reader) {
+            reader = RowReader::getEdgePropReader(env_->schemaMan_, space, edgeType, val);
+            if (reader == nullptr) {
+                iter->next();
+                continue;
+            }
+        } else {
+            if (!reader->resetEdgePropReader(env_->schemaMan_, space, edgeType, val)) {
+                iter->next();
+                continue;
+            }
         }
 
         for (auto& item : items) {
