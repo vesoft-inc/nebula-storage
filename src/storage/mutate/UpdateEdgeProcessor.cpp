@@ -127,13 +127,13 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
     filterNode->addDependency(edgeUpdate.get());
 
     auto updateNode = std::make_unique<UpdateEdgeNode>(planContext_.get(),
-                                                       &edgeContext_,
                                                        indexes_,
                                                        updatedProps_,
                                                        filterNode.get(),
                                                        insertable_,
                                                        depPropMap_,
-                                                       expCtx_.get());
+                                                       expCtx_.get(),
+                                                       &edgeContext_);
     updateNode->addDependency(filterNode.get());
 
     auto resultNode = std::make_unique<UpdateResNode<cpp2::EdgeKey>>(planContext_.get(),
