@@ -354,7 +354,8 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeEdgeSchema(Schema
     schema->addField("teamName", meta::cpp2::PropertyType::STRING, 0, false, "");
     schema->addField("startYear", meta::cpp2::PropertyType::INT64, 0, false, 2020L);
     schema->addField("endYear", meta::cpp2::PropertyType::INT64, 0, false, 2020L);
-    schema->addField("teamCareer", meta::cpp2::PropertyType::INT64, 0, false, 1L);
+    // only teamCareer filed has no default value and nullable is false
+    schema->addField("teamCareer", meta::cpp2::PropertyType::INT64, 0, false);
     schema->addField("teamGames", meta::cpp2::PropertyType::INT64, 0, false, 1L);
     schema->addField("teamAvgScore", meta::cpp2::PropertyType::DOUBLE, 0, false, 0.0);
 
