@@ -1190,7 +1190,7 @@ TEST(UpdateVertexTest, Insertable_No_Defalut_Test) {
     updatedProps.emplace_back(uProp1);
 
     LOG(INFO) << "Build yield...";
-    // Return player props: name, age, country
+    // Return player props: name, age
     {
         decltype(req.return_props) tmpProps;
         auto* yTag1 = new std::string("1");
@@ -1264,7 +1264,7 @@ TEST(UpdateVertexTest, Insertable_In_Set_Test) {
     req.set_updated_props(std::move(updatedProps));
 
     LOG(INFO) << "Build yield...";
-    // Return player props: name, age, country
+    // Return player props: name, age
     {
         decltype(req.return_props) tmpProps;
         auto* yTag1 = new std::string("1");
