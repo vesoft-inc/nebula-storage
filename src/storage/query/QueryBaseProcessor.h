@@ -184,7 +184,7 @@ protected:
     EdgeContext                                         edgeContext_;
     std::unique_ptr<Expression>                         filter_;
 
-    // Collect prop in value expression
+    // Collect prop in value expression in upsert set clause
     std::unordered_set<std::string>                     valueProps_;
 
     nebula::DataSet                                     resultDataSet_;

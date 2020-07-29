@@ -124,13 +124,13 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
     filterNode->addDependency(tagUpdate.get());
 
     auto updateNode = std::make_unique<UpdateTagNode>(planContext_.get(),
-                                                      &tagContext_,
                                                       indexes_,
                                                       updatedProps_,
                                                       filterNode.get(),
                                                       insertable_,
                                                       depPropMap_,
-                                                      expCtx_.get());
+                                                      expCtx_.get(),
+                                                      &tagContext_);
     updateNode->addDependency(filterNode.get());
 
     auto resultNode = std::make_unique<UpdateResNode<VertexID>>(planContext_.get(),

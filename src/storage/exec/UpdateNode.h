@@ -18,26 +18,141 @@
 namespace nebula {
 namespace storage {
 
-// Only use for update vertex
-// Update records, write to kvstore
-class UpdateTagNode : public RelNode<VertexID> {
+template<typename T>
+class UpdateNode  : public RelNode<T> {
 public:
-    UpdateTagNode(PlanContext* planCtx,
-                  TagContext* tagContext,
-                  std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
-                  std::vector<storage::cpp2::UpdatedProp>& updatedProps,
-                  FilterNode<VertexID>* filterNode,
-                  bool insertable,
-                  std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
-                  StorageExpressionContext* expCtx = nullptr)
+    UpdateNode(PlanContext* planCtx,
+               std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
+               std::vector<storage::cpp2::UpdatedProp>& updatedProps,
+               FilterNode<T>* filterNode,
+               bool insertable,
+               std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
+               StorageExpressionContext* expCtx = nullptr)
         : planContext_(planCtx)
-        , tagContext_(tagContext)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
         , insertable_(insertable)
         , depPropMap_(depPropMap)
-        , expCtx_(expCtx) {
+        , expCtx_(expCtx) {}
+
+    // Used for upsert tag/edge
+    kvstore::ResultCode checkPropsAndGetDefaultValue(bool isEdge) {
+        // Store checked props
+        // For example:
+        // set a = 1, b = a + 1, c = 2,             a does not require default value and nullable
+        // set a = 1, b = c + 1, c = 2,             c requires default value and nullable
+        // set a = 1, b = (a + 1) + 1, c = 2,       support recursion multiple times
+        // set a = 1, c = 2, b = (a + 1) + (c + 1)  support multiple properties
+        std::unordered_set<std::string> checkedProp;
+
+        // check depPropMap_ in set clause
+        // this props must have default value or nullable, or set int UpdatedProp_
+        for (auto& prop : depPropMap_) {
+            for (auto& p :  prop.second) {
+                auto it = checkedProp.find(p);
+                if (it == checkedProp.end()) {
+                    auto field = schema_->field(p);
+                    if (!field) {
+                        VLOG(1) << "Fail to read prop";
+                        if (isEdge) {
+                            return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                        }
+                        return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                    }
+
+                    if (field->hasDefault()) {
+                        props_[p] = field->defaultValue();
+                    } else if (field->nullable()) {
+                        props_[p] = NullType::__NULL__;
+                    } else {
+                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                    }
+                    checkedProp.emplace(p);
+                }
+            }
+
+            // set field not need default value or nullable
+            auto field = schema_->field(prop.first);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                if (isEdge) {
+                    return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                }
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+            checkedProp.emplace(prop.first);
+        }
+
+        // props not in set clause must have default value or nullable
+        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
+            auto field = schema_->field(index);
+            if (!field) {
+                VLOG(1) << "Fail to read prop";
+                if (isEdge) {
+                    return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+                }
+                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            }
+
+            auto propName = field->name();
+            auto findIter = checkedProp.find(propName);
+            if (findIter == checkedProp.end()) {
+                if (field->hasDefault()) {
+                    props_[propName] = field->defaultValue();
+                } else if (field->nullable()) {
+                    props_[propName] = NullType::__NULL__;
+                } else {
+                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                }
+            }
+        }
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+protected:
+    // ============================ input =====================================================
+    PlanContext                                                            *planContext_;
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
+    // update <prop name, new value expression>
+    std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
+    FilterNode<T>                                                          *filterNode_;
+    // Whether to allow insert
+    bool                                                                    insertable_{false};
+
+    std::string                                                             key_;
+    RowReader                                                              *reader_{nullptr};
+
+    const meta::NebulaSchemaProvider                                       *schema_{nullptr};
+
+    // use to save old row value
+    std::string                                                             val_;
+    std::unique_ptr<RowWriterV2>                                            rowWriter_;
+    // prop -> value
+    std::unordered_map<std::string, Value>                                  props_;
+    std::atomic<kvstore::ResultCode>                                        exeResult_;
+
+    // updatedProps_ dependent props in value expression
+    std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
+
+    StorageExpressionContext                                               *expCtx_;
+};
+
+// Only use for update vertex
+// Update records, write to kvstore
+class UpdateTagNode : public UpdateNode<VertexID> {
+public:
+    UpdateTagNode(PlanContext* planCtx,
+                  std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
+                  std::vector<storage::cpp2::UpdatedProp>& updatedProps,
+                  FilterNode<VertexID>* filterNode,
+                  bool insertable,
+                  std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
+                  StorageExpressionContext* expCtx,
+                  TagContext* tagContext)
+        : UpdateNode<VertexID>(planCtx, indexes, updatedProps,
+                               filterNode, insertable, depPropMap, expCtx)
+        , tagContext_(tagContext) {
             tagId_ = planContext_->tagId_;
         }
 
@@ -129,66 +244,9 @@ public:
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
-
-        // Store checked props
-        // For example:
-        // set a = 1, b = a + 1, c = 2, a does not require default value and nullable
-        // set a = 1, b = c + 1, c = 2, c requires default value and nullable
-        // set a = 1, b = (a + 1) + 1, c = 2, support recursion multiple times
-        // set a = 1, c = 2, b = (a + 1) + (c + 1) support multiple properties
-        std::unordered_set<std::string> checkedProp;
-
-        // check depPropMap_ in set clause
-        // this props must have default value or nullable, or set int UpdatedProp_
-        for (auto& prop : depPropMap_) {
-            for (auto& p :  prop.second) {
-                auto it = checkedProp.find(p);
-                if (it == checkedProp.end()) {
-                    auto field = schema_->field(p);
-                    if (!field) {
-                        VLOG(1) << "Fail to read prop";
-                        return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-                    }
-
-                    if (field->hasDefault()) {
-                        props_[p] = field->defaultValue();
-                    } else if (field->nullable()) {
-                        props_[p] = NullType::__NULL__;
-                    } else {
-                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                    }
-                    checkedProp.emplace(p);
-                }
-            }
-
-            // set field not need default value or nullable
-            auto field = schema_->field(prop.first);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-            }
-            checkedProp.emplace(prop.first);
-        }
-
-        // props not in set clause must have default value or nullable
-        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
-            auto field = schema_->field(index);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-            }
-
-            auto propName = field->name();
-            auto findIter = checkedProp.find(propName);
-            if (findIter == checkedProp.end()) {
-                if (field->hasDefault()) {
-                    props_[propName] = field->defaultValue();
-                } else if (field->nullable()) {
-                    props_[propName] = NullType::__NULL__;
-                } else {
-                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                }
-            }
+        ret = checkPropsAndGetDefaultValue(false);
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
         }
 
         for (auto &e : props_) {
@@ -364,56 +422,26 @@ public:
     }
 
 private:
-    // ============================ input =====================================================
-    PlanContext                                                            *planContext_;
-    TagContext                                                             *tagContext_;
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
-    // update <prop name, new value expression>
-    std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
-    FilterNode<VertexID>                                                   *filterNode_;
-    // Whether to allow insert
-    bool                                                                    insertable_{false};
-    TagID                                                                   tagId_;
-
-    std::string                                                             key_;
-    RowReader                                                              *reader_{nullptr};
-
-    const meta::NebulaSchemaProvider                                       *schema_{nullptr};
-    std::string                                                             tagName_;
-
-    // use to save old row value
-    std::string                                                             val_;
-    std::unique_ptr<RowWriterV2>                                            rowWriter_;
-    // tagId_ prop -> value
-    std::unordered_map<std::string, Value>                                  props_;
-    std::atomic<kvstore::ResultCode>                                        exeResult_;
-
-    // updatedProps_ dependent props in value expression
-    std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
-
-    StorageExpressionContext                                               *expCtx_;
+    TagContext                 *tagContext_;
+    TagID                       tagId_;
+    std::string                 tagName_;
 };
 
 // Only use for update edge
 // Update records, write to kvstore
-class UpdateEdgeNode : public RelNode<cpp2::EdgeKey> {
+class UpdateEdgeNode : public UpdateNode<cpp2::EdgeKey> {
 public:
     UpdateEdgeNode(PlanContext* planCtx,
-                   EdgeContext* edgeContext,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                    FilterNode<cpp2::EdgeKey>* filterNode,
                    bool insertable,
                    std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
-                   StorageExpressionContext* expCtx = nullptr)
-        : planContext_(planCtx)
-        , edgeContext_(edgeContext)
-        , indexes_(indexes)
-        , updatedProps_(updatedProps)
-        , filterNode_(filterNode)
-        , insertable_(insertable)
-        , depPropMap_(depPropMap)
-        , expCtx_(expCtx) {
+                   StorageExpressionContext* expCtx,
+                   EdgeContext* edgeContext)
+        : UpdateNode<cpp2::EdgeKey>(planCtx, indexes, updatedProps, filterNode, insertable,
+                                    depPropMap, expCtx)
+        , edgeContext_(edgeContext) {
             edgeType_ = planContext_->edgeType_;
         }
 
@@ -507,65 +535,9 @@ public:
             return ret;
         }
 
-        // Store checked props
-        // For example:
-        // set a = 1, b = a + 1, c = 2, a does not require default value and nullable
-        // set a = 1, b = c + 1, c = 2, c requires default value and nullable
-        // set a = 1, b = (a + 1) + 1, c = 2, support recursion multiple times
-        // set a = 1, c = 2, b = (a + 1) + (c + 1) support multiple properties
-        std::unordered_set<std::string> checkedProp;
-
-        // check depPropMap_ in set clause
-        // this props must have default value or nullable, or set int UpdatedProp_
-        for (auto& prop : depPropMap_) {
-            for (auto& p :  prop.second) {
-                auto it = checkedProp.find(p);
-                if (it == checkedProp.end()) {
-                    auto field = schema_->field(p);
-                    if (!field) {
-                        VLOG(1) << "Fail to read prop";
-                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-                    }
-
-                    if (field->hasDefault()) {
-                        props_[p] = field->defaultValue();
-                    } else if (field->nullable()) {
-                        props_[p] = NullType::__NULL__;
-                    } else {
-                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                    }
-                    checkedProp.emplace(p);
-                }
-            }
-
-            // set field not need default value or nullable
-            auto field = schema_->field(prop.first);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-            }
-            checkedProp.emplace(prop.first);
-        }
-
-        // props not in set clause must have default value or nullable
-        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
-            auto field = schema_->field(index);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-            }
-
-            auto propName = field->name();
-            auto findIter = checkedProp.find(propName);
-            if (findIter == checkedProp.end()) {
-                if (field->hasDefault()) {
-                    props_[propName] = field->defaultValue();
-                } else if (field->nullable()) {
-                    props_[propName] = NullType::__NULL__;
-                } else {
-                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
-                }
-            }
+        ret = checkPropsAndGetDefaultValue(true);
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
         }
 
         // build expression context
@@ -764,35 +736,9 @@ public:
     }
 
 private:
-    // ============================ input =====================================================
-    PlanContext                                                            *planContext_;
-    EdgeContext                                                            *edgeContext_;
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>             indexes_;
-    // update <prop name, new value expression>
-    std::vector<storage::cpp2::UpdatedProp>                                 updatedProps_;
-    FilterNode<cpp2::EdgeKey>                                              *filterNode_;
-
-    // Whether to allow insert
-    bool                                                                    insertable_{false};
-    EdgeType                                                                edgeType_;
-
-    std::string                                                             key_;
-    RowReader                                                              *reader_{nullptr};
-
-    const meta::NebulaSchemaProvider                                       *schema_{nullptr};
-    std::string                                                             edgeName_;
-    // use to save old row value
-    std::string                                                             val_;
-    std::unique_ptr<RowWriterV2>                                            rowWriter_;
-
-    // edgeType_ prop -> value
-    std::unordered_map<std::string, Value>                                  props_;
-    std::atomic<kvstore::ResultCode>                                        exeResult_;
-
-    // updatedProps_ dependent props in value expression
-    std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
-
-    StorageExpressionContext                                               *expCtx_;
+    EdgeContext                            *edgeContext_;
+    EdgeType                                edgeType_;
+    std::string                             edgeName_;
 };
 
 }  // namespace storage
