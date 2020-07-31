@@ -295,14 +295,35 @@ nebula_add_executable(
 )
 
 nebula_add_test(
-        NAME
+    NAME
         lookup_index_test
-        SOURCES
+    SOURCES
         LookupIndexTest.cpp
         ../../codec/test/RowWriterV1.cpp
-        OBJECTS
+    OBJECTS
         ${storage_test_deps}
-        LIBRARIES
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        storage_http_stats_test
+    SOURCES
+        StorageHttpStatsHandlerTest.cpp
+    OBJECTS
+        $<TARGET_OBJECTS:storage_http_handler>
+        $<TARGET_OBJECTS:common_http_client_obj>
+        $<TARGET_OBJECTS:common_ws_obj>
+        $<TARGET_OBJECTS:common_ws_common_obj>
+        $<TARGET_OBJECTS:common_process_obj>
+        ${storage_test_deps}
+    LIBRARIES
+        proxygenhttpserver
+        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         wangle
