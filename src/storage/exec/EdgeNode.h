@@ -140,7 +140,7 @@ public:
         } else {
             iter_.reset();
         }
-        return kvstore::ResultCode::SUCCEEDED;
+        return ret;
     }
 };
 
@@ -173,7 +173,7 @@ public:
         } else {
             iter_.reset();
         }
-        return kvstore::ResultCode::SUCCEEDED;
+        return ret;
     }
 };
 

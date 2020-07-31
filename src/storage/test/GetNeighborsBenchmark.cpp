@@ -9,9 +9,12 @@
 #include "common/fs/TempDir.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/test/QueryTestUtils.h"
+#include "storage/exec/EdgeNode.h"
 
 DEFINE_uint64(max_rank, 1000, "max rank of each edge");
 DEFINE_double(filter_ratio, 0.5, "ratio of data would pass filter");
+DEFINE_bool(go_record, false, "");
+DEFINE_bool(kv_record, false, "");
 
 std::unique_ptr<nebula::mock::MockCluster> gCluster;
 
@@ -46,6 +49,37 @@ void setUp(const char* path, EdgeRanking maxRank) {
 }  // namespace storage
 }  // namespace nebula
 
+void initContext(std::unique_ptr<nebula::storage::PlanContext>& planCtx,
+                 nebula::storage::EdgeContext& edgeContext,
+                 const std::vector<std::string>& serveProps) {
+    nebula::GraphSpaceID spaceId = 1;
+    auto* env = gCluster->storageEnv_.get();
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
+    planCtx = std::make_unique<nebula::storage::PlanContext>(env, spaceId, vIdLen);
+
+    nebula::EdgeType serve = 101;
+    edgeContext.schemas_ = std::move(env->schemaMan_->getAllVerEdgeSchema(spaceId)).value();
+
+    auto edgeName = env->schemaMan_->toEdgeName(spaceId, std::abs(serve));
+    edgeContext.edgeNames_.emplace(serve, std::move(edgeName).value());
+    auto iter = edgeContext.schemas_.find(std::abs(serve));
+    const auto& edgeSchema = iter->second.back();
+
+    std::vector<nebula::storage::PropContext> ctxs;
+    for (const auto& prop : serveProps) {
+        auto field = edgeSchema->field(prop);
+        nebula::storage::PropContext ctx(prop.c_str());
+        ctx.returned_ = true;
+        ctx.field_ = field;
+        ctxs.emplace_back(std::move(ctx));
+    }
+    edgeContext.propContexts_.emplace_back(serve, std::move(ctxs));
+    edgeContext.indexMap_.emplace(serve, edgeContext.propContexts_.size() - 1);
+
+    const auto& ec = edgeContext.propContexts_.front();
+    planCtx->props_ = &ec.second;
+}
+
 void go(int32_t iters,
         const std::vector<nebula::VertexID>& vertex,
         const std::vector<std::string>& playerProps,
@@ -60,6 +94,7 @@ void go(int32_t iters,
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
+        folly::doNotOptimizeAway(resp);
     }
 }
 
@@ -89,6 +124,148 @@ void goFilter(int32_t iters,
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
+        folly::doNotOptimizeAway(resp);
+    }
+}
+
+void goEdgeNode(int32_t iters,
+                const std::vector<nebula::VertexID>& vertex,
+                const std::vector<std::string>& playerProps,
+                const std::vector<std::string>& serveProps) {
+    UNUSED(playerProps);
+    std::unique_ptr<nebula::storage::PlanContext> planCtx;
+    std::unique_ptr<nebula::storage::SingleEdgeNode> edgeNode;
+    nebula::storage::EdgeContext edgeContext;
+    BENCHMARK_SUSPEND {
+        initContext(planCtx, edgeContext, serveProps);
+        const auto& ec = edgeContext.propContexts_.front();
+        edgeNode = std::make_unique<nebula::storage::SingleEdgeNode>(
+            planCtx.get(), &edgeContext, ec.first, &ec.second);
+    }
+    auto totalParts = gCluster->getTotalParts();
+    for (decltype(iters) i = 0; i < iters; i++) {
+        nebula::DataSet resultDataSet;
+        std::hash<std::string> hash;
+        for (const auto& vId : vertex) {
+            nebula::PartitionID partId = (hash(vId) % totalParts) + 1;
+            std::vector<nebula::Value> row;
+            row.emplace_back(vId);
+            row.emplace_back(nebula::List());
+            {
+                edgeNode->execute(partId, vId);
+                int32_t count = 0;
+                auto& cell = row[1].mutableList();
+                for (; edgeNode->valid(); edgeNode->next()) {
+                    nebula::List list;
+                    auto key = edgeNode->key();
+                    folly::doNotOptimizeAway(key);
+                    auto reader = edgeNode->reader();
+                    auto props = planCtx->props_;
+                    for (const auto& prop : *props) {
+                        auto value = nebula::storage::QueryUtils::readValue(
+                            reader, prop.name_, prop.field_);
+                        CHECK(value.ok());
+                        list.emplace_back(std::move(value).value());
+                    }
+                    cell.values.emplace_back(std::move(list));
+                    count++;
+                }
+                CHECK_EQ(FLAGS_max_rank, count);
+            }
+            resultDataSet.rows.emplace_back(std::move(row));
+        }
+        CHECK_EQ(vertex.size(), resultDataSet.rowSize());
+    }
+}
+
+void prefix(int32_t iters,
+            const std::vector<nebula::VertexID>& vertex,
+            const std::vector<std::string>& playerProps,
+            const std::vector<std::string>& serveProps) {
+    std::unique_ptr<nebula::storage::PlanContext> planCtx;
+    nebula::storage::EdgeContext edgeContext;
+    BENCHMARK_SUSPEND {
+        initContext(planCtx, edgeContext, serveProps);
+    }
+    for (decltype(iters) i = 0; i < iters; i++) {
+        nebula::GraphSpaceID spaceId = 1;
+        nebula::TagID player = 1;
+        nebula::EdgeType serve = 101;
+
+        std::hash<std::string> hash;
+        auto* env = gCluster->storageEnv_.get();
+        auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
+        auto totalParts = gCluster->getTotalParts();
+
+        auto tagSchemas = env->schemaMan_->getAllVerTagSchema(spaceId).value();
+        auto tagSchemaIter = tagSchemas.find(player);
+        CHECK(tagSchemaIter != tagSchemas.end());
+        CHECK(!tagSchemaIter->second.empty());
+        auto* tagSchema = &(tagSchemaIter->second);
+
+        auto edgeSchemas = env->schemaMan_->getAllVerEdgeSchema(spaceId).value();
+        auto edgeSchemaIter = edgeSchemas.find(std::abs(serve));
+        CHECK(edgeSchemaIter != edgeSchemas.end());
+        CHECK(!edgeSchemaIter->second.empty());
+        auto* edgeSchema = &(edgeSchemaIter->second);
+
+        std::unique_ptr<nebula::RowReader> reader;
+        nebula::DataSet resultDataSet;
+        for (const auto& vId : vertex) {
+            nebula::PartitionID partId = (hash(vId) % totalParts) + 1;
+            std::vector<nebula::Value> row;
+            row.emplace_back(vId);
+            row.emplace_back(nebula::List());
+            row.emplace_back(nebula::List());
+            {
+                // read tags
+                std::unique_ptr<nebula::kvstore::KVIterator> iter;
+                auto prefix = nebula::NebulaKeyUtils::vertexPrefix(vIdLen, partId, vId, player);
+                auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
+                CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+                CHECK(iter->valid());
+                auto val = iter->val();
+                reader = nebula::RowReader::getRowReader(*tagSchema, val);
+                CHECK_NOTNULL(reader);
+                auto& cell = row[1].mutableList();
+                for (const auto& prop : playerProps) {
+                    cell.emplace_back(reader->getValueByName(prop));
+                }
+            }
+            {
+                // read edges
+                std::unique_ptr<nebula::kvstore::KVIterator> iter;
+                auto prefix = nebula::NebulaKeyUtils::edgePrefix(vIdLen, partId, vId, serve);
+                auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
+                CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+                int32_t count = 0;
+                auto& cell = row[2].mutableList();
+                for (; iter->valid(); iter->next()) {
+                    nebula::List list;
+                    auto key = iter->key();
+                    folly::doNotOptimizeAway(key);
+                    auto val = iter->val();
+                    if (!reader) {
+                        reader = nebula::RowReader::getRowReader(*edgeSchema, val);
+                        CHECK_NOTNULL(reader);
+                    } else if (!reader->reset(*edgeSchema, val)) {
+                        LOG(FATAL) << "Should not happen";
+                    }
+                    auto props = planCtx->props_;
+                    for (const auto& prop : *props) {
+                        auto value = nebula::storage::QueryUtils::readValue(
+                            reader.get(), prop.name_, prop.field_);
+                        CHECK(value.ok());
+                        list.emplace_back(std::move(value).value());
+                    }
+                    cell.values.emplace_back(std::move(list));
+                    count++;
+                }
+                CHECK_EQ(FLAGS_max_rank, count);
+            }
+            resultDataSet.rows.emplace_back(std::move(row));
+        }
+        CHECK_EQ(vertex.size(), resultDataSet.rowSize());
     }
 }
 
@@ -100,16 +277,14 @@ BENCHMARK(OneVertexOneProperty, iters) {
 BENCHMARK_RELATIVE(OneVertexOnePropertyWithFilter, iters) {
     goFilter(iters, {"Tim Duncan"}, {"name"}, {"teamName"});
 }
+BENCHMARK_RELATIVE(OneVertexOnePropertyOnlyEdgeNode, iters) {
+    goEdgeNode(iters, {"Tim Duncan"}, {"name"}, {"teamName"});
+}
+BENCHMARK_RELATIVE(OneVertexOneProperyOnlyKV, iters) {
+    prefix(iters, {"Tim Duncan"}, {"name"}, {"teamName"});
+}
 
-BENCHMARK(OneVertexThreeProperty, iters) {
-    go(iters, {"Tim Duncan"}, {"name", "age", "avgScore"}, {nebula::kDst, "startYear", "endYear"});
-}
-BENCHMARK_RELATIVE(OneVertexThreePropertyWithFilter, iters) {
-    goFilter(iters,
-             {"Tim Duncan"},
-             {"name", "age", "avgScore"},
-             {nebula::kDst, "startYear", "endYear"});
-}
+BENCHMARK_DRAW_LINE();
 
 BENCHMARK(TenVertexOneProperty, iters) {
     go(iters,
@@ -126,159 +301,85 @@ BENCHMARK_RELATIVE(TenVertexOnePropertyWithFilter, iters) {
         {"name"},
         {"teamName"});
 }
-
-BENCHMARK(TenVertexThreeProperty, iters) {
-    go(iters,
-       {"Tim Duncan", "Kobe Bryant", "Stephen Curry", "Manu Ginobili", "Joel Embiid",
-        "Giannis Antetokounmpo", "Yao Ming", "Damian Lillard", "Dirk Nowitzki", "Klay Thompson"},
-       {"name", "age", "avgScore"},
-       {nebula::kDst, "startYear", "endYear"});
-}
-BENCHMARK_RELATIVE(TenVertexThreePropertyWithFilter, iters) {
-    goFilter(
+BENCHMARK_RELATIVE(TenVertexOnePropertyOnlyEdgeNode, iters) {
+    goEdgeNode(
         iters,
         {"Tim Duncan", "Kobe Bryant", "Stephen Curry", "Manu Ginobili", "Joel Embiid",
         "Giannis Antetokounmpo", "Yao Ming", "Damian Lillard", "Dirk Nowitzki", "Klay Thompson"},
-        {"name", "age", "avgScore"},
-        {nebula::kDst, "startYear", "endYear"});
+        {"name"},
+        {"teamName"});
+}
+BENCHMARK_RELATIVE(TenVertexOneProperyOnlyKV, iters) {
+    prefix(
+        iters,
+        {"Tim Duncan", "Kobe Bryant", "Stephen Curry", "Manu Ginobili", "Joel Embiid",
+        "Giannis Antetokounmpo", "Yao Ming", "Damian Lillard", "Dirk Nowitzki", "Klay Thompson"},
+        {"name"},
+        {"teamName"});
 }
 
 int main(int argc, char** argv) {
     folly::init(&argc, &argv, true);
     nebula::fs::TempDir rootPath("/tmp/GetNeighborsBenchmark.XXXXXX");
     nebula::storage::setUp(rootPath.path(), FLAGS_max_rank);
-    folly::runBenchmarks();
+    if (FLAGS_go_record) {
+        go(1000000, {"Tim Duncan"}, {"name"}, {"teamName"});
+    } else if (FLAGS_kv_record) {
+        prefix(1000000, {"Tim Duncan"}, {"name"}, {"teamName"});
+    } else {
+        folly::runBenchmarks();
+    }
     gCluster.reset();
     return 0;
 }
 
 
 /*
-Debug: No concurrency
-
---max_rank=100 --filter_ratio=0.1
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                       660.59us    1.51K
-OneVertexOnePropertyWithFilter                   128.11%   515.66us    1.94K
-OneVertexThreeProperty                                     879.71us    1.14K
-OneVertexThreePropertyWithFilter                 162.34%   541.89us    1.85K
-TenVertexOneProperty                                         5.79ms   172.80
-TenVertexOnePropertyWithFilter                   138.86%     4.17ms   239.96
-TenVertexThreeProperty                                       7.88ms   126.87
-TenVertexThreePropertyWithFilter                 178.17%     4.42ms   226.04
-============================================================================
+40 processors, Intel(R) Xeon(R) CPU E5-2690 v2 @ 3.00GHz.
+release
 
 --max_rank=1000 --filter_ratio=0.1
 ============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
+/home/doodle.wang/Git/nebula-storage/src/storage/test/GetNeighborsBenchmark.cpprelative  time/iter  iters/s
 ============================================================================
-OneVertexOneProperty                                         5.39ms   185.55
-OneVertexOnePropertyWithFilter                   142.80%     3.77ms   264.98
-OneVertexThreeProperty                                       7.39ms   135.31
-OneVertexThreePropertyWithFilter                 184.83%     4.00ms   250.10
-TenVertexOneProperty                                        52.48ms    19.06
-TenVertexOnePropertyWithFilter                   142.63%    36.79ms    27.18
-TenVertexThreeProperty                                      72.96ms    13.71
-TenVertexThreePropertyWithFilter                 186.05%    39.22ms    25.50
-============================================================================
-
---max_rank=10000 --filter_ratio=0.1
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                        58.37ms    17.13
-OneVertexOnePropertyWithFilter                   142.90%    40.85ms    24.48
-OneVertexThreeProperty                                      81.73ms    12.24
-OneVertexThreePropertyWithFilter                 187.62%    43.56ms    22.96
-TenVertexOneProperty                                       587.09ms     1.70
-TenVertexOnePropertyWithFilter                   142.45%   412.15ms     2.43
-TenVertexThreeProperty                                     833.53ms     1.20
-TenVertexThreePropertyWithFilter                 190.63%   437.25ms     2.29
-============================================================================
-
---max_rank=100 --filter_ratio=0.5
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                       661.60us    1.51K
-OneVertexOnePropertyWithFilter                    96.12%   688.34us    1.45K
-OneVertexThreeProperty                                     879.63us    1.14K
-OneVertexThreePropertyWithFilter                 110.58%   795.49us    1.26K
-TenVertexOneProperty                                         5.82ms   171.69
-TenVertexOnePropertyWithFilter                    98.96%     5.89ms   169.91
-TenVertexThreeProperty                                       7.92ms   126.26
-TenVertexThreePropertyWithFilter                 114.11%     6.94ms   144.08
+OneVertexOneProperty                                       533.81us    1.87K
+OneVertexOnePropertyWithFilter                   111.64%   478.15us    2.09K
+OneVertexOnePropertyOnlyEdgeNode                 108.02%   494.18us    2.02K
+OneVertexOneProperyOnlyKV                        109.63%   486.93us    2.05K
+----------------------------------------------------------------------------
+TenVertexOneProperty                                         5.33ms   187.70
+TenVertexOnePropertyWithFilter                   112.74%     4.73ms   211.62
+TenVertexOnePropertyOnlyEdgeNode                 105.42%     5.05ms   197.88
+TenVertexOneProperyOnlyKV                        107.75%     4.94ms   202.25
 ============================================================================
 
 --max_rank=1000 --filter_ratio=0.5
 ============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
+/home/doodle.wang/Git/nebula-storage/src/storage/test/GetNeighborsBenchmark.cpprelative  time/iter  iters/s
 ============================================================================
-OneVertexOneProperty                                         5.38ms   185.88
-OneVertexOnePropertyWithFilter                    99.68%     5.40ms   185.30
-OneVertexThreeProperty                                       7.47ms   133.79
-OneVertexThreePropertyWithFilter                 114.63%     6.52ms   153.36
-TenVertexOneProperty                                        52.43ms    19.07
-TenVertexOnePropertyWithFilter                    98.43%    53.27ms    18.77
-TenVertexThreeProperty                                      74.08ms    13.50
-TenVertexThreePropertyWithFilter                 114.83%    64.51ms    15.50
-============================================================================
-
---max_rank=10000 --filter_ratio=0.5
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                        58.58ms    17.07
-OneVertexOnePropertyWithFilter                   103.72%    56.48ms    17.71
-OneVertexThreeProperty                                      80.95ms    12.35
-OneVertexThreePropertyWithFilter                 119.57%    67.70ms    14.77
-TenVertexOneProperty                                       589.36ms     1.70
-TenVertexOnePropertyWithFilter                   102.98%   572.28ms     1.75
-TenVertexThreeProperty                                     810.38ms     1.23
-TenVertexThreePropertyWithFilter                 119.14%   680.17ms     1.47
-============================================================================
-
---max_rank=100 --filter_ratio=1
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                       657.72us    1.52K
-OneVertexOnePropertyWithFilter                    75.40%   872.30us    1.15K
-OneVertexThreeProperty                                     869.05us    1.15K
-OneVertexThreePropertyWithFilter                  79.84%     1.09ms   918.68
-TenVertexOneProperty                                         5.78ms   172.95
-TenVertexOnePropertyWithFilter                    74.37%     7.77ms   128.63
-TenVertexThreeProperty                                       7.85ms   127.45
-TenVertexThreePropertyWithFilter                  79.25%     9.90ms   101.00
+OneVertexOneProperty                                       529.59us    1.89K
+OneVertexOnePropertyWithFilter                    81.76%   647.75us    1.54K
+OneVertexOnePropertyOnlyEdgeNode                 107.54%   492.47us    2.03K
+OneVertexOneProperyOnlyKV                        108.38%   488.65us    2.05K
+----------------------------------------------------------------------------
+TenVertexOneProperty                                         5.30ms   188.54
+TenVertexOnePropertyWithFilter                    81.95%     6.47ms   154.50
+TenVertexOnePropertyOnlyEdgeNode                 106.09%     5.00ms   200.02
+TenVertexOneProperyOnlyKV                        108.26%     4.90ms   204.12
 ============================================================================
 
 --max_rank=1000 --filter_ratio=1
 ============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
+/home/doodle.wang/Git/nebula-storage/src/storage/test/GetNeighborsBenchmark.cpprelative  time/iter  iters/s
 ============================================================================
-OneVertexOneProperty                                         4.75ms   210.74
-OneVertexOnePropertyWithFilter                    73.43%     6.46ms   154.74
-OneVertexThreeProperty                                       6.64ms   150.62
-OneVertexThreePropertyWithFilter                  78.81%     8.42ms   118.70
-TenVertexOneProperty                                        47.59ms    21.01
-TenVertexOnePropertyWithFilter                    72.98%    65.21ms    15.33
-TenVertexThreeProperty                                      66.23ms    15.10
-TenVertexThreePropertyWithFilter                  78.48%    84.39ms    11.85
-============================================================================
-
---max_rank=10000 --filter_ratio=1
-============================================================================
-GetNeighborsBenchmark.cpprelative                         time/iter  iters/s
-============================================================================
-OneVertexOneProperty                                        51.88ms    19.27
-OneVertexOnePropertyWithFilter                    76.75%    67.60ms    14.79
-OneVertexThreeProperty                                      71.34ms    14.02
-OneVertexThreePropertyWithFilter                  81.37%    87.67ms    11.41
-TenVertexOneProperty                                       519.31ms     1.93
-TenVertexOnePropertyWithFilter                    75.84%   684.75ms     1.46
-TenVertexThreeProperty                                     714.19ms     1.40
-TenVertexThreePropertyWithFilter                  80.26%   889.86ms     1.12
+OneVertexOneProperty                                       522.41us    1.91K
+OneVertexOnePropertyWithFilter                    62.76%   832.45us    1.20K
+OneVertexOnePropertyOnlyEdgeNode                 108.25%   482.58us    2.07K
+OneVertexOneProperyOnlyKV                        107.87%   484.31us    2.06K
+----------------------------------------------------------------------------
+TenVertexOneProperty                                         5.30ms   188.83
+TenVertexOnePropertyWithFilter                    69.70%     7.60ms   131.62
+TenVertexOnePropertyOnlyEdgeNode                 119.34%     4.44ms   225.34
+TenVertexOneProperyOnlyKV                        120.89%     4.38ms   228.27
 ============================================================================
 */
