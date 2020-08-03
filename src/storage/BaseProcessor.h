@@ -86,10 +86,6 @@ protected:
                                        const std::vector<std::string>& propNames,
                                        const std::vector<Value>& props);
 
-    bool checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID);
-
-    bool checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID);
-
 protected:
     StorageEnv*                                     env_{nullptr};
     stats::Stats*                                   stats_{nullptr};

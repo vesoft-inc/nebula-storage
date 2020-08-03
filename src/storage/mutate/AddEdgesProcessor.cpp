@@ -144,8 +144,8 @@ AddEdgesProcessor::addEdges(PartitionID partId,
         for (auto& index : indexes_) {
             if (edgeType == index->get_schema_id().get_edge_type()) {
                 auto indexId = index->get_index_id();
-                if (checkIndexLocked(spaceId_, indexId, partId)) {
-                    LOG(INFO) << "The part have locked";
+                if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                    LOG(ERROR) << "The part have locked";
                     return folly::none;
                 }
 
@@ -171,7 +171,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     }
                     auto oi = indexKey(partId, reader.get(), e.first, index);
                     if (!oi.empty()) {
-                        if (checkRebuilding(spaceId_, partId, indexId)) {
+                        if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else {
@@ -195,7 +195,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
 
                 auto ni = indexKey(partId, nReader.get(), e.first, index);
                 if (!ni.empty()) {
-                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                    if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                  std::move(ni));
                         batchHolder->put(std::move(modifyOpKey), "");

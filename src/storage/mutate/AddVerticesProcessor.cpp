@@ -150,8 +150,8 @@ AddVerticesProcessor::addVertices(PartitionID partId,
         for (auto& index : indexes_) {
             if (tagId == index->get_schema_id().get_tag_id()) {
                 auto indexId = index->get_index_id();
-                if (checkIndexLocked(spaceId_, indexId, partId)) {
-                    LOG(INFO) << "The part have locked";
+                if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                    LOG(ERROR) << "The part have locked";
                     return folly::none;
                 }
 
@@ -178,7 +178,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
                         // Check the index is building for the specified partition or not
-                        if (checkRebuilding(spaceId_, partId, indexId)) {
+                        if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else {
@@ -202,7 +202,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
                     // Check the index is building for the specified partition or not
-                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                    if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
                         batchHolder->put(std::move(modifyOpKey), "");
                     } else {

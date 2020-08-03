@@ -43,6 +43,18 @@ public:
     meta::IndexManager*                             indexMan_{nullptr};
     folly::SharedMutex                              lock;
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
+
+    bool checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID) {
+        auto key = std::make_tuple(space, indexID, part);
+        auto iter = rebuildIndexGuard_->find(std::move(key));
+        return iter != rebuildIndexGuard_->cend() && iter->second == IndexState::BUILDING;
+    }
+
+    bool checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID) {
+        auto key = std::make_tuple(space, indexID, part);
+        auto iter = rebuildIndexGuard_->find(std::move(key));
+        return iter != rebuildIndexGuard_->cend() && iter->second == IndexState::LOCKED;
+    }
 };
 
 enum class ResultStatus {

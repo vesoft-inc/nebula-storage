@@ -13,6 +13,7 @@
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
 #include "kvstore/LogEncoder.h"
+#include "utils/OperationKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -236,6 +237,13 @@ public:
         if (!indexes_.empty()) {
             std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
+                auto indexId = index->get_index_id();
+                if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                         partId, indexId)) {
+                    LOG(ERROR) << "The part have locked";
+                    return folly::none;
+                }
+
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -245,7 +253,13 @@ public:
                         }
                         auto oi = indexKey(partId, vId, reader_, index);
                         if (!oi.empty()) {
-                            batchHolder->remove(std::move(oi));
+                            if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
+                                                                    partId, indexId)) {
+                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                            } else {
+                                batchHolder->remove(std::move(oi));
+                            }
                         }
                     }
 
@@ -262,7 +276,14 @@ public:
                     }
                     auto ni = indexKey(partId, vId, nReader.get(), index);
                     if (!ni.empty()) {
-                        batchHolder->put(std::move(ni), "");
+                        if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
+                                                                partId, indexId)) {
+                            auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
+                                                                                   std::move(ni));
+                            batchHolder->put(std::move(modifyKey), "");
+                        } else {
+                            batchHolder->put(std::move(ni), "");
+                        }
                     }
                 }
             }
@@ -551,6 +572,13 @@ public:
         if (!indexes_.empty()) {
             std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
+                auto indexId = index->get_index_id();
+                if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                         partId, indexId)) {
+                    LOG(ERROR) << "The part have locked";
+                    return folly::none;
+                }
+
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -560,7 +588,13 @@ public:
                         }
                         auto oi = indexKey(partId, reader_, edgeKey, index);
                         if (!oi.empty()) {
-                            batchHolder->remove(std::move(oi));
+                            if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
+                                                                    partId, indexId)) {
+                                auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                            } else {
+                                batchHolder->remove(std::move(oi));
+                            }
                         }
                     }
 
@@ -577,7 +611,14 @@ public:
                     }
                     auto ni = indexKey(partId, nReader.get(), edgeKey, index);
                     if (!ni.empty()) {
-                        batchHolder->put(std::move(ni), "");
+                        if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
+                                                                partId, indexId)) {
+                            auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
+                                                                                   std::move(ni));
+                            batchHolder->put(std::move(modifyKey), "");
+                        } else {
+                            batchHolder->put(std::move(ni), "");
+                        }
                     }
                 }
             }

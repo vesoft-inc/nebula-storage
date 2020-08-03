@@ -126,8 +126,8 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
             for (auto& index : indexes_) {
                 if (type == index->get_schema_id().get_edge_type()) {
                     auto indexId = index->get_index_id();
-                    if (checkIndexLocked(spaceId_, indexId, partId)) {
-                        LOG(INFO) << "The part have locked";
+                    if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                        LOG(ERROR) << "The part have locked";
                         return folly::none;
                     }
 
@@ -156,7 +156,7 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 valuesRet.value(),
                                                                 colsType);
 
-                    if (checkRebuilding(spaceId_, partId, indexId)) {
+                    if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                     } else {

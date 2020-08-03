@@ -193,19 +193,5 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
     return std::move(rowWrite).moveEncodedStr();
 }
 
-template <typename RESP>
-bool BaseProcessor<RESP>::checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID) {
-    auto key = std::make_tuple(space, indexID, part);
-    auto iter = env_->rebuildIndexGuard_->find(std::move(key));
-    return iter != env_->rebuildIndexGuard_->cend() &&
-           (iter->second == IndexState::STARTING || iter->second == IndexState::BUILDING);
-}
-
-template <typename RESP>
-bool BaseProcessor<RESP>::checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID) {
-    auto key = std::make_tuple(space, indexID, part);
-    auto iter = env_->rebuildIndexGuard_->find(std::move(key));
-    return iter != env_->rebuildIndexGuard_->cend() && iter->second == IndexState::LOCKED;
-}
 }  // namespace storage
 }  // namespace nebula

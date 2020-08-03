@@ -144,8 +144,8 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                 for (auto& index : indexes_) {
                     if (index->get_schema_id().get_tag_id() == tagId) {
                         auto indexId = index->get_index_id();
-                        if (checkIndexLocked(spaceId_, indexId, partId)) {
-                            LOG(INFO) << "The part have locked";
+                        if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                            LOG(ERROR) << "The part have locked";
                             return folly::none;
                         }
 
@@ -174,7 +174,7 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                                                       colsType);
 
                         // Check the index is building for the specified partition or not
-                        if (checkRebuilding(spaceId_, partId, indexId)) {
+                        if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                         } else {
