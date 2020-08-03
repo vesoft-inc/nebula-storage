@@ -87,13 +87,11 @@ protected:
             }
             auto key = aggregateNode_->key();
             auto reader = aggregateNode_->reader();
-            auto edgeType = planContext_->edgeType_;
             auto props = planContext_->props_;
             auto columnIdx = planContext_->columnIdx_;
 
             // collect props need to return
-            auto ret = collectEdgeProps(edgeType,
-                                        reader,
+            auto ret = collectEdgeProps(reader,
                                         key,
                                         planContext_->vIdLen_,
                                         props,
@@ -176,8 +174,7 @@ private:
                 continue;
             }
 
-            auto ret = collectEdgeProps(edgeType,
-                                        reader.get(),
+            auto ret = collectEdgeProps(reader.get(),
                                         std::get<2>(sample),
                                         planContext_->vIdLen_,
                                         std::get<3>(sample),
