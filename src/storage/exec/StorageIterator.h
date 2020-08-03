@@ -10,6 +10,7 @@
 #include "common/base/Base.h"
 #include "kvstore/KVIterator.h"
 #include "storage/CommonUtils.h"
+#include "storage/StorageFlags.h"
 
 namespace nebula {
 namespace storage {
@@ -176,12 +177,17 @@ protected:
     // return true when the value iter to a valid edge value
     bool check() {
         reader_.reset();
-        auto key = iter_->key();
-        auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, key);
-        auto dstId = NebulaKeyUtils::getDstId(planContext_->vIdLen_, key);
-        if (!firstLoop_ && rank == lastRank_ && lastDstId_ == dstId) {
-            // pass old version data of same edge
-            return false;
+        if (FLAGS_enable_multi_versions) {
+            auto key = iter_->key();
+            auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, key);
+            auto dstId = NebulaKeyUtils::getDstId(planContext_->vIdLen_, key);
+            if (!firstLoop_ && rank == lastRank_ && lastDstId_ == dstId) {
+                // pass old version data of same edge
+                return false;
+            }
+            firstLoop_ = false;
+            lastRank_ = rank;
+            lastDstId_ = dstId.str();
         }
 
         auto val = iter_->val();
@@ -195,10 +201,6 @@ protected:
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
         }
-
-        firstLoop_ = false;
-        lastRank_ = rank;
-        lastDstId_ = dstId.str();
 
         if (ttl_->hasValue()) {
             auto ttlValue = ttl_->value();

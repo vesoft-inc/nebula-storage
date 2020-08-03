@@ -12,6 +12,7 @@
 #include "storage/context/StorageExpressionContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
+#include "storage/StorageFlags.h"
 #include "kvstore/LogEncoder.h"
 #include "utils/OperationKeyUtils.h"
 
@@ -261,8 +262,8 @@ public:
         }
 
         // build key, value is emtpy
-        auto version =
-            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version = FLAGS_enable_multi_versions ?
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() : 0L;
         // Switch version to big-endian, make sure the key is in ordered.
         version = folly::Endian::big(version);
         key_ = NebulaKeyUtils::vertexKey(planContext_->vIdLen_,
