@@ -25,14 +25,14 @@ public:
     using RelNode::execute;
 
     GetNeighborsNode(PlanContext* planCtx,
-                     HashJoinNode* hashJoinNode,
-                     AggregateNode<VertexID>* aggregateNode,
+                     IterateNode<VertexID>* hashJoinNode,
+                     IterateNode<VertexID>* upstream,
                      EdgeContext* edgeContext,
                      nebula::DataSet* resultDataSet,
                      int64_t limit = 0)
         : planContext_(planCtx)
         , hashJoinNode_(hashJoinNode)
-        , aggregateNode_(aggregateNode)
+        , upstream_(upstream)
         , edgeContext_(edgeContext)
         , resultDataSet_(resultDataSet)
         , limit_(limit) {}
@@ -66,10 +66,12 @@ public:
             return ret;
         }
 
-        aggregateNode_->calculateStat();
-        if (aggregateNode_->result().type() == Value::Type::LIST) {
+        if (edgeContext_->statCount_ > 0) {
+            auto agg = dynamic_cast<AggregateNode<VertexID>*>(upstream_);
+            CHECK_NOTNULL(agg);
+            agg->calculateStat();
             // set stat list to second columns
-            row[1].setList(aggregateNode_->mutableResult().moveList());
+            row[1].setList(agg->mutableResult().moveList());
         }
 
         resultDataSet_->rows.emplace_back(std::move(row));
@@ -82,15 +84,16 @@ protected:
     virtual kvstore::ResultCode iterateEdges(std::vector<Value>& row) {
         int64_t edgeRowCount = 0;
         nebula::List list;
-        for (; aggregateNode_->valid(); aggregateNode_->next(), ++edgeRowCount) {
+        for (; upstream_->valid(); upstream_->next(), ++edgeRowCount) {
             if (limit_ > 0 && edgeRowCount >= limit_) {
                 return kvstore::ResultCode::SUCCEEDED;
             }
-            auto key = aggregateNode_->key();
-            auto reader = aggregateNode_->reader();
+            auto key = upstream_->key();
+            auto reader = upstream_->reader();
             auto props = planContext_->props_;
             auto columnIdx = planContext_->columnIdx_;
 
+            list.reserve(props->size());
             // collect props need to return
             auto ret = collectEdgeProps(reader,
                                         key,
@@ -112,8 +115,8 @@ protected:
     }
 
     PlanContext* planContext_;
-    HashJoinNode* hashJoinNode_;
-    AggregateNode<VertexID>* aggregateNode_;
+    IterateNode<VertexID>* hashJoinNode_;
+    IterateNode<VertexID>* upstream_;
     EdgeContext* edgeContext_;
     nebula::DataSet* resultDataSet_;
     int64_t limit_;
@@ -122,12 +125,12 @@ protected:
 class GetNeighborsSampleNode : public GetNeighborsNode {
 public:
     GetNeighborsSampleNode(PlanContext* planCtx,
-                           HashJoinNode* hashJoinNode,
-                           AggregateNode<VertexID>* aggregateNode,
+                           IterateNode<VertexID>* hashJoinNode,
+                           IterateNode<VertexID>* upstream,
                            EdgeContext* edgeContext,
                            nebula::DataSet* resultDataSet,
                            int64_t limit)
-        : GetNeighborsNode(planCtx, hashJoinNode, aggregateNode, edgeContext, resultDataSet, limit)
+        : GetNeighborsNode(planCtx, hashJoinNode, upstream, edgeContext, resultDataSet, limit)
         , sampler_(std::make_unique<nebula::algorithm::ReservoirSampling<Sample>>(limit_)) {}
 
 private:
@@ -140,9 +143,9 @@ private:
     kvstore::ResultCode iterateEdges(std::vector<Value>& row) override {
         int64_t edgeRowCount = 0;
         nebula::List list;
-        for (; aggregateNode_->valid(); aggregateNode_->next(), ++edgeRowCount) {
-            auto val = aggregateNode_->val();
-            auto key = aggregateNode_->key();
+        for (; upstream_->valid(); upstream_->next(), ++edgeRowCount) {
+            auto val = upstream_->val();
+            auto key = upstream_->key();
             auto edgeType = planContext_->edgeType_;
             auto props = planContext_->props_;
             auto columnIdx = planContext_->columnIdx_;
