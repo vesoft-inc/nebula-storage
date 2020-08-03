@@ -41,9 +41,12 @@ public:
         : planContext_(planCtx)
         , iter_(std::move(iter))
         , tagId_(tagId)
-        , schemas_(schemas)
-        , ttl_(ttl) {
-        lookupOne_ = true;
+        , schemas_(schemas) {
+        if (ttl->hasValue()) {
+            hasTtl_ = true;
+            ttlCol_ = ttl->value().first;
+            ttlDuration_ = ttl->value().second;
+        }
         check(iter_->val());
     }
 
@@ -52,9 +55,12 @@ public:
                       const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
                       const folly::Optional<std::pair<std::string, int64_t>>* ttl)
         : planContext_(planCtx)
-        , schemas_(schemas)
-        , ttl_(ttl) {
-        lookupOne_ = true;
+        , schemas_(schemas) {
+        if (ttl->hasValue()) {
+            hasTtl_ = true;
+            ttlCol_ = ttl->value().first;
+            ttlDuration_ = ttl->value().second;
+        }
         check(val);
     }
 
@@ -87,13 +93,10 @@ protected:
             return false;
         }
 
-        if (ttl_->hasValue()) {
-            auto ttlValue = ttl_->value();
-            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
-                                                    ttlValue.first, ttlValue.second)) {
-                reader_.reset();
-                return false;
-            }
+        if (hasTtl_ && CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
+                                                           ttlCol_, ttlDuration_)) {
+            reader_.reset();
+            return false;
         }
 
         return true;
@@ -103,7 +106,9 @@ protected:
     std::unique_ptr<kvstore::KVIterator>                                  iter_;
     TagID                                                                 tagId_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
-    const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
+    bool                                                                  hasTtl_ = false;
+    std::string                                                           ttlCol_;
+    int64_t                                                               ttlDuration_;
     bool                                                                  lookupOne_ = true;
 
     std::unique_ptr<RowReader>                                            reader_;
@@ -123,10 +128,13 @@ public:
         , iter_(std::move(iter))
         , edgeType_(edgeType)
         , schemas_(schemas)
-        , ttl_(ttl)
         , moveToValidRecord_(moveToValidRecord) {
         CHECK(!!iter_);
-        lookupOne_ = true;
+        if (ttl->hasValue()) {
+            hasTtl_ = true;
+            ttlCol_ = ttl->value().first;
+            ttlDuration_ = ttl->value().second;
+        }
         // If moveToValidRecord is true, iterator will try to move to first valid record,
         // which is used in GetNeighbors. If it is false, it will only check the latest record,
         // which is used in GetProps and UpdateEdge.
@@ -202,13 +210,10 @@ protected:
             return false;
         }
 
-        if (ttl_->hasValue()) {
-            auto ttlValue = ttl_->value();
-            if (CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
-                                                    ttlValue.first, ttlValue.second)) {
-                reader_.reset();
-                return false;
-            }
+        if (hasTtl_ && CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
+                                                           ttlCol_, ttlDuration_)) {
+            reader_.reset();
+            return false;
         }
 
         return true;
@@ -218,7 +223,9 @@ protected:
     std::unique_ptr<kvstore::KVIterator>                                  iter_;
     EdgeType                                                              edgeType_;
     const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
-    const folly::Optional<std::pair<std::string, int64_t>>               *ttl_ = nullptr;
+    bool                                                                  hasTtl_ = false;
+    std::string                                                           ttlCol_;
+    int64_t                                                               ttlDuration_;
     bool                                                                  moveToValidRecord_{true};
     bool                                                                  lookupOne_ = true;
 
