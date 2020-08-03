@@ -47,25 +47,18 @@ public:
             return ret;
         }
 
-        if (edgeContext_->statCount_ > 0) {
-            initStatValue(edgeContext_);
-        }
-        this->result_ = NullType::__NULL__;
+        CHECK_GT(edgeContext_->statCount_, 0);
+        initStatValue(edgeContext_);
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     void next() override {
-        if (!stats_.empty()) {
-            // we need to collect the stat during `next`
-            collectEdgeStats(this->key(), this->reader(), planContext_->props_);
-        }
+        // we need to collect the stat during `next`
+        collectEdgeStats(this->key(), this->reader(), planContext_->props_);
         IterateNode<T>::next();
     }
 
     void calculateStat() {
-        if (stats_.empty()) {
-            return;
-        }
         nebula::List result;
         result.values.reserve(stats_.size());
         for (const auto& stat : stats_) {
