@@ -1346,7 +1346,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         auto item = getRet.value().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
-        ASSERT_EQ(FLAGS_rocksdb_db_options, item.get_value().toString());
+        ASSERT_EQ(FLAGS_rocksdb_db_options, GflagsManager::ValueToGflagString(item.get_value()));
     }
     {
         std::vector<HostAddr> hosts = {{"0", 0}};
@@ -1371,7 +1371,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         auto item = getRet.value().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
-        ASSERT_EQ(FLAGS_rocksdb_db_options, item.get_value().toString());
+        ASSERT_EQ(FLAGS_rocksdb_db_options, GflagsManager::ValueToGflagString(item.get_value()));
         ASSERT_EQ(listener->options["disable_auto_compactions"], "true");
         ASSERT_EQ(listener->options["level0_file_num_compaction_trigger"], "4");
     }
