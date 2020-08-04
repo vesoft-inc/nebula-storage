@@ -87,7 +87,7 @@ public:
 protected:
     // return true when the value iter to a valid tag value
     bool check(folly::StringPiece val) {
-        reader_ = RowReader::getRowReader(*schemas_, val);
+        reader_.reset(*schemas_, val);
         if (!reader_) {
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
@@ -111,7 +111,7 @@ protected:
     int64_t                                                               ttlDuration_;
     bool                                                                  lookupOne_ = true;
 
-    std::unique_ptr<RowReader>                                            reader_;
+    RowReaderWrapper                                                      reader_;
 };
 
 // Iterator of single specified type
@@ -199,13 +199,8 @@ protected:
         }
 
         auto val = iter_->val();
+        reader_.reset(*schemas_, val);
         if (!reader_) {
-            reader_ = RowReader::getRowReader(*schemas_, val);
-            if (!reader_) {
-                planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
-                return false;
-            }
-        } else if (!reader_->reset(*schemas_, val)) {
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
         }
@@ -229,7 +224,7 @@ protected:
     bool                                                                  moveToValidRecord_{true};
     bool                                                                  lookupOne_ = true;
 
-    std::unique_ptr<RowReader>                                            reader_;
+    RowReaderWrapper                                                      reader_;
     EdgeRanking                                                           lastRank_ = 0;
     VertexID                                                              lastDstId_ = "";
     bool                                                                  firstLoop_ = true;

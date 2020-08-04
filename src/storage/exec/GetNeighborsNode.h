@@ -152,7 +152,7 @@ private:
             sampler_->sampling(std::make_tuple(edgeType, val.str(), key.str(), props, columnIdx));
         }
 
-        std::unique_ptr<RowReader> reader;
+        RowReaderWrapper reader;
         auto samples = std::move(*sampler_).samples();
         for (auto& sample : samples) {
             auto columnIdx = std::get<4>(sample);
@@ -163,18 +163,11 @@ private:
 
             auto edgeType = std::get<0>(sample);
             auto val = std::get<1>(sample);
+            reader = RowReaderWrapper::getEdgePropReader(planContext_->env_->schemaMan_,
+                                                         planContext_->spaceId_,
+                                                         std::abs(edgeType),
+                                                         val);
             if (!reader) {
-                reader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
-                                                      planContext_->spaceId_,
-                                                      std::abs(edgeType),
-                                                      val);
-                if (!reader) {
-                    continue;
-                }
-            } else if (!reader->resetEdgePropReader(planContext_->env_->schemaMan_,
-                                                    planContext_->spaceId_,
-                                                    std::abs(edgeType),
-                                                    val)) {
                 continue;
             }
 

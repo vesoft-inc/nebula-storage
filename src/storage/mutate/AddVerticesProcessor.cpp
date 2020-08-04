@@ -145,7 +145,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
 
     for (auto& v : newVertices) {
         std::string val;
-        std::unique_ptr<RowReader> nReader;
+        RowReaderWrapper nReader;
         auto tagId = NebulaKeyUtils::getTagId(spaceVidLen_, v.first);
         auto vId = NebulaKeyUtils::getVertexId(spaceVidLen_, v.first);
         for (auto& index : indexes_) {
@@ -164,10 +164,10 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
 
                 if (!val.empty()) {
-                    auto reader = RowReader::getTagPropReader(env_->schemaMan_,
-                                                              spaceId_,
-                                                              tagId,
-                                                              val);
+                    auto reader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                                     spaceId_,
+                                                                     tagId,
+                                                                     val);
                     if (reader == nullptr) {
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
@@ -190,10 +190,10 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                  * step 2 , Insert new vertex index
                  */
                 if (nReader == nullptr) {
-                    nReader = RowReader::getTagPropReader(env_->schemaMan_,
-                                                          spaceId_,
-                                                          tagId,
-                                                          v.second);
+                    nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                                 spaceId_,
+                                                                 tagId,
+                                                                 v.second);
                     if (nReader == nullptr) {
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
