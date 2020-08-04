@@ -78,10 +78,10 @@ void RebuildEdgeIndexProcessor::process(const cpp2::RebuildIndexRequest& req) {
                     currentDstVertex = destination;
                 }
                 auto ranking = NebulaKeyUtils::getRank(key);
-                auto reader = RowReader::getEdgePropReader(schemaMan_,
-                                                           std::move(val),
-                                                           space,
-                                                           edgeType);
+                auto reader = RowReaderWrapper::getEdgePropReader(schemaMan_,
+                                                                  std::move(val),
+                                                                  space,
+                                                                  edgeType);
                 auto values = collectIndexValues(reader.get(), item->get_fields());
                 auto indexKey = NebulaKeyUtils::edgeIndexKey(part, indexID, source,
                                                              ranking, destination, values);

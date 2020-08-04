@@ -154,13 +154,13 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             iter.reset(new TestSingleEdgeIterator(std::move(kvIter), edgeType, vIdLen));
         }
         size_t edgeRowCount = 0;
-        std::unique_ptr<RowReader> reader;
+        RowReaderWrapper reader;
         folly::stop_watch<std::chrono::microseconds> watch;
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
-            reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
-                                                  std::abs(edgeType), val);
+            reader = RowReaderWrapper::getEdgePropReader(env->schemaMan_, spaceId,
+                                                         std::abs(edgeType), val);
             ASSERT_TRUE(reader.get() != nullptr);
             auto code = node.collectEdgeProps(reader.get(), key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
@@ -180,19 +180,14 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             iter.reset(new TestSingleEdgeIterator(std::move(kvIter), edgeType, vIdLen));
         }
         size_t edgeRowCount = 0;
-        std::unique_ptr<RowReader> reader;
+        RowReaderWrapper reader;
         folly::stop_watch<std::chrono::microseconds> watch;
         for (; iter->valid(); iter->next(), edgeRowCount++) {
             auto key = iter->key();
             auto val = iter->val();
-            if (reader.get() == nullptr) {
-                reader = RowReader::getEdgePropReader(env->schemaMan_, spaceId,
-                                                      std::abs(edgeType), val);
-                ASSERT_TRUE(reader.get() != nullptr);
-            } else {
-                ASSERT_TRUE(reader->resetEdgePropReader(env->schemaMan_, spaceId,
-                                                        std::abs(edgeType), val));
-            }
+            reader = RowReaderWrapper::getEdgePropReader(env->schemaMan_, spaceId,
+                                                         std::abs(edgeType), val);
+            ASSERT_TRUE(reader.get() != nullptr);
             auto code = node.collectEdgeProps(reader.get(), key, vIdLen, &props, list);
             ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
             result.mutableList().values.emplace_back(std::move(list));
@@ -211,7 +206,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             iter.reset(new TestSingleEdgeIterator(std::move(kvIter), edgeType, vIdLen));
         }
         size_t edgeRowCount = 0;
-        std::unique_ptr<RowReader> reader;
+        RowReaderWrapper reader;
 
         // find all version of edge schema
         auto edges = env->schemaMan_->getAllVerEdgeSchema(spaceId);
@@ -226,7 +221,7 @@ TEST_P(ScanEdgePropBench, ProcessEdgeProps) {
             auto key = iter->key();
             auto val = iter->val();
             if (reader.get() == nullptr) {
-                reader = RowReader::getRowReader(schemas, val);
+                reader = RowReaderWrapper::getRowReader(schemas, val);
                 ASSERT_TRUE(reader.get() != nullptr);
             } else {
                 ASSERT_TRUE(reader->reset(schemas, val));

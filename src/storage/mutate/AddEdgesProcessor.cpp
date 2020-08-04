@@ -135,7 +135,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
 
     for (auto& e : newEdges) {
         std::string val;
-        std::unique_ptr<RowReader> nReader;
+        RowReaderWrapper nReader;
         auto edgeType = NebulaKeyUtils::getEdgeType(spaceVidLen_, e.first);
         for (auto& index : indexes_) {
             if (edgeType == index->get_schema_id().get_edge_type()) {
@@ -150,10 +150,10 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     val = std::move(obsIdx).value();
                 }
                 if (!val.empty()) {
-                    auto reader = RowReader::getEdgePropReader(this->env_->schemaMan_,
-                                                               spaceId_,
-                                                               edgeType,
-                                                               val);
+                    auto reader = RowReaderWrapper::getEdgePropReader(this->env_->schemaMan_,
+                                                                      spaceId_,
+                                                                      edgeType,
+                                                                      val);
                     if (reader == nullptr) {
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
@@ -167,10 +167,10 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                  * step 2 , Insert new edge index
                  */
                 if (nReader == nullptr) {
-                    nReader = RowReader::getEdgePropReader(this->env_->schemaMan_,
-                                                           spaceId_,
-                                                           edgeType,
-                                                           e.second);
+                    nReader = RowReaderWrapper::getEdgePropReader(this->env_->schemaMan_,
+                                                                  spaceId_,
+                                                                  edgeType,
+                                                                  e.second);
                     if (nReader == nullptr) {
                         LOG(ERROR) << "Bad format row";
                         return folly::none;

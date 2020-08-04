@@ -58,7 +58,9 @@ public:
                         return folly::none;
                     }
 
-                    this->reader_ = filterNode_->reader();
+                    if (filterNode_->valid()) {
+                        this->reader_ = filterNode_->reader();
+                    }
                     // reset StorageExpressionContext reader_ to nullptr
                     this->expCtx_->reset();
 
@@ -235,7 +237,7 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader;
+            RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
                     // step 1, delete old version index if exists.
@@ -252,10 +254,8 @@ public:
 
                     // step 2, insert new vertex index
                     if (!nReader) {
-                        nReader = RowReader::getTagPropReader(planContext_->env_->schemaMan_,
-                                                              planContext_->spaceId_,
-                                                              tagId_,
-                                                              nVal);
+                        nReader = RowReaderWrapper::getTagPropReader(
+                            planContext_->env_->schemaMan_, planContext_->spaceId_, tagId_, nVal);
                     }
                     if (!nReader) {
                         LOG(ERROR) << "Bad format row";
@@ -357,7 +357,9 @@ public:
                         return folly::none;
                     }
 
-                    this->reader_ = filterNode_->reader();
+                    if (filterNode_->valid()) {
+                        this->reader_ = filterNode_->reader();
+                    }
                     // reset StorageExpressionContext reader_ to nullptr
                     this->expCtx_->reset();
 
@@ -550,7 +552,7 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader;
+            RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
                     // step 1, delete old version index if exists.
@@ -567,10 +569,9 @@ public:
 
                     // step 2, insert new edge index
                     if (!nReader) {
-                        nReader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
-                                                               planContext_->spaceId_,
-                                                               std::abs(edgeType_),
-                                                               nVal);
+                        nReader = RowReaderWrapper::getEdgePropReader(
+                            planContext_->env_->schemaMan_, planContext_->spaceId_,
+                            std::abs(edgeType_), nVal);
                     }
                     if (!nReader) {
                         LOG(ERROR) << "Bad format row";

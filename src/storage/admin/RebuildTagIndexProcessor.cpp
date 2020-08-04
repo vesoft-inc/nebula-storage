@@ -75,10 +75,10 @@ void RebuildTagIndexProcessor::process(const cpp2::RebuildIndexRequest& req) {
                 } else {
                     currentVertex = vertex;
                 }
-                auto reader = RowReader::getTagPropReader(schemaMan_,
-                                                          std::move(val),
-                                                          space,
-                                                          tagID);
+                auto reader = RowReaderWrapper::getTagPropReader(schemaMan_,
+                                                                 std::move(val),
+                                                                 space,
+                                                                 tagID);
                 auto values = collectIndexValues(reader.get(), item->get_fields());
 
                 auto indexKey = NebulaKeyUtils::vertexIndexKey(part, indexID, vertex, values);

@@ -139,15 +139,15 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
              * Using newlyVertexId to identify if it is the latest version
              */
             if (latestVVId != tagId) {
-                std::unique_ptr<RowReader> reader;
+                RowReaderWrapper reader;
                 for (auto& index : indexes_) {
                     auto indexId = index->get_index_id();
                     if (index->get_schema_id().get_tag_id() == tagId) {
                         if (reader == nullptr) {
-                            reader = RowReader::getTagPropReader(this->env_->schemaMan_,
-                                                                 spaceId_,
-                                                                 tagId,
-                                                                 iter->val());
+                            reader = RowReaderWrapper::getTagPropReader(this->env_->schemaMan_,
+                                                                        spaceId_,
+                                                                        tagId,
+                                                                        iter->val());
                             if (reader == nullptr) {
                                 LOG(WARNING) << "Bad format row";
                                 return folly::none;

@@ -183,7 +183,7 @@ kvstore::ResultCode IndexExecutor<RESP>::getVertexRow(PartitionID partId,
         auto result = vertexCache_->get(std::make_pair(vId, tagOrEdge_), partId);
         if (result.ok()) {
             auto v = std::move(result).value();
-            auto reader = RowReader::getTagPropReader(schemaMan_, v, spaceId_, tagOrEdge_);
+            auto reader = RowReaderWrapper::getTagPropReader(schemaMan_, v, spaceId_, tagOrEdge_);
             auto row = getRowFromReader(reader.get());
             data->set_props(std::move(row));
             VLOG(3) << "Hit cache for vId " << vId << ", tagId " << tagOrEdge_;
@@ -200,10 +200,10 @@ kvstore::ResultCode IndexExecutor<RESP>::getVertexRow(PartitionID partId,
         return ret;
     }
     if (iter && iter->valid()) {
-        auto reader = RowReader::getTagPropReader(schemaMan_,
-                                                  iter->val(),
-                                                  spaceId_,
-                                                  tagOrEdge_);
+        auto reader = RowReaderWrapper::getTagPropReader(schemaMan_,
+                                                         iter->val(),
+                                                         spaceId_,
+                                                         tagOrEdge_);
         auto row = getRowFromReader(reader.get());
         data->set_props(std::move(row));
         if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
@@ -244,10 +244,10 @@ kvstore::ResultCode IndexExecutor<RESP>::getEdgeRow(PartitionID partId,
         return ret;
     }
     if (iter && iter->valid()) {
-        auto reader = RowReader::getEdgePropReader(schemaMan_,
-                                                   iter->val(),
-                                                   spaceId_,
-                                                   tagOrEdge_);
+        auto reader = RowReaderWrapper::getEdgePropReader(schemaMan_,
+                                                          iter->val(),
+                                                          spaceId_,
+                                                          tagOrEdge_);
         auto row = getRowFromReader(reader.get());
         data->set_props(std::move(row));
     } else {

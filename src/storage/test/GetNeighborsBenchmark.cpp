@@ -209,8 +209,9 @@ void prefix(int32_t iters,
         CHECK(!edgeSchemaIter->second.empty());
         auto* edgeSchema = &(edgeSchemaIter->second);
 
-        std::unique_ptr<nebula::RowReader> reader;
         nebula::DataSet resultDataSet;
+        nebula::RowReaderWrapper reader;
+
         for (const auto& vId : vertex) {
             nebula::PartitionID partId = (hash(vId) % totalParts) + 1;
             std::vector<nebula::Value> row;
@@ -225,7 +226,7 @@ void prefix(int32_t iters,
                 CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
                 CHECK(iter->valid());
                 auto val = iter->val();
-                reader = nebula::RowReader::getRowReader(*tagSchema, val);
+                reader.reset(*tagSchema, val);
                 CHECK_NOTNULL(reader);
                 auto& cell = row[1].mutableList();
                 for (const auto& prop : playerProps) {
@@ -245,12 +246,7 @@ void prefix(int32_t iters,
                     auto key = iter->key();
                     folly::doNotOptimizeAway(key);
                     auto val = iter->val();
-                    if (!reader) {
-                        reader = nebula::RowReader::getRowReader(*edgeSchema, val);
-                        CHECK_NOTNULL(reader);
-                    } else if (!reader->reset(*edgeSchema, val)) {
-                        LOG(FATAL) << "Should not happen";
-                    }
+                    reader.reset(*edgeSchema, val);
                     auto props = planCtx->props_;
                     for (const auto& prop : *props) {
                         auto value = nebula::storage::QueryUtils::readValue(
