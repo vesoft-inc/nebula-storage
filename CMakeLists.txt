@@ -21,6 +21,7 @@
 #   ENABLE_JEMALLOC                -- Link jemalloc into all executables
 #   ENABLE_NATIVE                  -- Build native client
 #   ENABLE_TESTING                 -- Build unit test
+#   ENABLE_PACK_ONE                -- Package to one or multi packages
 #
 cmake_minimum_required(VERSION 3.5.0)
 
@@ -162,3 +163,5 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/local)
 
 include(CPack)
 
+include(CPackage)
+package(${ENABLE_PACK_ONE} ${PACKAGE_NAME} "https://github.com/vesoft-inc/nebula-storage/releases")
