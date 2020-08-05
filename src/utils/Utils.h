@@ -40,6 +40,11 @@ public:
             return raftAddr;
         }
         return HostAddr(raftAddr.host, raftAddr.port - 1);
+    static HostAddr getInternalAddrFromStoreAddr(HostAddr adminAddr) {
+        if (adminAddr == HostAddr("", 0)) {
+            return adminAddr;
+        }
+        return HostAddr(adminAddr.host, adminAddr.port - 2);
     }
 };
 }  // namespace nebula
