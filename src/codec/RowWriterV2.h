@@ -20,7 +20,7 @@ enum class WriteResult {
     OUT_OF_RANGE = -3,
     NOT_NULLABLE = -4,
     FIELD_UNSET = -5,
-    NOT_TO_TIMESTAMP = -6,
+    INCORRECT_VALUE = -6,
 };
 
 

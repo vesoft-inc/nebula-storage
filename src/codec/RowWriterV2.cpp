@@ -532,12 +532,12 @@ WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
         }
         case meta::cpp2::PropertyType::TIMESTAMP: {
             // 32-bit timestamp can only support upto 2038-01-19
-            int64_t iv = v;
-            auto isValid = TimeFunction::isValid(iv);
-            if (!isValid) {
+            auto ret = TimeFunction::toTimestamp(v);
+            if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&iv), sizeof(int64_t));
+            auto ts = ret.value();
+            memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
         case meta::cpp2::PropertyType::INT64: {
@@ -605,11 +605,12 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
         }
         case meta::cpp2::PropertyType::TIMESTAMP: {
             // 64-bit timestamp has way broader time range
-            auto isValid = TimeFunction::isValid(v);
-            if (!isValid) {
+            auto ret = TimeFunction::toTimestamp(v);
+            if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&v), sizeof(int64_t));
+            auto ts = ret.value();
+            memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
         case meta::cpp2::PropertyType::INT64: {
@@ -690,13 +691,13 @@ WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
         }
         case meta::cpp2::PropertyType::TIMESTAMP: {
             // 64-bit timestamp has way broader time range
-            auto ret = TimeFunction::toTimestamp(v.str());
+            auto ret = TimeFunction::toTimestamp(v);
             if (!ret.ok()) {
-                return WriteResult::NOT_TO_TIMESTAMP;
+                return WriteResult::INCORRECT_VALUE;
             }
 
-            auto val = ret.value();
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&val), sizeof(int64_t));
+            auto ts = ret.value();
+            memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
         default:
