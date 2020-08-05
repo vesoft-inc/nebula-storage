@@ -78,7 +78,6 @@ private:
     std::vector<std::string> dataPaths_;
 
     AdminTaskManager* taskMgr_{nullptr};
-    std::unique_ptr<TSingleRowLocks> singleRowLocks_;
     std::unique_ptr<TransactionManager> txnManager_;
 };
 

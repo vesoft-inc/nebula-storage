@@ -101,9 +101,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             data.emplace_back(std::move(key), std::move(retEnc.value()));
         }
         if (indexes_.empty()) {
-            // doPut(spaceId_, partId, std::move(data));
-            // LOG(INFO) << strHint << " indexes_.empty()";
-            doPut2(spaceId_, partId, std::move(data), strHint);
+            doPut(spaceId_, partId, std::move(data));
         } else {
              auto atomic = [partId, edges = std::move(data), this]()
                           -> folly::Optional<std::string> {

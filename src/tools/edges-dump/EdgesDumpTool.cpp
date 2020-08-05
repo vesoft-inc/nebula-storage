@@ -102,14 +102,8 @@ public:
         while (iter->Valid()) {
             auto key = folly::StringPiece(iter->key().data(), iter->key().size());
             if (NebulaKeyUtils::isEdge(spaceVidLen_, key)) {
-                // LOG(INFO) << NebulaKeyUtils::getSrcId(spaceVidLen_, key) << ","
-                //           << NebulaKeyUtils::getDstId(spaceVidLen_, key);
-                auto srcId = NebulaKeyUtils::getSrcId(spaceVidLen_, key);
-                auto dstId = NebulaKeyUtils::getDstId(spaceVidLen_, key);
-
-                auto rank = NebulaKeyUtils::getRank(spaceVidLen_, key);
-                // LOG(INFO) << srcId << ", " << dstId << ", " << rank;
-                std::cout << srcId << ", " << dstId << ", rank " << rank << std::endl;
+                LOG(INFO) << NebulaKeyUtils::getSrcId(spaceVidLen_, key) << ","
+                          << NebulaKeyUtils::getDstId(spaceVidLen_, key);
                 count++;
             }
             iter->Next();

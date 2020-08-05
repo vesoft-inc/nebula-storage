@@ -156,8 +156,6 @@ bool StorageServer::start() {
     txnManager_->schemaMan_ = schemaMan_.get();
 
     env_->txnManager_ = txnManager_.get();
-    // env_->txnManager_->kvstore_ = kvstore_.get();
-
 
     storageThread_.reset(new std::thread([this] {
         try {

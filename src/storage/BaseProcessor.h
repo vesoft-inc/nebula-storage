@@ -61,9 +61,6 @@ protected:
 
     void doPut(GraphSpaceID spaceId, PartitionID partId, std::vector<kvstore::KV> data);
 
-    void doPut2(GraphSpaceID spaceId, PartitionID partId, std::vector<kvstore::KV> data,
-                const std::string& msg);
-
     kvstore::ResultCode doSyncPut(GraphSpaceID spaceId,
                                   PartitionID partId,
                                   std::vector<kvstore::KV> data);
@@ -84,9 +81,6 @@ protected:
     void handleLeaderChanged(GraphSpaceID spaceId, PartitionID partId);
 
     void handleAsync(GraphSpaceID spaceId, PartitionID partId, kvstore::ResultCode code);
-
-    void handleAsync2(GraphSpaceID spaceId, PartitionID partId, kvstore::ResultCode code,
-                      const std::string& msg);
 
     StatusOr<std::string> encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                        const std::vector<std::string>& propNames,
