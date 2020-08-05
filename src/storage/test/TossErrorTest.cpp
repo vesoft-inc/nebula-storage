@@ -14,20 +14,6 @@ namespace nebula {
 namespace storage {
 
 using StorageClient = storage::GraphStorageClient;
-
-// std::string     gMetaName{"hp-server"};
-// int             gMetaPort = 6500;
-
-// std::string     gSpaceName{"test"};
-// int             gPart = 2;
-// int             gReplica = 3;
-
-// int             gSrcVid = 5000;
-// std::string     gColName{"c1"};
-
-// int             gBombPrefix = 7777;
-
-
 /*
  * equal to TossPhase
  * */
@@ -44,6 +30,16 @@ enum class TossPhase {
 
 class TossTest : public ::testing::Test {
 protected:
+    std::string     gMetaName{"hp-server"};
+    int             gMetaPort = 6500;
+
+    std::string     gSpaceName{"test"};
+    int             gPart = 2;
+    int             gReplica = 3;
+
+    int             gSrcVid = 5000;
+
+    int             gBombPrefix = 7777;
 };
 
 // TEST_F(TossTest, AddEdgeTestSucceed) {

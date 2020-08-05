@@ -16,20 +16,20 @@ void TransactionProcessor::process(const cpp2::TransactionReq& req) {
     LOG(INFO) << "messi TransactionProcessor::process(): \n"
               << TransactionUtils::dumpTransactionReq(req);
 
-    TransactionUtils::intrusiveTest(req.edges[0].ranking, TossPhase::COMMIT_EDGE2_REQ, [](){
-        throw std::runtime_error("TransactionProcessor::process() invasionTest");
-    });
+    // TransactionUtils::intrusiveTest(req.edges[0].ranking, TossPhase::COMMIT_EDGE2_REQ, [](){
+    //     throw std::runtime_error("TransactionProcessor::process() invasionTest");
+    // });
 
     auto req1 = req;
     env_->txnManager_->prepareTransaction(std::move(req1))
         .via(env_->txnManager_->worker_.get())
         .thenValue([&, partId = req.part_id](cpp2::ErrorCode code) {
             LOG(INFO) << "messi TransactionProcessor code " << static_cast<int>(code);
-            TransactionUtils::intrusiveTest(req.edges[0].ranking,
-                                            TossPhase::COMMIT_EDGE2_RESP,
-                                            [&](){
-                code = cpp2::ErrorCode::E_USER_CANCEL;
-            });
+            // TransactionUtils::intrusiveTest(req.edges[0].ranking,
+            //                                 TossPhase::COMMIT_EDGE2_RESP,
+            //                                 [&](){
+            //     code = cpp2::ErrorCode::E_USER_CANCEL;
+            // });
             pushResultCode(code, partId);
             onFinished();
         }).thenError([&, partId = req.part_id](auto&& e) {

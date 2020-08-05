@@ -59,7 +59,7 @@ public:
                                       VertexID srcId,
                                       EdgeType type);
 
-    static std::tuple<int, int, cpp2::EdgeKey> parseEdgeKey(const std::string& rawKey);
+    // static std::tuple<int, int, cpp2::EdgeKey> parseEdgeKey(const std::string& rawKey);
 
     static void reverseEdgeKeyInPlace(cpp2::EdgeKey& key);
 
@@ -71,13 +71,13 @@ public:
 
     static int64_t getSnowFlakeUUID();
 
-    static void intrusiveTest(int rank,
-                              TossPhase phase,
-                              std::function<void()>&& f);
+    // static void intrusiveTest(int rank,
+    //                           TossPhase phase,
+    //                           std::function<void()>&& f);
 
-    static void intrusiveTest(const std::string& skey,
-                              TossPhase phase,
-                              std::function<void()>&& f);
+    // static void intrusiveTest(const std::string& skey,
+    //                           TossPhase phase,
+    //                           std::function<void()>&& f);
 
     static bool triggerTest(int rank, TossPhase phase);
 };

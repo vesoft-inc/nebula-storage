@@ -8,24 +8,24 @@
 #include "storage/transaction/TransactionUtils.h"
 #include "utils/NebulaKeyUtils.h"
 
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
+// #include <boost/archive/text_iarchive.hpp>
+// #include <boost/archive/text_oarchive.hpp>
 
-namespace nebula {
-namespace storage {
-namespace cpp2 {
+// namespace nebula {
+// namespace storage {
+// namespace cpp2 {
 
-template<class Archive>
-void serialize(Archive & ar, cpp2::EdgeKey & k, const unsigned int /*version*/) {
-    ar & k.src;
-    ar & k.ranking;
-    ar & k.edge_type;
-    ar & k.dst;
-}
+// template<class Archive>
+// void serialize(Archive & ar, cpp2::EdgeKey & k, const unsigned int /*version*/) {
+//     ar & k.src;
+//     ar & k.ranking;
+//     ar & k.edge_type;
+//     ar & k.dst;
+// }
 
-}  // namespace cpp2
-}  // namespace storage
-}  // namespace nebula
+// }  // namespace cpp2
+// }  // namespace storage
+// }  // namespace nebula
 
 namespace nebula {
 namespace storage {
@@ -190,16 +190,16 @@ std::string TransactionUtils::edgeLockPrefix(size_t vIdLen,
 //     return oss.str();
 // }
 
-std::tuple<int, int, cpp2::EdgeKey> TransactionUtils::parseEdgeKey(const std::string& rawKey) {
-    std::stringstream iss(rawKey);
-    boost::archive::text_iarchive ia(iss);
+// std::tuple<int, int, cpp2::EdgeKey> TransactionUtils::parseEdgeKey(const std::string& rawKey) {
+//     std::stringstream iss(rawKey);
+//     boost::archive::text_iarchive ia(iss);
 
-    std::tuple<int, int, cpp2::EdgeKey> ret;
-    ia & std::get<0>(ret);
-    ia & std::get<1>(ret);
-    ia & std::get<2>(ret);
-    return ret;
-}
+//     std::tuple<int, int, cpp2::EdgeKey> ret;
+//     ia & std::get<0>(ret);
+//     ia & std::get<1>(ret);
+//     ia & std::get<2>(ret);
+//     return ret;
+// }
 
 
 void TransactionUtils::reverseEdgeKeyInPlace(cpp2::EdgeKey& key) {
@@ -277,14 +277,6 @@ bool TransactionUtils::triggerTest(int rank, TossPhase phase) {
     return rank == static_cast<int>(phase);
 }
 
-void TransactionUtils::intrusiveTest(int rank, TossPhase phase, std::function<void()>&& f) {
-    LOG(INFO) << __func__ << " rank=" << rank << ", phase=" << static_cast<int>(phase);
-    if (triggerTest(rank, phase)) {
-        LOG(INFO) << __func__ << " rank=" << rank << ", phase=" << static_cast<int>(phase);
-        return f();
-    }
-}
-
 cpp2::EdgeKey TransactionUtils::toEdgekey(size_t vIdLen, folly::StringPiece rawKey) {
     cpp2::EdgeKey ret;
     ret.set_src(NebulaKeyUtils::getSrcId(vIdLen, rawKey).str());
@@ -294,13 +286,21 @@ cpp2::EdgeKey TransactionUtils::toEdgekey(size_t vIdLen, folly::StringPiece rawK
     return ret;
 }
 
-void TransactionUtils::intrusiveTest(const std::string& skey,
-                                     TossPhase phase,
-                                     std::function<void()>&& f) {
-    LOG(INFO) << __func__ << " skey=" << skey << ", phase=" << static_cast<int>(phase);
-    auto tp = parseEdgeKey(skey);
-    intrusiveTest(std::get<2>(tp).ranking, phase, std::move(f));
-}
+// void TransactionUtils::intrusiveTest(const std::string& skey,
+//                                      TossPhase phase,
+//                                      std::function<void()>&& f) {
+//     LOG(INFO) << __func__ << " skey=" << skey << ", phase=" << static_cast<int>(phase);
+//     auto tp = parseEdgeKey(skey);
+//     intrusiveTest(std::get<2>(tp).ranking, phase, std::move(f));
+// }
+
+// void TransactionUtils::intrusiveTest(int rank, TossPhase phase, std::function<void()>&& f) {
+//     LOG(INFO) << __func__ << " rank=" << rank << ", phase=" << static_cast<int>(phase);
+//     if (triggerTest(rank, phase)) {
+//         LOG(INFO) << __func__ << " rank=" << rank << ", phase=" << static_cast<int>(phase);
+//         return f();
+//     }
+// }
 
 
 }  // namespace storage

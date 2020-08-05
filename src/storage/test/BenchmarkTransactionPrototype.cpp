@@ -331,6 +331,7 @@ std::vector<std::string> gReturnProps;
 int gEdgeSrcBase = 5000;
 
 BENCHMARK(bm_single_update_atomic, iters) {
+    UNUSED(iters);
     BenchmarkEnv* env = BenchmarkEnv::getInstance();
     std::vector<cpp2::EdgeKey> keys;
     BENCHMARK_SUSPEND {
@@ -344,15 +345,15 @@ BENCHMARK(bm_single_update_atomic, iters) {
         keys.emplace_back(env->getOutEdgeKey(gEdgeSrcBase++, 1));
     }
 
-    for (size_t i = 0; i < iters; i++) {
-        auto fut = env->storageClient_->updateEdge(env->spaceId_,
-                                                keys[0],
-                                                gUpdatedProps,
-                                                gInsertable,
-                                                gReturnProps,
-                                                gCondition);
-        // fut.wait();
-    }
+    // for (size_t i = 0; i < iters; i++) {
+    //     auto fut = env->storageClient_->updateEdge(env->spaceId_,
+    //                                             keys[0],
+    //                                             gUpdatedProps,
+    //                                             gInsertable,
+    //                                             gReturnProps,
+    //                                             gCondition);
+    //     fut.wait();
+    // }
 }
 
 }  // namespace storage
