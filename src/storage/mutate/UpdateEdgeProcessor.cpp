@@ -25,7 +25,7 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
     }
 
     auto retCode = getSpaceVidLen(spaceId_);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED || req.get_edge_key().get_ranking() == 10) {
+    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         pushResultCode(retCode, partId);
         onFinished();
         return;
@@ -44,9 +44,7 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
-        // LOG(ERROR) << "Failure build contexts! (" << static_cast<>;
-        LOG(ERROR) << folly::sformat("Failure build contexts! ({})",
-                                     static_cast<int>(retCode));
+        LOG(ERROR) << "Failure build contexts: " << static_cast<int>(retCode);
         pushResultCode(retCode, partId);
         onFinished();
         return;
@@ -83,9 +81,6 @@ UpdateEdgeProcessor::checkAndBuildContexts(const cpp2::UpdateEdgeRequest& req) {
     auto retCode = buildEdgeSchema();
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         return retCode;
-    }
-    if (req.get_edge_key().get_ranking() == 10) {
-        return cpp2::ErrorCode::E_KEY_NOT_FOUND;
     }
     // Build edgeContext_.propContexts_ edgeTypeProps_
     retCode = buildEdgeContext(req);
