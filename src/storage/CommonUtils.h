@@ -15,10 +15,18 @@
 #include "codec/RowReader.h"
 #include "kvstore/KVStore.h"
 
+#include <folly/concurrency/ConcurrentHashMap.h>
+
 namespace nebula {
 namespace storage {
 
+class TransactionManager;
+
 using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
+// single row lock key, spaceId, partitionId, srcId, dstId
+using KSingleRow = std::tuple<int, int, std::string, std::string>;
+using TSingleRowLocks = folly::ConcurrentHashMap<KSingleRow, std::string>;
+// leave value as a empty string
 
 // unify TagID, EdgeType
 using SchemaID = TagID;
@@ -29,6 +37,8 @@ public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
+    // TSingleRowLocks*                                singleRowLocks_{nullptr};
+    TransactionManager*                             txnManager_{nullptr};
 };
 
 enum class ResultStatus {

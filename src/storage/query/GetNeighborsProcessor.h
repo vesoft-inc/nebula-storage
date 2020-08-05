@@ -54,6 +54,8 @@ protected:
     cpp2::ErrorCode checkStatType(const meta::SchemaProviderIf::Field* field,
                                   cpp2::StatType statType);
 
+    void printGetNeighborsRequest(const cpp2::GetNeighborsRequest& req);
+
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
 };

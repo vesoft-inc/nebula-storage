@@ -174,6 +174,7 @@ public:
 
 protected:
     // return true when the value iter to a valid edge value
+    // !!!!!!TOSS!!!!!!
     bool check() {
         reader_.reset();
         auto key = iter_->key();

@@ -7,12 +7,14 @@
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/mutate/AddVerticesProcessor.h"
 #include "storage/mutate/AddEdgesProcessor.h"
+#include "storage/mutate/AddEdgesAtomicProcessor.h"
 #include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/mutate/DeleteEdgesProcessor.h"
 #include "storage/mutate/UpdateVertexProcessor.h"
 #include "storage/mutate/UpdateEdgeProcessor.h"
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/query/GetPropProcessor.h"
+#include "storage/transaction/TransactionProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -49,6 +51,18 @@ GraphStorageServiceHandler::future_addEdges(const cpp2::AddEdgesRequest& req) {
 }
 
 folly::Future<cpp2::ExecResponse>
+GraphStorageServiceHandler::future_addEdgesAtomic(const cpp2::AddEdgesRequest& req) {
+    auto* processor = AddEdgesAtomicProcessor::instance(env_, &addEdgesQpsStat_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResponse>
+GraphStorageServiceHandler::future_processTransaction(const cpp2::TransactionReq& req) {
+    auto* processor = TransactionProcessor::instance(env_, &addEdgesQpsStat_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_deleteEdges(const cpp2::DeleteEdgesRequest& req) {
     auto* processor = DeleteEdgesProcessor::instance(env_, &delEdgesQpsStat_);
     RETURN_FUTURE(processor);
@@ -70,6 +84,7 @@ GraphStorageServiceHandler::future_getNeighbors(const cpp2::GetNeighborsRequest&
 
 folly::Future<cpp2::GetPropResponse>
 GraphStorageServiceHandler::future_getProps(const cpp2::GetPropRequest& req) {
+    LOG(INFO) << "messi GraphStorageServiceHandler::future_getProps()";
     auto* processor = GetPropProcessor::instance(env_, &getPropQpsStat_, &vertexCache_);
     RETURN_FUTURE(processor);
 }

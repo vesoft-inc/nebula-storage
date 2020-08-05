@@ -11,6 +11,7 @@ namespace nebula {
 namespace storage {
 
 void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
+    LOG(INFO) << "messi GetPropProcessor::process()";
     spaceId_ = req.get_space_id();
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -56,6 +57,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
                 edgeKey.edge_type = row.values[1].getInt();
                 edgeKey.ranking = row.values[2].getInt();
                 edgeKey.dst = row.values[3].getStr();
+                LOG(INFO) << "messi edgeKey.dst = " << edgeKey.dst;
                 auto ret = plan.go(partId, edgeKey);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
                     failedParts.find(partId) == failedParts.end()) {
@@ -87,6 +89,8 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
 }
 
 StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* result) {
+    LOG(INFO) << "messi GetPropProcessor::buildEdgePlan()";
+
     StoragePlan<cpp2::EdgeKey> plan;
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {

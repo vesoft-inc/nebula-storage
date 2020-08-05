@@ -435,6 +435,7 @@ macro(nebula_link_libraries target)
         glog
         gflags
         boost_context
+        boost_serialization
         boost_system
         event
         double-conversion

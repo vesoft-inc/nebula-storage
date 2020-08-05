@@ -5,6 +5,9 @@ set(storage_test_deps
     $<TARGET_OBJECTS:graph_storage_service_handler>
     $<TARGET_OBJECTS:storage_common_obj>
     $<TARGET_OBJECTS:general_storage_service_handler>
+    $<TARGET_OBJECTS:storage_transaction_executor>
+    $<TARGET_OBJECTS:common_graph_storage_client_obj>
+    $<TARGET_OBJECTS:common_storage_client_base_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
@@ -159,6 +162,75 @@ nebula_add_executable(
         ${THRIFT_LIBRARIES}
         wangle
         follybenchmark
+        boost_regex
+)
+
+nebula_add_executable(
+    NAME
+        bm_transaction_prototype
+    SOURCES
+        BenchmarkTransactionPrototype.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
+)
+
+nebula_add_executable(
+    NAME
+        bm_toss
+    SOURCES
+        BenchmarkToss.cpp
+    OBJECTS
+        ${storage_test_deps}
+        # $<TARGET_OBJECTS:common_general_storage_client_obj>
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
+)
+
+nebula_add_executable(
+    NAME
+        toss_dummy_test
+    SOURCES
+        TossDummyTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
+)
+
+nebula_add_executable(
+    NAME
+        toss_err_test
+    SOURCES
+        TossErrorTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
         boost_regex
 )
 

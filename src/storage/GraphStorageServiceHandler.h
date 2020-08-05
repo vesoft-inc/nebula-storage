@@ -51,6 +51,12 @@ public:
     future_addEdges(const cpp2::AddEdgesRequest& req) override;
 
     folly::Future<cpp2::ExecResponse>
+    future_addEdgesAtomic(const cpp2::AddEdgesRequest& req) override;
+
+    folly::Future<cpp2::ExecResponse>
+    future_processTransaction(const cpp2::TransactionReq& req) override;
+
+    folly::Future<cpp2::ExecResponse>
     future_deleteEdges(const cpp2::DeleteEdgesRequest& req) override;
 
     folly::Future<cpp2::UpdateResponse>

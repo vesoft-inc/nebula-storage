@@ -83,6 +83,7 @@ public:
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::execute(partId, edgeKey);
+        LOG(INFO) << "messi GetEdgePropNode relnode ret = " << static_cast<int>(ret);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }

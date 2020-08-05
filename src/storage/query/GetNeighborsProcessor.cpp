@@ -13,10 +13,38 @@
 #include "storage/exec/AggregateNode.h"
 #include "storage/exec/GetNeighborsNode.h"
 
+#include "folly/container/Enumerate.h"
+
 namespace nebula {
 namespace storage {
 
+void GetNeighborsProcessor::printGetNeighborsRequest(const cpp2::GetNeighborsRequest& req) {
+    // LOG(INFO) << "messi " << __func__;
+    std::stringstream oss;
+    oss << "messi " << __func__;
+    oss << "\n space_id=" << req.space_id;
+    oss << "\n column_names: size()=" << req.column_names.size();
+    for (auto i = 0U; i != req.column_names.size(); ++i) {
+        oss << "\n column_names[" << i << "]=" << req.column_names[i];
+    }
+    oss << "\n parts: size() = " << req.parts.size();
+    for (auto&& it : folly::enumerate(req.parts)) {
+        oss << "\n parts[" << it.index
+            << "], part=" << it->first
+            << ", rows: size() = " << it->second.size();
+        for (auto&& it2 : folly::enumerate(it->second)) {
+            for (auto&& it3 : folly::enumerate(it2->values)) {
+                oss << "\n \t\t row[" << it3.index << "]=" << *it2;
+            }
+        }
+    }
+    LOG(INFO) << oss.str();
+}
+
 void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
+    LOG(INFO) << "messi [enter] " << __func__;
+    printGetNeighborsRequest(req);
+
     spaceId_ = req.get_space_id();
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -93,6 +121,8 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     |     TagNodes     |        |     EdgeNodes    |
     +------------------+        +------------------+
     */
+
+    LOG(INFO) << "messi [enter] " << __func__;
     StoragePlan<VertexID> plan;
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {

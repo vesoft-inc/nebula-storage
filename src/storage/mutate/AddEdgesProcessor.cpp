@@ -5,6 +5,7 @@
  */
 
 #include "storage/mutate/AddEdgesProcessor.h"
+#include "storage/transaction/TransactionUtils.h"
 #include "common/time/WallClock.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/IndexKeyUtils.h"
@@ -15,8 +16,8 @@ namespace nebula {
 namespace storage {
 
 void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
-    auto version =
-        std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version =
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
     // Switch version to big-endian, make sure the key is in ordered.
     version = folly::Endian::big(version);
 
@@ -44,6 +45,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
         indexes_ = std::move(iRet).value();
     }
 
+    std::string strHint;
     CHECK_NOTNULL(env_->kvstore_);
     for (auto& part : partEdges) {
         auto partId = part.first;
@@ -66,6 +68,9 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                 onFinished();
                 return;
             }
+
+            strHint = TransactionUtils::dumpEdgeKeyHint(edgeKey, "hint2");
+            LOG(INFO) << strHint << " in AddEdgesProcessor::process() before doput";
 
             auto key = NebulaKeyUtils::edgeKey(spaceVidLen_,
                                                 partId,
@@ -96,7 +101,9 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             data.emplace_back(std::move(key), std::move(retEnc.value()));
         }
         if (indexes_.empty()) {
-            doPut(spaceId_, partId, std::move(data));
+            // doPut(spaceId_, partId, std::move(data));
+            // LOG(INFO) << strHint << " indexes_.empty()";
+            doPut2(spaceId_, partId, std::move(data), strHint);
         } else {
              auto atomic = [partId, edges = std::move(data), this]()
                           -> folly::Optional<std::string> {

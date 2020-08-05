@@ -64,6 +64,30 @@ void BaseProcessor<RESP>::handleAsync(GraphSpaceID spaceId,
 }
 
 template <typename RESP>
+void BaseProcessor<RESP>::handleAsync2(GraphSpaceID spaceId,
+                                      PartitionID partId,
+                                      kvstore::ResultCode code,
+                                      const std::string& msg) {
+    VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
+
+    bool finished = false;
+    {
+        std::lock_guard<std::mutex> lg(this->lock_);
+        handleErrorCode(code, spaceId, partId);
+        this->callingNum_--;
+        if (this->callingNum_ == 0) {
+            finished = true;
+        }
+    }
+
+    LOG(INFO) << msg << " in handleAsync2()";
+    if (finished) {
+        UNUSED(msg);
+        this->onFinished();
+    }
+}
+
+template <typename RESP>
 meta::cpp2::ColumnDef BaseProcessor<RESP>::columnDef(std::string name,
                                                      meta::cpp2::PropertyType type) {
     nebula::meta::cpp2::ColumnDef column;
@@ -129,6 +153,18 @@ void BaseProcessor<RESP>::doPut(GraphSpaceID spaceId,
     this->env_->kvstore_->asyncMultiPut(
         spaceId, partId, std::move(data), [spaceId, partId, this](kvstore::ResultCode code) {
             handleAsync(spaceId, partId, code);
+    });
+}
+
+template <typename RESP>
+void BaseProcessor<RESP>::doPut2(GraphSpaceID spaceId,
+                                PartitionID partId,
+                                std::vector<kvstore::KV> data,
+                                const std::string& msg) {
+    this->env_->kvstore_->asyncMultiPut(
+        spaceId, partId, std::move(data), [spaceId, partId, msg = msg, this]
+            (kvstore::ResultCode code) {
+            handleAsync2(spaceId, partId, code, msg);
     });
 }
 

@@ -10,6 +10,8 @@
 #include "common/base/Base.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
+#include "storage/transaction/TransactionManager.h"
+#include "storage/transaction/TransactionUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -113,9 +115,22 @@ public:
         : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
+        FLOG_INFO("messi [enter] %s, key %s",
+                  __func__,
+                  TransactionUtils::dumpEdgeKey(edgeKey).c_str());
         auto ret = RelNode::execute(partId, edgeKey);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
+            LOG(INFO) << "messi RelNode::execute(partId, edgeKey) != SUC";
             return ret;
+        }
+
+        if (edgeKey.edge_type > 0) {
+            auto fut = planContext_->env_->txnManager_
+                ->resumeTransactionIfAny(planContext_->vIdLen_,
+                                         planContext_->spaceId_,
+                                         partId,
+                                         edgeKey);
+            fut.wait();
         }
 
         VLOG(1) << "partId " << partId << ", edgeType " << edgeType_
@@ -136,9 +151,10 @@ public:
             iter_.reset(new SingleEdgeIterator(
                 planContext_, std::move(iter), edgeType_, schemas_, &ttl_, false));
         } else {
+            LOG(INFO) << "messi iter_.reset()";
             iter_.reset();
         }
-        return kvstore::ResultCode::SUCCEEDED;
+        return ret;
     }
 };
 
@@ -157,6 +173,17 @@ public:
         auto ret = RelNode::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
+        }
+
+        FLOG_INFO("messi [enter] SingleEdgeNode::execute, key %s", vId.c_str());
+        if (edgeType_ > 0) {
+            auto err = planContext_->env_->txnManager_
+                        ->resumeTransactionIfAny(planContext_->vIdLen_,
+                                                 planContext_->spaceId_,
+                                                 partId,
+                                                 vId,
+                                                 edgeType_);
+            UNUSED(err);
         }
 
         VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << edgeType_

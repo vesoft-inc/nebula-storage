@@ -19,6 +19,7 @@
 #include "storage/http/StorageHttpDownloadHandler.h"
 #include "storage/http/StorageHttpIngestHandler.h"
 #include "storage/http/StorageHttpAdminHandler.h"
+#include "storage/transaction/TransactionManager.h"
 #include "kvstore/PartManager.h"
 #include <thrift/lib/cpp/concurrency/ThreadManager.h>
 
@@ -149,6 +150,14 @@ bool StorageServer::start() {
     env_->kvstore_ = kvstore_.get();
     env_->indexMan_ = indexMan_.get();
     env_->schemaMan_ = schemaMan_.get();
+
+    txnManager_ = std::make_unique<TransactionManager>(metaClient_.get());
+    txnManager_->kvstore_ = kvstore_.get();
+    txnManager_->schemaMan_ = schemaMan_.get();
+
+    env_->txnManager_ = txnManager_.get();
+    // env_->txnManager_->kvstore_ = kvstore_.get();
+
 
     storageThread_.reset(new std::thread([this] {
         try {
