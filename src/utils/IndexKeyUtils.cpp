@@ -173,8 +173,11 @@ Status IndexKeyUtils::checkValue(const Value& v, bool isNullable) {
         case nebula::NullType::NaN : {
             return Status::Error("NaN");
         }
+        case nebula::NullType::OUT_OF_RANGE : {
+            return Status::Error("Out of range");
+        }
     }
-    return Status::OK();
+    LOG(FATAL) << "Unknown Null type " << static_cast<int>(v.getNull());
 }
 
 }  // namespace nebula
