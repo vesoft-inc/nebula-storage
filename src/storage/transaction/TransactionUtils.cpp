@@ -76,6 +76,18 @@ std::string TransactionUtils::dumpNewEdge(const cpp2::NewEdge& edge) {
     return oss.str();
 }
 
+std::string TransactionUtils::dumpRawKey(size_t vIdLen, const std::string& rawKey) {
+    std::ostringstream oss;
+    oss << "messi"
+        << "\n src = " << NebulaKeyUtils::getSrcId(vIdLen, rawKey)
+        << "\n edge_type = " << NebulaKeyUtils::getEdgeType(vIdLen, rawKey)
+        << "\n rank = " << NebulaKeyUtils::getRank(vIdLen, rawKey)
+        << "\n dst = " << NebulaKeyUtils::getDstId(vIdLen, rawKey)
+        << "\n ver = " << NebulaKeyUtils::getVersion(vIdLen, rawKey)
+        << "\n size() = " << rawKey.size();
+    return oss.str();
+}
+
 
 std::string TransactionUtils::dumpTransactionReq(const cpp2::TransactionReq& req) {
     std::ostringstream oss;
@@ -147,8 +159,8 @@ std::string TransactionUtils::edgeLockKey(size_t vIdLen,
                                           GraphSpaceID spaceId,
                                           PartitionID partId,
                                           const cpp2::EdgeKey& e) {
-    return edgeLockKey(spaceId,
-                       vIdLen,
+    return edgeLockKey(vIdLen,
+                       spaceId,
                        partId,
                        e.src,
                        e.edge_type,
@@ -164,9 +176,12 @@ std::string TransactionUtils::edgeLockKey(size_t vIdLen,
                                           EdgeType type,
                                           EdgeRanking rank,
                                           VertexID dstId) {
-    EdgeVersion ev = 0;
-    return kEdgeLockTable + std::to_string(spaceId);
-           NebulaKeyUtils::edgeKey(vIdLen, partId, srcId, type, rank, dstId, ev);
+    EdgeVersion ver = 0;
+    UNUSED(spaceId);
+    auto rawKey = NebulaKeyUtils::edgeKey(vIdLen, partId, srcId, type, rank, dstId, ver);
+    return NebulaKeyUtils::keyWithNoVersion(rawKey).str();
+    // return kEdgeLockTable + std::to_string(spaceId);
+    //        NebulaKeyUtils::edgeKey(vIdLen, partId, srcId, type, rank, dstId, ev);
 }
 
 std::string TransactionUtils::edgeLockPrefix(size_t vIdLen,

@@ -11,6 +11,7 @@
 #include "common/meta/ServerBasedSchemaManager.h"
 #include "common/hdfs/HdfsCommandHelper.h"
 #include "common/thread/GenericThreadPool.h"
+#include "common/clients/storage/InternalStorageClient.h"
 #include "storage/BaseProcessor.h"
 #include "storage/CompactionFilter.h"
 #include "storage/StorageFlags.h"
@@ -202,12 +203,38 @@ bool StorageServer::start() {
         LOG(INFO) << "The admin service stopped";
     }));
 
+    internalStorageThread_.reset(new std::thread([this] {
+        try {
+            auto handler = std::make_shared<StorageAdminServiceHandler>(env_.get());
+            auto adminAddr = CommonUtils::getAdminAddrFromStoreAddr(localHost_);
+            internalStorageServer_ = std::make_unique<apache::thrift::ThriftServer>();
+            internalStorageServer_->setPort(adminAddr.port);
+            internalStorageServer_->setReusePort(FLAGS_reuse_port);
+            internalStorageServer_->setIdleTimeout(std::chrono::seconds(0));
+            internalStorageServer_->setIOThreadPool(ioThreadPool_);
+            internalStorageServer_->setThreadManager(workers_);
+            internalStorageServer_->setStopWorkersOnStopListening(false);
+            internalStorageServer_->setInterface(std::move(handler));
+
+            internalStorageSvcStatus_.store(STATUS_RUNNING);
+            LOG(INFO) << "The internal storage service start(same with admin) on " << adminAddr;
+            internalStorageServer_->serve();  // Will wait until the server shuts down
+        } catch (const std::exception& e) {
+            LOG(ERROR) << "Start internal storage service failed, error:" << e.what();
+        }
+        internalStorageSvcStatus_.store(STATUS_STTOPED);
+        LOG(INFO) << "The internal storage  service stopped";
+    }));
+
     while (storageSvcStatus_.load() == STATUS_UNINITIALIZED ||
-           adminSvcStatus_.load() == STATUS_UNINITIALIZED) {
+           adminSvcStatus_.load() == STATUS_UNINITIALIZED ||
+           internalStorageSvcStatus_.load() == STATUS_UNINITIALIZED) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
-    if (storageSvcStatus_.load() != STATUS_RUNNING || adminSvcStatus_.load() != STATUS_RUNNING) {
+    if (storageSvcStatus_.load() != STATUS_RUNNING ||
+        adminSvcStatus_.load() != STATUS_RUNNING ||
+        internalStorageSvcStatus_.load() != STATUS_RUNNING) {
         return false;
     }
     return true;

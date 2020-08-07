@@ -45,6 +45,12 @@ nebula_add_library(
 )
 
 nebula_add_library(
+    internal_storage_service_handler OBJECT
+    InternalStorageServiceHandler.cpp
+    # query/GetPropProcessor.cpp
+)
+
+nebula_add_library(
     storage_http_handler OBJECT
     http/StorageHttpIngestHandler.cpp
     http/StorageHttpDownloadHandler.cpp

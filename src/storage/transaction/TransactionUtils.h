@@ -38,6 +38,8 @@ public:
 
     static std::string dumpEdgeKeyHint(const cpp2::EdgeKey& key, const std::string& msg);
 
+    static std::string dumpRawKey(size_t vIdLen, const std::string& rawKey);
+
     static std::string dumpNewEdge(const cpp2::NewEdge& edge);
 
     static std::string edgeLockKey(size_t vIdLen,

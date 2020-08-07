@@ -136,30 +136,34 @@ TransactionManager::prepareTransaction(cpp2::TransactionReq&& req) {
                                             edgeKey.ranking,
                                             edgeKey.dst,
                                             version);
+    // LOG(INFO) << __func__ << " messi version = " << version;
+    LOG(INFO) << "messi hex " << TransactionUtils::dumpRawKey(vIdLen, rawKey);
+    LOG(INFO) << "salah \n" << folly::hexDump(rawKey.data(), rawKey.size());
     // LOG(INFO) << TransactionUtils::dumpEdgeKeyHint(edgeKey, "prepareTransaction");
 
     auto& prop = req.encoded_prop;
     if (req.pos_of_chain == req.chain.size() - 1) {
         // LOG(INFO) << TransactionUtils::dumpEdgeKeyHint(edgeKey, "before commit edge 2");
+        LOG(INFO) << TransactionUtils::dumpRawKey(vIdLen, rawKey);
         return commitEdge(space, part, std::move(rawKey), std::move(prop)).via(worker_.get());
     }
 
     auto forwardTransaction = [&, req = req](cpp2::ErrorCode&& code) mutable {
         if (code != cpp2::ErrorCode::SUCCEEDED) {
-            LOG(INFO) << "forwardTransaction pass err code " << static_cast<int>(code);
+            LOG(ERROR) << "forwardTransaction pass err code " << static_cast<int>(code);
             return folly::makeSemiFuture(code);
         }
         // LOG(INFO) << TransactionUtils::dumpEdgeKeyHint
         // (req.edges[1], "lock succeeded, before forwardTransaction()");
         ++req.pos_of_chain;
         auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-        storageClient_->forwardTransaction(req)
+        interClient_->forwardTransaction(req)
             .thenValue([pro = std::move(c.first),
                         req = req](StatusOr<storage::cpp2::ExecResponse>&& s) mutable {
                 auto code = cpp2::ErrorCode::SUCCEEDED;
                 if (!s.ok()) {
-                    LOG(INFO) << "storageClient_->forwardTransaction return status: "
-                              << s.status().toString();
+                    LOG(ERROR) << "forwardTransaction return status: "
+                               << s.status().toString();
                     pro.setValue(cpp2::ErrorCode::E_RPC_FAILURE);
                     return;
                 }
@@ -179,15 +183,17 @@ TransactionManager::prepareTransaction(cpp2::TransactionReq&& req) {
     };
 
     auto commitOutEdge = [&,
+                          vIdLen = vIdLen,
                           space = space,
                           part = part,
-                          edgeKey = rawKey,
+                          rawKey = rawKey,
                           prop = std::move(prop)] (cpp2::ErrorCode&& code) mutable {
         if (code != cpp2::ErrorCode::SUCCEEDED) {
             LOG(INFO) << "commitOutEdge pass err code " << static_cast<int>(code);
             return folly::makeSemiFuture(code);
         }
-        return commitEdge(space, part, std::move(edgeKey), std::move(prop));
+        LOG(INFO) << TransactionUtils::dumpRawKey(vIdLen, rawKey);
+        return commitEdge(space, part, std::move(rawKey), std::move(prop));
     };
 
     auto unlockEdgeFn = [&,
@@ -235,7 +241,7 @@ TransactionManager::commitEdge(GraphSpaceID spaceId,
         partId,
         std::move(data),
         [pro = std::move(contract.first), key = std::move(k0)] (kvstore::ResultCode code) mutable {
-            LOG(INFO) << "messi commit edge key: " << key << ", rc=" << static_cast<int>(code);
+            // LOG(INFO) << "messi commit edge key: " << key << ", rc=" << static_cast<int>(code);
             pro.setValue(TransactionUtils::to(code));
         });
     return std::move(contract.second);
@@ -339,13 +345,15 @@ folly::SemiFuture<cpp2::ErrorCode> TransactionManager::lockEdge(size_t vIdLen,
 //     return rc == kvstore::ResultCode::SUCCEEDED;
 // }
 
-bool TransactionManager::hasDangleLock(size_t vIdLen,
+std::string TransactionManager::hasDangleLock(size_t vIdLen,
                                        GraphSpaceID spaceId,
                                        PartitionID partId,
-                                       const std::string& rawKey) {
-    EdgeType edgeType = NebulaKeyUtils::getEdgeType(vIdLen, rawKey);
+                                       const std::string& rawEdgeKey) {
+    std::string ret;
+    EdgeType edgeType = NebulaKeyUtils::getEdgeType(vIdLen, rawEdgeKey);
     if (edgeType < 0) {
-        return false;
+        // return false;
+        return ret;
     }
 
 #ifdef NDEBUG
@@ -359,19 +367,20 @@ bool TransactionManager::hasDangleLock(size_t vIdLen,
     // });
 #endif
 
-    auto retInsert = inMemEdgeLock_.insert(std::make_pair(rawKey, 0));
+    auto lockKey = NebulaKeyUtils::keyWithNoVersion(rawEdgeKey);
+
+    auto retInsert = inMemEdgeLock_.insert(std::make_pair(lockKey.str(), 0));
     if (!retInsert.second) {
         LOG(ERROR) << "messi set mem lock failed";
-        return false;
+        return ret;
     }
-
-    std::string val;
     // auto key = TransactionUtils::edgeLockKey(spaceId, partId, edgeKey);
     // local read is enough,
     // nebula guarantee edge lock will only write on leader
     // raft guarantee only the host has edge lock can be voted as leader
-    auto rc = kvstore_->get(spaceId, partId, rawKey, &val);
-    return rc == kvstore::ResultCode::SUCCEEDED;
+    kvstore_->get(spaceId, partId, rawEdgeKey, &ret);
+    return ret;
+    // return rc == kvstore::ResultCode::SUCCEEDED;
 }
 
 folly::SemiFuture<cpp2::ErrorCode>
@@ -443,9 +452,11 @@ TransactionManager::resumeTransaction(GraphSpaceID spaceId,
                                        edgeKey.dst,
                                        0);
     FLOG_INFO("messi before commitEdge");
+
+    LOG(INFO) << "messi commit edge: " << TransactionUtils::dumpRawKey(spaceVidLen, key);
+
     return commitEdge(spaceId, partId, std::move(key), std::move(encodedProp));
 }
-
 
 // folly::SemiFuture<cpp2::ErrorCode>
 // TransactionManager::unlockEdge(GraphSpaceID spaceId,
@@ -526,14 +537,13 @@ cpp2::ErrorCode TransactionManager::resumeTransactionIfAny(size_t vIdLen,
         if (!insResult.second) {
             continue;
         }
-        // if (hasDangleLock(vIdLen, spaceId, partId, rawKey.str())) {
+
         cpp2::EdgeKey edgeKey = TransactionUtils::toEdgekey(vIdLen, rawKey);
         futs.emplace_back(resumeTransactionIfAny(vIdLen,
-                                                    spaceId,
-                                                    partId,
-                                                    std::move(edgeKey)));
+                                                 spaceId,
+                                                 partId,
+                                                 std::move(edgeKey)));
         memLocks.emplace_back(rawKey.str());
-        // }
     }
     if (futs.empty()) {
         return cpp2::ErrorCode::SUCCEEDED;
@@ -584,10 +594,11 @@ nebula::List TransactionManager::getInEdgeProp(GraphSpaceID spaceId,
     List lst;
     do {
         auto fRpc = storageClient_->getProps(spaceId,
-                                     std::move(ds), /*DataSet*/
-                                     nullptr, /*vector<cpp2::VertexProp>*/
-                                     &props, /*vector<cpp2::EdgeProp>*/
-                                     nullptr /*expressions*/).via(worker_.get());
+                                             std::move(ds),     /*DataSet*/
+                                             nullptr,           /*vector<cpp2::VertexProp>*/
+                                             &props,            /*vector<cpp2::EdgeProp>*/
+                                             nullptr            /*expressions*/)
+                                             .via(worker_.get());
         fRpc.wait();
         if (!fRpc.valid()) {
             LOG(ERROR) << "messi getProps() failed";
@@ -621,7 +632,6 @@ nebula::List TransactionManager::getInEdgeProp(GraphSpaceID spaceId,
                 }
             }
             if (failedParts.empty()) {
-                // cpp2::GetPropResponse& getPropResp = getPropResps[0];
                 nebula::DataSet* pDataSet = getPropResp.get_props();
                 lst = pDataSet->rows[0];
             }

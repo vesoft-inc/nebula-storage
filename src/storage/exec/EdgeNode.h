@@ -145,9 +145,16 @@ public:
                                              edgeKey.edge_type,
                                              edgeKey.ranking,
                                              edgeKey.dst);
+        LOG(INFO) << "salah hex \n" << folly::hexDump(prefix_.data(), prefix_.size());
+        LOG(INFO) << __func__ << " messi prefix_  src " << edgeKey.src
+                  << " type " << edgeKey.edge_type
+                  << " ranking " << edgeKey.ranking
+                  << " dst " << edgeKey.dst
+                  << " size() = " << prefix_.size();
         std::unique_ptr<kvstore::KVIterator> iter;
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
+            LOG(INFO) << "messi iter_.reset(new SingleEdgeIterator)";
             iter_.reset(new SingleEdgeIterator(
                 planContext_, std::move(iter), edgeType_, schemas_, &ttl_, false));
         } else {

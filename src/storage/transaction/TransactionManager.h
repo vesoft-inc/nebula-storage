@@ -12,12 +12,14 @@
 
 #include "common/clients/meta/MetaClient.h"
 #include "common/clients/storage/GraphStorageClient.h"
+#include "common/clients/storage/InternalStorageClient.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "common/meta/SchemaManager.h"
 #include "common/thrift/ThriftTypes.h"
 #include "kvstore/Common.h"
 #include "kvstore/KVStore.h"
 #include "storage/transaction/TransactionUtils.h"
+#include "utils/NebulaKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -33,9 +35,13 @@ class TransactionManager {
 public:
     explicit TransactionManager(meta::MetaClient* mClient) : metaClient_(mClient) {
                             worker_ = std::make_shared<folly::IOThreadPoolExecutor>(4);
+                            pool_ = std::make_unique<folly::IOThreadPoolExecutor>(4);
                             storageClient_ = std::make_unique<StorageClient>(
                                                                worker_,
                                                                metaClient_);
+                            interClient_ = std::make_unique<storage::InternalStorageClient>(
+                                                    worker_,
+                                                    metaClient_);
                         }
 
     HostAddr getLeader(GraphSpaceID spaceId, PartitionID partId);
@@ -70,14 +76,30 @@ public:
                                                               PartitionID partId,
                                                               T&& edgeKey) {
         LOG(INFO) << "messi [enter] " << __func__;
-        auto lockKey = TransactionUtils::edgeLockKey(vIdLen, spaceId, partId, edgeKey);
-        if (!hasDangleLock(vIdLen, spaceId, partId, lockKey)) {
+        auto rawEdgeKey = NebulaKeyUtils::edgeKey(vIdLen,
+                                                  partId,
+                                                  edgeKey.src,
+                                                  edgeKey.edge_type,
+                                                  edgeKey.ranking,
+                                                  edgeKey.dst,
+                                                  0);
+        // auto lockKey = TransactionUtils::edgeLockKey(vIdLen, spaceId, partId, edgeKey);
+        // if (!hasDangleLock(vIdLen, spaceId, partId, rawEdgeKey)) {
+        //     return folly::makeFuture(cpp2::ErrorCode::SUCCEEDED);
+        // }
+        auto strVer = hasDangleLock(vIdLen, spaceId, partId, rawEdgeKey);
+        if (strVer.empty()) {
             return folly::makeFuture(cpp2::ErrorCode::SUCCEEDED);
         }
 
+        rawEdgeKey.replace(rawEdgeKey.size() - sizeof(int64_t), sizeof(int64_t), strVer);
+        // auto lockKey = NebulaKeyUtils::keyWithNoVersion(rawEdgeKey);
+
         nebula::List row = getInEdgeProp(spaceId, std::forward<T>(edgeKey));
         if (row[0].isNull()) {
-            return clearDangleTransaction(vIdLen, spaceId, partId, std::forward<T>(edgeKey));
+            return clearDangleTransaction(vIdLen,
+                                          spaceId,
+                                          partId, std::forward<T>(edgeKey));
         } else {
             return resumeTransaction(spaceId,
                                      partId,
@@ -97,7 +119,7 @@ public:
     //                    PartitionID partId,
     //                    const cpp2::EdgeKey& e);
 
-    bool hasDangleLock(size_t vIdLen,
+    std::string hasDangleLock(size_t vIdLen,
                        GraphSpaceID spaceId,
                        PartitionID partId,
                        const std::string& rawKey);
@@ -129,7 +151,9 @@ public:
 
 public:
     std::shared_ptr<folly::IOThreadPoolExecutor>        worker_;
+    std::unique_ptr<folly::IOThreadPoolExecutor>        pool_;
     meta::MetaClient*                                   metaClient_;
+    std::unique_ptr<storage::InternalStorageClient>     interClient_;
     std::unique_ptr<StorageClient>                      storageClient_;
     kvstore::KVStore*                                   kvstore_{nullptr};
     meta::SchemaManager*                                schemaMan_{nullptr};

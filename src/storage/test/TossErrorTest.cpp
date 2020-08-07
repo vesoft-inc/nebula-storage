@@ -40,23 +40,56 @@ protected:
     int             gSrcVid = 5000;
 
     int             gBombPrefix = 7777;
+
+    std::vector<meta::cpp2::ColumnDef>
+    genColDefs(const std::vector<meta::cpp2::PropertyType>& types) {
+        auto N = types.size();
+        std::vector<std::string> colNames;
+        for (auto i = 0U; i < N; ++i) {
+            colNames.emplace_back(folly::sformat("c{}", i+1));
+        }
+        std::vector<meta::cpp2::ColumnDef> ret(N);
+        for (auto i = 0U; i != N; ++i) {
+            ret[i].set_name(colNames[i]);
+            ret[i].set_default_value(Value::kNullValue);
+            ret[i].set_type(types[i]);
+            ret[i].set_nullable(true);
+        }
+        return ret;
+    }
 };
 
-// TEST_F(TossTest, AddEdgeTestSucceed) {
-//     auto* env = TossEnvironment::getInstance();
+TEST_F(TossTest, AddOldEdgeTestSucceed) {
+    auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
-//     int srcId = 5000;
-//     int rank = 1000;
-//     cpp2::NewEdge e0 = env->generateEdge(srcId, rank);
+    std::vector<meta::cpp2::PropertyType> types;
+    types.push_back(meta::cpp2::PropertyType::INT32);
 
-//     env->addOldEdgeSync(e0);
-//     auto vals = env->getProps(e0);
+    std::vector<meta::cpp2::ColumnDef> colDefs = genColDefs(types);
 
-//     ASSERT_TRUE(env->Equal(e0, vals));
-// }
+    size_t N = types.size();
+    std::vector<std::string> colNames;
+    for (auto i = 0U; i < N; ++i) {
+        colNames.emplace_back(folly::sformat("c{}", i+1));
+    }
+
+    env->init(gSpaceName, gPart, gReplica, &colDefs);
+
+    std::vector<nebula::Value> values(N);
+    values[0].setInt(65536);
+
+    int rank = gSrcVid;
+    cpp2::NewEdge edge = env->generateEdge(gSrcVid, rank, values);
+
+    auto f = env->addTossEdgeAsync(colNames, edge);
+    f.wait();
+
+    auto vals = env->getProps(edge);
+    ASSERT_TRUE(env->Equal(edge, vals));
+}
 
 TEST_F(TossTest, BasicApiReturnErrorCode) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
     // int srcId = 5000;
     // int rank = 77771001;
@@ -82,7 +115,7 @@ TEST_F(TossTest, BasicApiReturnErrorCode) {
 }
 
 TEST_F(TossTest, getPropsWorksWell_try_get_invalid_edge) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
     // int srcId = 5000;
     // int rank = 10001;
@@ -100,7 +133,7 @@ TEST_F(TossTest, getPropsWorksWell_try_get_invalid_edge) {
 }
 
 TEST_F(TossTest, AddEdgeFailedTest_prepare) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
     // int srcId = 5000;
     // int rank = 10001001;
@@ -122,7 +155,7 @@ TEST_F(TossTest, AddEdgeFailedTest_prepare) {
 }
 
 TEST_F(TossTest, PrepareThrowException) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
     // int srcId = 5000;
     // int rank = 77771002;
@@ -148,7 +181,7 @@ TEST_F(TossTest, PrepareThrowException) {
 }
 
 TEST_F(TossTest, ConflictAddEdgeRequest) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
     // int srcId = 5000;
     // int rank = 77771100;
     // cpp2::NewEdge edge = env->generateEdge(srcId, rank);
@@ -173,7 +206,7 @@ TEST_F(TossTest, ConflictAddEdgeRequest) {
 }
 
 TEST_F(TossTest, forwarTransactionThrowException) {
-    // auto* env = TossEnvironment::getInstance();
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
     // int srcId = 5000;
     // int rank = 77771200;
     // cpp2::NewEdge edge = env->generateEdge(srcId, rank);
@@ -505,112 +538,112 @@ TEST_F(TossTest, getNeighborsTestHappyPath) {
  * check getNeighbors will not get this edge
  * */
 TEST_F(TossTest, getNeighborsFailOverTest1) {
-    /*
-     * Step 1 of 2: add en edge
-     * */
-    auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
+    // /*
+    //  * Step 1 of 2: add en edge
+    //  * */
+    // auto* env = TossEnvironment::getInstance(gMetaName, gMetaPort);
 
-    std::vector<meta::cpp2::PropertyType> types {
-        meta::cpp2::PropertyType::BOOL,
-        meta::cpp2::PropertyType::INT64,
-        meta::cpp2::PropertyType::FLOAT,
-        meta::cpp2::PropertyType::STRING,
-        meta::cpp2::PropertyType::DOUBLE,
-    };
+    // std::vector<meta::cpp2::PropertyType> types {
+    //     meta::cpp2::PropertyType::BOOL,
+    //     meta::cpp2::PropertyType::INT64,
+    //     meta::cpp2::PropertyType::FLOAT,
+    //     meta::cpp2::PropertyType::STRING,
+    //     meta::cpp2::PropertyType::DOUBLE,
+    // };
 
-    size_t nType = types.size();
-    std::vector<std::string> colNames;
-    for (auto i = 0U; i < nType; ++i) {
-        colNames.emplace_back(folly::sformat("c{}", i+1));
-    }
+    // size_t nType = types.size();
+    // std::vector<std::string> colNames;
+    // for (auto i = 0U; i < nType; ++i) {
+    //     colNames.emplace_back(folly::sformat("c{}", i+1));
+    // }
 
-    std::vector<meta::cpp2::ColumnDef> colDefs(nType);
-    for (auto i = 0U; i != nType; ++i) {
-        colDefs[i].set_name(colNames[i]);
-        colDefs[i].set_default_value(Value::kNullValue);
-        colDefs[i].set_type(types[i]);
-        colDefs[i].set_nullable(true);
-    }
-    env->init(gSpaceName, gPart, gReplica, &colDefs);
+    // std::vector<meta::cpp2::ColumnDef> colDefs(nType);
+    // for (auto i = 0U; i != nType; ++i) {
+    //     colDefs[i].set_name(colNames[i]);
+    //     colDefs[i].set_default_value(Value::kNullValue);
+    //     colDefs[i].set_type(types[i]);
+    //     colDefs[i].set_nullable(true);
+    // }
+    // env->init(gSpaceName, gPart, gReplica, &colDefs);
 
-    int iPrefix = gBombPrefix;  // gBombPrefix
-    int failedPhase = static_cast<int>(TossPhase::COMMIT_EDGE2_RESP);
-    int errorCode = static_cast<int>(cpp2::ErrorCode::E_TXN_ERR_UNKNOWN);
-    int rank = iPrefix * 10000 + failedPhase * 100 + std::abs(errorCode);
-    LOG(INFO) << "messi rank=" << rank;
+    // int iPrefix = gBombPrefix;  // gBombPrefix
+    // int failedPhase = static_cast<int>(TossPhase::COMMIT_EDGE2_RESP);
+    // int errorCode = static_cast<int>(cpp2::ErrorCode::E_TXN_ERR_UNKNOWN);
+    // int rank = iPrefix * 10000 + failedPhase * 100 + std::abs(errorCode);
+    // LOG(INFO) << "messi rank=" << rank;
 
-    std::vector<nebula::Value> values(nType);
-    values[0].setBool(false);
-    values[1].setInt(65536);
-    values[2].setFloat(3.14f);
-    values[3].setStr("feng~timo~");
-    values[4].setNull(NullType::__NULL__);
-    // cpp2::NewEdge edge = env->generateEdge(gSrcVid, rank, values);
+    // std::vector<nebula::Value> values(nType);
+    // values[0].setBool(false);
+    // values[1].setInt(65536);
+    // values[2].setFloat(3.14f);
+    // values[3].setStr("feng~timo~");
+    // values[4].setNull(NullType::__NULL__);
+    // // cpp2::NewEdge edge = env->generateEdge(gSrcVid, rank, values);
 
-    std::vector<cpp2::NewEdge> edges;
-    auto idst = gSum - gSrcVid;
-    for (auto i = 0U; i < 20; ++i) {
-        edges.emplace_back(env->generateEdge(gSrcVid, rank, values, idst+i));
-        auto f = env->addTossEdgeAsync(colNames, edges.back());
-        f.wait();
-        ASSERT_TRUE(f.valid());
-        ASSERT_FALSE(f.value().succeeded());
-    }
+    // std::vector<cpp2::NewEdge> edges;
+    // auto idst = gSum - gSrcVid;
+    // for (auto i = 0U; i < 20; ++i) {
+    //     edges.emplace_back(env->generateEdge(gSrcVid, rank, values, idst+i));
+    //     auto f = env->addTossEdgeAsync(colNames, edges.back());
+    //     f.wait();
+    //     ASSERT_TRUE(f.valid());
+    //     ASSERT_FALSE(f.value().succeeded());
+    // }
 
-    // para1
-    auto* client = env->getStorageClient();
-    GraphSpaceID space = env->spaceId_;
+    // // para1
+    // auto* client = env->getStorageClient();
+    // GraphSpaceID space = env->spaceId_;
 
-    // para3
-    std::vector<nebula::VertexID> vids;
-    for (auto& e : edges) {
-        vids.emplace_back(e.key.src);
-    }
-    auto last = std::unique(vids.begin(), vids.end());
-    vids.erase(last, vids.end());
-    std::vector<Row> vertices;
-    for (auto& vid : vids) {
-        vertices.emplace_back();
-        vertices.back().values.emplace_back(vid);
-    }
+    // // para3
+    // std::vector<nebula::VertexID> vids;
+    // for (auto& e : edges) {
+    //     vids.emplace_back(e.key.src);
+    // }
+    // auto last = std::unique(vids.begin(), vids.end());
+    // vids.erase(last, vids.end());
+    // std::vector<Row> vertices;
+    // for (auto& vid : vids) {
+    //     vertices.emplace_back();
+    //     vertices.back().values.emplace_back(vid);
+    // }
 
-    std::vector<EdgeType> edgeTypes;  // para 4
-    cpp2::EdgeDirection edgeDirection = cpp2::EdgeDirection::BOTH;  // para 5
-    std::vector<cpp2::StatProp>* statProps = nullptr;  // para 6
-    std::vector<cpp2::VertexProp>* vertexProps = nullptr;  // para 7
-    const std::vector<cpp2::EdgeProp> edgeProps;  // para 8
-    const std::vector<cpp2::Expr>* expressions = nullptr;  // para 9
+    // std::vector<EdgeType> edgeTypes;  // para 4
+    // cpp2::EdgeDirection edgeDirection = cpp2::EdgeDirection::BOTH;  // para 5
+    // std::vector<cpp2::StatProp>* statProps = nullptr;  // para 6
+    // std::vector<cpp2::VertexProp>* vertexProps = nullptr;  // para 7
+    // const std::vector<cpp2::EdgeProp> edgeProps;  // para 8
+    // const std::vector<cpp2::Expr>* expressions = nullptr;  // para 9
 
-    LOG(INFO) << "messi getNeighbors paras colNames";
-    for (auto&& it : folly::enumerate(colNames)) {
-        LOG(INFO) << "colNames[" << it.index << "]=" << *it;
-    }
+    // LOG(INFO) << "messi getNeighbors paras colNames";
+    // for (auto&& it : folly::enumerate(colNames)) {
+    //     LOG(INFO) << "colNames[" << it.index << "]=" << *it;
+    // }
 
-    LOG(INFO) << "messi before call getNeighbors";
-    auto sf = client->getNeighbors(space,
-                                   colNames,
-                                   vertices,
-                                   edgeTypes,
-                                   edgeDirection,
-                                   statProps,
-                                   vertexProps,
-                                   &edgeProps,
-                                   expressions);
-    sf.wait();
-    LOG(INFO) << "messi after call getNeighbors";
+    // LOG(INFO) << "messi before call getNeighbors";
+    // auto sf = client->getNeighbors(space,
+    //                                colNames,
+    //                                vertices,
+    //                                edgeTypes,
+    //                                edgeDirection,
+    //                                statProps,
+    //                                vertexProps,
+    //                                &edgeProps,
+    //                                expressions);
+    // sf.wait();
+    // LOG(INFO) << "messi after call getNeighbors";
 
-    ASSERT_TRUE(sf.valid());
-    StorageRpcResponse<cpp2::GetNeighborsResponse> rpc = sf.value();
-    ASSERT_TRUE(rpc.succeeded());
+    // ASSERT_TRUE(sf.valid());
+    // StorageRpcResponse<cpp2::GetNeighborsResponse> rpc = sf.value();
+    // ASSERT_TRUE(rpc.succeeded());
 
-    std::vector<cpp2::GetNeighborsResponse> resps = rpc.responses();
-    LOG(INFO) << "cpp2::GetNeighborsResponse.size() = " << resps.size();
-    for (cpp2::GetNeighborsResponse& resp : resps) {
-        nebula::DataSet ds = resp.vertices;
-        env->printDataSet(ds);
-    }
+    // std::vector<cpp2::GetNeighborsResponse> resps = rpc.responses();
+    // LOG(INFO) << "cpp2::GetNeighborsResponse.size() = " << resps.size();
+    // for (cpp2::GetNeighborsResponse& resp : resps) {
+    //     nebula::DataSet ds = resp.vertices;
+    //     env->printDataSet(ds);
+    // }
 
-    ASSERT_EQ(resps.size(), 1);
+    // ASSERT_EQ(resps.size(), 1);
 }
 
 /*
