@@ -33,20 +33,21 @@ static Status setupSignalHandler();
 std::unique_ptr<nebula::storage::StorageServer> gStorageServer;
 
 int main(int argc, char *argv[]) {
+    // Detect if the server has already been started
+    // check pid before init glog
+    auto pidPath = FLAGS_pid_file;
+    auto status = ProcessUtils::isPidAvailable(pidPath);
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
     google::SetVersionString(nebula::versionString());
     folly::init(&argc, &argv, true);
     if (FLAGS_daemonize) {
         google::SetStderrLogging(google::FATAL);
     } else {
         google::SetStderrLogging(google::INFO);
-    }
-
-    // Detect if the server has already been started
-    auto pidPath = FLAGS_pid_file;
-    auto status = ProcessUtils::isPidAvailable(pidPath);
-    if (!status.ok()) {
-        LOG(ERROR) << status;
-        return EXIT_FAILURE;
     }
 
     if (FLAGS_daemonize) {
