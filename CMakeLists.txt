@@ -161,7 +161,5 @@ set(CPACK_RPM_PACKAGE_URL "https://github.com/vesoft-inc/nebula/releases")
 set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE ${CMAKE_CURRENT_SOURCE_DIR}/package/postinst)
 set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/local)
 
-include(CPack)
-
 include(CPackage)
 package(${ENABLE_PACK_ONE} ${PACKAGE_NAME} "https://github.com/vesoft-inc/nebula-storage/releases")
