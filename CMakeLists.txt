@@ -35,6 +35,15 @@ endif()
 
 add_definitions(-DNEBULA_HOME=${CMAKE_SOURCE_DIR})
 
+# Submodules
+if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
+    SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc-private/nebula-common.git")
+endif()
+
+if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")
+    SET(NEBULA_COMMON_REPO_TAG "master")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 if(NOT NEBULA_COMMON_SOURCE_DIR)
     include(FetchModule)
