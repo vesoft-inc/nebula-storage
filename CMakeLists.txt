@@ -33,7 +33,6 @@ if (ENABLE_NATIVE)
 endif()
 
 add_definitions(-DNEBULA_HOME=${CMAKE_SOURCE_DIR})
-add_compile_options(-Wno-missing-field-initializers)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 if(NOT NEBULA_COMMON_SOURCE_DIR)
