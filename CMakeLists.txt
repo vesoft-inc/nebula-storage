@@ -13,7 +13,8 @@
 #   NEBULA_OTHER_ROOT              -- Specify the root directory for user build
 #                                  -- Split with ":", exp: DIR:DIR
 #
-#   NEBULA_COMMON_PATH             -- Path to nebula-common source directory
+#   NEBULA_COMMON_SOURCE_DIR       -- Path to nebula-common source directory
+#   NEBULA_COMMON_BUILD_DIR        -- Path to nebula-common build directory
 #   NEBULA_COMMON_REPO_URL         -- Git URL for the nebula-common repo
 #   NEBULA_COMMON_REPO_TAG         -- Tag/branch of the nebula-common repo
 #
@@ -41,10 +42,9 @@ if(NOT NEBULA_COMMON_SOURCE_DIR)
         NAME
             common
         URL
-            # TODO(dutor) Change the URL when PR ready to merge
-            "git@github.com:dutor/nebula-common.git"
+            ${NEBULA_COMMON_REPO_URL}
         TAG
-            refactor-build
+            ${NEBULA_COMMON_REPO_TAG}
         UPDATE
             ${ENABLE_MODULE_UPDATE}
     )
@@ -62,6 +62,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${nebula_common_source_dir}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${nebula_common_source_dir}/cmake/nebula)
 
+include(PlatformCheck)
 include(GeneralCMakeOptions)
 include(GeneralCMakeConfig)
 include(GeneralCompilerConfig)
