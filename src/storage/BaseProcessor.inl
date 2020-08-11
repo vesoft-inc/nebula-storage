@@ -38,6 +38,10 @@ cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
         return cpp2::ErrorCode::E_TAG_NOT_FOUND;
     case kvstore::ResultCode::ERR_INVALID_DATA:
         return cpp2::ErrorCode::E_INVALID_DATA;
+    case kvstore::ResultCode::ERR_BUILD_INDEX_FAILED:
+        return cpp2::ErrorCode::E_REBUILD_INDEX_FAILED;
+    case kvstore::ResultCode::ERR_INVALID_OPERATION:
+        return cpp2::ErrorCode::E_INVALID_OPERATION;
     default:
         return cpp2::ErrorCode::E_UNKNOWN;
     }

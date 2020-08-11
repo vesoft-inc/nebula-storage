@@ -590,14 +590,12 @@ std::vector<VertexData> MockData::mockVertices(bool upper) {
 
         std::vector<Value> props;
         if (upper) {
-            auto name = player.name_.data();
-            std::stringstream stream;
-            for (size_t i = 0; i < strlen(name); i++) {
-                char upperChar = toupper(name[i]);
-                stream << upperChar;
-            }
-            data.vId_ = stream.str();
-            props.emplace_back(stream.str());
+            std::string upperName;
+            upperName.resize(player.name_.size());
+            auto toupper = [] (auto c) { return ::toupper(c); };
+            std::transform(player.name_.begin(), player.name_.end(), upperName.begin(), toupper);
+            data.vId_  = upperName;
+            props.emplace_back(upperName);
         } else {
             data.vId_ = player.name_;
             props.emplace_back(player.name_);
@@ -644,13 +642,11 @@ std::vector<std::pair<PartitionID, std::string>> MockData::mockPlayerIndexKeys(b
     for (auto& player : players_) {
         std::string name;
         if (upper) {
-            auto data = player.name_.data();
-            std::stringstream stream;
-            for (size_t i = 0; i < strlen(data); i++) {
-                char upperChar = toupper(data[i]);
-                stream << upperChar;
-            }
-            name = stream.str();
+            std::string upperName;
+            upperName.resize(player.name_.size());
+            auto toupper = [] (auto c) { return ::toupper(c); };
+            std::transform(player.name_.begin(), player.name_.end(), upperName.begin(), toupper);
+            name = upperName;
         } else {
             name = player.name_;
         }
@@ -707,14 +703,13 @@ std::vector<EdgeData> MockData::mockEdges(bool upper) {
 
         std::vector<Value> props;
         if (upper) {
-            auto name = serve.playerName_.data();
-            std::stringstream stream;
-            for (size_t i = 0; i < strlen(name); i++) {
-                char upperChar = toupper(name[i]);
-                stream << upperChar;
-            }
-            positiveEdge.srcId_ = stream.str();
-            props.emplace_back(stream.str());
+            std::string upperName;
+            upperName.resize(serve.playerName_.size());
+            auto toupper = [] (auto c) { return ::toupper(c); };
+            std::transform(serve.playerName_.begin(), serve.playerName_.end(),
+                           upperName.begin(), toupper);
+            positiveEdge.srcId_ = upperName;
+            props.emplace_back(upperName);
         } else {
             positiveEdge.srcId_ = serve.playerName_;
             props.emplace_back(serve.playerName_);

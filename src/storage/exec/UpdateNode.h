@@ -238,12 +238,6 @@ public:
             std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
-                if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
-                                                         partId, indexId)) {
-                    LOG(ERROR) << "The part have locked";
-                    return folly::none;
-                }
-
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -257,6 +251,10 @@ public:
                                                                     partId, indexId)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                                 batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                            } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                                            partId, indexId)) {
+                                LOG(ERROR) << "The part have locked";
+                                return folly::none;
                             } else {
                                 batchHolder->remove(std::move(oi));
                             }
@@ -281,6 +279,10 @@ public:
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                    std::move(ni));
                             batchHolder->put(std::move(modifyKey), "");
+                        } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                                        partId, indexId)) {
+                            LOG(ERROR) << "The part have locked";
+                            return folly::none;
                         } else {
                             batchHolder->put(std::move(ni), "");
                         }
@@ -573,12 +575,6 @@ public:
             std::unique_ptr<RowReader> nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
-                if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
-                                                         partId, indexId)) {
-                    LOG(ERROR) << "The part have locked";
-                    return folly::none;
-                }
-
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -592,6 +588,10 @@ public:
                                                                     partId, indexId)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                                 batchHolder->put(std::move(deleteOpKey), std::move(oi));
+                            } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                                            partId, indexId)) {
+                                LOG(ERROR) << "The part have locked";
+                                return folly::none;
                             } else {
                                 batchHolder->remove(std::move(oi));
                             }
@@ -616,6 +616,10 @@ public:
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                    std::move(ni));
                             batchHolder->put(std::move(modifyKey), "");
+                        } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
+                                                                        partId, indexId)) {
+                            LOG(ERROR) << "The part have locked";
+                            return folly::none;
                         } else {
                             batchHolder->put(std::move(ni), "");
                         }

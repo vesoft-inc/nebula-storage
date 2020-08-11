@@ -67,7 +67,7 @@ RebuildIndexTask::genSubTask(GraphSpaceID space,
     auto result = buildIndexGlobal(space, part, indexID, items);
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index failed";
-        return kvstore::ResultCode::E_BUILD_INDEX_FAILED;
+        return kvstore::ResultCode::ERR_BUILD_INDEX_FAILED;
     } else {
         LOG(INFO) << "Building index successful";
     }
@@ -76,7 +76,7 @@ RebuildIndexTask::genSubTask(GraphSpaceID space,
     result = buildIndexOnOperations(space, indexID, part);
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index with operation logs failed";
-        return kvstore::ResultCode::E_INVALID_OPERATION;
+        return kvstore::ResultCode::ERR_INVALID_OPERATION;
     }
 
     env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
@@ -130,7 +130,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                 }
             } else {
                 LOG(ERROR) << "Unknow Operation Type";
-                return kvstore::ResultCode::E_INVALID_OPERATION;
+                return kvstore::ResultCode::ERR_INVALID_OPERATION;
             }
 
             operations.emplace_back(std::move(opKey));

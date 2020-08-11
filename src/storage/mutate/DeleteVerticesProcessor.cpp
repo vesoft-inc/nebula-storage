@@ -144,10 +144,6 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                 for (auto& index : indexes_) {
                     if (index->get_schema_id().get_tag_id() == tagId) {
                         auto indexId = index->get_index_id();
-                        if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
-                            LOG(ERROR) << "The part have locked";
-                            return folly::none;
-                        }
 
                         if (reader == nullptr) {
                             reader = RowReader::getTagPropReader(env_->schemaMan_,
@@ -177,6 +173,9 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                         if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
+                        } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                            LOG(ERROR) << "The part have locked";
+                            return folly::none;
                         } else {
                             batchHolder->remove(std::move(indexKey));
                         }
