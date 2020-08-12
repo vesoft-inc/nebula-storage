@@ -119,8 +119,6 @@ jobs:
                 -B build
             ;;
           esac
-      - name: Make common
-        run: cmake --build modules/common/ -j $(nproc)
       - name: Make storage
         run: cmake --build build/ -j $(nproc)
       - name: CTest
