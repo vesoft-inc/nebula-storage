@@ -374,7 +374,7 @@ TEST(RowWriterV2, Timestamp) {
     ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish());
 
     std::string encoded1 = writer.moveEncodedStr();
-    auto reader1 = RowReader::getRowReader(&schema, encoded1);
+    auto reader1 = RowReaderWrapper::getRowReader(&schema, encoded1);
 
     // Col01
     Value v1 = reader1->getValueByName("Col01");

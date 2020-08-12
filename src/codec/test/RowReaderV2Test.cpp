@@ -18,8 +18,8 @@ TEST(RowReaderV2, headerInfo) {
     // Simplest row, nothing in it
     char data1[] = {0x08};
     SchemaWriter schema1;
-    auto reader = RowReaderWrapper::getRowReader(&schema1,
-                                          folly::StringPiece(data1, sizeof(data1)));
+    auto reader = RowReaderWrapper::getRowReader(
+        &schema1, folly::StringPiece(data1, sizeof(data1)));
     ASSERT_TRUE(!!reader);
     EXPECT_EQ(0, reader->schemaVer());
     EXPECT_EQ(sizeof(data1), reader->headerLen());

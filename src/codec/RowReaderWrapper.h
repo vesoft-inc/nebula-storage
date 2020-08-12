@@ -21,10 +21,37 @@ class RowReaderWrapper : public RowReader {
 
 public:
     RowReaderWrapper() = default;
+
     RowReaderWrapper(const RowReaderWrapper&) = delete;
+
     RowReaderWrapper& operator=(const RowReaderWrapper&) = delete;
-    RowReaderWrapper(RowReaderWrapper&&) = default;
-    RowReaderWrapper& operator=(RowReaderWrapper&&) = default;
+
+    RowReaderWrapper(RowReaderWrapper&& rhs) {
+        this->readerVer_ = rhs.readerVer_;
+        if (this->readerVer_ == 1) {
+            this->readerV1_ = std::move(rhs.readerV1_);
+            this->currReader_ = &(this->readerV1_);
+        } else if (this->readerVer_ == 2) {
+            this->readerV2_ = std::move(rhs.readerV2_);
+            this->currReader_ = &(this->readerV2_);
+        } else {
+            this->currReader_ = nullptr;
+        }
+    }
+
+    RowReaderWrapper& operator=(RowReaderWrapper&& rhs) {
+        this->readerVer_ = rhs.readerVer_;
+        if (this->readerVer_ == 1) {
+            this->readerV1_ = std::move(rhs.readerV1_);
+            this->currReader_ = &(this->readerV1_);
+        } else if (this->readerVer_ == 2) {
+            this->readerV2_ = std::move(rhs.readerV2_);
+            this->currReader_ = &(this->readerV2_);
+        } else {
+            this->currReader_ = nullptr;
+        }
+        return *this;
+    }
 
     static RowReaderWrapper getTagPropReader(meta::SchemaManager* schemaMan,
                                              GraphSpaceID space,
@@ -126,14 +153,6 @@ public:
         return currReader_ != nullptr;
     }
 
-    bool operator==(const RowReaderWrapper& rhs) const noexcept {
-        return !operator!=(rhs);
-    }
-
-    bool operator!=(const RowReaderWrapper& rhs) const noexcept {
-        return data_ == rhs.data_;
-    }
-
     RowReaderWrapper* operator->() const noexcept {
         return get();
     }
@@ -158,6 +177,7 @@ private:
     RowReaderV1 readerV1_;
     RowReaderV2 readerV2_;
     RowReader* currReader_ = nullptr;
+    int32_t readerVer_ = 0;
 };
 
 }  // namespace nebula

@@ -455,8 +455,8 @@ public:
         }
 
         // build key, value is emtpy
-        auto version =
-            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version = FLAGS_enable_multi_versions ?
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() : 0L;
         // Switch version to big-endian, make sure the key is in ordered.
         version = folly::Endian::big(version);
         key_ = NebulaKeyUtils::edgeKey(planContext_->vIdLen_,

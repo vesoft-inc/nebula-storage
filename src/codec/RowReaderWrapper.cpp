@@ -81,12 +81,13 @@ RowReaderWrapper RowReaderWrapper::getRowReader(
 
 RowReaderWrapper::RowReaderWrapper(const meta::SchemaProviderIf* schema,
                                    const folly::StringPiece& row,
-                                   int32_t& readerVer) {
+                                   int32_t& readerVer)
+        : readerVer_(readerVer) {
     CHECK_NOTNULL(schema);
-    if (readerVer == 1) {
+    if (readerVer_ == 1) {
         readerV1_.resetImpl(schema, row);
         currReader_ = &readerV1_;
-    } else if (readerVer == 2) {
+    } else if (readerVer_ == 2) {
         readerV2_.resetImpl(schema, row);
         currReader_ = &readerV2_;
     } else {
@@ -98,11 +99,12 @@ bool RowReaderWrapper::reset(meta::SchemaProviderIf const* schema,
                              folly::StringPiece row,
                              int32_t readerVer) noexcept {
     CHECK_NOTNULL(schema);
-    if (readerVer == 1) {
+    readerVer_ = readerVer;
+    if (readerVer_ == 1) {
         readerV1_.resetImpl(schema, row);
         currReader_ = &readerV1_;
         return true;
-    } else if (readerVer == 2) {
+    } else if (readerVer_ == 2) {
         readerV2_.resetImpl(schema, row);
         currReader_ = &readerV2_;
         return true;
