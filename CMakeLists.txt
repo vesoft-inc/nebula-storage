@@ -27,7 +27,11 @@ cmake_minimum_required(VERSION 3.5.0)
 
 project("Nebula Storage" C CXX)
 
+option(ENABLE_PACK_ONE "Whether to package into one" ON)
 option(ENABLE_MODULE_UPDATE "Automatically update module" OFF)
+
+message(STATUS "ENABLE_PACK_ONE         : ${ENABLE_PACK_ONE}")
+message(STATUS "ENABLE_MODULE_UPDATE    : ${ENABLE_MODULE_UPDATE}")
 
 if (ENABLE_NATIVE)
     message(STATUS "ENABLE_NATIVE is ${ENABLE_NATIVE}")
