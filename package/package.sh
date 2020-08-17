@@ -16,13 +16,13 @@
 # usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE>
 #
 
-set -ex
+set -e
 
 version=""
 package_one=ON
 strip_enable="FALSE"
 usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE>"
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"/../
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)/.."
 enablesanitizer="OFF"
 build_type="Release"
 

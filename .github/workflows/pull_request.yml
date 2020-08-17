@@ -29,7 +29,7 @@ jobs:
         id: filter-source-files
         run: |
           diff_commits=$(git log --oneline -n 1 | cut -d' ' -f1,5)
-          source_files=$(git --no-pager diff --name-only $diff_commits | grep '^src\|^CMakeLists.txt\|^cmake\|^.github/workflows' | wc -l)
+          source_files=$(git --no-pager diff --name-only $diff_commits | grep '^src\|^CMakeLists.txt\|^cmake\|^.github/workflows')
           echo "::set-output name=has_source_files::$([[ "$source_files" == "" ]] && echo 0 || echo 1)"
 
   build:
@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: ${{ github.repository_owner }}/nebula-common
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
           path: modules/common
       - name: CMake
         run: |
