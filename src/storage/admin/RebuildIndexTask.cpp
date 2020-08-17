@@ -31,7 +31,6 @@ RebuildIndexTask::genSubTasks() {
     }
 
     std::vector<AdminSubTask> tasks;
-    folly::SharedMutex::WriteHolder wHolder(env_->lock);
     for (auto it = env_->rebuildIndexGuard_->cbegin();
          it != env_->rebuildIndexGuard_->cend(); ++it) {
         if (std::get<0>(it->first) == space_ && it->second != IndexState::FINISHED) {
@@ -60,11 +59,19 @@ RebuildIndexTask::genSubTask(GraphSpaceID space,
                              PartitionID part,
                              IndexID indexID,
                              const IndexItems& items) {
+    auto result = removeLegacyLogs(space, part);
+    if (result != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Remove legacy logs at part: " << part << " failed";
+        return kvstore::ResultCode::ERR_BUILD_INDEX_FAILED;
+    } else {
+        LOG(INFO) << "Remove legacy logs at part: " << part << " successful";
+    }
+
     env_->rebuildIndexGuard_->assign(std::make_tuple(space, indexID, part),
                                      IndexState::BUILDING);
 
     LOG(INFO) << "Start building index";
-    auto result = buildIndexGlobal(space, part, indexID, items);
+    result = buildIndexGlobal(space, part, indexID, items);
     if (result != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Building index failed";
         return kvstore::ResultCode::ERR_BUILD_INDEX_FAILED;
@@ -133,7 +140,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
                 return kvstore::ResultCode::ERR_INVALID_OPERATION;
             }
 
-            operations.emplace_back(std::move(opKey));
+            operations.emplace_back(opKey);
             if (static_cast<int32_t>(operations.size()) == FLAGS_rebuild_index_batch_num) {
                 auto ret = cleanupOperationLogs(space, part, operations);
                 if (kvstore::ResultCode::SUCCEEDED != ret) {
@@ -163,11 +170,53 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             if (stateIter != env_->rebuildIndexGuard_->cend() &&
                 stateIter->second == IndexState::BUILDING) {
                 env_->rebuildIndexGuard_->assign(std::move(key), IndexState::LOCKED);
+
+                // Waiting all of the on flying requests have finished.
+                int32_t currentRequestNum;
+                do {
+                    currentRequestNum = env_->onFlyingRequest_.load();
+                    VLOG(3) << "On Flying Request: " << currentRequestNum;
+                    usleep(100);
+                } while (currentRequestNum != 0);
             } else {
                 break;
             }
         }
     }
+    return kvstore::ResultCode::SUCCEEDED;
+}
+
+kvstore::ResultCode
+RebuildIndexTask::removeLegacyLogs(GraphSpaceID space,
+                                   PartitionID part) {
+    std::unique_ptr<kvstore::KVIterator> operationIter;
+    auto operationPrefix = OperationKeyUtils::operationPrefix(part);
+    auto operationRet = env_->kvstore_->prefix(space,
+                                               part,
+                                               operationPrefix,
+                                               &operationIter);
+    if (operationRet != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Remove Legacy Log Failed";
+        return operationRet;
+    }
+
+    std::vector<std::string> operations;
+    operations.reserve(FLAGS_rebuild_index_batch_num);
+    while (operationIter->valid()) {
+        auto opKey = operationIter->key();
+        operations.emplace_back(opKey);
+        if (static_cast<int32_t>(operations.size()) == FLAGS_rebuild_index_batch_num) {
+            auto ret = cleanupOperationLogs(space, part, operations);
+            if (kvstore::ResultCode::SUCCEEDED != ret) {
+                LOG(ERROR) << "Delete Operation Failed";
+                return ret;
+            }
+
+            operations.clear();
+        }
+        operationIter->next();
+    }
+
     return kvstore::ResultCode::SUCCEEDED;
 }
 

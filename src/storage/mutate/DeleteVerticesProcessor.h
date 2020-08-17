@@ -32,7 +32,8 @@ private:
 
     folly::Optional<std::string>
     deleteVertices(PartitionID partId,
-                   const std::vector<VertexID>& vertices);
+                   const std::vector<VertexID>& vertices,
+                   std::shared_ptr<int32_t> requestPtr);
 
 private:
     GraphSpaceID                                                spaceId_;

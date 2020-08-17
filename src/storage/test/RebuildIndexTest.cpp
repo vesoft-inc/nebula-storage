@@ -25,6 +25,7 @@ class RebuildIndexTest : public ::testing::Test {
 protected:
     static void SetUpTestCase() {
         LOG(INFO) << "SetUp RebuildIndexTest TestCase";
+        FLAGS_rebuild_index_locked_threshold = 1;
         rootPath_ = std::make_unique<fs::TempDir>("/tmp/RebuildIndexTest.XXXXXX");
         cluster_ = std::make_unique<nebula::mock::MockCluster>();
         cluster_->initStorageKV(rootPath_->path());

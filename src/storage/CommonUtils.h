@@ -41,18 +41,18 @@ public:
     kvstore::KVStore*                               kvstore_{nullptr};
     meta::SchemaManager*                            schemaMan_{nullptr};
     meta::IndexManager*                             indexMan_{nullptr};
-    folly::SharedMutex                              lock;
+    std::atomic<int32_t>                            onFlyingRequest_{0};
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
 
     bool checkRebuilding(GraphSpaceID space, PartitionID part, IndexID indexID) {
         auto key = std::make_tuple(space, indexID, part);
-        auto iter = rebuildIndexGuard_->find(std::move(key));
+        auto iter = rebuildIndexGuard_->find(key);
         return iter != rebuildIndexGuard_->cend() && iter->second == IndexState::BUILDING;
     }
 
     bool checkIndexLocked(GraphSpaceID space, PartitionID part, IndexID indexID) {
         auto key = std::make_tuple(space, indexID, part);
-        auto iter = rebuildIndexGuard_->find(std::move(key));
+        auto iter = rebuildIndexGuard_->find(key);
         return iter != rebuildIndexGuard_->cend() && iter->second == IndexState::LOCKED;
     }
 };

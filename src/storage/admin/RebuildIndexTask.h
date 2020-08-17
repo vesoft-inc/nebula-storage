@@ -46,6 +46,11 @@ protected:
                                                IndexID indexID,
                                                PartitionID part);
 
+
+    // Remove the legacy operation log to make sure the index is correct.
+    kvstore::ResultCode removeLegacyLogs(GraphSpaceID space,
+                                         PartitionID part);
+
     kvstore::ResultCode writeData(GraphSpaceID space,
                                   PartitionID part,
                                   std::vector<kvstore::KV> data);

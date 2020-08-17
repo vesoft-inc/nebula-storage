@@ -28,7 +28,8 @@ private:
             : BaseProcessor<cpp2::ExecResponse>(env, stats) {}
 
     folly::Optional<std::string> deleteEdges(PartitionID partId,
-                                             const std::vector<cpp2::EdgeKey>& edges);
+                                             const std::vector<cpp2::EdgeKey>& edges,
+                                             std::shared_ptr<int32_t> requestPtr);
 private:
     GraphSpaceID                                                spaceId_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
