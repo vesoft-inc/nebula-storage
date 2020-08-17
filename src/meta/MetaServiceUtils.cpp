@@ -111,6 +111,13 @@ std::string MetaServiceUtils::partValV2(const std::vector<HostAddr>& hosts) {
     return encodedVal;
 }
 
+std::string MetaServiceUtils::partPrefix() {
+    std::string prefix;
+    prefix.reserve(kPartsTable.size() + sizeof(GraphSpaceID));
+    prefix.append(kPartsTable.data(), kPartsTable.size());
+    return prefix;
+}
+
 std::string MetaServiceUtils::partPrefix(GraphSpaceID spaceId) {
     std::string prefix;
     prefix.reserve(kPartsTable.size() + sizeof(GraphSpaceID));

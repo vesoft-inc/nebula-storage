@@ -59,7 +59,7 @@ public:
 
     static std::string partValV2(const std::vector<HostAddr>& hosts);
 
-    static const std::string& partPrefix();
+    static std::string partPrefix();
 
     static std::string partPrefix(GraphSpaceID spaceId);
 
