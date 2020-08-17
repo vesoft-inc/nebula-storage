@@ -42,7 +42,7 @@ add_definitions(-DNEBULA_HOME=${CMAKE_SOURCE_DIR})
 
 # Submodules
 if("${NEBULA_COMMON_REPO_URL}" STREQUAL "")
-    SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc-private/nebula-common.git")
+    SET(NEBULA_COMMON_REPO_URL "git@github.com:vesoft-inc/nebula-common.git")
 endif()
 
 if("${NEBULA_COMMON_REPO_TAG}" STREQUAL "")

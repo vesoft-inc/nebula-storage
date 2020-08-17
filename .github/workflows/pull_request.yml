@@ -16,7 +16,7 @@ jobs:
       run:
         shell: bash
     outputs:
-      num_source_files: ${{ steps.filter-source-files.outputs.num_source_files }}
+      has_source_files: ${{ steps.filter-source-files.outputs.has_source_files }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -29,13 +29,13 @@ jobs:
         id: filter-source-files
         run: |
           diff_commits=$(git log --oneline -n 1 | cut -d' ' -f1,5)
-          num_source_files=$(git --no-pager diff --name-only $diff_commits | grep '^src\|^CMakeLists.txt\|^cmake\|^.github/workflows' | wc -l)
-          echo "::set-output name=num_source_files::${num_source_files}"
+          source_files=$(git --no-pager diff --name-only $diff_commits | grep '^src\|^CMakeLists.txt\|^cmake\|^.github/workflows' | wc -l)
+          echo "::set-output name=has_source_files::$([[ "$source_files" == "" ]] && echo 0 || echo 1)"
 
   build:
     name: build
     needs: lint
-    if: ${{ needs.lint.outputs.num_source_files != 0 }}
+    if: ${{ needs.lint.outputs.has_source_files != 0 }}
     runs-on: self-hosted
     defaults:
       run:
@@ -60,7 +60,6 @@ jobs:
         CCACHE_MAXSIZE: 1G
       volumes:
         - /tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}:/tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}
-        - /run/secrets/GITHUB_PAT:/run/secrets/GITHUB_PAT
       options: --mount type=tmpfs,destination=/tmp/ccache/nebula-storage,tmpfs-size=1073741824 --cap-add=SYS_PTRACE
     steps:
       - uses: actions/checkout@v2
@@ -70,12 +69,11 @@ jobs:
         id: prepare
         run: |
           [ -d build/ ] && rm -rf build/* || mkdir -p build
-          echo "::set-output name=pat::$(cat /run/secrets/GITHUB_PAT)"
       - name: Checkout common
         uses: actions/checkout@v2
         with:
           repository: ${{ github.repository_owner }}/nebula-common
-          token: ${{ steps.prepare.outputs.pat }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: modules/common
       - name: CMake
         run: |
@@ -123,7 +121,6 @@ jobs:
         run: cmake --build build/ -j $(nproc)
       - name: CTest
         env:
-          ASAN_SYMBOLIZER_PATH: $TOOLSET_DIR/bin/llvm-symbolizer
           ASAN_OPTIONS: fast_unwind_on_malloc=1
         run: ctest -j $(($(nproc)/2+1)) --timeout 400 --output-on-failure
         working-directory: build/
