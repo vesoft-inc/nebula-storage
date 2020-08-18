@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 #
+# Copyright (c) 2019 vesoft inc. All rights reserved.
+#
+# This source code is licensed under Apache 2.0 License,
+# attached with Common Clause Condition 1.0, found in the LICENSES directory.
+
+#
 #  Package nebula as deb/rpm package
 #
 # introduce the args
@@ -10,13 +16,13 @@
 # usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE>
 #
 
-set -ex
+set -e
 
 version=""
 package_one=ON
 strip_enable="FALSE"
 usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE>"
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"/../
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)/.."
 enablesanitizer="OFF"
 build_type="Release"
 
@@ -76,7 +82,15 @@ function build {
 
     pushd ${build_dir}
 
-    cmake -DCMAKE_BUILD_TYPE=${build_type} -DNEBULA_BUILD_VERSION=${version} -DENABLE_ASAN=${san} --DENABLE_UBSAN=${san} -DCMAKE_INSTALL_PREFIX=/usr/local/nebula -DENABLE_TESTING=OFF -DENABLE_PACK_ONE=${package_one} $PROJECT_DIR
+    cmake \
+        -DCMAKE_BUILD_TYPE=${build_type} \
+        -DNEBULA_BUILD_VERSION=${version} \
+        -DENABLE_ASAN=${san} \
+        -DENABLE_UBSAN=${san} \
+        -DCMAKE_INSTALL_PREFIX=/usr/local/nebula \
+        -DENABLE_TESTING=OFF \
+        -DENABLE_PACK_ONE=${package_one} \
+        $PROJECT_DIR
 
     if !( make -j$(nproc) ); then
         echo ">>> build nebula failed <<<"
