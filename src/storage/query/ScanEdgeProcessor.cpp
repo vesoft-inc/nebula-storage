@@ -21,7 +21,7 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
     returnAllColumns_ = req.get_all_columns();
 
     auto retCode = checkAndBuildContexts(req);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         this->pushResultCode(retCode, partId_);
         this->onFinished();
         return;
@@ -109,14 +109,14 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
     onFinished();
 }
 
-cpp2::ErrorCode ScanEdgeProcessor::checkAndBuildContexts(const cpp2::ScanEdgeRequest& req) {
+nebula::cpp2::ErrorCode ScanEdgeProcessor::checkAndBuildContexts(const cpp2::ScanEdgeRequest& req) {
     for (const auto& edgeIter : req.get_return_columns()) {
         int32_t index = 0;
         EdgeType edgeType = edgeIter.first;
         std::vector<PropContext> propContexts;
         auto schema = this->schemaMan_->getEdgeSchema(spaceId_, edgeType);
         if (!schema) {
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
 
         if (returnAllColumns_) {
@@ -141,7 +141,7 @@ cpp2::ErrorCode ScanEdgeProcessor::checkAndBuildContexts(const cpp2::ScanEdgeReq
                         // Only outBound have properties on edge.
                         auto ftype = schema->getFieldType(col.name);
                         if (UNLIKELY(ftype == CommonConstants::kInvalidValueType())) {
-                            return cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
+                            return nebula::cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
                         }
                         prop.type_ = ftype;
                         retSchema.addField(col.name, std::move(ftype));
@@ -163,7 +163,7 @@ cpp2::ErrorCode ScanEdgeProcessor::checkAndBuildContexts(const cpp2::ScanEdgeReq
         edgeContexts_.emplace(edgeType, std::move(propContexts));
         edgeSchema_.emplace(edgeType, retSchema.toSchema());
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 }  // namespace storage

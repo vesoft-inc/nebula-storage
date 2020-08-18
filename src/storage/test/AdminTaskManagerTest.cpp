@@ -34,10 +34,10 @@ namespace storage {
  * */
 
 // using ResultCode = nebula::kvstore::ResultCode;
-using ResultCode = cpp2::ErrorCode;
-using ErrOrSubTasks = ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>>;
+using ResultCode = nebula::cpp2::ErrorCode;
+using ErrOrSubTasks = ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>>;
 
-auto suc = cpp2::ErrorCode::SUCCEEDED;
+auto suc = nebula::cpp2::ErrorCode::SUCCEEDED;
 int gJobId = 0;
 
 struct HookableTask : public AdminTask {
@@ -51,7 +51,7 @@ struct HookableTask : public AdminTask {
         return fGenSubTasks();
     }
 
-    void addSubTask(std::function<cpp2::ErrorCode()> subTask) {
+    void addSubTask(std::function<nebula::cpp2::ErrorCode()> subTask) {
         subTasks.emplace_back(subTask);
     }
 
@@ -76,7 +76,7 @@ TEST(TaskManagerTest, extract_subtasks_to_context) {
     for (size_t i = 0; i < numSubTask; ++i) {
         task->addSubTask([&subTaskCalled]() {
             ++subTaskCalled;
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         });
     }
     for (auto& subtask : task->subTasks) {
@@ -221,7 +221,7 @@ TEST(TaskManagerTest, happy_path_task1_sub1) {
     auto subTask = [&subTaskCalled]() {
         ++subTaskCalled;
         LOG(INFO) << "subTask invoke()";
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     };
     for (size_t i = 0; i < numSubTask; ++i) {
         mockTask->addSubTask(subTask);
@@ -258,7 +258,7 @@ TEST(TaskManagerTest, run_a_medium_task_before_a_huge_task) {
         std::atomic<int> subTaskCalled{0};
         auto subTask = [&subTaskCalled]() {
             ++subTaskCalled;
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         };
         for (size_t i = 0; i < numSubTask; ++i) {
             mockTask->addSubTask(subTask);
@@ -292,7 +292,7 @@ TEST(TaskManagerTest, happy_path) {
 
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -321,7 +321,7 @@ TEST(TaskManagerTest, happy_path) {
 
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -350,7 +350,7 @@ TEST(TaskManagerTest, happy_path) {
 
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -378,7 +378,7 @@ TEST(TaskManagerTest, happy_path) {
             std::atomic<int> subTaskCalled{0};
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -406,7 +406,7 @@ TEST(TaskManagerTest, happy_path) {
             std::atomic<int> subTaskCalled{0};
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -434,7 +434,7 @@ TEST(TaskManagerTest, happy_path) {
             std::atomic<int> subTaskCalled{0};
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -463,7 +463,7 @@ TEST(TaskManagerTest, happy_path) {
             std::atomic<int> subTaskCalled{0};
             auto subTask = [&subTaskCalled]() {
                 ++subTaskCalled;
-                return cpp2::ErrorCode::SUCCEEDED;
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             };
             for (size_t i = 0; i < numSubTask; ++i) {
                 mockTask->addSubTask(subTask);
@@ -484,7 +484,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
         std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
         mockTask->fGenSubTasks = [&]() {
-            return cpp2::ErrorCode::E_INVALID_TASK_PARA;
+            return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
         };
 
         folly::Promise<ResultCode> pro;
@@ -499,7 +499,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
 
         fut.wait();
 
-        EXPECT_EQ(fut.value(), cpp2::ErrorCode::E_INVALID_TASK_PARA);
+        EXPECT_EQ(fut.value(), nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA);
     }
 
     taskMgr->shutdown();
@@ -508,12 +508,12 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
 TEST(TaskManagerTest, some_subtask_failed) {
     auto taskMgr = AdminTaskManager::instance();
     taskMgr->init();
-    std::vector<cpp2::ErrorCode> errorCode {
-        cpp2::ErrorCode::SUCCEEDED,
-        cpp2::ErrorCode::E_PART_NOT_FOUND,
-        cpp2::ErrorCode::E_LEADER_CHANGED,
-        cpp2::ErrorCode::E_USER_CANCEL,
-        cpp2::ErrorCode::E_UNKNOWN
+    std::vector<nebula::cpp2::ErrorCode> errorCode {
+        nebula::cpp2::ErrorCode::SUCCEEDED,
+        nebula::cpp2::ErrorCode::E_PART_NOT_FOUND,
+        nebula::cpp2::ErrorCode::E_LEADER_CHANGED,
+        nebula::cpp2::ErrorCode::E_USER_CANCEL,
+        nebula::cpp2::ErrorCode::E_INTERNAL_ERROR
     };
 
     for (auto t = ++gJobId; t < 5; ++t) {
@@ -588,7 +588,7 @@ TEST(TaskManagerTest, cancel_a_running_task_with_only_1_sub_task) {
     fFinish.wait();
 
     taskMgr->shutdown();
-    auto err = cpp2::ErrorCode::E_USER_CANCEL;
+    auto err = nebula::cpp2::ErrorCode::E_USER_CANCEL;
     EXPECT_EQ(fFinish.value(), err);
 }
 
@@ -598,7 +598,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
     int jobId1 = ++gJobId;
     int jobId2 = ++gJobId;
 
-    auto err = cpp2::ErrorCode::E_USER_CANCEL;
+    auto err = nebula::cpp2::ErrorCode::E_USER_CANCEL;
 
     folly::Promise<ResultCode> pTask1;
     auto fTask1 = pTask1.getFuture();
@@ -660,7 +660,7 @@ TEST(TaskManagerTest, cancel_1_task_in_a_2_tasks_queue) {
 TEST(TaskManagerTest, cancel_a_task_before_all_sub_task_running) {
     auto taskMgr = AdminTaskManager::instance();
     taskMgr->init();
-    auto err = cpp2::ErrorCode::E_USER_CANCEL;
+    auto err = nebula::cpp2::ErrorCode::E_USER_CANCEL;
 
     int jobId = ++gJobId;
     folly::Promise<ResultCode> pFiniTask0;
@@ -709,7 +709,7 @@ TEST(TaskManagerTest, cancel_a_task_before_all_sub_task_running) {
 TEST(TaskManagerTest, cancel_a_task_while_some_sub_task_running) {
     auto taskMgr = AdminTaskManager::instance();
     taskMgr->init();
-    auto usr_cancel = cpp2::ErrorCode::E_USER_CANCEL;
+    auto usr_cancel = nebula::cpp2::ErrorCode::E_USER_CANCEL;
     int jobId = ++gJobId;
 
     folly::Promise<ResultCode> task1_p;

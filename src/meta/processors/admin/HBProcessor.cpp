@@ -21,7 +21,7 @@ void HBProcessor::process(const cpp2::HBReq& req) {
             && hostExist(MetaServiceUtils::hostKey(host.host, host.port))
                 == Status::HostNotFound()) {
         LOG(INFO) << "Reject unregistered host " << host << "!";
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_HOST);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_HOST);
         onFinished();
         return;
     }
@@ -36,7 +36,7 @@ void HBProcessor::process(const cpp2::HBReq& req) {
             resp_.set_cluster_id(clusterId_);
         } else if (peerCluserId != clusterId_) {
             LOG(ERROR) << "Reject wrong cluster host " << host << "!";
-            handleErrorCode(cpp2::ErrorCode::E_WRONGCLUSTER);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_WRONGCLUSTER);
             onFinished();
             return;
         }

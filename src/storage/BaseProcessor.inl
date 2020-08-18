@@ -10,36 +10,36 @@ namespace nebula {
 namespace storage {
 
 template<typename RESP>
-cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
+nebula::cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
     switch (code) {
     case kvstore::ResultCode::SUCCEEDED:
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     case kvstore::ResultCode::ERR_LEADER_CHANGED:
-        return cpp2::ErrorCode::E_LEADER_CHANGED;
+        return nebula::cpp2::ErrorCode::E_LEADER_CHANGED;
     case kvstore::ResultCode::ERR_SPACE_NOT_FOUND:
-        return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     case kvstore::ResultCode::ERR_PART_NOT_FOUND:
-        return cpp2::ErrorCode::E_PART_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_PART_NOT_FOUND;
     case kvstore::ResultCode::ERR_CONSENSUS_ERROR:
-        return cpp2::ErrorCode::E_CONSENSUS_ERROR;
+        return nebula::cpp2::ErrorCode::E_CONSENSUS_ERROR;
     case kvstore::ResultCode::ERR_CHECKPOINT_ERROR:
-        return cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
+        return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
     case kvstore::ResultCode::ERR_WRITE_BLOCK_ERROR:
-        return cpp2::ErrorCode::E_CHECKPOINT_BLOCKED;
+        return nebula::cpp2::ErrorCode::E_CHECKPOINT_BLOCKED;
     case kvstore::ResultCode::ERR_PARTIAL_RESULT:
-        return cpp2::ErrorCode::E_PARTIAL_RESULT;
+        return nebula::cpp2::ErrorCode::E_PARTIAL_RESULT;
     case kvstore::ResultCode::ERR_INVALID_FIELD_VALUE:
-        return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
+        return nebula::cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
     case kvstore::ResultCode::ERR_RESULT_FILTERED:
-        return cpp2::ErrorCode::E_FILTER_OUT;
+        return nebula::cpp2::ErrorCode::E_FILTER_OUT;
     case kvstore::ResultCode::ERR_EDGE_NOT_FOUND:
-        return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
     case kvstore::ResultCode::ERR_TAG_NOT_FOUND:
-        return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
     case kvstore::ResultCode::ERR_INVALID_DATA:
-        return cpp2::ErrorCode::E_INVALID_DATA;
+        return nebula::cpp2::ErrorCode::E_INVALID_DATA;
     default:
-        return cpp2::ErrorCode::E_UNKNOWN;
+        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
     }
 }
 
@@ -73,8 +73,8 @@ meta::cpp2::ColumnDef BaseProcessor<RESP>::columnDef(std::string name,
 }
 
 template <typename RESP>
-void BaseProcessor<RESP>::pushResultCode(cpp2::ErrorCode code, PartitionID partId) {
-    if (code != cpp2::ErrorCode::SUCCEEDED) {
+void BaseProcessor<RESP>::pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId) {
+    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(code);
         thriftRet.set_part_id(partId);
@@ -83,10 +83,10 @@ void BaseProcessor<RESP>::pushResultCode(cpp2::ErrorCode code, PartitionID partI
 }
 
 template <typename RESP>
-void BaseProcessor<RESP>::pushResultCode(cpp2::ErrorCode code,
+void BaseProcessor<RESP>::pushResultCode(nebula::cpp2::ErrorCode code,
                                          PartitionID partId,
                                          HostAddr leader) {
-    if (code != cpp2::ErrorCode::SUCCEEDED) {
+    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(code);
         thriftRet.set_part_id(partId);
@@ -114,7 +114,7 @@ void BaseProcessor<RESP>::handleLeaderChanged(GraphSpaceID spaceId,
     auto addrRet = env_->kvstore_->partLeader(spaceId, partId);
     if (ok(addrRet)) {
         auto leader = value(std::move(addrRet));
-        this->pushResultCode(cpp2::ErrorCode::E_LEADER_CHANGED, partId, leader);
+        this->pushResultCode(nebula::cpp2::ErrorCode::E_LEADER_CHANGED, partId, leader);
     } else {
         LOG(ERROR) << "Fail to get part leader, spaceId: " << spaceId
                    << ", partId: " << partId << ", ResultCode: " << error(addrRet);

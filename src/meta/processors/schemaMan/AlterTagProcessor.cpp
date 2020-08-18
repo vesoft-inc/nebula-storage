@@ -29,7 +29,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
         LOG(ERROR) << "Tag could not be found " << req.get_tag_name()
                    << ", spaceId " << spaceId
                    << ", tagId " << tagId;
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND);
         onFinished();
         return;
     }
@@ -53,7 +53,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
     auto existIndex = !indexes.empty();
     if (existIndex) {
         auto iStatus = indexCheck(indexes, tagItems);
-        if (iStatus != cpp2::ErrorCode::SUCCEEDED) {
+        if (iStatus != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Alter tag error, index conflict : " << static_cast<int32_t>(iStatus);
             handleErrorCode(iStatus);
             onFinished();
@@ -65,7 +65,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
         auto& cols = tagItem.get_schema().get_columns();
         for (auto& col : cols) {
             auto retCode = MetaServiceUtils::alterColumnDefs(columns, prop, col, tagItem.op);
-            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 LOG(ERROR) << "Alter tag column error " << static_cast<int32_t>(retCode);
                 handleErrorCode(retCode);
                 onFinished();
@@ -77,7 +77,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
     // Update schema property if tag not index
     auto& alterSchemaProp = req.get_schema_prop();
     auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Alter tag property error " << static_cast<int32_t>(retCode);
         handleErrorCode(retCode);
         onFinished();

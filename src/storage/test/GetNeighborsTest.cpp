@@ -855,7 +855,7 @@ TEST(GetNeighborsTest, FailedTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(1, resp.result.failed_parts.size());
-        ASSERT_EQ(cpp2::ErrorCode::E_TAG_NOT_FOUND, resp.result.failed_parts.front().code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND, resp.result.failed_parts.front().code);
     }
     {
         LOG(INFO) << "EdgeNotExists";
@@ -872,7 +872,7 @@ TEST(GetNeighborsTest, FailedTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(1, resp.result.failed_parts.size());
-        ASSERT_EQ(cpp2::ErrorCode::E_EDGE_NOT_FOUND, resp.result.failed_parts.front().code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND, resp.result.failed_parts.front().code);
     }
     {
         LOG(INFO) << "TagPropNotExists";
@@ -889,7 +889,8 @@ TEST(GetNeighborsTest, FailedTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(1, resp.result.failed_parts.size());
-        ASSERT_EQ(cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND, resp.result.failed_parts.front().code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND,
+                  resp.result.failed_parts.front().code);
     }
     {
         LOG(INFO) << "EdgePropNotExists";
@@ -906,7 +907,8 @@ TEST(GetNeighborsTest, FailedTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(1, resp.result.failed_parts.size());
-        ASSERT_EQ(cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND, resp.result.failed_parts.front().code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND,
+                  resp.result.failed_parts.front().code);
     }
 }
 

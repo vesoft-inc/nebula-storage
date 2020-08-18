@@ -13,12 +13,12 @@ namespace storage {
 
 void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     bool runDirectly = true;
-    auto rc = cpp2::ErrorCode::SUCCEEDED;
+    auto rc = nebula::cpp2::ErrorCode::SUCCEEDED;
     auto taskManager = AdminTaskManager::instance();
 
     auto* store = dynamic_cast<kvstore::KVStore*>(env_->kvstore_);
-    auto cb = [&](cpp2::ErrorCode ret) {
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    auto cb = [&](nebula::cpp2::ErrorCode ret) {
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             cpp2::PartitionResult thriftRet;
             thriftRet.set_code(ret);
             codes_.emplace_back(std::move(thriftRet));
@@ -32,11 +32,11 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         runDirectly = false;
         taskManager->addAsyncTask(task);
     } else {
-        rc = cpp2::ErrorCode::E_INVALID_TASK_PARA;
+        rc = nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
     }
 
     if (runDirectly) {
-        if (rc != cpp2::ErrorCode::SUCCEEDED) {
+        if (rc != nebula::cpp2::ErrorCode::SUCCEEDED) {
             cpp2::PartitionResult thriftRet;
             thriftRet.set_code(rc);
             codes_.emplace_back(std::move(thriftRet));

@@ -30,7 +30,7 @@ private:
                                stats::Stats* stats)
             : BaseProcessor<cpp2::ScanEdgeResponse>(kvstore, schemaMan, stats) {}
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::ScanEdgeRequest& req);
+    nebula::cpp2::ErrorCode checkAndBuildContexts(const cpp2::ScanEdgeRequest& req);
 
     std::unordered_map<EdgeType, std::vector<PropContext>> edgeContexts_;
     std::unordered_map<EdgeType, nebula::cpp2::Schema> edgeSchema_;

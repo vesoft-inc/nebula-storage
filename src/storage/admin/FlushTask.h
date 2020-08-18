@@ -19,7 +19,7 @@ class FlushTask : public AdminTask {
 public:
     explicit FlushTask(TaskContext&& ctx) : AdminTask(std::move(ctx)) {}
 
-    ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
+    ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 };
 
 }  // namespace storage

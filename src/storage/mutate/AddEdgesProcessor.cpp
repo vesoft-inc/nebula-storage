@@ -29,7 +29,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
     if (!ret.ok()) {
         LOG(ERROR) << ret.status();
         for (auto& part : partEdges) {
-            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+            pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
@@ -62,7 +62,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                 LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                             << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
                             << edgeKey.src << " dstVid: " << edgeKey.dst;
-                pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                 onFinished();
                 return;
             }
@@ -79,7 +79,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             if (!schema) {
                 LOG(ERROR) << "Space " << spaceId_ << ", Edge "
                             << edgeKey.edge_type << " invalid";
-                pushResultCode(cpp2::ErrorCode::E_EDGE_NOT_FOUND, partId);
+                pushResultCode(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND, partId);
                 onFinished();
                 return;
             }
@@ -88,7 +88,7 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
             auto retEnc = encodeRowVal(schema.get(), propNames, props);
             if (!retEnc.ok()) {
                 LOG(ERROR) << retEnc.status();
-                pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
+                pushResultCode(nebula::cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
                 onFinished();
                 return;
             }

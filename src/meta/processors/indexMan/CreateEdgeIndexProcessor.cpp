@@ -17,7 +17,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     auto &fieldNames = req.get_fields();
     if (fieldNames.empty()) {
         LOG(ERROR) << "The index field of an edge type should not be empty.";
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -25,7 +25,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     std::set<std::string> columnSet(fieldNames.begin(), fieldNames.end());
     if (fieldNames.size() != columnSet.size()) {
         LOG(ERROR) << "Conflict field in the edge index.";
-        handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -33,7 +33,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     // A maximum of 16 columns are allowed in the index
     if (columnSet.size() > 16) {
         LOG(ERROR) << "The number of index columns exceeds maximum limit 16";
-        handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -43,9 +43,9 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     if (ret.ok()) {
         LOG(ERROR) << "Create Edge Index Failed: " << indexName << " have existed";
         if (req.get_if_not_exists()) {
-            handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+            handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
-            handleErrorCode(cpp2::ErrorCode::E_EXISTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INDEX_EXISTED);
         }
         onFinished();
         return;
@@ -54,7 +54,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     auto edgeTypeRet = getEdgeType(space, edgeName);
     if (!edgeTypeRet.ok()) {
         LOG(ERROR) << "Create Edge Index Failed: " << edgeName << " not exist";
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -80,7 +80,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
         }
 
         if (checkIndexExist(fieldNames, item)) {
-            resp_.set_code(cpp2::ErrorCode::E_EXISTED);
+            resp_.set_code(nebula::cpp2::ErrorCode::E_INDEX_EXISTED);
             onFinished();
             return;
         }
@@ -89,7 +89,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
 
     auto schemaRet = getLatestEdgeSchema(space, edgeType);
     if (!schemaRet.ok()) {
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -97,7 +97,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     auto latestEdgeSchema = schemaRet.value();
     if (tagOrEdgeHasTTL(latestEdgeSchema)) {
        LOG(ERROR) << "Edge: " << edgeName  << " has ttl, not create index";
-       handleErrorCode(cpp2::ErrorCode::E_INDEX_WITH_TTL);
+       handleErrorCode(nebula::cpp2::ErrorCode::E_INDEX_WITH_TTL);
        onFinished();
        return;
     }
@@ -110,7 +110,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
 
         if (iter == schemaCols.end()) {
             LOG(ERROR) << "Field " << field << " not found in Edge " << edgeName;
-            handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND);
             onFinished();
             return;
         } else {

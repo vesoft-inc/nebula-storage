@@ -22,7 +22,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
             LOG(ERROR) << "Failed to create tag `" << tagName
                        << "': some edge with the same name already exists.";
             resp_.set_id(to(conflictRet.value(), EntryType::TAG));
-            handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
             onFinished();
             return;
         }
@@ -30,7 +30,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
 
     auto columns = req.get_schema().get_columns();
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -43,10 +43,10 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
     auto ret = getTagId(req.get_space_id(), tagName);
     if (ret.ok()) {
         if (req.get_if_not_exists()) {
-            handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+            handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
             LOG(ERROR) << "Create Tag Failed :" << tagName << " has existed";
-            handleErrorCode(cpp2::ErrorCode::E_EXISTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_TAG_EXISTED);
         }
         resp_.set_id(to(ret.value(), EntryType::TAG));
         onFinished();
@@ -68,7 +68,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
                       MetaServiceUtils::schemaVal(tagName, schema));
 
     LOG(INFO) << "Create Tag " << tagName << ", TagID " << tagId;
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     resp_.set_id(to(tagId, EntryType::TAG));
     doSyncPutAndUpdate(std::move(data));
 }

@@ -18,13 +18,13 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     auto properties = req.get_properties();
     auto spaceRet = getSpaceId(properties.get_space_name());
     if (spaceRet.ok()) {
-        cpp2::ErrorCode ret;
+        nebula::cpp2::ErrorCode ret;
         if (req.get_if_not_exists()) {
-            ret = cpp2::ErrorCode::SUCCEEDED;
+            ret = nebula::cpp2::ErrorCode::SUCCEEDED;
         } else {
             LOG(ERROR) << "Create Space Failed : Space " << properties.get_space_name()
                        << " have existed!";
-            ret = cpp2::ErrorCode::E_EXISTED;
+            ret = nebula::cpp2::ErrorCode::E_SPACE_EXISTED;
         }
 
         resp_.set_id(to(spaceRet.value(), EntryType::SPACE));
@@ -36,7 +36,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {
         LOG(ERROR) << "Create Space Failed : No Hosts!";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         onFinished();
         return;
     }
@@ -61,7 +61,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         partitionNum = FLAGS_default_parts_num;
         if (partitionNum <= 0) {
             LOG(ERROR) << "Create Space Failed : partition_num is illegal!";
-              resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
+              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
               onFinished();
               return;
         }
@@ -72,7 +72,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         replicaFactor = FLAGS_default_replica_factor;
         if (replicaFactor <= 0) {
             LOG(ERROR) << "Create Space Failed : replicaFactor is illegal!";
-              resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
+              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
               onFinished();
               return;
         }
@@ -81,7 +81,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     }
     if (vidSize <= 0 && vidSize > std::numeric_limits<int32_t>::max()) {
         LOG(ERROR) << "Create Space Failed : vid_size is illegal!";
-        resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -92,7 +92,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     if ((int32_t)hosts.size() < replicaFactor) {
         LOG(ERROR) << "Not enough hosts existed for replica "
                    << replicaFactor << ", hosts num " << hosts.size();
-        handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
         onFinished();
         return;
     }
@@ -107,7 +107,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         data.emplace_back(MetaServiceUtils::partKey(spaceId, partId),
                           MetaServiceUtils::partVal(partHosts));
     }
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     resp_.set_id(to(spaceId, EntryType::SPACE));
     doSyncPutAndUpdate(std::move(data));
 }

@@ -37,7 +37,7 @@ void RegConfigProcessor::process(const cpp2::RegConfigReq& req) {
             return;
         }
     }
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 

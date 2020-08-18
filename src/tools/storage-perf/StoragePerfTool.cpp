@@ -80,7 +80,7 @@ public:
                 LOG(ERROR) << "Create tag failed: " << ret.status();
                 return false;
             }
-            tagId_ = ret.value();
+            tagId_ = ret.value().get_id().get_tag_id();
             sleep(FLAGS_heartbeat_interval_secs + 1);
         } else {
             tagId_ = tagResult.value();
@@ -108,7 +108,7 @@ public:
                 LOG(ERROR) << "Create tag failed: " << ret.status();
                 return false;
             }
-            edgeType_ = ret.value();
+            edgeType_ = ret.value().get_id().get_edge_type();
             sleep(FLAGS_heartbeat_interval_secs + 1);
         } else {
             edgeType_ = edgeResult.value();

@@ -30,7 +30,7 @@ private:
                                  stats::Stats* stats)
             : BaseProcessor<cpp2::ScanVertexResponse>(kvstore, schemaMan, stats) {}
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::ScanVertexRequest& req);
+    nebula::cpp2::ErrorCode checkAndBuildContexts(const cpp2::ScanVertexRequest& req);
 
     std::unordered_map<TagID, std::vector<PropContext>> tagContexts_;
     std::unordered_map<TagID, nebula::cpp2::Schema> tagSchema_;

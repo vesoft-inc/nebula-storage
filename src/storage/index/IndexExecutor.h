@@ -31,14 +31,14 @@ protected:
         , vertexCache_(cache)
         , isEdgeIndex_(isEdgeIndex) {}
 
-    void putResultCodes(cpp2::ErrorCode code, const std::vector<PartitionID>& parts) {
+    void putResultCodes(nebula::cpp2::ErrorCode code, const std::vector<PartitionID>& parts) {
         for (auto& p : parts) {
             this->pushResultCode(code, p);
         }
         this->onFinished();
     }
 
-    cpp2::ErrorCode prepareRequest(const cpp2::LookUpIndexRequest &req);
+    nebula::cpp2::ErrorCode prepareRequest(const cpp2::LookUpIndexRequest &req);
 
     /**
      * Details Prepare the index scan. logic as below :
@@ -46,7 +46,7 @@ protected:
      *         2, Build prefix string for first n columns of index.
      *         3, Collect information needed for index scanning,
      **/
-    cpp2::ErrorCode buildExecutionPlan(const std::string& filter);
+    nebula::cpp2::ErrorCode buildExecutionPlan(const std::string& filter);
 
     /**
      * Details Scan index part as one by one.
@@ -54,9 +54,9 @@ protected:
     kvstore::ResultCode executeExecutionPlan(PartitionID part);
 
 private:
-    cpp2::ErrorCode checkIndex(IndexID indexId);
+    nebula::cpp2::ErrorCode checkIndex(IndexID indexId);
 
-    cpp2::ErrorCode checkReturnColumns(const std::vector<std::string> &cols);
+    nebula::cpp2::ErrorCode checkReturnColumns(const std::vector<std::string> &cols);
 
     kvstore::ResultCode getDataRow(PartitionID partId,
                                    const folly::StringPiece& key);

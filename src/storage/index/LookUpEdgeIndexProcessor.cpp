@@ -14,7 +14,7 @@ void LookUpEdgeIndexProcessor::process(const cpp2::LookUpIndexRequest& req) {
      * step 1 : prepare index meta and structure of return columns.
      */
     auto ret = prepareRequest(req);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         putResultCodes(ret, req.get_parts());
         return;
     }
@@ -23,7 +23,7 @@ void LookUpEdgeIndexProcessor::process(const cpp2::LookUpIndexRequest& req) {
      * step 2 : build execution plan
      */
     ret = buildExecutionPlan(req.get_filter());
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         putResultCodes(ret, req.get_parts());
         return;
     }

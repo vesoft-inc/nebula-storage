@@ -24,7 +24,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     auto leaderRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &leaderIter);
     if (leaderRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Get space " << space << "'s part failed";
-        resp_.set_code(cpp2::ErrorCode::E_NOT_FOUND);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -32,7 +32,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     auto indexIDResult = getIndexID(space, indexName);
     if (!indexIDResult.ok()) {
         LOG(ERROR) << "Index " << indexName << " Not Found";
-        resp_.set_code(cpp2::ErrorCode::E_NOT_FOUND);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND);
         onFinished();
         return;
     }
@@ -41,7 +41,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     auto statusKey = MetaServiceUtils::rebuildIndexStatus(space, category_, indexName);
     if (!MetaCommon::saveRebuildStatus(kvstore_, statusKey, "RUNNING")) {
         LOG(ERROR) << "Save rebuild status failed";
-        resp_.set_code(cpp2::ErrorCode::E_STORE_FAILURE);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_STORE_FAILED);
         onFinished();
         return;
     }
@@ -52,7 +52,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
         auto hostAddr = MetaServiceUtils::parseLeaderKey(leaderIter->key());
         if (hostAddr.host == "") {
             LOG(ERROR) << "leader key parse to empty string";
-            resp_.set_code(cpp2::ErrorCode::E_STORE_FAILURE);
+            resp_.set_code(nebula::cpp2::ErrorCode::E_STORE_FAILED);
             onFinished();
             return;
         }
@@ -67,7 +67,7 @@ void RebuildIndexProcessor::processInternal(const cpp2::RebuildIndexReq& req) {
     }
 
     handleRebuildIndexResult(std::move(results), kvstore_, std::move(statusKey));
-    resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
+    resp_.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 

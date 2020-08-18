@@ -16,23 +16,23 @@ void SetConfigProcessor::process(const cpp2::SetConfigReq& req) {
     auto value = req.get_item().get_value();
 
     folly::SharedMutex::WriteHolder wHolder(LockUtils::configLock());
-    cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
+    nebula::cpp2::ErrorCode code = nebula::cpp2::ErrorCode::SUCCEEDED;
     do {
         if (module != cpp2::ConfigModule::ALL) {
             // When we set config of a specified module, check if it exists.
             // If it exists and is mutable, update it.
             code = setConfig(module, name, value, data);
-            if (code != cpp2::ErrorCode::SUCCEEDED) {
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 break;
             }
         } else {
             // When we set config of all module, then try to set it of every module.
             code = setConfig(cpp2::ConfigModule::GRAPH, name, value, data);
-            if (code != cpp2::ErrorCode::SUCCEEDED) {
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 break;
             }
             code = setConfig(cpp2::ConfigModule::STORAGE, name, value, data);
-            if (code != cpp2::ErrorCode::SUCCEEDED) {
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 break;
             }
         }
@@ -47,24 +47,24 @@ void SetConfigProcessor::process(const cpp2::SetConfigReq& req) {
     onFinished();
 }
 
-cpp2::ErrorCode SetConfigProcessor::setConfig(const cpp2::ConfigModule& module,
+nebula::cpp2::ErrorCode SetConfigProcessor::setConfig(const cpp2::ConfigModule& module,
                                               const std::string& name,
                                               const Value& value,
                                               std::vector<kvstore::KV>& data) {
     std::string configKey = MetaServiceUtils::configKey(module, name);
     auto ret = doGet(std::move(configKey));
     if (!ret.ok()) {
-        return cpp2::ErrorCode::E_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_CONFIG_NOT_FOUND;
     }
 
     cpp2::ConfigItem item = MetaServiceUtils::parseConfigValue(ret.value());
     cpp2::ConfigMode curMode = item.get_mode();
     if (curMode == cpp2::ConfigMode::IMMUTABLE) {
-        return cpp2::ErrorCode::E_CONFIG_IMMUTABLE;
+        return nebula::cpp2::ErrorCode::E_CONFIG_IMMUTABLE;
     }
     std::string configValue = MetaServiceUtils::configValue(curMode, value);
     data.emplace_back(std::move(configKey), std::move(configValue));
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 }  // namespace meta

@@ -36,7 +36,7 @@
         storage::cpp2::ResponseCommon result; \
         std::vector<storage::cpp2::PartitionResult> partRetCode; \
         storage::cpp2::PartitionResult thriftRet; \
-        thriftRet.set_code(storage::cpp2::ErrorCode::E_LEADER_CHANGED); \
+        thriftRet.set_code(nebula::cpp2::ErrorCode::E_LEADER_CHANGED); \
         thriftRet.set_leader(leader); \
         partRetCode.emplace_back(std::move(thriftRet)); \
         result.set_failed_parts(partRetCode); \

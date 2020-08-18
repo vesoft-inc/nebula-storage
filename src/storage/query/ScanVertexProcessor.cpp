@@ -22,7 +22,7 @@ void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
     returnAllColumns_ = req.get_all_columns();
 
     auto retCode = checkAndBuildContexts(req);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         this->pushResultCode(retCode, partId_);
         this->onFinished();
         return;
@@ -104,14 +104,15 @@ void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
     onFinished();
 }
 
-cpp2::ErrorCode ScanVertexProcessor::checkAndBuildContexts(const cpp2::ScanVertexRequest& req) {
+nebula::cpp2::ErrorCode
+ScanVertexProcessor::checkAndBuildContexts(const cpp2::ScanVertexRequest& req) {
     for (const auto& tagIter : req.get_return_columns()) {
         int32_t index = 0;
         TagID tagId = tagIter.first;
         std::vector<PropContext> propContexts;
         auto schema = this->schemaMan_->getTagSchema(spaceId_, tagId);
         if (!schema) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
 
         if (returnAllColumns_) {
@@ -134,7 +135,7 @@ cpp2::ErrorCode ScanVertexProcessor::checkAndBuildContexts(const cpp2::ScanVerte
                 case cpp2::PropOwner::SOURCE: {
                     auto ftype = schema->getFieldType(col.name);
                     if (UNLIKELY(ftype == CommonConstants::kInvalidValueType())) {
-                        return cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
+                        return nebula::cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
                     }
                     prop.type_ = ftype;
                     retSchema.addField(col.name, std::move(ftype));
@@ -153,7 +154,7 @@ cpp2::ErrorCode ScanVertexProcessor::checkAndBuildContexts(const cpp2::ScanVerte
         tagContexts_.emplace(tagId, std::move(propContexts));
         tagSchema_.emplace(tagId, retSchema.toSchema());
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 }  // namespace storage

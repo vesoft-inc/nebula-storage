@@ -13,7 +13,7 @@
 namespace nebula {
 namespace storage {
 
-cpp2::ErrorCode toStorageErr(nebula::kvstore::ResultCode code);
+nebula::cpp2::ErrorCode toStorageErr(nebula::kvstore::ResultCode code);
 
 }  // namespace storage
 }  // namespace nebula

@@ -45,7 +45,7 @@ TEST(MetaClientTest, InterfacesTest) {
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
         for (auto i = 0u; i < hosts.size(); i++) {
-            auto tHost = ret.value()[i].hostAddr;
+            auto tHost = ret.value().get_hosts()[i].hostAddr;
             auto hostAddr = HostAddr(tHost.host, tHost.port);
             ASSERT_EQ(hosts[i], hostAddr);
         }
@@ -56,7 +56,7 @@ TEST(MetaClientTest, InterfacesTest) {
             SpaceDesc spaceDesc("default_space", 8, 3, "utf8", "utf8_bin");
             auto ret = client->createSpace(spaceDesc).get();
             ASSERT_TRUE(ret.ok()) << ret.status();
-            spaceId = ret.value();
+            spaceId = ret.value().get_id().get_space_id();
 
             ret = client->createSpace(spaceDesc, true).get();
             ASSERT_TRUE(ret.ok()) << ret.status();
@@ -69,7 +69,7 @@ TEST(MetaClientTest, InterfacesTest) {
         {
             auto ret = client->getSpace("default_space").get();
             ASSERT_TRUE(ret.ok()) << ret.status();
-            meta::cpp2::SpaceProperties properties = ret.value().get_properties();
+            meta::cpp2::SpaceProperties properties = ret.value().get_item().get_properties();
             ASSERT_EQ("default_space", properties.space_name);
             ASSERT_EQ(8, properties.partition_num);
             ASSERT_EQ(3, properties.replica_factor);
@@ -79,15 +79,17 @@ TEST(MetaClientTest, InterfacesTest) {
         {
             auto ret = client->listSpaces().get();
             ASSERT_TRUE(ret.ok()) << ret.status();
-            ASSERT_EQ(1, ret.value().size());
-            ASSERT_EQ(1, ret.value()[0].first);
-            ASSERT_EQ("default_space", ret.value()[0].second);
+            auto spaces = ret.value().get_spaces();
+            ASSERT_EQ(1, spaces.size());
+            ASSERT_EQ(1, spaces[0].get_id().get_space_id());
+            ASSERT_EQ("default_space", spaces[0].name);
         }
         {
             auto ret = client->getPartsAlloc(spaceId).get();
             ASSERT_TRUE(ret.ok()) << ret.status();
-            ASSERT_EQ(8, ret.value().size());
-            for (auto it = ret.value().begin(); it != ret.value().end(); it++) {
+            auto parts = ret.value().get_parts();
+            ASSERT_EQ(8, parts.size());
+            for (auto it = parts.begin(); it != parts.end(); it++) {
                 ASSERT_EQ(3, it->second.size());
             }
         }
@@ -157,18 +159,19 @@ TEST(MetaClientTest, InterfacesTest) {
             // listTagSchemas
             auto ret1 = client->listTagSchemas(spaceId).get();
             ASSERT_TRUE(ret1.ok()) << ret1.status();
-            ASSERT_EQ(ret1.value().size(), 2);
-            ASSERT_NE(ret1.value().begin()->tag_id, 0);
-            ASSERT_EQ(ret1.value().begin()->schema.columns.size(), 5);
+            auto tags = ret1.value().get_tags();
+            ASSERT_EQ(tags.size(), 2);
+            ASSERT_NE(tags.begin()->tag_id, 0);
+            ASSERT_EQ(tags.begin()->schema.columns.size(), 5);
 
             // getTagSchemaFromCache
             sleep(FLAGS_heartbeat_interval_secs + 1);
             auto ret = client->getLatestTagVersionFromCache(spaceId,
-                                                            ret1.value().begin()->tag_id);
+                                                            tags.begin()->tag_id);
             CHECK(ret.ok());
             auto ver = ret.value();
             auto ret2 = client->getTagSchemaFromCache(spaceId,
-                                                      ret1.value().begin()->tag_id, ver);
+                                                      tags.begin()->tag_id, ver);
             ASSERT_TRUE(ret2.ok()) << ret2.status();
             ASSERT_EQ(ret2.value()->getNumFields(), 5);
 
@@ -199,16 +202,17 @@ TEST(MetaClientTest, InterfacesTest) {
             // listEdgeSchemas
             auto ret1 = client->listEdgeSchemas(spaceId).get();
             ASSERT_TRUE(ret1.ok()) << ret1.status();
-            ASSERT_EQ(ret1.value().size(), 2);
-            ASSERT_NE(ret1.value().begin()->edge_type, 0);
+            auto edges = ret1.value().get_edges();
+            ASSERT_EQ(edges.size(), 2);
+            ASSERT_NE(edges.begin()->edge_type, 0);
 
             // getEdgeSchemaFromCache
             auto retVer = client->getLatestEdgeVersionFromCache(spaceId,
-                                                                ret1.value().begin()->edge_type);
+                                                                edges.begin()->edge_type);
             CHECK(retVer.ok());
             auto ver = retVer.value();
             auto ret2 = client->getEdgeSchemaFromCache(spaceId,
-                                                       ret1.value().begin()->edge_type, ver);
+                                                       edges.begin()->edge_type, ver);
             ASSERT_TRUE(ret2.ok()) << ret2.status();
             ASSERT_EQ(ret2.value()->getNumFields(), 5);
 
@@ -275,7 +279,7 @@ TEST(MetaClientTest, InterfacesTest) {
         // Get Test
         auto ret = client->get("test", "key_0").get();
         ASSERT_TRUE(ret.ok());
-        ASSERT_EQ("value_0", ret.value());
+        ASSERT_EQ("value_0", ret.value().get_value());
 
         auto missedRet = client->get("test", "missed_key").get();
         ASSERT_FALSE(missedRet.ok());
@@ -291,9 +295,10 @@ TEST(MetaClientTest, InterfacesTest) {
         }
         auto ret = client->multiGet("test", keys).get();
         ASSERT_TRUE(ret.ok());
-        ASSERT_EQ(2, ret.value().size());
-        ASSERT_EQ("value_0", ret.value()[0]);
-        ASSERT_EQ("value_1", ret.value()[1]);
+        auto values = ret.value().get_values();
+        ASSERT_EQ(2, values.size());
+        ASSERT_EQ("value_0", values[0]);
+        ASSERT_EQ("value_1", values[1]);
 
         std::vector<std::string> emptyKeys;
         auto emptyRet = client->multiGet("test", emptyKeys).get();
@@ -303,10 +308,11 @@ TEST(MetaClientTest, InterfacesTest) {
         // Scan Test
         auto ret = client->scan("test", "key_0", "key_3").get();
         ASSERT_TRUE(ret.ok());
-        ASSERT_EQ(3, ret.value().size());
-        ASSERT_EQ("value_0", ret.value()[0]);
-        ASSERT_EQ("value_1", ret.value()[1]);
-        ASSERT_EQ("value_2", ret.value()[2]);
+        auto values = ret.value().get_values();
+        ASSERT_EQ(3, values.size());
+        ASSERT_EQ("value_0", values[0]);
+        ASSERT_EQ("value_1", values[1]);
+        ASSERT_EQ("value_2", values[2]);
     }
     {
         // Remove Test
@@ -327,7 +333,7 @@ TEST(MetaClientTest, InterfacesTest) {
         ASSERT_TRUE(ret.ok());
         auto ret1 = client->listSpaces().get();
         ASSERT_TRUE(ret1.ok()) << ret1.status();
-        ASSERT_EQ(0, ret1.value().size());
+        ASSERT_EQ(0, ret1.value().get_spaces().size());
     }
 }
 
@@ -351,7 +357,7 @@ TEST(MetaClientTest, TagTest) {
     SpaceDesc spaceDesc("default", 9, 3);
     auto ret = client->createSpace(spaceDesc).get();
     ASSERT_TRUE(ret.ok()) << ret.status();
-    GraphSpaceID spaceId = ret.value();
+    GraphSpaceID spaceId = ret.value().get_id().get_space_id();
     TagID id;
     int64_t version;
 
@@ -380,7 +386,7 @@ TEST(MetaClientTest, TagTest) {
         schema.set_columns(std::move(columns));
         auto result = client->createTagSchema(spaceId, "test_tag", std::move(schema)).get();
         ASSERT_TRUE(result.ok());
-        id = result.value();
+        id = result.value().get_id().get_tag_id();
     }
     {
         std::vector<cpp2::ColumnDef> columns;
@@ -409,7 +415,7 @@ TEST(MetaClientTest, TagTest) {
     {
         auto result = client->listTagSchemas(spaceId).get();
         ASSERT_TRUE(result.ok());
-        auto tags = result.value();
+        auto tags = result.value().get_tags();
         ASSERT_EQ(1, tags.size());
         ASSERT_EQ(id, tags[0].get_tag_id());
         ASSERT_EQ("test_tag", tags[0].get_tag_name());
@@ -420,11 +426,14 @@ TEST(MetaClientTest, TagTest) {
         ASSERT_TRUE(result1.ok());
         auto result2 = client->getTagSchema(spaceId, "test_tag").get();
         ASSERT_TRUE(result2.ok());
-        ASSERT_EQ(3, result2.value().columns.size());
-        ASSERT_EQ(result1.value().columns.size(), result2.value().columns.size());
-        for (auto i = 0u; i < result1.value().columns.size(); i++) {
-            ASSERT_EQ(result1.value().columns[i].name, result2.value().columns[i].name);
-            ASSERT_EQ(result1.value().columns[i].type, result2.value().columns[i].type);
+
+        auto columns1 = result1.value().get_schema().columns;
+        auto columns2 = result2.value().get_schema().columns;
+        ASSERT_EQ(3, columns2.size());
+        ASSERT_EQ(columns1.size(), columns2.size());
+        for (auto i = 0u; i < columns1.size(); i++) {
+            ASSERT_EQ(columns1[i].name, columns2[i].name);
+            ASSERT_EQ(columns1[i].type, columns2[i].type);
         }
     }
     // Get wrong version
@@ -457,7 +466,7 @@ TEST(MetaClientTest, EdgeTest) {
     SpaceDesc spaceDesc("default_space", 9, 3);
     auto ret = client->createSpace(spaceDesc).get();
     ASSERT_TRUE(ret.ok()) << ret.status();
-    GraphSpaceID space = ret.value();
+    GraphSpaceID space = ret.value().get_id().get_space_id();
     SchemaVer version;
 
     std::vector<cpp2::ColumnDef> expectedColumns;
@@ -520,7 +529,7 @@ TEST(MetaClientTest, EdgeTest) {
     {
         auto result = client->listEdgeSchemas(space).get();
         ASSERT_TRUE(result.ok());
-        auto edges = result.value();
+        auto edges = result.value().get_edges();
         ASSERT_EQ(1, edges.size());
         ASSERT_EQ(2, edges[0].get_edge_type());
         ASSERT_EQ("test_edge", edges[0].get_edge_name());
@@ -536,10 +545,12 @@ TEST(MetaClientTest, EdgeTest) {
         ASSERT_TRUE(result1.ok());
         auto result2 = client->getEdgeSchema(space, "test_edge").get();
         ASSERT_TRUE(result2.ok());
-        ASSERT_EQ(result1.value().columns.size(), result2.value().columns.size());
-        for (auto i = 0u; i < result1.value().columns.size(); i++) {
-            ASSERT_EQ(result1.value().columns[i].name, result2.value().columns[i].name);
-            ASSERT_EQ(result1.value().columns[i].type, result2.value().columns[i].type);
+        auto columns1 = result1.value().get_schema().columns;
+        auto columns2 = result2.value().get_schema().columns;
+        ASSERT_EQ(columns1.size(), columns2.size());
+        for (auto i = 0u; i < columns1.size(); i++) {
+            ASSERT_EQ(columns1[i].name, columns2[i].name);
+            ASSERT_EQ(columns1[i].type, columns2[i].type);
         }
     }
     {
@@ -567,7 +578,7 @@ TEST(MetaClientTest, TagIndexTest) {
     SpaceDesc spaceDesc("default_space", 8, 3);
     auto ret = client->createSpace(spaceDesc).get();
     ASSERT_TRUE(ret.ok()) << ret.status();
-    GraphSpaceID space = ret.value();
+    GraphSpaceID space = ret.value().get_id().get_space_id();
     IndexID singleFieldIndexID;
     IndexID multiFieldIndexID;
     {
@@ -597,7 +608,7 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_0",
                                              std::move(fields)).get();
         ASSERT_TRUE(result.ok());
-        singleFieldIndexID = result.value();
+        singleFieldIndexID = result.value().get_id().get_index_id();
     }
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_1"};
@@ -606,7 +617,7 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_0",
                                              std::move(fields)).get();
         ASSERT_TRUE(result.ok());
-        multiFieldIndexID = result.value();
+        multiFieldIndexID = result.value().get_id().get_index_id();
     }
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "not_exist_field"};
@@ -637,7 +648,7 @@ TEST(MetaClientTest, TagIndexTest) {
     }
     {
         auto result = client->listTagIndexes(space).get();
-        auto values = result.value();
+        auto values = result.value().get_items();
         ASSERT_EQ(2, values.size());
 
         {
@@ -726,7 +737,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     TestUtils::registerHB(kv, hosts);
     SpaceDesc spaceDesc("default_space", 8, 3);
     auto ret = client->createSpace(spaceDesc).get();
-    GraphSpaceID space = ret.value();
+    GraphSpaceID space = ret.value().get_id().get_space_id();
     IndexID singleFieldIndexID;
     IndexID multiFieldIndexID;
     {
@@ -757,7 +768,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_0",
                                               std::move(fields)).get();
         ASSERT_TRUE(result.ok());
-        singleFieldIndexID = result.value();
+        singleFieldIndexID = result.value().get_id().get_index_id();
     }
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_1"};
@@ -766,7 +777,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_0",
                                               std::move(fields)).get();
         ASSERT_TRUE(result.ok());
-        multiFieldIndexID = result.value();
+        multiFieldIndexID = result.value().get_id().get_index_id();
     }
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_1"};
@@ -797,7 +808,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     }
     {
         auto result = client->listEdgeIndexes(space).get();
-        auto values = result.value();
+        auto values = result.value().get_items();
         ASSERT_EQ(2, values.size());
 
         {
@@ -947,8 +958,9 @@ TEST(MetaClientTest, DiffTest) {
         TestUtils::registerHB(kv, hosts);
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
+        auto resultHosts = ret.value().get_hosts();
         for (auto i = 0u; i < hosts.size(); i++) {
-            auto tHost = ret.value()[i].hostAddr;
+            auto tHost = resultHosts[i].hostAddr;
             auto hostAddr = HostAddr(tHost.host, tHost.port);
             ASSERT_EQ(hosts[i], hostAddr);
         }
@@ -1003,8 +1015,9 @@ TEST(MetaClientTest, HeartbeatTest) {
         std::vector<HostAddr> hosts = {localHost};
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
+        auto resultHosts = ret.value().get_hosts();
         for (auto i = 0u; i < hosts.size(); i++) {
-            auto tHost = ret.value()[i].hostAddr;
+            auto tHost = resultHosts[i].hostAddr;
             auto hostAddr = HostAddr(tHost.host, tHost.port);
             ASSERT_EQ(hosts[i], hostAddr);
         }
@@ -1023,7 +1036,7 @@ public:
         folly::Promise<cpp2::HBResp> pro;
         auto f = pro.getFuture();
         cpp2::HBResp resp;
-        resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+        resp.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
         pro.setValue(std::move(resp));
         return f;
     }
@@ -1046,9 +1059,9 @@ public:
         auto f = pro.getFuture();
         cpp2::HBResp resp;
         if (addr_ == leader_) {
-            resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+            resp.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
-            resp.set_code(cpp2::ErrorCode::E_LEADER_CHANGED);
+            resp.set_code(nebula::cpp2::ErrorCode::E_LEADER_CHANGED);
             resp.set_leader(leader_);
         }
         pro.setValue(std::move(resp));
@@ -1216,16 +1229,16 @@ TEST(MetaClientTest, Config) {
     {
         auto resp = client->listConfigs(cpp2::ConfigModule::GRAPH).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 0);
+        EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::META).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 0);
+        EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::STORAGE).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 0);
+        EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::ALL).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 0);
+        EXPECT_EQ(resp.value().get_items().size(), 0);
     }
     // Set
     {
@@ -1264,16 +1277,16 @@ TEST(MetaClientTest, Config) {
     {
         auto resp = client->listConfigs(cpp2::ConfigModule::GRAPH).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 1);
+        EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::META).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 1);
+        EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::STORAGE).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 1);
+        EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::ALL).get();
         EXPECT_TRUE(resp.ok());
-        EXPECT_EQ(resp.value().size(), 3);
+        EXPECT_EQ(resp.value().get_items().size(), 3);
     }
     // Set
     {
@@ -1288,17 +1301,17 @@ TEST(MetaClientTest, Config) {
     {
         auto resp = client->getConfig(cpp2::ConfigModule::GRAPH, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
-        auto configs = std::move(resp).value();
+        auto configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
 
         resp = client->getConfig(cpp2::ConfigModule::META, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
-        configs = std::move(resp).value();
+        configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
 
         resp = client->getConfig(cpp2::ConfigModule::STORAGE, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
-        configs = std::move(resp).value();
+        configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
     }
     // Just avoid memory leak error of clang asan. to waitting asynchronous thread done.
@@ -1343,7 +1356,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         // get from meta server
         auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = getRet.value().front();
+        auto item = getRet.value().get_items().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
         ASSERT_EQ(FLAGS_rocksdb_db_options, GflagsManager::ValueToGflagString(item.get_value()));
@@ -1368,7 +1381,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         // get from meta server
         auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = getRet.value().front();
+        auto item = getRet.value().get_items().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
         ASSERT_EQ(FLAGS_rocksdb_db_options, GflagsManager::ValueToGflagString(item.get_value()));
@@ -1386,3 +1399,4 @@ int main(int argc, char** argv) {
     google::SetStderrLogging(google::INFO);
     return RUN_ALL_TESTS();
 }
+

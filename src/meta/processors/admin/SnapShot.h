@@ -26,11 +26,12 @@ public:
 
     ~Snapshot() = default;
 
-    cpp2::ErrorCode createSnapshot(const std::string& name);
+    nebula::cpp2::ErrorCode createSnapshot(const std::string& name);
 
-    cpp2::ErrorCode dropSnapshot(const std::string& name, const std::vector<HostAddr> hosts);
+    nebula::cpp2::ErrorCode dropSnapshot(const std::string& name,
+                                         const std::vector<HostAddr> hosts);
 
-    cpp2::ErrorCode blockingWrites(storage::cpp2::EngineSignType sign);
+    nebula::cpp2::ErrorCode blockingWrites(storage::cpp2::EngineSignType sign);
 
     std::unordered_map<HostAddr, std::vector<PartitionID>>
     getLeaderParts(HostLeaderMap *hostLeaderMap, GraphSpaceID spaceId);

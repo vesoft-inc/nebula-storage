@@ -480,20 +480,20 @@ std::string MetaServiceUtils::assembleSegmentKey(const std::string& segment,
     return segmentKey;
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
-                                                  cpp2::SchemaProp&  prop,
-                                                  const cpp2::ColumnDef col,
-                                                  const cpp2::AlterSchemaOp op) {
+nebula::cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+                                                          cpp2::SchemaProp& prop,
+                                                          const cpp2::ColumnDef col,
+                                                          const cpp2::AlterSchemaOp op) {
     switch (op) {
         case cpp2::AlterSchemaOp::ADD:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 if (it->get_name() == col.get_name()) {
                     LOG(ERROR) << "Column existing: " << col.get_name();
-                    return cpp2::ErrorCode::E_EXISTED;
+                    return nebula::cpp2::ErrorCode::E_PROP_EXISTED;
                 }
             }
             cols.emplace_back(std::move(col));
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         case cpp2::AlterSchemaOp::CHANGE:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 auto colName = col.get_name();
@@ -501,14 +501,14 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                     // If this col is ttl_col, change not allowed
                     if (prop.get_ttl_col() && (*prop.get_ttl_col() == colName)) {
                         LOG(ERROR) << "Column: " << colName << " as ttl_col, change not allowed";
-                        return cpp2::ErrorCode::E_UNSUPPORTED;
+                        return nebula::cpp2::ErrorCode::E_PROP_WITH_TTL;
                     }
                     *it = col;
-                    return cpp2::ErrorCode::SUCCEEDED;
+                    return nebula::cpp2::ErrorCode::SUCCEEDED;
                 }
             }
             LOG(ERROR) << "Column not found: " << col.get_name();
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_PROP_NOT_FOUND;
         case cpp2::AlterSchemaOp::DROP:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 auto colName = col.get_name();
@@ -518,24 +518,24 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                         prop.set_ttl_col("");
                     }
                     cols.erase(it);
-                    return cpp2::ErrorCode::SUCCEEDED;
+                    return nebula::cpp2::ErrorCode::SUCCEEDED;
                 }
             }
             LOG(ERROR) << "Column not found: " << col.get_name();
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_PROP_NOT_FOUND;
         default:
             LOG(ERROR) << "Alter schema operator not supported";
-            return cpp2::ErrorCode::E_UNSUPPORTED;
+            return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
-                                                  cpp2::SchemaProp& schemaProp,
-                                                  cpp2::SchemaProp alterSchemaProp,
-                                                  bool existIndex) {
+nebula::cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+                                                          cpp2::SchemaProp& schemaProp,
+                                                          cpp2::SchemaProp alterSchemaProp,
+                                                          bool existIndex) {
     if (existIndex && (alterSchemaProp.__isset.ttl_duration || alterSchemaProp.__isset.ttl_col)) {
         LOG(ERROR) << "Has index, can't set ttl";
-        return cpp2::ErrorCode::E_UNSUPPORTED;
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
     if (alterSchemaProp.__isset.ttl_duration) {
         // Graph check  <=0 to = 0
@@ -547,7 +547,7 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
         if (ttlCol.empty()) {
             schemaProp.set_ttl_duration(0);
             schemaProp.set_ttl_col(ttlCol);
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
 
         auto existed = false;
@@ -557,7 +557,7 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
                 if (col.type != cpp2::PropertyType::INT64 &&
                     col.type != cpp2::PropertyType::TIMESTAMP) {
                     LOG(ERROR) << "TTL column type illegal";
-                    return cpp2::ErrorCode::E_UNSUPPORTED;
+                    return nebula::cpp2::ErrorCode::E_INVALID_DATA;
                 }
                 existed = true;
                 schemaProp.set_ttl_col(ttlCol);
@@ -567,7 +567,7 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
 
         if (!existed) {
             LOG(ERROR) << "TTL column not found: " << ttlCol;
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_PROP_NOT_FOUND;
         }
     }
 
@@ -576,10 +576,10 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
         (!schemaProp.get_ttl_col() || (schemaProp.get_ttl_col() &&
          schemaProp.get_ttl_col()->empty()))) {
         LOG(WARNING) << "Implicit ttl_col not support";
-        return cpp2::ErrorCode::E_UNSUPPORTED;
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
 
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 std::string MetaServiceUtils::userKey(const std::string& account) {

@@ -10,7 +10,7 @@
 namespace nebula {
 namespace storage {
 
-ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>>
+ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>>
 FlushTask::genSubTasks() {
     std::vector<AdminSubTask> ret;
     if (!ctx_.store_) {

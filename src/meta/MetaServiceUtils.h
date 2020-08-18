@@ -157,12 +157,12 @@ public:
 
     static std::string assembleSegmentKey(const std::string& segment, const std::string& key);
 
-    static cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+    static nebula::cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
                                            cpp2::SchemaProp&  prop,
                                            const cpp2::ColumnDef col,
                                            const cpp2::AlterSchemaOp op);
 
-    static cpp2::ErrorCode alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+    static nebula::cpp2::ErrorCode alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
                                            cpp2::SchemaProp&  schemaProp,
                                            cpp2::SchemaProp alterSchemaProp,
                                            bool existIndex);

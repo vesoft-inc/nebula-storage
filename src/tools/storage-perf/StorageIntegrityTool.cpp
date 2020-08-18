@@ -91,7 +91,7 @@ private:
                 LOG(ERROR) << "Create space failed: " << ret.status();
                 return false;
             }
-            spaceId_ = ret.value();
+            spaceId_ = ret.value().get_id().get_space_id();;
         } else {
             spaceId_ = spaceResult.value();
         }
@@ -110,7 +110,7 @@ private:
                 LOG(ERROR) << "Create tag failed: " << ret.status();
                 return false;
             }
-            tagId_ = ret.value();
+            tagId_ = ret.value().get_id().get_tag_id();
         } else {
             tagId_ = tagResult.value();
         }

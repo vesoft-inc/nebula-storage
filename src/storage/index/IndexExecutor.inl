@@ -13,13 +13,13 @@ namespace nebula {
 namespace storage {
 
 template <typename RESP>
-cpp2::ErrorCode IndexExecutor<RESP>::prepareRequest(const cpp2::LookUpIndexRequest &req) {
+nebula::cpp2::ErrorCode IndexExecutor<RESP>::prepareRequest(const cpp2::LookUpIndexRequest &req) {
     spaceId_ = req.get_space_id();
     /**
      * step 1 , check index meta , and collect index variable-length type of columns.
      */
     auto ret = checkIndex(req.get_index_id());
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
     /**
@@ -30,9 +30,9 @@ cpp2::ErrorCode IndexExecutor<RESP>::prepareRequest(const cpp2::LookUpIndexReque
 }
 
 template <typename RESP>
-cpp2::ErrorCode IndexExecutor<RESP>::buildExecutionPlan(const std::string& filter) {
+nebula::cpp2::ErrorCode IndexExecutor<RESP>::buildExecutionPlan(const std::string& filter) {
     auto ret = preparePolicy(filter);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
     buildPolicy();
@@ -40,7 +40,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::buildExecutionPlan(const std::string& filte
 }
 
 template <typename RESP>
-cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
+nebula::cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
     StatusOr<std::shared_ptr<nebula::cpp2::IndexItem>> index;
     if (isEdgeIndex_) {
         index = indexMan_->getEdgeIndex(spaceId_, indexId);
@@ -48,7 +48,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
         index = indexMan_->getTagIndex(spaceId_, indexId);
     }
     if (!index.ok()) {
-        return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND;
     }
     index_ = std::move(index).value();
     tagOrEdge_ = (isEdgeIndex_) ? index_->get_schema_id().get_edge_type() :
@@ -59,11 +59,12 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkIndex(IndexID indexId) {
             vColNum_++;
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename RESP>
-cpp2::ErrorCode IndexExecutor<RESP>::checkReturnColumns(const std::vector<std::string> &cols) {
+nebula::cpp2::ErrorCode
+IndexExecutor<RESP>::checkReturnColumns(const std::vector<std::string> &cols) {
     int32_t index = 0;
     if (!cols.empty()) {
         schema_ = std::make_shared<SchemaWriter>();
@@ -73,8 +74,8 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkReturnColumns(const std::vector<std::s
         if (!schema) {
             LOG(ERROR) << "Can't find schema, spaceId "
                        << spaceId_ << ", id " << tagOrEdge_;
-            return isEdgeIndex_ ? cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND :
-                                  cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+            return isEdgeIndex_ ? nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND :
+                                  nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
         }
 
         for (auto i = 0; i < static_cast<int64_t>(schema_->getNumFields()); i++) {
@@ -92,7 +93,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkReturnColumns(const std::vector<std::s
         for (auto& col : cols) {
             const auto& ftype = schema->getFieldType(col);
             if (UNLIKELY(ftype == CommonConstants::kInvalidValueType())) {
-                return cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
+                return nebula::cpp2::ErrorCode::E_IMPROPER_DATA_TYPE;
             }
             /**
              * Create PropContext for getRowFromReader
@@ -110,7 +111,7 @@ cpp2::ErrorCode IndexExecutor<RESP>::checkReturnColumns(const std::vector<std::s
             schema_->appendCol(col, std::move(ftype).get_type());
         }   // end for
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename RESP>

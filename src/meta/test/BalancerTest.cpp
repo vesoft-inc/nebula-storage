@@ -374,7 +374,7 @@ TEST(BalanceTest, NormalTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     std::vector<Status> sts(9, Status::OK());
@@ -382,7 +382,7 @@ TEST(BalanceTest, NormalTest) {
     auto client = std::make_unique<AdminClient>(std::move(injector));
     Balancer balancer(kv.get(), std::move(client));
     auto ret = balancer.balance();
-    ASSERT_EQ(cpp2::ErrorCode::E_BALANCED, error(ret));
+    ASSERT_EQ(nebula::cpp2::ErrorCode::E_BALANCED, error(ret));
 
     sleep(1);
     LOG(INFO) << "Now, we lost host " << HostAddr("3", 3);
@@ -459,7 +459,7 @@ TEST(BalanceTest, SpecifyHostTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     std::vector<Status> sts(9, Status::OK());
@@ -543,7 +543,7 @@ TEST(BalanceTest, SpecifyMultiHostTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     std::unordered_map<HostAddr, int32_t> partCount;
@@ -562,7 +562,7 @@ TEST(BalanceTest, SpecifyMultiHostTest) {
     TestUtils::registerHB(kv.get(), {{"0", 0}, {"1", 1}, {"4", 4}, {"5", 5}});
     auto ret = balancer.balance({{"2", 2}, {"3", 3}});
     CHECK(!ok(ret));
-    EXPECT_EQ(cpp2::ErrorCode::E_NO_VALID_HOST, error(ret));
+    EXPECT_EQ(nebula::cpp2::ErrorCode::E_NO_VALID_HOST, error(ret));
     // If {"2", 2} is dead, {"3", 3} stiil alive, each part has majority hosts alive
     TestUtils::registerHB(kv.get(), {{"0", 0}, {"1", 1}, {"3", 3}, {"4", 4}, {"5", 5}});
     ret = balancer.balance({{"2", 2}, {"3", 3}});
@@ -644,7 +644,7 @@ TEST(BalanceTest, MockReplaceMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     std::vector<Status> sts(9, Status::OK());
@@ -732,7 +732,7 @@ TEST(BalanceTest, SingleReplicaTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     std::unordered_map<HostAddr, int32_t> partCount;
@@ -827,7 +827,7 @@ TEST(BalanceTest, RecoveryTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
 
@@ -975,7 +975,7 @@ TEST(BalanceTest, StopBalanceDataTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
 
@@ -1288,7 +1288,7 @@ TEST(BalanceTest, LeaderBalanceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
 
@@ -1298,7 +1298,7 @@ TEST(BalanceTest, LeaderBalanceTest) {
 
     Balancer balancer(kv.get(), std::move(client));
     auto ret = balancer.leaderBalance();
-    ASSERT_EQ(ret, cpp2::ErrorCode::SUCCEEDED);
+    ASSERT_EQ(ret, nebula::cpp2::ErrorCode::SUCCEEDED);
 }
 
 }  // namespace meta

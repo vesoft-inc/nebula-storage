@@ -21,7 +21,7 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     if (!ret.ok()) {
         LOG(ERROR) << ret.status();
         for (auto& part : partEdges) {
-            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+            pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
@@ -48,7 +48,7 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_ << ", edge srcVid: "
                                << edgeKey.src << " dstVid: " << edgeKey.dst;
-                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                    pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }

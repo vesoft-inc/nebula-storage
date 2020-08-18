@@ -19,7 +19,7 @@ void RebuildEdgeIndexProcessor::process(const cpp2::RebuildIndexRequest& req) {
     auto itemRet = indexMan_->getEdgeIndex(space, indexID);
     if (!itemRet.ok()) {
         cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(cpp2::ErrorCode::E_INDEX_NOT_FOUND);
+        thriftRet.set_code(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND);
         codes_.emplace_back(thriftRet);
         onFinished();
         return;

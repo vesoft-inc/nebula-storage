@@ -69,7 +69,7 @@ public:
     /*
      * Return Error if reject the balance request, otherwise return balance id.
      * */
-    ErrorOr<cpp2::ErrorCode, BalanceID> balance(std::unordered_set<HostAddr> hostDel = {});
+    ErrorOr<nebula::cpp2::ErrorCode, BalanceID> balance(std::unordered_set<HostAddr> hostDel = {});
 
     /**
      * Show balance plan id status.
@@ -104,7 +104,7 @@ public:
         return Status::Error("Unsupport it yet!");
     }
 
-    cpp2::ErrorCode leaderBalance();
+    nebula::cpp2::ErrorCode leaderBalance();
 
     void finish() {
         CHECK(!lock_.try_lock());
@@ -126,14 +126,14 @@ private:
     /*
      * When the balancer failover, we should recovery the status.
      * */
-    cpp2::ErrorCode recovery();
+    nebula::cpp2::ErrorCode recovery();
 
     /**
      * Build balance plan and save it in kvstore.
      * */
-    cpp2::ErrorCode buildBalancePlan(std::unordered_set<HostAddr> hostDel);
+    nebula::cpp2::ErrorCode buildBalancePlan(std::unordered_set<HostAddr> hostDel);
 
-    ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
+    ErrorOr<nebula::cpp2::ErrorCode, std::vector<BalanceTask>>
     genTasks(GraphSpaceID spaceId, int32_t spaceReplica, std::unordered_set<HostAddr> hostDel);
 
     void getHostParts(GraphSpaceID spaceId,
