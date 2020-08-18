@@ -77,6 +77,7 @@ list(APPEND CMAKE_MODULE_PATH ${nebula_common_source_dir}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${nebula_common_source_dir}/cmake/nebula)
 
 include(PlatformCheck)
+include(NebulaCMakeMacros)
 include(GeneralCMakeOptions)
 include(GeneralCMakeConfig)
 include(GeneralCompilerConfig)
@@ -86,7 +87,6 @@ include(ThirdPartyConfig)
 include(SanitizerConfig)
 include(GitHooksConfig)
 include(GitInfoConfig)
-include(NebulaCMakeMacros)
 include(ConfigNebulaCommon)
 config_nebula_common(
     SOURCE_DIR ${nebula_common_source_dir}
