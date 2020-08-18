@@ -7,14 +7,15 @@ on:
       - master
       - 'v[0-9]+.*'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   lint:
     name: lint
     if: ${{ contains(github.event.pull_request.labels.*.name, 'ready-for-testing') }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
     outputs:
       has_source_files: ${{ steps.filter-source-files.outputs.has_source_files }}
     steps:
@@ -37,9 +38,6 @@ jobs:
     needs: lint
     if: ${{ needs.lint.outputs.has_source_files != 0 }}
     runs-on: self-hosted
-    defaults:
-      run:
-        shell: bash
     strategy:
       fail-fast: false
       matrix:
