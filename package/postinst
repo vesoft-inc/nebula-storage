@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Copyright (c) 2020 vesoft inc. All rights reserved.
+#
+# This source code is licensed under Apache 2.0 License,
+# attached with Common Clause Condition 1.0, found in the LICENSES directory.
 
 install_dir=/usr/local/nebula
 daemons=(metad storaged)
@@ -8,4 +13,3 @@ do
         cp ${install_dir}/etc/nebula-${daemon}.conf.default ${install_dir}/etc/nebula-${daemon}.conf
     fi
 done
-
