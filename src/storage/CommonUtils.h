@@ -93,7 +93,7 @@ public:
     bool                                insert_ = false;
 
     ResultStatus                        resultStat_{ResultStatus::NORMAL};
-    
+
     // used for lookup
     bool                                isEdge_ = false;
 };

@@ -29,8 +29,8 @@ public:
         , vColNum_(vColNum)
         , hasNullableCol_(hasNullableCol)
         , indexCols_(indexCols) {
-        expr_ = Expression::decode(filter);
-        expCtx_ = std::make_unique<StorageExpressionContext>(vIdLen,
+        filter_ = Expression::decode(filter);
+        exprCtx_ = std::make_unique<StorageExpressionContext>(vIdLen,
                                                              vColNum,
                                                              hasNullableCol,
                                                              indexCols);
@@ -41,8 +41,8 @@ public:
                     IndexEdgeNode<T>* indexEdgeNode,
                     const std::string& filter)
         : indexEdgeNode_(indexEdgeNode) {
-        expr_ = Expression::decode(filter);
-        expCtx_ = std::make_unique<StorageExpressionContext>(vIdLen);
+        filter_ = Expression::decode(filter);
+        exprCtx_ = std::make_unique<StorageExpressionContext>(vIdLen);
         evalExprByIndex_ = false;
         isEdge_ = true;
     }
@@ -51,8 +51,8 @@ public:
                     IndexVertexNode<T>* indexVertexNode,
                     const std::string& filter)
         : indexVertexNode_(indexVertexNode)  {
-        expr_ = Expression::decode(filter);
-        expCtx_ = std::make_unique<StorageExpressionContext>(vIdLen);
+        filter_ = Expression::decode(filter);
+        exprCtx_ = std::make_unique<StorageExpressionContext>(vIdLen);
         evalExprByIndex_ = false;
         isEdge_ = false;
     }
@@ -103,11 +103,11 @@ public:
                        : indexVertexNode_->getSchema();
     }
 
-    const int32_t vColNum() const {
+     int32_t vColNum() const {
         return vColNum_;
     }
 
-    const bool hasNullableCol() const {
+     bool hasNullableCol() const {
         return hasNullableCol_;
     }
 
@@ -117,9 +117,9 @@ public:
 
 private:
     bool check(folly::StringPiece raw) {
-        if (expr_ != nullptr) {
-            expCtx_->reset(raw.str());
-            auto result = expr_->eval(*expCtx_);
+        if (filter_ != nullptr) {
+            exprCtx_->reset(raw.str());
+            auto result = filter_->eval(*exprCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
             } else {
@@ -130,9 +130,9 @@ private:
     }
 
     bool check(RowReader* reader, folly::StringPiece raw) {
-        if (expr_ != nullptr) {
-            expCtx_->reset(reader, raw.str());
-            auto result = expr_->eval(*expCtx_);
+        if (filter_ != nullptr) {
+            exprCtx_->reset(reader, raw.str());
+            auto result = filter_->eval(*exprCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
             } else {
@@ -146,8 +146,8 @@ private:
     IndexScanNode<T>*                                 indexScanNode_{nullptr};
     IndexEdgeNode<T>*                                 indexEdgeNode_{nullptr};
     IndexVertexNode<T>*                               indexVertexNode_{nullptr};
-    std::unique_ptr<Expression>                       expr_{nullptr};
-    std::unique_ptr<StorageExpressionContext>         expCtx_{nullptr};
+    std::unique_ptr<Expression>                       filter_{nullptr};
+    std::unique_ptr<StorageExpressionContext>         exprCtx_{nullptr};
     bool                                              isEdge_{false};
     bool                                              evalExprByIndex_{false};
     std::vector<kvstore::KV>                          data_{};
