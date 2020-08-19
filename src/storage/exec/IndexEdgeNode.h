@@ -15,6 +15,8 @@ namespace storage {
 template<typename T>
 class IndexEdgeNode final : public RelNode<T> {
 public:
+    using RelNode<T>::execute;
+
     IndexEdgeNode(PlanContext* planCtx,
                   IndexScanNode<T>* indexScanNode,
                   std::shared_ptr<const meta::NebulaSchemaProvider> schema,

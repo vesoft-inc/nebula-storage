@@ -28,6 +28,8 @@ By that means, it can check the filter of tag + edge.
 template<typename T>
 class FilterNode : public IterateNode<T> {
 public:
+    using RelNode<T>::execute;
+
     FilterNode(PlanContext* planCtx,
                IterateNode<T>* upstream,
                StorageExpressionContext* expCtx = nullptr,

@@ -17,6 +17,8 @@ namespace storage {
 template<typename T>
 class IndexFilterNode final : public RelNode<T> {
 public:
+    using RelNode<T>::execute;
+
     IndexFilterNode(IndexScanNode<T>* indexScanNode,
                     const std::string& filter,
                     size_t vIdLen,

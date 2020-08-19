@@ -16,6 +16,8 @@ namespace storage {
 template<typename T>
 class IndexScanNode : public RelNode<T> {
 public:
+    using RelNode<T>::execute;
+
     IndexScanNode(PlanContext* planCtx,
                   IndexID indexId,
                   std::vector<cpp2::IndexColumnHint> columnHints)
