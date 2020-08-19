@@ -86,8 +86,9 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         onFinished();
         return;
     }
-    if (vidType != cpp2::PropertyType::INT64 || vidType != cpp2::PropertyType::STRING) {
-        LOG(ERROR) << "Create Space Failed : vid_type is illegal: " << vidType;
+    if (vidType != cpp2::PropertyType::INT64 && vidType != cpp2::PropertyType::STRING) {
+        LOG(ERROR) << "Create Space Failed : vid_type is illegal: "
+                   << meta::cpp2::_PropertyType_VALUES_TO_NAMES.at(vidType);
         resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
