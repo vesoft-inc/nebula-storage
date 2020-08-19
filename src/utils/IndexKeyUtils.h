@@ -264,8 +264,8 @@ public:
 
     static Value getValueFromIndexKey(size_t vIdLen,
                                       int32_t vColNum,
-                                      const folly::StringPiece& key,
-                                      const folly::StringPiece& prop,
+                                      const std::string& key,
+                                      const std::string& prop,
                                       const std::vector<std::pair<std::string, Value::Type>>& cols,
                                       bool isEdgeIndex = false,
                                       bool hasNullableCol = false) {
@@ -278,7 +278,7 @@ public:
 
         auto it = std::find_if(cols.begin(), cols.end(),
                                [&prop] (const auto& col) {
-                                   return prop.str() == col.first;
+                                   return prop == col.first;
                                });
         if (it == cols.end()) {
             return Value(NullType::BAD_DATA);
@@ -287,12 +287,12 @@ public:
 
         if (hasNullableCol) {
             auto bitOffset = key.size() - tailLen - sizeof(u_short) - vCount * sizeof(int32_t);
-            auto v = *reinterpret_cast<const u_short*>(key.begin() + bitOffset);
+            auto v = *reinterpret_cast<const u_short*>(key.c_str() + bitOffset);
             nullableBit = v;
         }
 
         for (const auto& col : cols) {
-            if (hasNullableCol && col.first == prop.str() && nullableBit.test(nullableColPosit)) {
+            if (hasNullableCol && col.first == prop && nullableBit.test(nullableColPosit)) {
                     return Value(NullType::__NULL__);
             }
             switch (col.second) {
@@ -310,7 +310,7 @@ public:
                 }
                 case Value::Type::STRING: {
                     auto off = key.size() - vCount * sizeof(int32_t) - tailLen;
-                    len = *reinterpret_cast<const int32_t*>(key.data() + off);
+                    len = *reinterpret_cast<const int32_t*>(key.c_str() + off);
                     --vCount;
                     break;
                 }
@@ -328,7 +328,7 @@ public:
             if (hasNullableCol) {
                 nullableColPosit -= 1;
             }
-            if (col.first == prop.str()) {
+            if (col.first == prop) {
                 break;
             }
             offset += len;
@@ -336,7 +336,7 @@ public:
         /*
          * here need a string copy.
          */
-        auto propVal = key.subpiece(offset, len);
+        auto propVal = key.substr(offset, len);
         return decodeValue(propVal, type);
     }
 

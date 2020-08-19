@@ -63,7 +63,7 @@ private:
     // return true when the value iter points to a value which can filter
     bool check() override {
         if (filterExp_ != nullptr) {
-            expCtx_->reset(this->reader(), this->key());
+            expCtx_->reset(this->reader(), this->key().str());
             // result is false when filter out
             auto result = filterExp_->eval(*expCtx_);
             // NULL is always false
