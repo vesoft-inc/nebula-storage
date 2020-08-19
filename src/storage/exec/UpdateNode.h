@@ -21,6 +21,8 @@ namespace storage {
 // Update records, write to kvstore
 class UpdateTagNode : public RelNode<VertexID> {
 public:
+    using RelNode<VertexID>::execute;
+
     UpdateTagNode(PlanContext* planCtx,
                   TagContext* tagContext,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
@@ -317,6 +319,8 @@ private:
 // Update records, write to kvstore
 class UpdateEdgeNode : public RelNode<cpp2::EdgeKey> {
 public:
+    using RelNode<cpp2::EdgeKey>::execute;
+
     UpdateEdgeNode(PlanContext* planCtx,
                    EdgeContext* edgeContext,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,

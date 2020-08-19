@@ -16,6 +16,8 @@ namespace storage {
 template<typename T>
 class IndexVertexNode final : public RelNode<T> {
 public:
+    using RelNode<T>::execute;
+
     IndexVertexNode(PlanContext* planCtx,
                     VertexCache* vertexCache,
                     IndexScanNode<T>* indexScanNode,
