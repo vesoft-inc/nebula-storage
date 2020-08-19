@@ -25,10 +25,15 @@ public:
         /**
          * columnHints's elements are {scanType = PREFIX|RANGE; beginStr; endStr},
          *                            {scanType = PREFIX|RANGE; beginStr; endStr},...
-         * if the scanType is RANGE of last column, means the index scan is range scan.
+         * if the scanType is RANGE, means the index scan is range scan.
          * if all scanType are PREFIX, means the index scan is prefix scan.
          */
-        isRangeScan_ = columnHints_.back().get_scan_type() == cpp2::ScanType::RANGE;
+        for (const auto &colHint : columnHints_) {
+            if (colHint.get_scan_type() == cpp2::ScanType::RANGE) {
+                isRangeScan_ = true;
+                break;
+            }
+        }
     }
 
     kvstore::ResultCode execute(PartitionID partId) override {
