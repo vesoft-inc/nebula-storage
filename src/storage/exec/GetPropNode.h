@@ -77,7 +77,7 @@ private:
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
 public:
     using RelNode::execute;
-    
+
     GetEdgePropNode(std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
                     size_t vIdLen,
                     nebula::DataSet* resultDataSet)
