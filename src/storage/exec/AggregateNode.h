@@ -34,6 +34,8 @@ struct PropStat {
 template<typename T>
 class AggregateNode : public IterateNode<T> {
 public:
+    using RelNode<T>::execute;
+
     explicit AggregateNode(nebula::DataSet* resultSet)
     : resultSet_(resultSet) {}
 
