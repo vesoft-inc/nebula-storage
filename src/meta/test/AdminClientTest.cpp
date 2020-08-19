@@ -300,31 +300,32 @@ TEST(AdminClientTest, SnapshotTest) {
     fs::TempDir rootPath("/tmp/admin_snapshot_test.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     auto now = time::WallClock::fastNowInMilliSec();
-    ActiveHostsMan::updateHostInfo(kv.get(), HostAddr(localIp, rpcServer->port_),
+    HostAddr host(localIp, rpcServer->port_);
+    ActiveHostsMan::updateHostInfo(kv.get(), host,
                                    HostInfo(now, meta::cpp2::HostRole::STORAGE, ""));
     ASSERT_EQ(1, ActiveHostsMan::getActiveHosts(kv.get()).size());
 
-    std::vector<HostAddr> addresses;
-    addresses.emplace_back(localIp, rpcServer->port_);
     auto client = std::make_unique<AdminClient>(kv.get());
     {
         LOG(INFO) << "Test Blocking Writes On...";
-        auto status = client->blockingWrites(1, storage::cpp2::EngineSignType::BLOCK_ON).get();
+        auto status = client->blockingWrites(
+            1, storage::cpp2::EngineSignType::BLOCK_ON, host).get();
         ASSERT_TRUE(status.ok());
     }
     {
         LOG(INFO) << "Test Create Snapshot...";
-        auto status = client->createSnapshot(1, "test_snapshot").get();
+        auto status = client->createSnapshot(1, "test_snapshot", host).get();
         ASSERT_TRUE(status.ok());
     }
     {
         LOG(INFO) << "Test Drop Snapshot...";
-        auto status = client->dropSnapshot(1, "test_snapshot", addresses).get();
+        auto status = client->dropSnapshot(1, "test_snapshot", host).get();
         ASSERT_TRUE(status.ok());
     }
     {
         LOG(INFO) << "Test Blocking Writes Off...";
-        auto status = client->blockingWrites(1, storage::cpp2::EngineSignType::BLOCK_OFF).get();
+        auto status = client->blockingWrites(
+            1, storage::cpp2::EngineSignType::BLOCK_OFF, host).get();
         ASSERT_TRUE(status.ok());
     }
 }
@@ -347,11 +348,6 @@ TEST(AdminClientTest, RebuildIndexTest) {
     auto address = HostAddr(localIp, rpcServer->port_);
     auto client = std::make_unique<AdminClient>(kv.get());
     {
-        LOG(INFO) << "Test Blocking Writes On...";
-        auto status = client->blockingWrites(1, storage::cpp2::EngineSignType::BLOCK_ON).get();
-        ASSERT_TRUE(status.ok());
-    }
-    {
         LOG(INFO) << "Test Rebuild Tag Index...";
         std::vector<PartitionID> parts{1, 2, 3};
         auto status = client->rebuildTagIndex(address, 1, 1, std::move(parts), false).get();
@@ -361,11 +357,6 @@ TEST(AdminClientTest, RebuildIndexTest) {
         LOG(INFO) << "Test Rebuild Edge Index...";
         std::vector<PartitionID> parts{1, 2, 3};
         auto status = client->rebuildEdgeIndex(address, 1, 1, std::move(parts), false).get();
-        ASSERT_TRUE(status.ok());
-    }
-    {
-        LOG(INFO) << "Test Blocking Writes Off...";
-        auto status = client->blockingWrites(1, storage::cpp2::EngineSignType::BLOCK_OFF).get();
         ASSERT_TRUE(status.ok());
     }
 }

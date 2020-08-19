@@ -119,6 +119,13 @@ std::string MetaServiceUtils::partPrefix(GraphSpaceID spaceId) {
     return prefix;
 }
 
+std::string MetaServiceUtils::partPrefix() {
+    std::string prefix;
+    prefix.reserve(kPartsTable.size() + sizeof(GraphSpaceID));
+    prefix.append(kPartsTable.data(), kPartsTable.size());
+    return prefix;
+}
+
 std::vector<HostAddr> MetaServiceUtils::parsePartVal(folly::StringPiece val, int partNum) {
     static const size_t unitSizeV1 = sizeof(int64_t);
     if (unitSizeV1 * partNum == val.size()) {
@@ -423,6 +430,13 @@ std::string MetaServiceUtils::rebuildIndexStatusPrefix(GraphSpaceID space,
        .append(reinterpret_cast<const char*>(&space), sizeof(GraphSpaceID))
        .append(1, type);
     return key;
+}
+
+std::string MetaServiceUtils::rebuildIndexStatusPrefix() {
+     std::string key;
+     key.reserve(kIndexStatusTable.size());
+     key.append(kIndexStatusTable.data(), kIndexStatusTable.size());
+     return key;
 }
 
 std::string MetaServiceUtils::indexSpaceKey(const std::string& name) {
