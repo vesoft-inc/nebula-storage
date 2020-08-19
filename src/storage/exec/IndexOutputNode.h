@@ -15,6 +15,8 @@ namespace storage {
 template<typename T>
 class IndexOutputNode final : public RelNode<T> {
 public:
+    using RelNode<T>::execute;
+
     enum class IndexResultType : int8_t {
         kEdgeFromIndexScan,
         kEdgeFromIndexFilter,
