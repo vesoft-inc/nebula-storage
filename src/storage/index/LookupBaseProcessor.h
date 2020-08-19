@@ -37,6 +37,8 @@ protected:
 
     cpp2::ErrorCode requestCheck(const cpp2::LookupIndexRequest& req);
 
+    bool isOutsideIndex(Expression* filter, const meta::cpp2::IndexItem* index);
+
     StatusOr<StoragePlan<IndexID>> buildPlan();
 
     std::unique_ptr<IndexOutputNode<IndexID>>
