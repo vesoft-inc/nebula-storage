@@ -52,6 +52,60 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+template<typename REQ, typename RESP>
+bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
+                                                    const meta::cpp2::IndexItem* index) {
+    auto fields = index->get_fields();
+    switch (filter->kind()) {
+        case Expression::Kind::kLogicalOr :
+        case Expression::Kind::kLogicalAnd : {
+            auto lExpr = dynamic_cast<LogicalExpression*>(filter);
+            auto ret = isOutsideIndex(lExpr->left(), index);
+            if (ret) {
+                return ret;
+            }
+            ret = isOutsideIndex(lExpr->right(), index);
+            if (ret) {
+                return ret;
+            }
+            break;
+        }
+        case Expression::Kind::kRelLE :
+        case Expression::Kind::kRelIn :
+        case Expression::Kind::kRelGE :
+        case Expression::Kind::kRelEQ :
+        case Expression::Kind::kRelLT :
+        case Expression::Kind::kRelGT :
+        case Expression::Kind::kRelNE :
+        case Expression::Kind::kRelNotIn : {
+            auto* rExpr = dynamic_cast<RelationalExpression*>(filter);
+            auto ret = isOutsideIndex(rExpr->left(), index);
+            if (ret) {
+                return ret;
+            }
+            ret = isOutsideIndex(rExpr->right(), index);
+            if (ret) {
+                return ret;
+            }
+            break;
+        }
+        case Expression::Kind::kSymProperty:
+        case Expression::Kind::kTagProperty:
+        case Expression::Kind::kEdgeProperty: {
+            auto* sExpr = dynamic_cast<SymbolPropertyExpression*>(filter);
+            const auto* prop = sExpr->prop();
+            auto it = std::find_if(fields.begin(), fields.end(), [&prop] (const auto& f) {
+                return f.get_name() == prop;
+            });
+            return it != fields.end();
+        }
+        default: {
+            return false;
+        }
+    }
+    return false;
+}
+
 /**
  * lookup plan should be :
  *              +--------+---------+
@@ -113,7 +167,14 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         }
         auto colHints = ctx.get_column_hints();
 
-        // TODO (sky) ： Check WHERE clause contains columns that ware not indexed
+        // Check WHERE clause contains columns that ware not indexed
+        if (ctx.__isset.filter && !ctx.get_filter().empty()) {
+            auto filter = Expression::decode(ctx.get_filter());
+            auto isFieldsOutsideIndex = isOutsideIndex(filter.get(), index.value().get());
+            if (isFieldsOutsideIndex) {
+                needData = needFilter = true;
+            }
+        }
 
         std::unique_ptr<IndexOutputNode<IndexID>> out;
         if (!needData && !needFilter) {

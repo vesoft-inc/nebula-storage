@@ -16,14 +16,14 @@ template<typename T>
 class IndexOutputNode final : public RelNode<T> {
 public:
     enum class IndexResultType : int8_t {
-        edgeFromIndexScan,
-        edgeFromIndexFilter,
-        edgeFromDataScan,
-        edgeFromDataFilter,
-        vertexFromIndexScan,
-        vertexFromIndexFilter,
-        vertexFromDataScan,
-        vertexFromDataFilter,
+        kEdgeFromIndexScan,
+        kEdgeFromIndexFilter,
+        kEdgeFromDataScan,
+        kEdgeFromDataFilter,
+        kVertexFromIndexScan,
+        kVertexFromIndexFilter,
+        kVertexFromDataScan,
+        kVertexFromDataFilter,
     };
 
     IndexOutputNode(nebula::DataSet* result,
@@ -39,8 +39,8 @@ public:
         , vColNum_(vColNum)
         , hasNullableCol_(hasNullableCol) {
         type_ = planContext_->isEdge_
-            ? IndexResultType::edgeFromIndexScan
-            : IndexResultType::vertexFromIndexScan;
+                ? IndexResultType::kEdgeFromIndexScan
+                : IndexResultType::kVertexFromIndexScan;
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -49,7 +49,7 @@ public:
         : result_(result)
         , planContext_(planCtx)
         , indexEdgeNode_(indexEdgeNode) {
-        type_ = IndexResultType::edgeFromDataScan;
+        type_ = IndexResultType::kEdgeFromDataScan;
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -58,7 +58,7 @@ public:
         : result_(result)
         , planContext_(planCtx)
         , indexVertexNode_(indexVertexNode) {
-        type_ = IndexResultType::vertexFromDataScan;
+        type_ = IndexResultType::kVertexFromDataScan;
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -73,12 +73,12 @@ public:
         cols_ = indexFilterNode_->indexCols();
         if (indexFilter) {
             type_ = planContext_->isEdge_
-                    ? IndexResultType::edgeFromIndexFilter
-                    : IndexResultType::vertexFromIndexFilter;
+                    ? IndexResultType::kEdgeFromIndexFilter
+                    : IndexResultType::kVertexFromIndexFilter;
         } else {
             type_ = planContext_->isEdge_
-                    ? IndexResultType::edgeFromDataFilter
-                    : IndexResultType::vertexFromDataFilter;
+                    ? IndexResultType::kEdgeFromDataFilter
+                    : IndexResultType::kVertexFromDataFilter;
         }
     }
 
@@ -89,35 +89,35 @@ public:
         }
 
         switch (type_) {
-            case IndexResultType::edgeFromIndexScan : {
+            case IndexResultType::kEdgeFromIndexScan: {
                 ret = collectResult(indexScanNode_->getData());
                 break;
             }
-            case IndexResultType::edgeFromIndexFilter : {
+            case IndexResultType::kEdgeFromIndexFilter: {
                 ret = collectResult(indexFilterNode_->getData());
                 break;
             }
-            case IndexResultType::edgeFromDataScan : {
+            case IndexResultType::kEdgeFromDataScan: {
                 ret = collectResult(indexEdgeNode_->getData());
                 break;
             }
-            case IndexResultType::edgeFromDataFilter : {
+            case IndexResultType::kEdgeFromDataFilter: {
                 ret = collectResult(indexFilterNode_->getData());
                 break;
             }
-            case IndexResultType::vertexFromIndexScan : {
+            case IndexResultType::kVertexFromIndexScan: {
                 ret = collectResult(indexScanNode_->getData());
                 break;
             }
-            case IndexResultType::vertexFromIndexFilter : {
+            case IndexResultType::kVertexFromIndexFilter: {
                 ret = collectResult(indexFilterNode_->getData());
                 break;
             }
-            case IndexResultType::vertexFromDataScan : {
+            case IndexResultType::kVertexFromDataScan: {
                 ret = collectResult(indexVertexNode_->getData());
                 break;
             }
-            case IndexResultType::vertexFromDataFilter : {
+            case IndexResultType::kVertexFromDataFilter: {
                 ret = collectResult(indexFilterNode_->getData());
                 break;
             }
@@ -129,23 +129,23 @@ private:
     kvstore::ResultCode collectResult(const std::vector<kvstore::KV>& data) {
         kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
         switch (type_) {
-            case IndexResultType::edgeFromIndexScan :
-            case IndexResultType::edgeFromIndexFilter : {
+            case IndexResultType::kEdgeFromIndexScan:
+            case IndexResultType::kEdgeFromIndexFilter: {
                 ret = edgeRowsFromIndex(data);
                 break;
             }
-            case IndexResultType::edgeFromDataScan :
-            case IndexResultType::edgeFromDataFilter : {
+            case IndexResultType::kEdgeFromDataScan:
+            case IndexResultType::kEdgeFromDataFilter: {
                 ret = edgeRowsFromData(data);
                 break;
             }
-            case IndexResultType::vertexFromIndexScan :
-            case IndexResultType::vertexFromIndexFilter : {
+            case IndexResultType::kVertexFromIndexScan:
+            case IndexResultType::kVertexFromIndexFilter: {
                 ret = vertexRowsFromIndex(data);
                 break;
             }
-            case IndexResultType::vertexFromDataScan :
-            case IndexResultType::vertexFromDataFilter : {
+            case IndexResultType::kVertexFromDataScan:
+            case IndexResultType::kVertexFromDataFilter: {
                 ret = vertexRowsFromData(data);
                 break;
             }
@@ -154,7 +154,7 @@ private:
     }
 
     kvstore::ResultCode vertexRowsFromData(const std::vector<kvstore::KV>& data) {
-        const auto* schema = type_ == IndexResultType::vertexFromDataScan
+        const auto* schema = type_ == IndexResultType::kVertexFromDataScan
                              ? indexVertexNode_->getSchema()
                              : indexFilterNode_->getSchema();
         if (schema == nullptr) {
@@ -204,7 +204,7 @@ private:
     }
 
     kvstore::ResultCode edgeRowsFromData(const std::vector<kvstore::KV>& data) {
-        const auto* schema = type_ == IndexResultType::edgeFromDataScan
+        const auto* schema = type_ == IndexResultType::kEdgeFromDataScan
                              ? indexEdgeNode_->getSchema()
                              : indexFilterNode_->getSchema();
         if (schema == nullptr) {
