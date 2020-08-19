@@ -43,10 +43,9 @@ cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
                 auto status = client_->dropSnapshot(spaceHosts.first, name, host).get();
                 if (!status.ok()) {
                     auto msg = "failed drop checkpoint : \"%s\". on host %s. error %s";
-                    auto error = folly::stringPrintf(msg,
-                                                     name.c_str(),
-                                                     network::NetworkUtils::toHostsStr({host}),
-                                                     status.toString().c_str());
+                    auto error = folly::stringPrintf(msg, name.c_str(),
+                        network::NetworkUtils::toHostsStr({host}).c_str(),
+                        status.toString().c_str());
                     LOG(ERROR) << error;
                 }
             }
