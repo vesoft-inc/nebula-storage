@@ -19,6 +19,10 @@
 
 namespace nebula {
 namespace storage {
+using IndexFilterItem =
+    std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>,
+                                          std::unique_ptr<Expression>>>;
+
 template<typename REQ, typename RESP>
 class LookupBaseProcessor : public BaseProcessor<RESP> {
 public:
@@ -52,12 +56,16 @@ protected:
     buildPlanWithData(const cpp2::IndexQueryContext& ctx, StoragePlan<IndexID>& plan);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
-    buildPlanWithFilter(const cpp2::IndexQueryContext& ctx, StoragePlan<IndexID>& plan,
-        int32_t vColNum, bool hasNullableCol,
-        const std::vector<std::pair<std::string, Value::Type>>& indexCols);
+    buildPlanWithFilter(const cpp2::IndexQueryContext& ctx,
+                        StoragePlan<IndexID>& plan,
+                        StorageExpressionContext* exprCtx,
+                        Expression* exp);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
-    buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx, StoragePlan<IndexID>& plan);
+    buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx,
+                               StoragePlan<IndexID>& plan,
+                               StorageExpressionContext* exprCtx,
+                               Expression* exp);
 
 protected:
     GraphSpaceID                                spaceId_;
@@ -66,6 +74,7 @@ protected:
     nebula::DataSet                             resultDataSet_;
     std::vector<cpp2::IndexQueryContext>        contexts_{};
     std::vector<std::string>                    yieldCols_{};
+    IndexFilterItem                             filterItems_;
 };
 }  // namespace storage
 }  // namespace nebula

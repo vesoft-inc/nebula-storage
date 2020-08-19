@@ -125,6 +125,7 @@ template<typename REQ, typename RESP>
 StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
     StoragePlan<IndexID> plan;
     auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(&resultDataSet_);
+    int32_t filterId = 0;
     for (const auto& ctx : contexts_) {
         const auto& indexId = ctx.get_index_id();
         auto needFilter = ctx.__isset.filter && !ctx.get_filter().empty();
@@ -182,9 +183,26 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         } else if (needData && !needFilter) {
             out = buildPlanWithData(ctx, plan);
         } else if (!needData && needFilter) {
-            out = buildPlanWithFilter(ctx, plan, vColNum, hasNullableCol, indexCols);
+            auto expr = Expression::decode(ctx.get_filter());
+            auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
+                                                                      vColNum,
+                                                                      hasNullableCol,
+                                                                      indexCols);
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
+            out = buildPlanWithFilter(ctx,
+                                      plan,
+                                      filterItems_[filterId].first.get(),
+                                      filterItems_[filterId].second.get());
+            filterId++;
         } else {
-            out = buildPlanWithDataAndFilter(ctx, plan);
+            auto expr = Expression::decode(ctx.get_filter());
+            auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_);
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
+            out = buildPlanWithDataAndFilter(ctx,
+                                             plan,
+                                             filterItems_[filterId].first.get(),
+                                             filterItems_[filterId].second.get());
+            filterId++;
         }
         if (out == nullptr) {
             return Status::Error("Index scan plan error");
@@ -332,8 +350,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContext& ctx,
-    StoragePlan<IndexID>& plan, int32_t vColNum, bool hasNullableCol,
-    const std::vector<std::pair<std::string, Value::Type>>& indexCols) {
+                                                    StoragePlan<IndexID>& plan,
+                                                    StorageExpressionContext* exprCtx,
+                                                    Expression* exp) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
 
@@ -342,12 +361,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
                                                               std::move(colHints));
 
     auto filter = std::make_unique<IndexFilterNode<IndexID>>(indexScan.get(),
-                                                             ctx.get_filter(),
-                                                             planContext_->vIdLen_,
-                                                             vColNum,
-                                                             hasNullableCol,
-                                                             planContext_->isEdge_,
-                                                             indexCols);
+                                                             exprCtx,
+                                                             exp,
+                                                             planContext_->isEdge_);
     filter->addDependency(indexScan.get());
     auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
                                                              planContext_.get(),
@@ -389,7 +405,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx,
-                                                           StoragePlan<IndexID>& plan) {
+                                                           StoragePlan<IndexID>& plan,
+                                                           StorageExpressionContext* exprCtx,
+                                                           Expression* exp) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
     auto schema = planContext_->isEdge_
@@ -414,9 +432,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                              std::move(schema),
                                                              std::move(schemaName).value());
         edge->addDependency(indexScan.get());
-        auto filter = std::make_unique<IndexFilterNode<IndexID>>(planContext_->vIdLen_,
-                                                                 edge.get(),
-                                                                 ctx.get_filter());
+        auto filter = std::make_unique<IndexFilterNode<IndexID>>(edge.get(),
+                                                                 exprCtx,
+                                                                 exp);
         filter->addDependency(edge.get());
 
         auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
@@ -434,9 +452,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                                  std::move(schema),
                                                                  std::move(schemaName).value());
         vertex->addDependency(indexScan.get());
-        auto filter = std::make_unique<IndexFilterNode<IndexID>>(planContext_->vIdLen_,
-                                                                 vertex.get(),
-                                                                 ctx.get_filter());
+        auto filter = std::make_unique<IndexFilterNode<IndexID>>(vertex.get(),
+                                                                 exprCtx,
+                                                                 exp);
         filter->addDependency(vertex.get());
 
         auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,

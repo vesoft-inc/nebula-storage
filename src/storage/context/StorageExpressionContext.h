@@ -83,15 +83,30 @@ public:
     // such as $^.tagName.prop_name
     Value getSrcProp(const std::string& tagName, const std::string& prop) const override;
 
+    size_t vIdLen() const {
+        return vIdLen_;
+    }
+
+    int32_t vColNum() const {
+        return vColNum_;
+    }
+
+    bool hasNullableCol() const {
+        return hasNullableCol_;
+    }
+
+    const std::vector<std::pair<std::string, Value::Type>>& indexCols() const {
+        return indexCols_;
+    }
+
     void setVar(const std::string&, Value) override {}
 
     // index key
-    void reset(folly::StringPiece key) {
+    void reset(const std::string& key) {
         key_ = key;
     }
 
-    // isEdge_ set in ctor
-    void reset(RowReader* reader, folly::StringPiece key) {
+    void reset(RowReader* reader, const std::string& key) {
         reader_ = reader;
         key_ = key;
     }
@@ -136,7 +151,7 @@ private:
     size_t                             vIdLen_;
 
     RowReader                         *reader_;
-    folly::StringPiece                 key_;
+    std::string                        key_;
     // tag or edge name
     std::string                        name_;
     // tag or edge latest schema
