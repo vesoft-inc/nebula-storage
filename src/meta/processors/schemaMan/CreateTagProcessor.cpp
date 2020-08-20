@@ -30,7 +30,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
 
     auto columns = req.get_schema().get_columns();
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_DATA);
         onFinished();
         return;
     }

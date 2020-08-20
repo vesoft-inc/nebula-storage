@@ -44,6 +44,7 @@ TEST(MetaClientTest, InterfacesTest) {
         TestUtils::registerHB(kv, hosts);
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         for (auto i = 0u; i < hosts.size(); i++) {
             auto tHost = ret.value().get_hosts()[i].hostAddr;
             auto hostAddr = HostAddr(tHost.host, tHost.port);
@@ -64,7 +65,7 @@ TEST(MetaClientTest, InterfacesTest) {
         {
             SpaceDesc spaceDesc("default_space", 8, 3);
             auto ret = client->createSpace(spaceDesc).get();
-            ASSERT_FALSE(ret.ok());
+            ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         }
         {
             auto ret = client->getSpace("default_space").get();
@@ -263,7 +264,6 @@ TEST(MetaClientTest, InterfacesTest) {
     {
         auto ret = client->getSpaceIdByNameFromCache("default_space_1");
         ASSERT_FALSE(ret.ok());
-        ASSERT_EQ(Status::SpaceNotFound(), ret.status());
     }
     {
         // Multi Put Test
@@ -274,15 +274,18 @@ TEST(MetaClientTest, InterfacesTest) {
         }
         auto ret = client->multiPut("test", pairs).get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
     }
     {
         // Get Test
         auto ret = client->get("test", "key_0").get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         ASSERT_EQ("value_0", ret.value().get_value());
 
         auto missedRet = client->get("test", "missed_key").get();
-        ASSERT_FALSE(missedRet.ok());
+        ASSERT_TRUE(missedRet.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SEGMENT_NOT_FOUND, missedRet.value().get_code());
 
         auto emptyRet = client->get("test", "").get();
         ASSERT_FALSE(emptyRet.ok());
@@ -295,6 +298,7 @@ TEST(MetaClientTest, InterfacesTest) {
         }
         auto ret = client->multiGet("test", keys).get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         auto values = ret.value().get_values();
         ASSERT_EQ(2, values.size());
         ASSERT_EQ("value_0", values[0]);
@@ -308,6 +312,7 @@ TEST(MetaClientTest, InterfacesTest) {
         // Scan Test
         auto ret = client->scan("test", "key_0", "key_3").get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         auto values = ret.value().get_values();
         ASSERT_EQ(3, values.size());
         ASSERT_EQ("value_0", values[0]);
@@ -318,11 +323,13 @@ TEST(MetaClientTest, InterfacesTest) {
         // Remove Test
         auto ret = client->remove("test", "key_9").get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
     }
     {
         // Remove Range Test
         auto ret = client->removeRange("test", "key_0", "key_4").get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
     }
     {
         auto ret = client->remove("_test_", "key_8").get();
@@ -331,6 +338,7 @@ TEST(MetaClientTest, InterfacesTest) {
     {
         auto ret = client->dropSpace("default_space").get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         auto ret1 = client->listSpaces().get();
         ASSERT_TRUE(ret1.ok()) << ret1.status();
         ASSERT_EQ(0, ret1.value().get_spaces().size());
@@ -410,7 +418,8 @@ TEST(MetaClientTest, TagTest) {
         schema.set_columns(columns);
 
         auto result = client->createTagSchema(spaceId, "test_tag_type_mismatch", schema).get();
-        ASSERT_FALSE(result.ok());
+        ASSERT_TRUE(result.ok());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         auto result = client->listTagSchemas(spaceId).get();
@@ -424,8 +433,10 @@ TEST(MetaClientTest, TagTest) {
     {
         auto result1 = client->getTagSchema(spaceId, "test_tag", version).get();
         ASSERT_TRUE(result1.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result1.value().get_code());
         auto result2 = client->getTagSchema(spaceId, "test_tag").get();
         ASSERT_TRUE(result2.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result1.value().get_code());
 
         auto columns1 = result1.value().get_schema().columns;
         auto columns2 = result2.value().get_schema().columns;
@@ -439,15 +450,18 @@ TEST(MetaClientTest, TagTest) {
     // Get wrong version
     {
         auto result = client->getTagSchema(spaceId, "test_tag", 100).get();
-        ASSERT_FALSE(result.ok());
+        ASSERT_TRUE(result.ok());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         auto result = client->dropTagSchema(spaceId, "test_tag").get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         auto result = client->getTagSchema(spaceId, "test_tag", version).get();
-        ASSERT_FALSE(result.ok());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND, result.value().get_code());
     }
 }
 
@@ -502,6 +516,7 @@ TEST(MetaClientTest, EdgeTest) {
         schema.set_columns(std::move(columns));
         auto result = client->createEdgeSchema(space, "test_edge", schema).get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         std::vector<cpp2::ColumnDef> columns;
@@ -524,7 +539,8 @@ TEST(MetaClientTest, EdgeTest) {
         schema.set_columns(columns);
 
         auto result = client->createEdgeSchema(space, "test_edge_type_mismatch", schema).get();
-        ASSERT_FALSE(result.ok());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_DATA, result.value().get_code());
     }
     {
         auto result = client->listEdgeSchemas(space).get();
@@ -559,7 +575,8 @@ TEST(MetaClientTest, EdgeTest) {
     }
     {
         auto result = client->getEdgeSchema(space, "test_edge", version).get();
-        ASSERT_FALSE(result.ok());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND, result.value().get_code());
     }
 }
 
@@ -599,6 +616,7 @@ TEST(MetaClientTest, TagIndexTest) {
             auto result = client->createTagSchema(space, folly::stringPrintf("tag_%d", i),
                                                   schema).get();
             ASSERT_TRUE(result.ok());
+            ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         }
     }
     {
@@ -608,6 +626,7 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_0",
                                              std::move(fields)).get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         singleFieldIndexID = result.value().get_id().get_index_id();
     }
     {
@@ -617,6 +636,7 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_0",
                                              std::move(fields)).get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         multiFieldIndexID = result.value().get_id().get_index_id();
     }
     {
@@ -625,8 +645,8 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_field_not_exist_index",
                                              "tag_0",
                                              std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND, result.value().get_code());
     }
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_1"};
@@ -634,8 +654,8 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_not_exist_index",
                                              "tag_not_exist",
                                              std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND, result.value().get_code());
     }
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_0"};
@@ -643,8 +663,8 @@ TEST(MetaClientTest, TagIndexTest) {
                                              "tag_conflict_index",
                                              "tag_0",
                                              std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("conflict"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, result.value().get_code());
     }
     {
         auto result = client->listTagIndexes(space).get();
@@ -710,16 +730,17 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         auto result = client->dropTagIndex(space, "tag_single_field_index").get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         auto result = client->getTagIndex(space, "tag_single_field_index").get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, result.value().get_code());
     }
     {
         auto result = client->dropTagIndex(space, "tag_single_field_index").get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, result.value().get_code());
     }
 }
 
@@ -759,6 +780,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                                    folly::stringPrintf("edge_%d", i),
                                                    schema).get();
             ASSERT_TRUE(result.ok());
+            ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         }
     }
     {
@@ -768,6 +790,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_0",
                                               std::move(fields)).get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         singleFieldIndexID = result.value().get_id().get_index_id();
     }
     {
@@ -777,6 +800,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_0",
                                               std::move(fields)).get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
         multiFieldIndexID = result.value().get_id().get_index_id();
     }
     {
@@ -785,8 +809,8 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_not_exist_index",
                                               "edge_not_exist",
                                               std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND, result.value().get_code());
     }
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_0"};
@@ -794,8 +818,8 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_conflict_index",
                                               "edge_0",
                                               std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("conflict"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, result.value().get_code());
     }
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "not_exist_field"};
@@ -803,8 +827,8 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_field_not_exist_index",
                                               "edge_0",
                                               std::move(fields)).get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND, result.value().get_code());
     }
     {
         auto result = client->listEdgeIndexes(space).get();
@@ -872,16 +896,17 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         auto result = client->dropEdgeIndex(space, "edge_single_field_index").get();
         ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, result.value().get_code());
     }
     {
         auto result = client->getEdgeIndex(space, "edge_single_field_index").get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, result.value().get_code());
     }
     {
         auto result = client->dropEdgeIndex(space, "edge_single_field_index").get();
-        ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, result.value().get_code());
     }
 }
 
@@ -958,6 +983,7 @@ TEST(MetaClientTest, DiffTest) {
         TestUtils::registerHB(kv, hosts);
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         auto resultHosts = ret.value().get_hosts();
         for (auto i = 0u; i < hosts.size(); i++) {
             auto tHost = resultHosts[i].hostAddr;
@@ -1015,6 +1041,7 @@ TEST(MetaClientTest, HeartbeatTest) {
         std::vector<HostAddr> hosts = {localHost};
         auto ret = client->listHosts().get();
         ASSERT_TRUE(ret.ok());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret.value().get_code());
         auto resultHosts = ret.value().get_hosts();
         for (auto i = 0u; i < hosts.size(); i++) {
             auto tHost = resultHosts[i].hostAddr;
@@ -1190,7 +1217,8 @@ TEST(MetaClientTest, RetryUntilLimitTest) {
         LOG(INFO) << "Test heart beat...";
         folly::Baton<true, std::atomic> baton;
         client->heartbeat().thenValue([&baton] (auto&& status) {
-            ASSERT_TRUE(!status.ok());
+            ASSERT_TRUE(status.ok());
+            ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, status.value().get_code());
             baton.post();
         });
         baton.wait();
@@ -1229,36 +1257,46 @@ TEST(MetaClientTest, Config) {
     {
         auto resp = client->listConfigs(cpp2::ConfigModule::GRAPH).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::META).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::STORAGE).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 0);
         resp = client->listConfigs(cpp2::ConfigModule::ALL).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 0);
     }
     // Set
     {
         auto resp = client->setConfig(cpp2::ConfigModule::GRAPH, "minloglevel", 3).get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         resp = client->setConfig(cpp2::ConfigModule::META, "minloglevel", 3).get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         resp = client->setConfig(cpp2::ConfigModule::STORAGE, "minloglevel", 3).get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
     }
     // Get
     {
         auto resp = client->getConfig(cpp2::ConfigModule::GRAPH, "minloglevel").get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
 
         resp = client->getConfig(cpp2::ConfigModule::META, "minloglevel").get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
 
         resp = client->getConfig(cpp2::ConfigModule::STORAGE, "minloglevel").get();
-        EXPECT_TRUE(!resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
     }
 
     // Reg
@@ -1271,46 +1309,57 @@ TEST(MetaClientTest, Config) {
         configItems.emplace_back(initConfigItem(
                 cpp2::ConfigModule::STORAGE, "minloglevel", cpp2::ConfigMode::MUTABLE, 2));
         auto resp = client->regConfig(configItems).get();
-        ASSERT(resp.ok());
+        EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
     }
     // List
     {
         auto resp = client->listConfigs(cpp2::ConfigModule::GRAPH).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::META).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::STORAGE).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 1);
         resp = client->listConfigs(cpp2::ConfigModule::ALL).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         EXPECT_EQ(resp.value().get_items().size(), 3);
     }
     // Set
     {
         auto resp = client->setConfig(cpp2::ConfigModule::GRAPH, "minloglevel", 3).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         resp = client->setConfig(cpp2::ConfigModule::META, "minloglevel", 3).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         resp = client->setConfig(cpp2::ConfigModule::STORAGE, "minloglevel", 3).get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
     }
     // Get
     {
         auto resp = client->getConfig(cpp2::ConfigModule::GRAPH, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         auto configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
 
         resp = client->getConfig(cpp2::ConfigModule::META, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
 
         resp = client->getConfig(cpp2::ConfigModule::STORAGE, "minloglevel").get();
         EXPECT_TRUE(resp.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.value().get_code());
         configs = std::move(resp).value().get_items();
         EXPECT_EQ(configs[0].get_value(), Value(3));
     }
@@ -1356,6 +1405,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         // get from meta server
         auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, getRet.value().get_code());
         auto item = getRet.value().get_items().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
@@ -1377,10 +1427,12 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         // update config
         auto setRet = client->setConfig(module, name, Value(map)).get();
         ASSERT_TRUE(setRet.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, setRet.value().get_code());
 
         // get from meta server
         auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, getRet.value().get_code());
         auto item = getRet.value().get_items().front();
 
         sleep(FLAGS_heartbeat_interval_secs + 1);

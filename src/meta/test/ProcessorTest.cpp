@@ -564,7 +564,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_DATA, resp.code);
     }
     // Wrong default value
     {
@@ -589,7 +589,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_DATA, resp.code);
     }
     {
         cpp2::CreateTagReq req;
@@ -775,7 +775,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_DATA, resp.code);
     }
     {
         cpp2::CreateTagReq req;
