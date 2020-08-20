@@ -578,9 +578,7 @@ TEST(MetaClientTest, TagIndexTest) {
         columns.emplace_back(std::move(column0));
         cpp2::Schema schema;
         schema.set_columns(std::move(columns));
-        auto result = client->createTagSchema(space,
-                                               folly::stringPrintf("tag_string"),
-                                               schema).get();
+        auto result = client->createTagSchema(space, "tag_string", schema).get();
         ASSERT_TRUE(result.ok());
     }
     {
@@ -760,9 +758,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
         columns.emplace_back(std::move(column0));
         cpp2::Schema schema;
         schema.set_columns(std::move(columns));
-        auto result = client->createEdgeSchema(space,
-                                               folly::stringPrintf("edge_string"),
-                                               schema).get();
+        auto result = client->createEdgeSchema(space, "edge_string", schema).get();
         ASSERT_TRUE(result.ok());
     }
     {
