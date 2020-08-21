@@ -93,7 +93,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         onFinished();
         return;
     }
-    if (vidType != cpp2::PropertyType::INT64 && vidSize != 8) {
+    if (vidType == cpp2::PropertyType::INT64 && vidSize != 8) {
         LOG(ERROR) << "Create Space Failed : vid_size should be 8 if vid type is interger: "
                    << vidSize;
         resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
