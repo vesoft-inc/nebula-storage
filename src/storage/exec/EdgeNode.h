@@ -148,6 +148,7 @@ public:
 class SingleEdgeNode final : public EdgeNode<VertexID> {
 public:
     using RelNode::execute;
+
     SingleEdgeNode(PlanContext* planCtx,
                    EdgeContext* ctx,
                    EdgeType edgeType,
