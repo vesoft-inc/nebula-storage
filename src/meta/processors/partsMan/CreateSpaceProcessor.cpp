@@ -61,7 +61,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         partitionNum = FLAGS_default_parts_num;
         if (partitionNum <= 0) {
             LOG(ERROR) << "Create Space Failed : partition_num is illegal!";
-              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
               onFinished();
               return;
         }
@@ -72,7 +72,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         replicaFactor = FLAGS_default_replica_factor;
         if (replicaFactor <= 0) {
             LOG(ERROR) << "Create Space Failed : replicaFactor is illegal!";
-              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+              resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
               onFinished();
               return;
         }
@@ -81,7 +81,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     }
     if (vidSize <= 0 && vidSize > std::numeric_limits<int32_t>::max()) {
         LOG(ERROR) << "Create Space Failed : vid_size is illegal!";
-        resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
         onFinished();
         return;
     }

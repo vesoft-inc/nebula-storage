@@ -17,7 +17,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     auto &fieldNames = req.get_fields();
     if (fieldNames.empty()) {
         LOG(ERROR) << "The index field of an tag should not be empty.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
         onFinished();
         return;
     }

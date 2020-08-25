@@ -17,7 +17,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     auto &fieldNames = req.get_fields();
     if (fieldNames.empty()) {
         LOG(ERROR) << "The index field of an edge type should not be empty.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
         onFinished();
         return;
     }

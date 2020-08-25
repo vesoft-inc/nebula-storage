@@ -38,7 +38,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
 
             std::vector<std::string> cmdAndParas = req.get_paras();
             if (cmdAndParas.empty()) {
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
                 break;
             }
 
@@ -67,13 +67,13 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
         case nebula::meta::cpp2::AdminJobOp::SHOW:
         {
             if (req.get_paras().empty()) {
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
                 break;
             }
 
             int iJob = atoi(req.get_paras()[0].c_str());
             if (iJob == 0) {
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
                 break;
             }
 
@@ -89,12 +89,12 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
         case nebula::meta::cpp2::AdminJobOp::STOP:
         {
             if (req.get_paras().empty()) {
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
                 break;
             }
             int iJob = atoi(req.get_paras()[0].c_str());
             if (iJob == 0) {
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
                 break;
             }
             auto ret = jobMgr->stopJob(iJob);
@@ -114,7 +114,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             break;
         }
         default:
-            errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
+            errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
             break;
     }
 
