@@ -13,6 +13,7 @@
 namespace nebula {
 namespace meta {
 
+<<<<<<< HEAD
 // Systemtable means that it does not contain any space information(id).false means that the backup
 // should be skipped.
 static const std::unordered_map<std::string, std::pair<std::string, bool>> systemTableMaps = {
