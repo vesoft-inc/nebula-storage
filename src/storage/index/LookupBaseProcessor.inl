@@ -89,10 +89,9 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
             }
             break;
         }
-        case Expression::Kind::kSymProperty:
         case Expression::Kind::kTagProperty:
         case Expression::Kind::kEdgeProperty: {
-            auto* sExpr = dynamic_cast<SymbolPropertyExpression*>(filter);
+            auto* sExpr = dynamic_cast<PropertyExpression*>(filter);
             const auto* prop = sExpr->prop();
             auto it = std::find_if(fields.begin(), fields.end(), [&prop] (const auto& f) {
                 return f.get_name() == prop;

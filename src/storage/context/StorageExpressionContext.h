@@ -109,13 +109,6 @@ public:
         LOG(FATAL) << "Unimplemented";
     }
 
-    // isEdge_ set in ctor
-    void reset(RowReader* reader, folly::StringPiece key) {
-        reader_ = reader;
-        key_ = key;
-    }
-
-
     // index key
     void reset(const std::string& key) {
         key_ = key;
