@@ -1,6 +1,7 @@
 *.md
 LICENSES/
 docs/
+modules/
 
 *.swp
 *.so
@@ -15,7 +16,10 @@ install_manifest.txt
 
 # ccls
 .ccls
+.ccls-cache
 compile_commands.json
+
+.ccache
 
 src/common/base/Base.h.gch
 gen-*

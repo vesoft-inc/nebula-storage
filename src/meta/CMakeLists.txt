@@ -86,19 +86,4 @@ nebula_add_library(
     MetaHttpReplaceHostHandler.cpp
 )
 
-#nebula_add_library(
-#    meta_client OBJECT
-#    client/MetaClient.cpp
-#)
-
-#nebula_add_library(
-#    gflags_man_obj OBJECT
-#    GflagsManager.cpp
-#)
-
-#nebula_add_library(
-#    meta_gflags_man_obj OBJECT
-#    ClientBasedGflagsManager.cpp
-#)
-
 nebula_add_subdirectory(test)

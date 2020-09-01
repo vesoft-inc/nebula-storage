@@ -182,7 +182,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
-                            LOG(ERROR) << "The part have locked";
+                            LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                             env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
@@ -211,7 +211,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
                         batchHolder->put(std::move(modifyOpKey), "");
                     } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
-                        LOG(ERROR) << "The part have locked";
+                        LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                         env_->onFlyingRequest_.fetch_add(*requestPtr);
                         return folly::none;
                     } else {
