@@ -7,7 +7,7 @@ thrift_generate("old_meta" "" ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY
 
 add_library(
     old_meta_obj OBJECT
-    MetaServiceUtils.cpp
+    MetaServiceUtilsV1.cpp
 )
 
 add_dependencies(

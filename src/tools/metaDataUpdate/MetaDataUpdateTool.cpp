@@ -42,7 +42,8 @@ int main(int argc, char *argv[]) {
 
     // copy the data path to rewrite
     auto copyCmd = folly::stringPrintf("cp -r %s/* %s",
-                                       FLAGS_meta_data_path.c_str(), newDataPath.c_str());
+                                       FLAGS_meta_data_path.c_str(),
+                                       newDataPath.c_str());
     std::system(copyCmd.c_str());
 
     auto dataPath = folly::stringPrintf("%s/nebula/0/data", newDataPath.c_str());
