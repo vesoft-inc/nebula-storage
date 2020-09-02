@@ -32,7 +32,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         runDirectly = false;
         taskManager->addAsyncTask(task);
     } else {
-        rc = nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
+        rc = nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM;
     }
 
     if (runDirectly) {

@@ -861,7 +861,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto missedFuture = missedProcessor->getFuture();
         missedProcessor->process(missedReq);
         auto missedResp = std::move(missedFuture).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SEGMENT_NOT_FOUND, missedResp.code);
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, missedResp.code);
     }
     {
         // Multi Get Test

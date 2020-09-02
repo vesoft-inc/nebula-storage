@@ -15,7 +15,7 @@ void GetProcessor::process(const cpp2::GetReq& req) {
     auto result = doGet(key);
     if (!result.ok()) {
         LOG(ERROR) << "Get Failed: " << key << " not found!";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_SEGMENT_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND);
         onFinished();
         return;
     }

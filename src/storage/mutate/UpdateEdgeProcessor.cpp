@@ -189,7 +189,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
         auto updateExp = Expression::decode(edgeProp.get_value());
         if (!updateExp) {
             VLOG(1) << "Can't decode the prop's value " << edgeProp.get_value();
-            return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+            return nebula::cpp2::ErrorCode::E_INVALID_FIELD;
         }
         retCode = checkExp(updateExp.get(), false, false);
         if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -203,7 +203,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
             auto colExp = Expression::decode(prop);
             if (!colExp) {
                 VLOG(1) << "Can't decode the return expression";
-                return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+                return nebula::cpp2::ErrorCode::E_INVALID_RETURN;
             }
             auto retCode = checkExp(colExp.get(), true, false);
             if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -234,7 +234,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
     if (edgeContext_.edgeNames_.find(edgeKey_.edge_type) == edgeContext_.edgeNames_.end() ||
         edgeContext_.edgeNames_.size() != 1) {
         VLOG(1) << "should only contain one edge in update edge!";
-        return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+        return nebula::cpp2::ErrorCode::E_INVALID_FIELD;
     }
 
     planContext_->edgeType_ = edgeKey_.edge_type;

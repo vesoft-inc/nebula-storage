@@ -484,7 +484,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
         std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
         mockTask->fGenSubTasks = [&]() {
-            return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
+            return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM;
         };
 
         folly::Promise<ResultCode> pro;
@@ -499,7 +499,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
 
         fut.wait();
 
-        EXPECT_EQ(fut.value(), nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA);
+        EXPECT_EQ(fut.value(), nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM);
     }
 
     taskMgr->shutdown();

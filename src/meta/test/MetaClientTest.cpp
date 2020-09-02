@@ -285,7 +285,7 @@ TEST(MetaClientTest, InterfacesTest) {
 
         auto missedRet = client->get("test", "missed_key").get();
         ASSERT_TRUE(missedRet.ok());
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SEGMENT_NOT_FOUND, missedRet.value().get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, missedRet.value().get_code());
 
         auto emptyRet = client->get("test", "").get();
         ASSERT_FALSE(emptyRet.ok());

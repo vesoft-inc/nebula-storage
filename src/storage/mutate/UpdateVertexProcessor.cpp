@@ -189,7 +189,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         auto updateExp = Expression::decode(prop.get_value());
         if (!updateExp) {
             VLOG(1) << "Can't decode the prop's value " << prop.get_value();
-            return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+            return nebula::cpp2::ErrorCode::E_INVALID_FIELD;
         }
         retCode = checkExp(updateExp.get(), false, false);
         if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -203,7 +203,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
             auto colExp = Expression::decode(prop);
             if (!colExp) {
                 VLOG(1) << "Can't decode the return expression";
-                return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+                return nebula::cpp2::ErrorCode::E_INVALID_RETURN;
             }
             auto retCode = checkExp(colExp.get(), true, false);
             if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -234,7 +234,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     if (tagContext_.tagNames_.size() != 1 ||
         tagContext_.tagNames_.find(tagId_) == tagContext_.tagNames_.end()) {
         VLOG(1) << "should only contain one tag in update vertex!";
-        return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
+        return nebula::cpp2::ErrorCode::E_INVALID_FIELD;
     }
 
     planContext_->tagId_ = tagId_;
