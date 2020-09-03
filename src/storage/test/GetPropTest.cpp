@@ -421,6 +421,23 @@ TEST(GetPropTest, GetTagsTest) {
             verifyResultWithoutOrder(expected, resp.props);
         }
     }
+
+    // mix reserved properties and normal properties
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(23333/*ignore*/,
+                                         std::vector<std::string>{"_tags", "age"}));
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(1, resp.result.failed_parts.size());
+    }
 }
 
 }  // namespace storage
