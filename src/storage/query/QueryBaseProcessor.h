@@ -144,9 +144,11 @@ protected:
     cpp2::ErrorCode getSpaceEdgeSchema();
 
     // build tagContexts_ according to return props
-    cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps);
+    cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps,
+                                      const std::vector<cpp2::VertexProp>& dummyTags = {});
     // build edgeContexts_ according to return props
     cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps);
+    static bool completeReservedVertexProps(const std::vector<std::string>& props);
 
     cpp2::ErrorCode buildFilter(const REQ& req);
     cpp2::ErrorCode buildYields(const REQ& req);
@@ -156,6 +158,7 @@ protected:
     void buildEdgeTTLInfo();
 
     std::vector<cpp2::VertexProp> buildAllTagProps();
+    std::vector<cpp2::VertexProp> buildAllTagWithoutProps();
     std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
 
     cpp2::ErrorCode checkExp(const Expression* exp, bool returned, bool filtered);

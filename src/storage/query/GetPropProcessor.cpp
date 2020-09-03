@@ -78,7 +78,7 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
-    auto output = std::make_unique<GetTagPropNode>(tags, result);
+    auto output = std::make_unique<GetTagPropNode>(tags, result, std::move(reservedProps_));
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
@@ -154,9 +154,32 @@ cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& re
         ret = handleVertexProps(returnProps);
         buildTagColName(returnProps);
     } else {
+        bool withVertexReservedProp = false;
         // not use const reference because we need to modify it when all property need to return
         auto returnProps = std::move(req.vertex_props);
-        ret = handleVertexProps(returnProps);
+        for (const auto &vProp : returnProps) {
+            for (const auto &prop : vProp.get_props()) {
+                if (PlanContext::reservedVertexProps.find(prop) !=
+                    PlanContext::reservedVertexProps.end()) {
+                    withVertexReservedProp = true;
+                    reservedProps_.emplace(prop);
+                }
+            }
+        }
+        std::vector<cpp2::VertexProp> dummyTags;
+        if (withVertexReservedProp) {
+            // Build plan to collect from all tag key, but don't return properties of some tags
+            auto allTag = buildAllTagWithoutProps();
+            for (const auto &tagProp : allTag) {
+                if (std::find_if(returnProps.begin(), returnProps.end(),
+                                 [&tagProp](const auto &tag) {
+                    return tagProp.tag == tag.tag;
+                }) == returnProps.end()) {
+                    dummyTags.emplace_back(tagProp);
+                }
+            }
+        }
+        ret = handleVertexProps(returnProps, dummyTags);
         buildTagColName(returnProps);
     }
 
@@ -194,7 +217,12 @@ void GetPropProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagP
         auto tagId = tagProp.tag;
         auto tagName = tagContext_.tagNames_[tagId];
         for (const auto& prop : tagProp.props) {
-            resultDataSet_.colNames.emplace_back(tagName + ":" + prop);
+            if (PlanContext::reservedVertexProps.find(prop) !=
+                PlanContext::reservedVertexProps.end()) {
+                resultDataSet_.colNames.emplace_back(prop);
+            } else {
+                resultDataSet_.colNames.emplace_back(tagName + ":" + prop);
+            }
         }
     }
 }

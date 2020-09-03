@@ -30,11 +30,13 @@ public:
         , expCtx_(expCtx)
         , exp_(exp) {
         UNUSED(expCtx_); UNUSED(exp_);
-        auto schemaIter = tagContext_->schemas_.find(tagId_);
-        CHECK(schemaIter != tagContext_->schemas_.end());
-        CHECK(!schemaIter->second.empty());
-        schemas_ = &(schemaIter->second);
-        ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
+        if (tagContext_->tagNames_[tagId] != "__dummy_tag") {
+            auto schemaIter = tagContext_->schemas_.find(tagId_);
+            CHECK(schemaIter != tagContext_->schemas_.end());
+            CHECK(!schemaIter->second.empty());
+            schemas_ = &(schemaIter->second);
+            ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
+        }
         tagName_ = tagContext_->tagNames_[tagId_];
     }
 
@@ -70,6 +72,9 @@ public:
 
     kvstore::ResultCode collectTagPropsIfValid(NullHandler nullHandler,
                                                TagPropHandler valueHandler) {
+        if (tagName_ == "__dummy_tag") {
+            return kvstore::ResultCode::SUCCEEDED;
+        }
         if (!iter_ || !iter_->valid()) {
             return nullHandler(props_);
         }

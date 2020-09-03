@@ -54,6 +54,7 @@ private:
     bool isEdge_ = false;                   // true for edge, false for tag
     std::unique_ptr<StorageExpressionContext> expCtx_;
     std::vector<std::unique_ptr<Expression>> yields_;
+    std::unordered_set<std::string> reservedProps_;
 };
 
 }  // namespace storage

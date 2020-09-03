@@ -115,6 +115,10 @@ protected:
             StorageExpressionContext* ctx = nullptr) {
         for (auto& prop : *props) {
             VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
+            if (PlanContext::reservedVertexProps.find(prop.name_) !=
+                PlanContext::reservedVertexProps.end()) {
+                continue;
+            }
             auto status = QueryUtils::readValue(reader, prop.name_, prop.field_);
             if (!status.ok()) {
                 return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;

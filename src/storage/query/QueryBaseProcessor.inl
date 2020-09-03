@@ -15,46 +15,63 @@ namespace storage {
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
-        std::vector<cpp2::VertexProp>& vertexProps) {
+        std::vector<cpp2::VertexProp>& vertexProps,
+        const std::vector<cpp2::VertexProp>& dummyTags) {
     for (auto& vertexProp : vertexProps) {
         auto tagId = vertexProp.tag;
-        auto iter = tagContext_.schemas_.find(tagId);
-        if (iter == tagContext_.schemas_.end()) {
-            VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-        }
-        CHECK(!iter->second.empty());
-        const auto& tagSchema = iter->second.back();
-        auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagId);
-        if (!tagName.ok()) {
-            VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-        }
+        if (!completeReservedVertexProps(vertexProp.get_props())) {
+            auto iter = tagContext_.schemas_.find(tagId);
+            if (iter == tagContext_.schemas_.end()) {
+                VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
+                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            }
+            CHECK(!iter->second.empty());
+            const auto& tagSchema = iter->second.back();
+            auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagId);
+            if (!tagName.ok()) {
+                VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
+                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            }
 
-        std::vector<PropContext> ctxs;
-        if (!vertexProp.props.empty()) {
-            for (const auto& name : vertexProp.props) {
-                auto field = tagSchema->field(name);
-                if (field == nullptr) {
-                    VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
-                    return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+            std::vector<PropContext> ctxs;
+            if (!vertexProp.props.empty()) {
+                for (const auto& name : vertexProp.props) {
+                    auto field = tagSchema->field(name);
+                    if (field == nullptr) {
+                        VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
+                        return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+                    }
+                    addReturnPropContext(ctxs, name.c_str(), field);
                 }
-                addReturnPropContext(ctxs, name.c_str(), field);
+            } else {
+                // if the list of property names is empty, then all properties on the given tag
+                // will be returned
+                auto count = tagSchema->getNumFields();
+                for (size_t i = 0; i < count; i++) {
+                    auto name = tagSchema->getFieldName(i);
+                    vertexProp.props.emplace_back(name);
+                    auto field = tagSchema->field(i);
+                    addReturnPropContext(ctxs, name, field);
+                }
             }
+            tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+            tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
+            tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
         } else {
-            // if the list of property names is empty, then all properties on the given tag
-            // will be returned
-            auto count = tagSchema->getNumFields();
-            for (size_t i = 0; i < count; i++) {
-                auto name = tagSchema->getFieldName(i);
-                vertexProp.props.emplace_back(name);
-                auto field = tagSchema->field(i);
-                addReturnPropContext(ctxs, name, field);
+            std::vector<PropContext> ctxs;
+            for (const auto& name : vertexProp.props) {
+                addReturnPropContext(ctxs, name.c_str(), nullptr);
             }
+            tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+            tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
+            tagContext_.tagNames_.emplace(tagId, "__dummy_tag");
         }
-        tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
-        tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
-        tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
+    }
+    for (auto &tagProp : dummyTags) {
+        auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagProp.tag);
+        tagContext_.propContexts_.emplace_back(tagProp.tag, std::vector<PropContext>());
+        tagContext_.indexMap_.emplace(tagProp.tag, tagContext_.propContexts_.size() - 1);
+        tagContext_.tagNames_.emplace(tagProp.tag, std::move(tagName).value());
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }
@@ -118,6 +135,17 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
 }
 
 template <typename REQ, typename RESP>
+/*static*/ bool
+QueryBaseProcessor<REQ, RESP>::completeReservedVertexProps(const std::vector<std::string>& props) {
+    for (const auto& prop : props) {
+        if (PlanContext::reservedVertexProps.find(prop) == PlanContext::reservedVertexProps.end()) {
+            return false;
+        }
+    }
+    return !props.empty();
+}
+
+template <typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::addReturnPropContext(
         std::vector<PropContext>& ctxs,
         const char* propName,
@@ -161,6 +189,9 @@ template<typename REQ, typename RESP>
 void QueryBaseProcessor<REQ, RESP>::buildTagTTLInfo() {
     for (const auto& tc : tagContext_.propContexts_) {
         auto tagId = tc.first;
+        if (tagContext_.tagNames_[tagId] == "__dummy_tag") {
+            continue;
+        }
         auto iter = tagContext_.schemas_.find(tagId);
         CHECK(iter != tagContext_.schemas_.end());
         const auto& tagSchema = iter->second.back();
@@ -201,6 +232,19 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
             auto name = schema->getFieldName(i);
             tagProp.props.emplace_back(name);
         }
+        result.emplace_back(std::move(tagProp));
+    }
+    std::sort(result.begin(), result.end(),
+              [&] (const auto& a, const auto& b) { return a.tag < b.tag; });
+    return result;
+}
+
+template<typename REQ, typename RESP>
+std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagWithoutProps() {
+    std::vector<cpp2::VertexProp> result;
+    for (const auto& entry : tagContext_.schemas_) {
+        cpp2::VertexProp tagProp;
+        tagProp.tag = entry.first;
         result.emplace_back(std::move(tagProp));
     }
     std::sort(result.begin(), result.end(),

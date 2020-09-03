@@ -17,9 +17,15 @@ namespace storage {
 class GetTagPropNode : public QueryNode<VertexID> {
 public:
     explicit GetTagPropNode(std::vector<TagNode*> tagNodes,
-                            nebula::DataSet* resultDataSet)
+                            nebula::DataSet* resultDataSet,
+                            std::unordered_set<std::string> reservedProps = {})
         : tagNodes_(std::move(tagNodes))
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet)
+        , reservedProps_(std::move(reservedProps)) {
+            for (std::size_t i = 0; i < resultDataSet->colNames.size(); ++i) {
+                indexes_.emplace(resultDataSet->colNames[i], i);
+            }
+        }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::execute(partId, vId);
@@ -28,15 +34,20 @@ public:
         }
 
         std::vector<Value> row;
+        row.resize(resultDataSet_->colNames.size());
         // vertexId is the first column
-        row.emplace_back(vId);
+        row[0] = vId;
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [this, &row, &tagName] (const std::vector<PropContext>* props) {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            row.emplace_back(NullType::__NULL__);
+                            if (prop.name_ == "_tags") {
+                                // do nothing
+                            } else {
+                                row[indexes_[tagName + ":" + prop.name_]] = Value::kNullValue;
+                            }
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
@@ -45,6 +56,12 @@ public:
                                         RowReader* reader,
                                         const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
+                    if (reservedProps_.find("_tags") != reservedProps_.end()) {
+                        auto &value = row[indexes_["_tags"]];
+                        value.setList(List());
+                        value.mutableList().values.emplace_back(tagName);
+                    }
+
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,
@@ -54,8 +71,8 @@ public:
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
-                    for (auto& col : list.values) {
-                        row.emplace_back(std::move(col));
+                    for (std::size_t i = 0; i < props->size(); ++i) {
+                        row[indexes_[tagName + ":" + (*props)[i].name_]] = list.values[i];
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -70,6 +87,8 @@ public:
 private:
     std::vector<TagNode*> tagNodes_;
     nebula::DataSet* resultDataSet_;
+    std::unordered_map<std::string /*column*/, std::size_t /*column index*/> indexes_;
+    std::unordered_set<std::string> reservedProps_;
 };
 
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {

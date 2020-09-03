@@ -96,6 +96,18 @@ void verifyResult(const std::vector<nebula::Row>& expect,
     }
 }
 
+void verifyResultWithoutOrder(std::vector<nebula::Row>& expect,
+                              nebula::DataSet& dataSet) {
+    ASSERT_EQ(expect.size(), dataSet.rows.size());
+    std::sort(expect.begin(), expect.end());
+    std::sort(dataSet.rows.begin(), dataSet.rows.end());
+    for (size_t i = 0; i < expect.size(); i++) {
+        const auto& expectRow = expect[i];
+        const auto& actualRow = dataSet.rows[i];
+        ASSERT_EQ(expectRow, actualRow);
+    }
+}
+
 TEST(GetPropTest, PropertyTest) {
     fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
     mock::MockCluster cluster;
@@ -342,6 +354,71 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
             verifyResult(expected, resp.props);
+        }
+    }
+}
+
+TEST(GetPropTest, GetTagsTest) {
+    fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    // only tags
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(233333/*ignore*/,
+                                         std::vector<std::string>{"_tags"}));
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
+            Row row({
+                "Tim Duncan", List({"1"})
+            });
+            expected.emplace_back(std::move(row));
+            ASSERT_TRUE(resp.__isset.props);
+            verifyResult(expected, resp.props);
+        }
+    }
+
+    // with other properties
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan", "Tony Parker"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(23333/*ignore*/,
+                                         std::vector<std::string>{"_tags"}));
+        tags.emplace_back(std::make_pair(1, std::vector<std::string>{"age"}));
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
+            expected.emplace_back(Row({
+                "Tim Duncan", List({"1"}), 44
+            }));
+            expected.emplace_back(Row({
+                "Tony Parker", List({"1"}), 38
+            }));
+            ASSERT_TRUE(resp.__isset.props);
+            verifyResultWithoutOrder(expected, resp.props);
         }
     }
 }

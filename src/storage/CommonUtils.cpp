@@ -29,5 +29,10 @@ bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
     return false;
 }
 
+/*static*/ const std::unordered_set<std::string> PlanContext::reservedVertexProps = {
+    "_tags"
+};
+
+
 }  // namespace storage
 }  // namespace nebula

@@ -67,6 +67,8 @@ public:
     bool                                insert_ = false;
 
     ResultStatus                        resultStat_{ResultStatus::NORMAL};
+
+    static const std::unordered_set<std::string> reservedVertexProps;
 };
 
 class CommonUtils final {
