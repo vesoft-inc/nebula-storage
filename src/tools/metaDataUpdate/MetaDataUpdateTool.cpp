@@ -7,20 +7,10 @@
 #include "common/base/Base.h"
 #include "common/fs/FileUtils.h"
 #include "tools/metaDataUpdate/MetaDataUpdate.h"
+#include "tools/metaDataUpdate/oldThrift/MetaServiceUtilsV1.h"
 
 DEFINE_string(meta_data_path, "", "meta data path");
-DEFINE_bool(print_info, false, "the enable to print the rewrite info");
-
-const std::string kSpacesTable         = "__spaces__";         // NOLINT
-const std::string kPartsTable          = "__parts__";          // NOLINT
-const std::string kHostsTable          = "__hosts__";          // NOLINT
-const std::string kTagsTable           = "__tags__";           // NOLINT
-const std::string kEdgesTable          = "__edges__";          // NOLINT
-const std::string kIndexesTable        = "__indexes__";        // NOLINT
-const std::string kConfigsTable        = "__configs__";        // NOLINT
-const std::string kLeadersTable        = "__leaders__";        // NOLINT
-const std::string kDefaultTable        = "__default__";        // NOLINT
-
+DEFINE_bool(print_info, false, "enable to print the rewrite data");
 
 int main(int argc, char *argv[]) {
     folly::init(&argc, &argv, true);
@@ -61,32 +51,35 @@ int main(int argc, char *argv[]) {
         LOG(ERROR) << "Get nullptr iter from rocksdb.";
         return 1;
     }
+
     iter->SeekToFirst();
     while (iter->Valid()) {
         auto key = folly::StringPiece(iter->key().data(), iter->key().size());
         auto val = folly::StringPiece(iter->value().data(), iter->value().size());
-        if (key.startsWith(kSpacesTable)) {
+
+        if (key.startsWith(nebula::oldmeta::kSpacesTable)) {
             if (FLAGS_print_info) { updater.printSpaces(val); }
             status = updater.rewriteSpaces(key, val);
-        } else if (key.startsWith(kPartsTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kPartsTable)) {
             if (FLAGS_print_info) { updater.printParts(key, val); }
             status = updater.rewriteParts(key, val);
-        } else if (key.startsWith(kHostsTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kHostsTable)) {
             if (FLAGS_print_info) { updater.printHosts(key, val); }
             status = updater.rewriteHosts(key, val);
-        } else if (key.startsWith(kLeadersTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kLeadersTable)) {
             if (FLAGS_print_info) { updater.printLeaders(key); }
             status = updater.rewriteLeaders(key, val);
-        } else if (key.startsWith(kTagsTable) || key.startsWith(kEdgesTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kTagsTable)
+                   || key.startsWith(nebula::oldmeta::kEdgesTable)) {
             if (FLAGS_print_info) { updater.printSchemas(val); }
             status = updater.rewriteSchemas(key, val);
-        } else if (key.startsWith(kIndexesTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kIndexesTable)) {
             if (FLAGS_print_info) { updater.printIndexes(val); }
             status = updater.rewriteIndexes(key, val);
-        } else if (key.startsWith(kConfigsTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kConfigsTable)) {
             if (FLAGS_print_info) { updater.printConfigs(key, val); }
             status = updater.rewriteConfigs(key, val);
-        } else if (key.startsWith(kDefaultTable)) {
+        } else if (key.startsWith(nebula::oldmeta::kDefaultTable)) {
             status = updater.deleteDefault(key);
         }
         if (!status.ok()) {

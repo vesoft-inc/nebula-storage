@@ -17,16 +17,23 @@
 namespace nebula {
 namespace oldmeta {
 
-enum class EntryType : int8_t {
-    SPACE       = 0x01,
-    TAG         = 0x02,
-    EDGE        = 0x03,
-    INDEX       = 0x04,
-    CONFIG      = 0x05,
-};
+const std::string kSpacesTable         = "__spaces__";         // NOLINT
+const std::string kPartsTable          = "__parts__";          // NOLINT
+const std::string kHostsTable          = "__hosts__";          // NOLINT
+const std::string kTagsTable           = "__tags__";           // NOLINT
+const std::string kEdgesTable          = "__edges__";          // NOLINT
+const std::string kIndexesTable        = "__indexes__";        // NOLINT
+const std::string kIndexTable          = "__index__";          // NOLINT
+const std::string kIndexStatusTable    = "__index_status__";   // NOLINT
+const std::string kUsersTable          = "__users__";          // NOLINT
+const std::string kRolesTable          = "__roles__";          // NOLINT
+const std::string kConfigsTable        = "__configs__";        // NOLINT
+const std::string kDefaultTable        = "__default__";        // NOLINT
+const std::string kSnapshotsTable      = "__snapshots__";      // NOLINT
+const std::string kLastUpdateTimeTable = "__last_update_time__"; // NOLINT
+const std::string kLeadersTable        = "__leaders__";          // NOLINT
 
 using ConfigName = std::pair<cpp2::ConfigModule, std::string>;
-using LeaderParts = std::unordered_map<GraphSpaceID, std::vector<PartitionID>>;
 
 class MetaServiceUtilsV1 final {
 public:

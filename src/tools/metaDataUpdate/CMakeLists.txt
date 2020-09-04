@@ -1,6 +1,6 @@
 nebula_add_executable(
     NAME
-        metadata_update
+        meta_data_update
     SOURCES
         MetaDataUpdate.cpp
         MetaDataUpdateTool.cpp
@@ -48,7 +48,7 @@ nebula_add_executable(
 
 install(
     TARGETS
-        metadata_update
+        meta_data_update
     DESTINATION
         bin
     COMPONENT
