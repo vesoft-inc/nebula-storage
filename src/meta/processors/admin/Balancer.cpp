@@ -20,11 +20,12 @@ DEFINE_double(leader_balance_deviation, 0.05, "after leader balance, leader coun
 namespace nebula {
 namespace meta {
 
-ErrorOr<cpp2::ErrorCode, BalanceID> Balancer::balance(std::unordered_set<HostAddr> hostDel) {
+ErrorOr<nebula::cpp2::ErrorCode, BalanceID>
+Balancer::balance(std::unordered_set<HostAddr> hostDel) {
     std::lock_guard<std::mutex> lg(lock_);
     if (!running_) {
         auto retCode = recovery();
-        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Recovery balancer failed!";
             finish();
             return retCode;
@@ -32,7 +33,7 @@ ErrorOr<cpp2::ErrorCode, BalanceID> Balancer::balance(std::unordered_set<HostAdd
         if (plan_ == nullptr) {
             LOG(INFO) << "There is no corrupted plan need to recovery, so create a new one";
             retCode = buildBalancePlan(std::move(hostDel));
-            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 LOG(ERROR) << "Create balance plan failed";
                 finish();
                 return retCode;
@@ -58,7 +59,7 @@ StatusOr<BalancePlan> Balancer::show(BalanceID id) const {
     if (kv_) {
         BalancePlan plan(id, kv_, client_.get());
         auto retCode = plan.recovery(false);
-        if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return Status::Error("Get balance plan failed, id %ld", id);
         }
         return plan;
@@ -77,14 +78,14 @@ StatusOr<BalanceID> Balancer::stop() {
     return plan_->id();
 }
 
-cpp2::ErrorCode Balancer::recovery() {
+nebula::cpp2::ErrorCode Balancer::recovery() {
     CHECK(!plan_) << "plan should be nullptr now";
     if (kv_) {
         auto* store = static_cast<kvstore::NebulaStore*>(kv_);
         if (!store->isLeader(kDefaultSpaceId, kDefaultPartId)) {
             // We need to check whether is leader or not, otherwise we would failed to persist
             // state of BalancePlan and BalanceTask, so we just reject request if not leader.
-            return cpp2::ErrorCode::E_LEADER_CHANGED;
+            return nebula::cpp2::ErrorCode::E_LEADER_CHANGED;
         }
         const auto& prefix = BalancePlan::prefix();
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -105,7 +106,7 @@ cpp2::ErrorCode Balancer::recovery() {
         }
         if (corruptedPlans.empty()) {
             LOG(INFO) << "No corrupted plan need to recovery!";
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         CHECK_EQ(1, corruptedPlans.size());
         plan_ = std::make_unique<BalancePlan>(corruptedPlans[0], kv_, client_.get());
@@ -121,12 +122,12 @@ cpp2::ErrorCode Balancer::recovery() {
             }
         };
         auto recRet = plan_->recovery();
-        if (recRet != cpp2::ErrorCode::SUCCEEDED) {
+        if (recRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Can't recovery plan " << corruptedPlans[0];
             return recRet;
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 bool Balancer::getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& spaces,
@@ -149,12 +150,12 @@ bool Balancer::getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& space
     return true;
 }
 
-cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel) {
+nebula::cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel) {
     CHECK(!plan_) << "plan should be nullptr now";
     std::vector<std::pair<GraphSpaceID, int32_t>> spaces;
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
-        return cpp2::ErrorCode::E_STORE_FAILURE;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
     }
     plan_ = std::make_unique<BalancePlan>(time::WallClock::fastNowInSec(), kv_, client_.get());
     for (auto spaceInfo : spaces) {
@@ -179,12 +180,12 @@ cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel)
         }
     };
     if (plan_->tasks_.empty()) {
-        return cpp2::ErrorCode::E_BALANCED;
+        return nebula::cpp2::ErrorCode::E_BALANCED;
     }
     return plan_->saveInStore();
 }
 
-ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
+ErrorOr<nebula::cpp2::ErrorCode, std::vector<BalanceTask>>
 Balancer::genTasks(GraphSpaceID spaceId,
                    int32_t spaceReplica,
                    std::unordered_set<HostAddr> hostDel) {
@@ -195,7 +196,7 @@ Balancer::genTasks(GraphSpaceID spaceId,
     getHostParts(spaceId, hostParts, totalParts);
     if (totalParts == 0 || hostParts.empty()) {
         LOG(ERROR) << "Invalid space " << spaceId;
-        return cpp2::ErrorCode::E_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
     std::vector<HostAddr> newlyAdded;
     auto activeHosts = ActiveHostsMan::getActiveHosts(kv_);
@@ -225,13 +226,13 @@ Balancer::genTasks(GraphSpaceID spaceId,
             auto alive = checkReplica(hostParts, activeHosts, spaceReplica, partId);
             if (!alive.ok()) {
                 LOG(ERROR) << "Error:" << alive;
-                return cpp2::ErrorCode::E_NO_VALID_HOST;
+                return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
             }
             // find a host with minimum parts which doesn't have this part
             auto ret = hostWithMinimalParts(newHostParts, partId);
             if (!ret.ok()) {
                 LOG(ERROR) << "Error:" << ret.status();
-                return cpp2::ErrorCode::E_NO_VALID_HOST;
+                return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
             }
             auto& luckyHost = ret.value();
             newHostParts[luckyHost].emplace_back(partId);
@@ -246,7 +247,7 @@ Balancer::genTasks(GraphSpaceID spaceId,
     }
     if (newHostParts.size() < 2) {
         LOG(INFO) << "Too few hosts, no need for balance!";
-        return cpp2::ErrorCode::E_NO_VALID_HOST;
+        return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
     }
     // 2. Make all hosts in newHostParts balanced
     balanceParts(plan_->id_, spaceId, newHostParts, totalParts, tasks);
@@ -424,9 +425,9 @@ StatusOr<HostAddr> Balancer::hostWithMinimalParts(
     return Status::Error("No host is suitable for %d", partId);
 }
 
-cpp2::ErrorCode Balancer::leaderBalance() {
+nebula::cpp2::ErrorCode Balancer::leaderBalance() {
     if (running_) {
-        return cpp2::ErrorCode::E_BALANCER_RUNNING;
+        return nebula::cpp2::ErrorCode::E_BALANCER_RUNNING;
     }
 
     folly::Promise<Status> promise;
@@ -435,7 +436,7 @@ cpp2::ErrorCode Balancer::leaderBalance() {
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't access kvstore, ret = " << static_cast<int32_t>(ret);
-        return cpp2::ErrorCode::E_STORE_FAILURE;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
     }
 
     bool expected = false;
@@ -445,7 +446,7 @@ cpp2::ErrorCode Balancer::leaderBalance() {
 
         if (!status.ok() || hostLeaderMap_->empty()) {
             inLeaderBalance_ = false;
-            return cpp2::ErrorCode::E_RPC_FAILURE;
+            return nebula::cpp2::ErrorCode::E_RPC_FAILED;
         }
 
         std::vector<folly::SemiFuture<Status>> futures;
@@ -471,9 +472,9 @@ cpp2::ErrorCode Balancer::leaderBalance() {
         }).wait();
         LOG(INFO) << failed << " partiton failed to transfer leader";
         inLeaderBalance_ = false;
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
-    return cpp2::ErrorCode::E_BALANCER_RUNNING;
+    return nebula::cpp2::ErrorCode::E_BALANCER_RUNNING;
 }
 
 std::unordered_map<HostAddr, std::vector<PartitionID>>

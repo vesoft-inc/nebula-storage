@@ -323,7 +323,7 @@ TEST(StorageClientTest, VerticesInterfacesTest) {
         rc.failed_codes.emplace_back(); \
         auto& code = rc.failed_codes.back(); \
         code.set_part_id(1); \
-        code.set_code(storage::cpp2::ErrorCode::E_LEADER_CHANGED); \
+        code.set_code(storage::nebula::cpp2::ErrorCode::E_LEADER_CHANGED); \
         code.set_leader(leader); \
         resp.set_result(std::move(rc)); \
         pro.setValue(std::move(resp)); \

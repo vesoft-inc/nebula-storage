@@ -116,7 +116,7 @@ void MockCluster::initStorageKV(const char* dataPath,
         if (!ret.ok()) {
             LOG(FATAL) << "can't create space";
         }
-        GraphSpaceID spaceId = ret.value();
+        GraphSpaceID spaceId = ret.value().get_id().get_space_id();
         LOG(INFO) << "spaceId = " << spaceId;
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,

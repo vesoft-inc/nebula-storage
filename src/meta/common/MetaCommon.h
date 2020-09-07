@@ -28,32 +28,35 @@ public:
         return false;
     }
 
-    static cpp2::ErrorCode to(kvstore::ResultCode code) {
+    static nebula::cpp2::ErrorCode to(kvstore::ResultCode code) {
         switch (code) {
         case kvstore::ResultCode::SUCCEEDED:
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         case kvstore::ResultCode::ERR_KEY_NOT_FOUND:
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND;
         case kvstore::ResultCode::ERR_LEADER_CHANGED:
-            return cpp2::ErrorCode::E_LEADER_CHANGED;
+            return nebula::cpp2::ErrorCode::E_LEADER_CHANGED;
         case kvstore::ResultCode::ERR_CHECKPOINT_ERROR:
-            return cpp2::ErrorCode::E_SNAPSHOT_FAILURE;
+            return nebula::cpp2::ErrorCode::E_SNAPSHOT_FAILED;
         default:
-            return cpp2::ErrorCode::E_UNKNOWN;
+            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
         }
     }
 
-    static cpp2::ErrorCode to(const Status& status) {
+    static nebula::cpp2::ErrorCode to(const Status& status) {
         switch (status.code()) {
         case Status::kOk:
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         case Status::kSpaceNotFound:
-        case Status::kHostNotFound:
+            return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
         case Status::kTagNotFound:
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
+        case Status::kEdgeNotFound:
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         case Status::kUserNotFound:
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_USER_NOT_FOUND;
         default:
-            return cpp2::ErrorCode::E_UNKNOWN;
+            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
         }
     }
 

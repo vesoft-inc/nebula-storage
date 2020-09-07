@@ -20,7 +20,7 @@ public:
 
     void process(const cpp2::SetConfigReq& req);
 
-    cpp2::ErrorCode setConfig(const cpp2::ConfigModule& module,
+    nebula::cpp2::ErrorCode setConfig(const cpp2::ConfigModule& module,
                               const std::string& name,
                               const Value& value,
                               std::vector<kvstore::KV>& data);

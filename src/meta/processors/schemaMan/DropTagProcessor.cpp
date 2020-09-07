@@ -20,8 +20,8 @@ void DropTagProcessor::process(const cpp2::DropTagReq& req) {
         tagId = *reinterpret_cast<const TagID *>(iRet.value().data());
         resp_.set_id(to(tagId, EntryType::TAG));
     } else {
-        handleErrorCode(req.get_if_exists() ? cpp2::ErrorCode::SUCCEEDED
-                                           : cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(req.get_if_exists() ? nebula::cpp2::ErrorCode::SUCCEEDED
+                                           : nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND);
         onFinished();
         return;
     }
@@ -34,7 +34,7 @@ void DropTagProcessor::process(const cpp2::DropTagReq& req) {
     }
     if (!indexes.value().empty()) {
         LOG(ERROR) << "Drop tag error, index conflict";
-        handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -48,7 +48,7 @@ void DropTagProcessor::process(const cpp2::DropTagReq& req) {
     }
     auto keys = std::move(ret).value();
     keys.emplace_back(indexKey);
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     LOG(INFO) << "Drop Tag " << req.get_tag_name();
     doSyncMultiRemoveAndUpdate(std::move(keys));
 }

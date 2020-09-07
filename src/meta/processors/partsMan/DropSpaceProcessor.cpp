@@ -14,7 +14,7 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
     auto spaceRet = getSpaceId(req.get_space_name());
 
     if (!spaceRet.ok()) {
-        handleErrorCode(req.get_if_exists() ? cpp2::ErrorCode::SUCCEEDED :
+        handleErrorCode(req.get_if_exists() ? nebula::cpp2::ErrorCode::SUCCEEDED :
                                              MetaCommon::to(spaceRet.status()));
         onFinished();
         return;
@@ -22,7 +22,7 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
 
     auto spaceId = spaceRet.value();
     VLOG(3) << "Drop space " << req.get_space_name() << ", id " << spaceId;
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     std::vector<std::string> deleteKeys;
 
     auto prefix = MetaServiceUtils::partPrefix(spaceId);

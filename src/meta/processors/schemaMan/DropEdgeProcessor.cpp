@@ -20,8 +20,8 @@ void DropEdgeProcessor::process(const cpp2::DropEdgeReq& req) {
         edgeType = *reinterpret_cast<const EdgeType *>(iRet.value().data());
         resp_.set_id(to(edgeType, EntryType::EDGE));
     } else {
-        handleErrorCode(req.get_if_exists() == true ? cpp2::ErrorCode::SUCCEEDED
-                                                   : cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(req.get_if_exists() == true ? nebula::cpp2::ErrorCode::SUCCEEDED
+                                                   : nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -34,7 +34,7 @@ void DropEdgeProcessor::process(const cpp2::DropEdgeReq& req) {
     }
     if (!indexes.value().empty()) {
         LOG(ERROR) << "Drop edge error, index conflict";
-        handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -45,7 +45,7 @@ void DropEdgeProcessor::process(const cpp2::DropEdgeReq& req) {
         onFinished();
         return;
     }
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     auto keys = std::move(ret).value();
     keys.emplace_back(std::move(indexKey));
     LOG(INFO) << "Drop Edge " << req.get_edge_name();

@@ -23,7 +23,7 @@ void GetSpaceProcessor::process(const cpp2::GetSpaceReq& req) {
     auto ret = doGet(spaceKey);
     if (!ret.ok()) {
         LOG(ERROR) << "Get Space SpaceName: " << req.get_space_name() << " not found";
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -36,7 +36,7 @@ void GetSpaceProcessor::process(const cpp2::GetSpaceReq& req) {
     cpp2::SpaceItem item;
     item.set_space_id(spaceId);
     item.set_properties(properties);
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     resp_.set_item(item);
     onFinished();
 }

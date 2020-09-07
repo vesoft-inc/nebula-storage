@@ -69,7 +69,7 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Hosts Failed: No hosts";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         return Status::Error("Can't access kvstore, ret = %d", static_cast<int32_t>(kvRet));
     }
 
@@ -114,7 +114,7 @@ Status ListHostsProcessor::fillLeaderAndPartInfoPerHost() {
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Hosts Failed: No leaders";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         return Status::Error("Can't access kvstore, ret = %d", static_cast<int32_t>(kvRet));
     }
 
@@ -144,7 +144,7 @@ Status ListHostsProcessor::fillLeaderAndPartInfoPerHost() {
         kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
         if (kvRet != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "List Hosts Failed: No partitions";
-            handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND);
             return Status::Error("Can't find any partitions");
         }
         while (iter->valid()) {
@@ -196,7 +196,7 @@ Status ListHostsProcessor::getSpaceIdNameMap() {
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, spacePrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Hosts Failed: No space found";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         return Status::Error("Can't access kvstore, ret = %d", static_cast<int32_t>(kvRet));
     }
     while (iter->valid()) {

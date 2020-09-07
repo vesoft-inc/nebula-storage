@@ -66,7 +66,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::ConfigItem item;
@@ -79,7 +79,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // register config item1 and item2
     {
@@ -93,7 +93,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // set and get string config item1
     {
@@ -104,7 +104,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::ConfigItem item;
@@ -117,7 +117,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         ASSERT_EQ(item1, resp.get_items().front());
     }
     // get config not existed
@@ -144,7 +144,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         processor->process(req);
         auto resp = std::move(f).get();
 
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         ASSERT_EQ(2, resp.get_items().size());
         auto ret1 = resp.get_items().front();
         auto ret2 = resp.get_items().back();
@@ -179,7 +179,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // update the nested config
     {
@@ -198,7 +198,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // get the nested config after updated
     {
@@ -212,7 +212,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
 
         // verify the updated nested config
         Configuration conf;
@@ -237,7 +237,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         processor->process(req);
         auto resp = std::move(f).get();
 
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         ASSERT_EQ(3, resp.get_items().size());
     }
 }

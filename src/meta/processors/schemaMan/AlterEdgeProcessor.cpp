@@ -29,7 +29,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
         LOG(ERROR) << "Edge could not be found " << req.get_edge_name()
                    << ", spaceId " << spaceId
                    << ", edgeType " << edgeType;
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -53,7 +53,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     auto existIndex = !indexes.empty();
     if (existIndex) {
         auto iStatus = indexCheck(indexes, edgeItems);
-        if (iStatus != cpp2::ErrorCode::SUCCEEDED) {
+        if (iStatus != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Alter edge error, index conflict : " << static_cast<int32_t>(iStatus);
             handleErrorCode(iStatus);
             onFinished();
@@ -65,7 +65,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
         auto& cols = edgeItem.get_schema().get_columns();
         for (auto& col : cols) {
             auto retCode = MetaServiceUtils::alterColumnDefs(columns, prop, col, edgeItem.op);
-            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 LOG(ERROR) << "Alter edge column error " << static_cast<int32_t>(retCode);
                 handleErrorCode(retCode);
                 onFinished();
@@ -77,7 +77,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     // Update schema property if edge not index
     auto& alterSchemaProp = req.get_schema_prop();
     auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Alter edge property error " << static_cast<int32_t>(retCode);
         handleErrorCode(retCode);
         onFinished();

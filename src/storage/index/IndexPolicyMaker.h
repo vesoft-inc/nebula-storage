@@ -41,7 +41,7 @@ protected:
      * Param  filter : From encoded string of where clause.
      * Return ErrorCode
      **/
-    cpp2::ErrorCode preparePolicy(const std::string &filter);
+    nebula::cpp2::ErrorCode preparePolicy(const std::string &filter);
 
     /**
      * Details Index scan policy generator. Confirm how to generate the scan policy
@@ -57,13 +57,13 @@ protected:
     bool exprEval(Getters &getters);
 
 private:
-    cpp2::ErrorCode decodeExpression(const std::string &filter);
+    nebula::cpp2::ErrorCode decodeExpression(const std::string &filter);
 
     /**
      * Details Entry method of expresion traverse.
      */
 
-    cpp2::ErrorCode traversalExpression(const Expression *expr);
+    nebula::cpp2::ErrorCode traversalExpression(const Expression *expr);
 
 protected:
     meta::SchemaManager*                     schemaMan_{nullptr};

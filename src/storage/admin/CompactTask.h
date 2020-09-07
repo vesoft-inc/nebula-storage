@@ -21,7 +21,7 @@ class CompactTask : public AdminTask {
 public:
     explicit CompactTask(TaskContext&& ctx) : AdminTask(std::move(ctx))     {}
 
-    ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
+    ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
     ResultCode subTask(nebula::kvstore::KVEngine* engine);
 };
 

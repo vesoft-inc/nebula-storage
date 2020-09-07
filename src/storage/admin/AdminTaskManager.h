@@ -41,8 +41,8 @@ public:
 
     void invoke();
 
-    cpp2::ErrorCode cancelJob(int jobId);
-    cpp2::ErrorCode cancelTask(int jobId, int taskId = -1);
+    nebula::cpp2::ErrorCode cancelJob(int jobId);
+    nebula::cpp2::ErrorCode cancelTask(int jobId, int taskId = -1);
 
     bool init();
 

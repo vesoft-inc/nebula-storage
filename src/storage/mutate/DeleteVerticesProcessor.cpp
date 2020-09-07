@@ -21,7 +21,7 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
     if (!ret.ok()) {
         LOG(ERROR) << ret.status();
         for (auto& part : partVertices) {
-            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+            pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
@@ -49,7 +49,7 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
-                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                    pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
                 }

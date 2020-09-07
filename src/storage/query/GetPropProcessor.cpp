@@ -13,7 +13,7 @@ namespace storage {
 void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
     spaceId_ = req.get_space_id();
     auto retCode = getSpaceVidLen(spaceId_);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
             pushResultCode(retCode, p.first);
         }
@@ -23,7 +23,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
 
     retCode = checkAndBuildContexts(req);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
             pushResultCode(retCode, p.first);
         }
@@ -103,50 +103,51 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
     return plan;
 }
 
-cpp2::ErrorCode GetPropProcessor::checkColumnNames(const std::vector<std::string>& colNames) {
+nebula::cpp2::ErrorCode
+GetPropProcessor::checkColumnNames(const std::vector<std::string>& colNames) {
     // Column names for the pass-in data. When getting the vertex props, the first
     // column has to be "_vid", when getting the edge props, the first four columns
     // have to be "_src", "_type", "_rank", and "_dst"
     if (colNames.size() != 1 && colNames.size() != 4) {
-        return cpp2::ErrorCode::E_INVALID_OPERATION;
+        return nebula::cpp2::ErrorCode::E_INVALID_OPERATION;
     }
     if (colNames.size() == 1 && colNames[0] == kVid) {
         isEdge_ = false;
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else if (colNames.size() == 4 &&
                colNames[0] == kSrc &&
                colNames[1] == kType &&
                colNames[2] == kRank &&
                colNames[3] == kDst) {
         isEdge_ = true;
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
-    return cpp2::ErrorCode::E_INVALID_OPERATION;
+    return nebula::cpp2::ErrorCode::E_INVALID_OPERATION;
 }
 
-cpp2::ErrorCode GetPropProcessor::checkAndBuildContexts(const cpp2::GetPropRequest& req) {
+nebula::cpp2::ErrorCode GetPropProcessor::checkAndBuildContexts(const cpp2::GetPropRequest& req) {
     auto code = checkColumnNames(req.column_names);
-    if (code != cpp2::ErrorCode::SUCCEEDED) {
+    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
     if (!isEdge_) {
         resultDataSet_.colNames.emplace_back(kVid);
         code = getSpaceVertexSchema();
-        if (code != cpp2::ErrorCode::SUCCEEDED) {
+        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return code;
         }
         return buildTagContext(req);
     } else {
         code = getSpaceEdgeSchema();
-        if (code != cpp2::ErrorCode::SUCCEEDED) {
+        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return code;
         }
         return buildEdgeContext(req);
     }
 }
 
-cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& req) {
-    cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
+nebula::cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& req) {
+    nebula::cpp2::ErrorCode ret = nebula::cpp2::ErrorCode::SUCCEEDED;
     if (req.vertex_props.empty()) {
         // If no props specified, get all property of all tagId in space
         auto returnProps = buildAllTagProps();
@@ -160,15 +161,15 @@ cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropRequest& re
         buildTagColName(returnProps);
     }
 
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
     buildTagTTLInfo();
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
-cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& req) {
-    cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
+nebula::cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& req) {
+    nebula::cpp2::ErrorCode ret = nebula::cpp2::ErrorCode::SUCCEEDED;
     if (req.edge_props.empty()) {
         // If no props specified, get all property of all tagId in space
         auto returnProps = buildAllEdgeProps(cpp2::EdgeDirection::BOTH);
@@ -182,11 +183,11 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
         buildEdgeColName(returnProps);
     }
 
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
     buildEdgeTTLInfo();
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 void GetPropProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {

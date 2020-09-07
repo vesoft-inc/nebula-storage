@@ -19,7 +19,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {
         LOG(ERROR) << "There is no active hosts";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         onFinished();
         return;
     }
@@ -41,7 +41,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     // step 2 : Blocking all writes action for storage engines.
     auto signRet = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_ON);
-    if (signRet != cpp2::ErrorCode::SUCCEEDED) {
+    if (signRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Send blocking sign to storage engine error";
         handleErrorCode(signRet);
         cancelWriteBlocking();
@@ -51,7 +51,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     // step 3 : Create checkpoint for all storage engines and meta engine.
     auto csRet = Snapshot::instance(kvstore_,  client_)->createSnapshot(snapshot);
-    if (csRet != cpp2::ErrorCode::SUCCEEDED) {
+    if (csRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Checkpoint create error on storage engine";
         handleErrorCode(csRet);
         cancelWriteBlocking();
@@ -61,7 +61,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     // step 4 : checkpoint created done, so release the write blocking.
     auto unbRet = cancelWriteBlocking();
-    if (unbRet != cpp2::ErrorCode::SUCCEEDED) {
+    if (unbRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Create snapshot failed on meta server" << snapshot;
         handleErrorCode(unbRet);
         onFinished();
@@ -72,7 +72,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     auto meteRet = kvstore_->createCheckpoint(kDefaultSpaceId, snapshot);
     if (meteRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Create snapshot failed on meta server" << snapshot;
-        handleErrorCode(cpp2::ErrorCode::E_STORE_FAILURE);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_STORE_FAILED);
         onFinished();
         return;
     }
@@ -100,13 +100,13 @@ std::string CreateSnapshotProcessor::genSnapshotName() {
     return folly::stringPrintf("SNAPSHOT_%s", ch);
 }
 
-cpp2::ErrorCode CreateSnapshotProcessor::cancelWriteBlocking() {
+nebula::cpp2::ErrorCode CreateSnapshotProcessor::cancelWriteBlocking() {
     auto signRet = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_OFF);
-    if (signRet != cpp2::ErrorCode::SUCCEEDED) {
+    if (signRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Cancel write blocking error";
         return signRet;
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 }  // namespace meta

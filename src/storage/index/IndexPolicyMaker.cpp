@@ -9,9 +9,9 @@
 
 namespace nebula {
 namespace storage {
-cpp2::ErrorCode IndexPolicyMaker::preparePolicy(const std::string &filter) {
+nebula::cpp2::ErrorCode IndexPolicyMaker::preparePolicy(const std::string &filter) {
     auto ret = decodeExpression(filter);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
     /**
@@ -22,12 +22,12 @@ cpp2::ErrorCode IndexPolicyMaker::preparePolicy(const std::string &filter) {
     return ret;
 }
 
-cpp2::ErrorCode IndexPolicyMaker::decodeExpression(const std::string &filter) {
-    cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
+nebula::cpp2::ErrorCode IndexPolicyMaker::decodeExpression(const std::string &filter) {
+    nebula::cpp2::ErrorCode code = nebula::cpp2::ErrorCode::SUCCEEDED;
     auto expRet = Expression::decode(filter);
     if (!expRet.ok()) {
         VLOG(1) << "Can't decode the filter " << filter;
-        return cpp2::ErrorCode::E_INVALID_FILTER;
+        return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
     }
     exp_ = std::move(expRet).value();
     if (expCtx_ == nullptr) {
@@ -36,7 +36,7 @@ cpp2::ErrorCode IndexPolicyMaker::decodeExpression(const std::string &filter) {
     exp_->setContext(this->expCtx_.get());
     auto status = exp_->prepare();
     if (!status.ok()) {
-        return cpp2::ErrorCode::E_INVALID_FILTER;
+        return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
     }
     return code;
 }
@@ -71,8 +71,8 @@ void IndexPolicyMaker::buildPolicy() {
     }
 }
 
-cpp2::ErrorCode IndexPolicyMaker::traversalExpression(const Expression *expr) {
-    cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
+nebula::cpp2::ErrorCode IndexPolicyMaker::traversalExpression(const Expression *expr) {
+    nebula::cpp2::ErrorCode code = nebula::cpp2::ErrorCode::SUCCEEDED;
     if (!optimizedPolicy_) {
         return code;
     }
@@ -92,7 +92,7 @@ cpp2::ErrorCode IndexPolicyMaker::traversalExpression(const Expression *expr) {
         case nebula::Expression::kLogical : {
             auto* lExpr = dynamic_cast<const LogicalExpression*>(expr);
             if (lExpr->op() == LogicalExpression::Operator::XOR) {
-                return cpp2::ErrorCode::E_INVALID_FILTER;
+                return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
             } else if (lExpr->op() == LogicalExpression::Operator::OR) {
                 optimizedPolicy_ = false;
             }
@@ -114,14 +114,14 @@ cpp2::ErrorCode IndexPolicyMaker::traversalExpression(const Expression *expr) {
                 auto value = right->eval(getters);
                 if (!value.ok()) {
                     VLOG(1) << "Can't evaluate the expression " << right->toString();
-                    return cpp2::ErrorCode::E_INVALID_FILTER;
+                    return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
                 }
                 v = value.value();
             } else if (right->kind() == nebula::Expression::kAliasProp) {
                 auto value = left->eval(getters);
                 if (!value.ok()) {
                     VLOG(1) << "Can't evaluate the expression " << left->toString();
-                    return cpp2::ErrorCode::E_INVALID_FILTER;
+                    return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
                 }
                 v = value.value();
                 auto* aExpr = dynamic_cast<const AliasPropertyExpression*>(right);
@@ -138,7 +138,7 @@ cpp2::ErrorCode IndexPolicyMaker::traversalExpression(const Expression *expr) {
             break;
         }
         default : {
-            return cpp2::ErrorCode::E_INVALID_FILTER;
+            return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
     return code;

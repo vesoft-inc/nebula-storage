@@ -50,13 +50,13 @@ protected:
         delete this;
     }
 
-    cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId) {
+    nebula::cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId) {
         auto len = this->env_->schemaMan_->getSpaceVidLen(spaceId);
         if (!len.ok()) {
-            return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
         }
         spaceVidLen_ = len.value();
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
 
     void doPut(GraphSpaceID spaceId, PartitionID partId, std::vector<kvstore::KV> data);
@@ -67,14 +67,14 @@ protected:
 
     void doRemove(GraphSpaceID spaceId, PartitionID partId, std::vector<std::string> keys);
 
-    cpp2::ErrorCode to(kvstore::ResultCode code);
+    nebula::cpp2::ErrorCode to(kvstore::ResultCode code);
 
     nebula::meta::cpp2::ColumnDef columnDef(std::string name,
                                             nebula::meta::cpp2::PropertyType type);
 
-    void pushResultCode(cpp2::ErrorCode code, PartitionID partId);
+    void pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId);
 
-    void pushResultCode(cpp2::ErrorCode code, PartitionID partId, HostAddr leader);
+    void pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId, HostAddr leader);
 
     void handleErrorCode(kvstore::ResultCode code, GraphSpaceID spaceId, PartitionID partId);
 

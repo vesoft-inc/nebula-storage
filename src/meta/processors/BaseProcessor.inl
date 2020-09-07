@@ -150,7 +150,7 @@ StatusOr<std::vector<HostAddr>> BaseProcessor<RESP>::allHosts() {
 
 
 template<typename RESP>
-ErrorOr<cpp2::ErrorCode, int32_t> BaseProcessor<RESP>::autoIncrementId() {
+ErrorOr<nebula::cpp2::ErrorCode, int32_t> BaseProcessor<RESP>::autoIncrementId() {
     folly::SharedMutex::WriteHolder holder(LockUtils::idLock());
     static const std::string kIdKey = "__id__";
     int32_t id;
@@ -403,7 +403,7 @@ BaseProcessor<RESP>::getIndexes(GraphSpaceID spaceId,
 }
 
 template<typename RESP>
-cpp2::ErrorCode
+nebula::cpp2::ErrorCode
 BaseProcessor<RESP>::indexCheck(const std::vector<cpp2::IndexItem>& items,
                                 const std::vector<cpp2::AlterSchemaItem>& alterItems) {
     for (const auto& index : items) {
@@ -420,13 +420,13 @@ BaseProcessor<RESP>::indexCheck(const std::vector<cpp2::IndexItem>& items,
                     if (it != indexCols.end()) {
                         LOG(ERROR) << "Index conflict, index :" << index.get_index_name()
                                    << ", column : " << tCol.name;
-                        return cpp2::ErrorCode::E_CONFLICT;
+                        return nebula::cpp2::ErrorCode::E_CONFLICT;
                     }
                 }
             }
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename RESP>

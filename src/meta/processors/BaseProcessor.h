@@ -32,7 +32,7 @@ using SignType = storage::cpp2::EngineSignType;
 
 #define CHECK_SPACE_ID_AND_RETURN(spaceID) \
     if (spaceExist(spaceID) == Status::SpaceNotFound()) { \
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND); \
+        handleErrorCode(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND); \
         onFinished(); \
         return; \
     }
@@ -42,7 +42,7 @@ using SignType = storage::cpp2::EngineSignType;
  * */
 #define CHECK_SEGMENT(segment) \
     if (!MetaCommon::checkSegment(segment)) { \
-        handleErrorCode(cpp2::ErrorCode::E_STORE_SEGMENT_ILLEGAL); \
+        handleErrorCode(nebula::cpp2::ErrorCode::E_STORE_SEGMENT_ILLEGAL); \
         onFinished(); \
         return; \
     }
@@ -65,16 +65,16 @@ protected:
      * */
     void onFinished() {
         stats::Stats::addStatsValue(stats_,
-                                    resp_.get_code() == cpp2::ErrorCode::SUCCEEDED,
+                                    resp_.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED,
                                     this->duration_.elapsedInUSec());
         promise_.setValue(std::move(resp_));
         delete this;
     }
 
-    void handleErrorCode(cpp2::ErrorCode code, GraphSpaceID spaceId = kDefaultSpaceId,
+    void handleErrorCode(nebula::cpp2::ErrorCode code, GraphSpaceID spaceId = kDefaultSpaceId,
                          PartitionID partId = kDefaultPartId) {
         resp_.set_code(code);
-        if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
+        if (code == nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
             handleLeaderChanged(spaceId, partId);
         }
     }
@@ -160,7 +160,7 @@ protected:
     /**
      * Get one auto-increment Id.
      * */
-    ErrorOr<cpp2::ErrorCode, int32_t> autoIncrementId();
+    ErrorOr<nebula::cpp2::ErrorCode, int32_t> autoIncrementId();
 
     /**
      * Check spaceId exist or not.
@@ -222,7 +222,7 @@ protected:
     /**
      * Check the edge or tag contains indexes when alter it.
      **/
-    cpp2::ErrorCode indexCheck(const std::vector<cpp2::IndexItem>& items,
+    nebula::cpp2::ErrorCode indexCheck(const std::vector<cpp2::IndexItem>& items,
                                const std::vector<cpp2::AlterSchemaItem>& alterItems);
 
     StatusOr<std::vector<cpp2::IndexItem>>

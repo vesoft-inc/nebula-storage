@@ -14,23 +14,23 @@ namespace meta {
 void BalanceProcessor::process(const cpp2::BalanceReq& req) {
     if (req.get_space_id() != nullptr) {
         LOG(ERROR) << "Unsupport balance for specific space " << *req.get_space_id();
-        handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
         onFinished();
         return;
     }
     if (req.get_stop() != nullptr) {
         if (!(*req.get_stop())) {
-            handleErrorCode(cpp2::ErrorCode::E_UNKNOWN);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR);
             onFinished();
             return;
         }
         auto ret = Balancer::instance(kvstore_)->stop();
         if (!ret.ok()) {
-            handleErrorCode(cpp2::ErrorCode::E_NO_RUNNING_BALANCE_PLAN);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_NO_RUNNING_BALANCE_PLAN);
             onFinished();
             return;
         }
-        handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+        handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         resp_.set_id(ret.value());
         onFinished();
         return;
@@ -38,11 +38,11 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
     if (req.get_id() != nullptr) {
         auto ret = Balancer::instance(kvstore_)->show(*req.get_id());
         if (!ret.ok()) {
-            handleErrorCode(cpp2::ErrorCode::E_BAD_BALANCE_PLAN);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_BAD_BALANCE_PLAN);
             onFinished();
             return;
         }
-        handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+        handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         const auto& plan = ret.value();
         std::vector<cpp2::BalanceTask> thriftTasks;
         for (auto& task : plan.tasks()) {
@@ -78,7 +78,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {
         LOG(ERROR) << "There is no active hosts";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         onFinished();
         return;
     }
@@ -89,7 +89,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         return;
     }
     resp_.set_id(value(ret));
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 

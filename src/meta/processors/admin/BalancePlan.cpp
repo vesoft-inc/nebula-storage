@@ -119,7 +119,7 @@ void BalancePlan::invoke() {
     }
 }
 
-cpp2::ErrorCode BalancePlan::saveInStore(bool onlyPlan) {
+nebula::cpp2::ErrorCode BalancePlan::saveInStore(bool onlyPlan) {
     if (kv_) {
         std::vector<kvstore::KV> data;
         data.emplace_back(planKey(), planVal());
@@ -143,10 +143,10 @@ cpp2::ErrorCode BalancePlan::saveInStore(bool onlyPlan) {
         baton.wait();
         return MetaCommon::to(ret);
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
-cpp2::ErrorCode BalancePlan::recovery(bool resume) {
+nebula::cpp2::ErrorCode BalancePlan::recovery(bool resume) {
     if (kv_) {
         const auto& prefix = BalanceTask::prefix(id_);
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -189,7 +189,7 @@ cpp2::ErrorCode BalancePlan::recovery(bool resume) {
             iter->next();
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 std::string BalancePlan::planKey() const {

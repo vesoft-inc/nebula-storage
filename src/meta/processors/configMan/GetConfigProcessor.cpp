@@ -25,9 +25,9 @@ void GetConfigProcessor::process(const cpp2::GetConfigReq& req) {
     }
 
     if (items.empty()) {
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFIG_NOT_FOUND);
     } else {
-        handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+        handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         resp_.set_items(std::move(items));
     }
     onFinished();

@@ -13,24 +13,24 @@
 
 namespace nebula {
 namespace meta {
-cpp2::ErrorCode Snapshot::createSnapshot(const std::string& name) {
+nebula::cpp2::ErrorCode Snapshot::createSnapshot(const std::string& name) {
     std::vector<GraphSpaceID> spaces;
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't access kvstore, ret = d"
                    << static_cast<int32_t>(ret);
-        return cpp2::ErrorCode::E_STORE_FAILURE;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
     }
     for (auto& space : spaces) {
         auto status = client_->createSnapshot(space, name).get();
         if (!status.ok()) {
-            return cpp2::ErrorCode::E_RPC_FAILURE;
+            return nebula::cpp2::ErrorCode::E_RPC_FAILED;
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
-cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
+nebula::cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
                                        const std::vector<HostAddr> hosts) {
     // The drop checkpoint will be skip if original host has been lost.
     auto activeHosts = ActiveHostsMan::getActiveHosts(kv_);
@@ -46,16 +46,16 @@ cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't access kvstore, ret = d"
                    << static_cast<int32_t>(ret);
-        return cpp2::ErrorCode::E_STORE_FAILURE;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
     }
     for (auto& space : spaces) {
         auto status = client_->dropSnapshot(space, name, realHosts).get();
 
         if (!status.ok()) {
-            return cpp2::ErrorCode::E_RPC_FAILURE;
+            return nebula::cpp2::ErrorCode::E_RPC_FAILED;
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 bool Snapshot::getAllSpaces(std::vector<GraphSpaceID>& spaces, kvstore::ResultCode& retCode) {
@@ -76,22 +76,22 @@ bool Snapshot::getAllSpaces(std::vector<GraphSpaceID>& spaces, kvstore::ResultCo
     return true;
 }
 
-cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
+nebula::cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
     std::vector<GraphSpaceID> spaces;
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't access kvstore, ret = d"
                    << static_cast<int32_t>(ret);
-        return cpp2::ErrorCode::E_STORE_FAILURE;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
     }
     for (auto& space : spaces) {
         auto status = client_->blockingWrites(space, sign).get();
 
         if (!status.ok()) {
-            return cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;
+            return nebula::cpp2::ErrorCode::E_BLOCK_WRITE_FAILED;
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 std::unordered_map<HostAddr, std::vector<PartitionID>>

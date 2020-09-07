@@ -18,7 +18,7 @@ void ListTagIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) {
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Tag Index Status Failed: SpaceID " << space;
-        resp_.set_code(cpp2::ErrorCode::E_NOT_FOUND);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND);
         onFinished();
         return;
     }
@@ -36,7 +36,7 @@ void ListTagIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) {
         iter->next();
     }
     resp_.set_statuses(std::move(statuses));
-    resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
+    resp_.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 

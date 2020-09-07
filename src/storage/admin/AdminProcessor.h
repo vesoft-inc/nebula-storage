@@ -49,7 +49,7 @@ public:
         auto* partManager = env_->kvstore_->partManager();
         auto status = partManager->partMeta(spaceId, partId);
         if (!status.ok()) {
-            this->pushResultCode(cpp2::ErrorCode::E_PART_NOT_FOUND, partId);
+            this->pushResultCode(nebula::cpp2::ErrorCode::E_PART_NOT_FOUND, partId);
             onFinished();
             return;
         }
@@ -89,7 +89,8 @@ public:
                         } else if (leader != HostAddr("", 0)) {
                             LOG(INFO) << "I am choosen as leader of space " << spaceId
                                       << " part " << partId << " again!";
-                            this->pushResultCode(cpp2::ErrorCode::E_TRANSFER_LEADER_FAILED, partId);
+                            this->pushResultCode(
+                                    nebula::cpp2::ErrorCode::E_TRANSFER_LEADER_FAILED, partId);
                             onFinished();
                             return;
                         }
@@ -97,7 +98,7 @@ public:
                                   << " part " << partId << " on " << store->address();
                         sleep(FLAGS_waiting_new_leader_interval_in_secs);
                     }
-                    this->pushResultCode(cpp2::ErrorCode::E_RETRY_EXHAUSTED, partId);
+                    this->pushResultCode(nebula::cpp2::ErrorCode::E_RETRY_EXHAUSTED, partId);
                     onFinished();
                 });
             } else {
@@ -125,7 +126,7 @@ public:
         auto spaceId = req.get_space_id();
         auto partId = req.get_part_id();
         if (FLAGS_store_type != "nebula") {
-            this->pushResultCode(cpp2::ErrorCode::E_INVALID_STORE, partId);
+            this->pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_STORE, partId);
             onFinished();
             return;
         }
@@ -157,7 +158,7 @@ public:
         auto spaceId = req.get_space_id();
         auto partId = req.get_part_id();
         if (FLAGS_store_type != "nebula") {
-            this->pushResultCode(cpp2::ErrorCode::E_INVALID_STORE, partId);
+            this->pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_STORE, partId);
             onFinished();
             return;
         }
@@ -281,7 +282,7 @@ public:
                         onFinished();
                         return;
                     case raftex::AppendLogResult::E_INVALID_PEER:
-                        this->pushResultCode(cpp2::ErrorCode::E_INVALID_PEER, partId);
+                        this->pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_PEER, partId);
                         onFinished();
                         return;
                     case raftex::AppendLogResult::E_NOT_A_LEADER: {
@@ -299,7 +300,7 @@ public:
                 }
                 sleep(FLAGS_waiting_catch_up_interval_in_secs);
             }
-            this->pushResultCode(cpp2::ErrorCode::E_RETRY_EXHAUSTED, partId);
+            this->pushResultCode(nebula::cpp2::ErrorCode::E_RETRY_EXHAUSTED, partId);
             onFinished();
         });
     }

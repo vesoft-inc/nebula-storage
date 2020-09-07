@@ -77,7 +77,7 @@ ListPartsProcessor::getAllParts() {
     auto kvRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Parts Failed: No parts";
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND);
         return Status::Error("Can't access kvstore, ret = %d", static_cast<int32_t>(kvRet));
     }
 
