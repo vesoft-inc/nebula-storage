@@ -75,6 +75,18 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
+        auto indexed = [edgeType](const std::shared_ptr<meta::cpp2::IndexItem> item) {
+            return item->get_schema_id().get_edge_type() == edgeType;
+        };
+
+        // Check this record is indexed.
+        // If not built any index will skip to the next one.
+        if (!std::any_of(items.begin(), items.end(), indexed)) {
+            VLOG(3) << "This record is not built index.";
+            iter->next();
+            continue;
+        }
+
         auto source = NebulaKeyUtils::getSrcId(vidSize, key);
         auto destination = NebulaKeyUtils::getDstId(vidSize, key);
         auto ranking = NebulaKeyUtils::getRank(vidSize, key);
@@ -94,11 +106,13 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
         if (!reader) {
             reader = RowReader::getEdgePropReader(env_->schemaMan_, space, edgeType, val);
             if (reader == nullptr) {
+                LOG(WARNING) << "Create edge property reader failed";
                 iter->next();
                 continue;
             }
         } else {
             if (!reader->resetEdgePropReader(env_->schemaMan_, space, edgeType, val)) {
+                LOG(WARNING) << "Reset edge property reader failed";
                 iter->next();
                 continue;
             }

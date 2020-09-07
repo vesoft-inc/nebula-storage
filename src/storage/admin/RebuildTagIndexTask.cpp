@@ -70,6 +70,18 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         auto tagID = NebulaKeyUtils::getTagId(vidSize, key);
+        auto indexed = [tagID](const std::shared_ptr<meta::cpp2::IndexItem> item) {
+            return item->get_schema_id().get_tag_id() == tagID;
+        };
+
+        // Check this record is indexed.
+        // If not built any index will skip to the next one.
+        if (!std::any_of(items.begin(), items.end(), indexed)) {
+            VLOG(3) << "This record is not built index.";
+            iter->next();
+            continue;
+        }
+
         auto vertex = NebulaKeyUtils::getVertexId(vidSize, key);
         VLOG(3) << "Tag ID " << tagID << " Vertex ID " << vertex;
         if (currentVertex == vertex) {

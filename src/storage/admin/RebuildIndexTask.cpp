@@ -166,7 +166,7 @@ kvstore::ResultCode RebuildIndexTask::buildIndexOnOperations(GraphSpaceID space,
             // lock the part
             auto key = std::make_tuple(space, indexID, part);
             auto stateIter = env_->rebuildIndexGuard_->find(key);
-            // If the state is LOCKED, we should finished the building index successful.
+            // If the state is LOCKED, we should wait the on flying request process finished.
             if (stateIter != env_->rebuildIndexGuard_->cend() &&
                 stateIter->second == IndexState::BUILDING) {
                 env_->rebuildIndexGuard_->assign(std::move(key), IndexState::LOCKED);

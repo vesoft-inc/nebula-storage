@@ -4,7 +4,6 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/mutate/AddEdgesProcessor.h"
 #include "common/time/WallClock.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/IndexKeyUtils.h"
