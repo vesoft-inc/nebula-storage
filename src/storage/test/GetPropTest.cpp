@@ -372,7 +372,7 @@ TEST(GetPropTest, GetTagsTest) {
         LOG(INFO) << "GetVertexProp";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
-        tags.emplace_back(std::make_pair(233333/*ignore*/,
+        tags.emplace_back(std::make_pair(-1/*ignore*/,
                                          std::vector<std::string>{"_tags"}));
         auto req = buildVertexRequest(totalParts, vertices, tags);
 
@@ -398,7 +398,7 @@ TEST(GetPropTest, GetTagsTest) {
         LOG(INFO) << "GetVertexProp";
         std::vector<VertexID> vertices = {"Tim Duncan", "Tony Parker"};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
-        tags.emplace_back(std::make_pair(23333/*ignore*/,
+        tags.emplace_back(std::make_pair(-1/*ignore*/,
                                          std::vector<std::string>{"_tags"}));
         tags.emplace_back(std::make_pair(1, std::vector<std::string>{"age"}));
         auto req = buildVertexRequest(totalParts, vertices, tags);
@@ -427,7 +427,7 @@ TEST(GetPropTest, GetTagsTest) {
         LOG(INFO) << "GetVertexProp";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
-        tags.emplace_back(std::make_pair(23333/*ignore*/,
+        tags.emplace_back(std::make_pair(-1/*ignore*/,
                                          std::vector<std::string>{"_tags", "age"}));
         auto req = buildVertexRequest(totalParts, vertices, tags);
 
