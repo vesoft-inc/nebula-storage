@@ -28,14 +28,22 @@ public:
                  const std::vector<EdgeNode<VertexID>*>& edgeNodes,
                  TagContext* tagContext,
                  EdgeContext* edgeContext,
-                 StorageExpressionContext* expCtx)
+                 StorageExpressionContext* expCtx,
+                 std::unordered_set<std::string> reservedProps = {})
         : planContext_(planCtx)
         , tagNodes_(tagNodes)
         , edgeNodes_(edgeNodes)
         , tagContext_(tagContext)
         , edgeContext_(edgeContext)
-        , expCtx_(expCtx) {
+        , expCtx_(expCtx),
+          reservedProps_(std::move(reservedProps)) {
         UNUSED(tagContext_);
+        for (std::size_t i = 0; i < tagNodes.size(); ++i) {
+            if (tagNodes[i]->props()->empty()) {
+                continue;
+            }
+            tagColIndexes_.emplace(tagNodes[i]->getTagName(), i);
+        }
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
@@ -53,18 +61,35 @@ public:
             return kvstore::ResultCode::ERR_INVALID_DATA;
         }
 
+        result.values.resize(tagColIndexes_.size(), NullType::__NULL__);
         // add result of each tag node to tagResult
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
-                    result.values.emplace_back(NullType::__NULL__);
+                [this, &result, &tagName] (const std::vector<PropContext>*) -> kvstore::ResultCode {
+                    const auto foundTag = tagColIndexes_.find(tagName);
+                    if (foundTag == tagColIndexes_.end()) {
+                        return kvstore::ResultCode::SUCCEEDED;
+                    }
+                    result.values[foundTag->second] = NullType::__NULL__;
                     return kvstore::ResultCode::SUCCEEDED;
                 },
                 [this, &result, &tagName] (TagID tagId,
                                            RowReader* reader,
                                            const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
+                    if (reservedProps_.find("_tags") != reservedProps_.end()) {
+                        auto index = tagColIndexes_["__dummy_tag"];
+                        result.values[index].setList(List());
+                        auto &dummyTagList = result.values[index].mutableList();
+                        dummyTagList.values.resize(1);
+                        auto &tagsList = dummyTagList.values[0];
+                        if (tagsList.empty()) {
+                            tagsList.setList(List());
+                        }
+                        tagsList.mutableList().emplace_back(tagName);
+                    }
+
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,
@@ -75,7 +100,7 @@ public:
                     if (code != kvstore::ResultCode::SUCCEEDED) {
                         return code;
                     }
-                    result.values.emplace_back(std::move(list));
+                    result.values[tagColIndexes_[tagName]] = std::move(list);
                     return kvstore::ResultCode::SUCCEEDED;
                 });
             if (ret != kvstore::ResultCode::SUCCEEDED) {
@@ -151,6 +176,9 @@ private:
     TagContext* tagContext_;
     EdgeContext* edgeContext_;
     StorageExpressionContext* expCtx_;
+
+    std::unordered_map<std::string, std::size_t> tagColIndexes_;
+    std::unordered_set<std::string> reservedProps_;
 
     std::unique_ptr<MultiEdgeIterator> iter_;
 };

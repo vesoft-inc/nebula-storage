@@ -109,8 +109,13 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
         plan.addNode(std::move(edge));
     }
 
-    auto hashJoin = std::make_unique<HashJoinNode>(
-            planContext_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
+    auto hashJoin = std::make_unique<HashJoinNode>(planContext_.get(),
+                                                   tags,
+                                                   edges,
+                                                   &tagContext_,
+                                                   &edgeContext_,
+                                                   expCtx_.get(),
+                                                   std::move(reservedProps_));
     for (auto* tag : tags) {
         hashJoin->addDependency(tag);
     }
@@ -186,8 +191,32 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::TraverseSpec&
     } else {
         // Generate related props according to property specified.
         // not use const reference because we need to modify it when all property need to return
+        bool withVertexReservedProp = false;
+        // not use const reference because we need to modify it when all property need to return
         auto returnProps = std::move(req.vertex_props);
-        ret = handleVertexProps(returnProps);
+        for (const auto &vProp : returnProps) {
+            for (const auto &prop : vProp.get_props()) {
+                if (PlanContext::reservedVertexProps.find(prop) !=
+                    PlanContext::reservedVertexProps.end()) {
+                    withVertexReservedProp = true;
+                    reservedProps_.emplace(prop);
+                }
+            }
+        }
+        std::vector<cpp2::VertexProp> dummyTags;
+        if (withVertexReservedProp) {
+            // Build plan to collect from all tag key, but don't return properties of some tags
+            auto allTag = buildAllTagWithoutProps();
+            for (const auto &tagProp : allTag) {
+                if (std::find_if(returnProps.begin(), returnProps.end(),
+                                 [&tagProp](const auto &tag) {
+                    return tagProp.tag == tag.tag;
+                }) == returnProps.end()) {
+                    dummyTags.emplace_back(tagProp);
+                }
+            }
+        }
+        ret = handleVertexProps(returnProps, dummyTags);
         buildTagColName(returnProps);
     }
 
@@ -199,7 +228,12 @@ cpp2::ErrorCode GetNeighborsProcessor::buildTagContext(const cpp2::TraverseSpec&
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::buildEdgeContext(const cpp2::TraverseSpec& req) {
-    edgeContext_.offset_ = tagContext_.propContexts_.size() + 2;
+    edgeContext_.offset_ = 2;
+    for (const auto &propCtx : tagContext_.propContexts_) {
+        if (!propCtx.second.empty()) {
+            edgeContext_.offset_++;
+        }
+    }
     cpp2::ErrorCode ret = cpp2::ErrorCode::SUCCEEDED;
     if (!req.__isset.edge_props) {
         // If the list is not given, no prop will be returned.

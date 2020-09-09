@@ -56,6 +56,7 @@ protected:
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
+    std::unordered_set<std::string> reservedProps_;
 };
 
 }  // namespace storage

@@ -104,8 +104,12 @@ public:
         return nullptr;
     }
 
-    const std::string& getTagName() {
+    const std::string& getTagName() const {
         return tagName_;
+    }
+
+    const std::vector<PropContext>* props() const {
+        return props_;
     }
 
 private:

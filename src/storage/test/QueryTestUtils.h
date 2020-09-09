@@ -233,7 +233,8 @@ public:
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
             size_t expectRowCount,
             size_t expectColumnCount,
-            std::unordered_map<VertexID, std::vector<Value>>* expectStats = nullptr) {
+            std::unordered_map<VertexID, std::vector<Value>>* expectStats = nullptr,
+            const List &tagNames = {}) {
         UNUSED(over);
         if (!edges.empty()) {
             checkColNames(dataSet, tags, edges);
@@ -254,7 +255,7 @@ public:
             } else {
                 ASSERT_EQ(NullType::__NULL__, row.values[1].getNull());
             }
-            checkRowProps(row, dataSet.colNames, tags, edges);
+            checkRowProps(row, dataSet.colNames, tags, edges, tagNames);
         }
     }
 
@@ -290,6 +291,9 @@ public:
         ASSERT_EQ(0, colNames[colNames.size() - 1].find("_expr"));
 
         for (size_t i = 0; i < tags.size(); i++) {
+            if (tags[i].first < 0) {
+                continue;
+            }
             auto expected = "_tag:" + folly::to<std::string>(tags[i].first);
             for (const auto& prop : tags[i].second) {
                 expected += ":" + prop;
@@ -586,7 +590,8 @@ public:
             const nebula::Row& row,
             const std::vector<std::string> colNames,
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
-            const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
+            const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
+            const List &tagNames = {}) {
         auto vId = row.values[0].getStr();
         // skip the last column which is reserved for expression yields
         for (size_t i = 2; i < colNames.size() - 1; i++) {
@@ -597,6 +602,12 @@ public:
                 LOG(FATAL) << "Invalid column name";
             }
             // cols[1] is the tagName, which can be transfromed to entryId
+            if (cols[1] == "__dummy_tag") {
+                if (cols[2] == "_tags") {
+                    ASSERT_EQ(row.values[i].getList()[0], tagNames);
+                }
+                continue;
+            }
             auto entryId = folly::to<int32_t>(cols[1]);
             auto props = findExpectProps(entryId, tags, edges);
             switch (entryId) {
