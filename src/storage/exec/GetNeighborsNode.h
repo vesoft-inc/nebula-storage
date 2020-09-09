@@ -102,7 +102,7 @@ protected:
             }
 
             // add edge prop value to the target column
-            if (row[columnIdx].type() == Value::Type::__EMPTY__) {
+            if (row[columnIdx].empty()) {
                 row[columnIdx].setList(nebula::List());
             }
             auto& cell = row[columnIdx].mutableList();
@@ -154,7 +154,7 @@ private:
         for (auto& sample : samples) {
             auto columnIdx = std::get<4>(sample);
             // add edge prop value to the target column
-            if (row[columnIdx].type() == Value::Type::__EMPTY__) {
+            if (row[columnIdx].empty()) {
                 row[columnIdx].setList(nebula::List());
             }
 
