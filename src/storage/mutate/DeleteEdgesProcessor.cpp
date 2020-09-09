@@ -87,14 +87,13 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     } else {
         std::for_each(partEdges.begin(), partEdges.end(), [this](auto &part) {
             auto partId = part.first;
-            std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
-            auto atomic = [partId, requestPtr, edges = std::move(part.second), this]()
+            auto atomic = [partId, edges = std::move(part.second), this]()
                           -> folly::Optional<std::string> {
-                return deleteEdges(partId, edges, requestPtr);
+                return deleteEdges(partId, edges);
             };
 
-            auto callback = [partId, requestPtr, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code, requestPtr);
+            auto callback = [partId, this](kvstore::ResultCode code) {
+                handleAsync(spaceId_, partId, code);
             };
             env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         });
@@ -104,8 +103,8 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
 
 folly::Optional<std::string>
 DeleteEdgesProcessor::deleteEdges(PartitionID partId,
-                                  const std::vector<cpp2::EdgeKey>& edges,
-                                  std::shared_ptr<int32_t> requestPtr) {
+                                  const std::vector<cpp2::EdgeKey>& edges) {
+    env_->onFlyingRequest_.fetch_add(1);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     for (auto& edge : edges) {
         auto type = edge.edge_type;
@@ -155,13 +154,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 valuesRet.value(),
                                                                 colsType);
 
-                    (*requestPtr)++;
                     if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                     } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        env_->onFlyingRequest_.fetch_add(*requestPtr);
                         return folly::none;
                     } else {
                         batchHolder->remove(std::move(indexKey));
@@ -179,7 +176,6 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
         }
     }
 
-    env_->onFlyingRequest_.fetch_add(*requestPtr);
     return encodeBatchValue(batchHolder->getBatch());
 }
 

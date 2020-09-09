@@ -29,8 +29,7 @@ private:
         : BaseProcessor<cpp2::ExecResponse>(env, stats) {}
 
     folly::Optional<std::string> addEdges(PartitionID partId,
-                                          const std::vector<kvstore::KV>& edges,
-                                          std::shared_ptr<int32_t> requestPtr);
+                                          const std::vector<kvstore::KV>& edges);
 
     folly::Optional<std::string> findObsoleteIndex(PartitionID partId,
                                                    const folly::StringPiece& rawKey);

@@ -85,15 +85,14 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
     } else {
         std::for_each(req.parts.begin(), req.parts.end(), [this](auto &pv) {
             auto partId = pv.first;
-            std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
-            auto atomic = [partId, requestPtr, v = std::move(pv.second),
+            auto atomic = [partId, v = std::move(pv.second),
                            this]() -> folly::Optional<std::string> {
-                return deleteVertices(partId, v, requestPtr);
+                return deleteVertices(partId, v);
             };
 
-            auto callback = [partId, requestPtr, this](kvstore::ResultCode code) {
+            auto callback = [partId, this](kvstore::ResultCode code) {
                 VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
-                handleAsync(spaceId_, partId, code, requestPtr);
+                handleAsync(spaceId_, partId, code);
             };
             env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         });
@@ -103,8 +102,8 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
 
 folly::Optional<std::string>
 DeleteVerticesProcessor::deleteVertices(PartitionID partId,
-                                        const std::vector<VertexID>& vertices,
-                                        std::shared_ptr<int32_t> requestPtr) {
+                                        const std::vector<VertexID>& vertices) {
+    env_->onFlyingRequest_.fetch_add(1);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     for (auto& vertex : vertices) {
         auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vertex);
@@ -171,14 +170,12 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                                                       valuesRet.value(),
                                                                       colsType);
 
-                        (*requestPtr)++;
                         // Check the index is building for the specified partition or not
                         if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                         } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
                             batchHolder->remove(std::move(indexKey));
@@ -192,7 +189,6 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
         }
     }
 
-    env_->onFlyingRequest_.fetch_add(*requestPtr);
     return encodeBatchValue(batchHolder->getBatch());
 }
 

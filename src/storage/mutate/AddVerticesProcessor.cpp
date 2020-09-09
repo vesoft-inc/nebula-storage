@@ -108,14 +108,13 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
         if (indexes_.empty()) {
             doPut(spaceId_, partId, std::move(data));
         } else {
-            std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
-            auto atomic = [partId, requestPtr, vertices = std::move(data), this]()
+            auto atomic = [partId, vertices = std::move(data), this]()
                           -> folly::Optional<std::string> {
-                return addVertices(partId, vertices, requestPtr);
+                return addVertices(partId, vertices);
             };
 
-            auto callback = [partId, requestPtr, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code, requestPtr);
+            auto callback = [partId, this](kvstore::ResultCode code) {
+                handleAsync(spaceId_, partId, code);
             };
             env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         }
@@ -124,8 +123,8 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
 
 folly::Optional<std::string>
 AddVerticesProcessor::addVertices(PartitionID partId,
-                                  const std::vector<kvstore::KV>& vertices,
-                                  std::shared_ptr<int32_t> requestPtr) {
+                                  const std::vector<kvstore::KV>& vertices) {
+    env_->onFlyingRequest_.fetch_add(1);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     /*
      * Define the map newIndexes to avoid inserting duplicate vertex.
@@ -176,14 +175,12 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                     }
                     auto oi = indexKey(partId, vId.str(), reader.get(), index);
                     if (!oi.empty()) {
-                        (*requestPtr)++;
                         // Check the index is building for the specified partition or not.
                         if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
                             batchHolder->remove(std::move(oi));
@@ -205,14 +202,12 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                 }
                 auto ni = indexKey(partId, vId.str(), nReader.get(), index);
                 if (!ni.empty()) {
-                    (*requestPtr)++;
                     // Check the index is building for the specified partition or not.
                     if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
                         batchHolder->put(std::move(modifyOpKey), "");
                     } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        env_->onFlyingRequest_.fetch_add(*requestPtr);
                         return folly::none;
                     } else {
                         batchHolder->put(std::move(ni), "");
@@ -228,7 +223,6 @@ AddVerticesProcessor::addVertices(PartitionID partId,
         batchHolder->put(std::move(key), std::move(prop));
     }
 
-    env_->onFlyingRequest_.fetch_add(*requestPtr);
     return encodeBatchValue(batchHolder->getBatch());
 }
 

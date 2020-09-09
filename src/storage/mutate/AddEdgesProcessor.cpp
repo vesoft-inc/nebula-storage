@@ -101,14 +101,13 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
         if (indexes_.empty()) {
             doPut(spaceId_, partId, std::move(data));
         } else {
-            std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
-            auto atomic = [partId, requestPtr, edges = std::move(data), this]()
+            auto atomic = [partId, edges = std::move(data), this]()
                           -> folly::Optional<std::string> {
-                return addEdges(partId, edges, requestPtr);
+                return addEdges(partId, edges);
             };
 
-            auto callback = [partId, requestPtr, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code, requestPtr);
+            auto callback = [partId, this](kvstore::ResultCode code) {
+                handleAsync(spaceId_, partId, code);
             };
             env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
         }
@@ -117,8 +116,8 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
 
 folly::Optional<std::string>
 AddEdgesProcessor::addEdges(PartitionID partId,
-                            const std::vector<kvstore::KV>& edges,
-                            std::shared_ptr<int32_t> requestPtr) {
+                            const std::vector<kvstore::KV>& edges) {
+    env_->onFlyingRequest_.fetch_add(1);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
 
     /*
@@ -169,14 +168,12 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                     }
                     auto oi = indexKey(partId, reader.get(), e.first, index);
                     if (!oi.empty()) {
-                        (*requestPtr)++;
                         // Check the index is building for the specified partition or not.
                         if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
                             batchHolder->remove(std::move(oi));
@@ -200,7 +197,6 @@ AddEdgesProcessor::addEdges(PartitionID partId,
 
                 auto ni = indexKey(partId, nReader.get(), e.first, index);
                 if (!ni.empty()) {
-                    (*requestPtr)++;
                     // Check the index is building for the specified partition or not.
                     if (env_->checkRebuilding(spaceId_, partId, indexId)) {
                         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId,
@@ -208,7 +204,6 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                         batchHolder->put(std::move(modifyOpKey), "");
                     } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        env_->onFlyingRequest_.fetch_add(*requestPtr);
                         return folly::none;
                     } else {
                         batchHolder->put(std::move(ni), "");
@@ -223,8 +218,6 @@ AddEdgesProcessor::addEdges(PartitionID partId,
         auto prop = e.second;
         batchHolder->put(std::move(key), std::move(prop));
     }
-
-    env_->onFlyingRequest_.fetch_add(*requestPtr);
     return encodeBatchValue(batchHolder->getBatch());
 }
 

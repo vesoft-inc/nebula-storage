@@ -51,7 +51,7 @@ template <typename RESP>
 void BaseProcessor<RESP>::handleAsync(GraphSpaceID spaceId,
                                       PartitionID partId,
                                       kvstore::ResultCode code,
-                                      std::shared_ptr<int32_t> requestPtr) {
+                                      bool processFlyingRequest) {
     VLOG(3) << "partId:" << partId << ", code:" << static_cast<int32_t>(code);
 
     bool finished = false;
@@ -62,11 +62,12 @@ void BaseProcessor<RESP>::handleAsync(GraphSpaceID spaceId,
         if (this->callingNum_ == 0) {
             finished = true;
         }
-
-        if (requestPtr) {
-            env_->onFlyingRequest_.fetch_sub(*requestPtr);
-        }
     }
+
+    if (processFlyingRequest) {
+        env_->onFlyingRequest_.fetch_sub(1);
+    }
+
     if (finished) {
         this->onFinished();
     }
@@ -137,7 +138,7 @@ void BaseProcessor<RESP>::doPut(GraphSpaceID spaceId,
                                 std::vector<kvstore::KV> data) {
     this->env_->kvstore_->asyncMultiPut(
         spaceId, partId, std::move(data), [spaceId, partId, this](kvstore::ResultCode code) {
-            handleAsync(spaceId, partId, code, nullptr);
+            handleAsync(spaceId, partId, code, false);
     });
 }
 
@@ -166,7 +167,7 @@ void BaseProcessor<RESP>::doRemove(GraphSpaceID spaceId,
                                    std::vector<std::string> keys) {
     this->env_->kvstore_->asyncMultiRemove(
         spaceId, partId, std::move(keys), [spaceId, partId, this](kvstore::ResultCode code) {
-        handleAsync(spaceId, partId, code, nullptr);
+        handleAsync(spaceId, partId, code, false);
     });
 }
 
