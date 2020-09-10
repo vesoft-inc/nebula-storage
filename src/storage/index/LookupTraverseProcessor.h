@@ -34,6 +34,8 @@ protected:
                               cpp2::GetNeighborsResponse>(env, stats, cache)
         , traverse_(env, stats, cache) {}
 
+    std::unordered_set<VertexID> getStartPoints();
+
     void onProcessFinished() override;
 
 private:

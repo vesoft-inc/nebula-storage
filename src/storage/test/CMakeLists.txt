@@ -295,67 +295,34 @@ nebula_add_executable(
 )
 
 nebula_add_test(
-        NAME
+    NAME
         lookup_index_test
-        SOURCES
+    SOURCES
         LookupIndexTest.cpp
         ../../codec/test/RowWriterV1.cpp
-        OBJECTS
+    OBJECTS
         ${storage_test_deps}
-        LIBRARIES
+    LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         wangle
         gtest
 )
 
-#nebula_add_test(
-#    NAME
-#        vertex_props_test
-#    SOURCES
-#        QueryVertexPropsTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        edge_props_test
-#    SOURCES
-#        QueryEdgePropsTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        query_stats_test
-#    SOURCES
-#        QueryStatsTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:http_client_obj>
-#        $<TARGET_OBJECTS:process_obj>
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
+nebula_add_test(
+    NAME
+        lookup_traverse_test
+    SOURCES
+        LookupTraverseTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        storage_client_test

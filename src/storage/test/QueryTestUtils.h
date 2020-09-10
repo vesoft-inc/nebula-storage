@@ -252,7 +252,6 @@ public:
             bool returnNoneProps = false) {
         std::hash<std::string> hash;
         cpp2::GetNeighborsRequest req;
-        decltype(req.traverse_spec) traverseSpec;
         req.space_id = 1;
         req.column_names.emplace_back(kVid);
         for (const auto& vertex : vertices) {
@@ -261,6 +260,18 @@ public:
             row.values.emplace_back(vertex);
             req.parts[partId].emplace_back(std::move(row));
         }
+
+        req.set_traverse_spec(
+            QueryTestUtils::buildTraverseSpec(over, tags, edges, returnNoneProps));
+        return req;
+    }
+
+    static cpp2::TraverseSpec buildTraverseSpec(
+            const std::vector<EdgeType>& over,
+            const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
+            const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges,
+            bool returnNoneProps = false) {
+        cpp2::TraverseSpec traverseSpec;
         for (const auto& edge : over) {
             traverseSpec.edge_types.emplace_back(edge);
         }
@@ -296,8 +307,7 @@ public:
             }
             traverseSpec.set_edge_props(std::move(edgeProps));
         }
-        req.set_traverse_spec(std::move(traverseSpec));
-        return req;
+        return traverseSpec;
     }
 
     // | vId | stat |     tag       |   ...   |      edge      | ...
