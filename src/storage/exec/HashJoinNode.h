@@ -61,7 +61,7 @@ public:
             return kvstore::ResultCode::ERR_INVALID_DATA;
         }
 
-        result.values.resize(tagColIndexes_.size(), NullType::__NULL__);
+        result.values.resize(tagColIndexes_.size());
         // add result of each tag node to tagResult
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
