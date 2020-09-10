@@ -43,7 +43,7 @@ void LookupTraverseProcessor::process(const cpp2::LookupAndTraverseRequest& req)
 }
 
 void LookupTraverseProcessor::onProcessFinished() {
-    // resp_.set_data(std::move(resultDataSet_));
+    resp_.set_vertices(std::move(resultDataSet_));
 }
 
 }  // namespace storage

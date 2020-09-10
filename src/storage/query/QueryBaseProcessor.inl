@@ -129,8 +129,7 @@ void QueryBaseProcessor<REQ, RESP>::addReturnPropContext(
 }
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
-    const auto& traverseSpec = req.get_traverse_spec();
+cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const cpp2::TraverseSpec& traverseSpec) {
     resultDataSet_.colNames.emplace_back("_expr");
     if (!traverseSpec.__isset.expressions) {
         return cpp2::ErrorCode::SUCCEEDED;
@@ -140,8 +139,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
 }
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
-    const auto& traverseSpec = req.get_traverse_spec();
+cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const cpp2::TraverseSpec& traverseSpec) {
     if (!traverseSpec.__isset.filter) {
         return cpp2::ErrorCode::SUCCEEDED;
     }

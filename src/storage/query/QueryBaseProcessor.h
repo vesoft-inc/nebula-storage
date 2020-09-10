@@ -148,8 +148,8 @@ protected:
     // build edgeContexts_ according to return props
     cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps);
 
-    cpp2::ErrorCode buildFilter(const REQ& req);
-    cpp2::ErrorCode buildYields(const REQ& req);
+    cpp2::ErrorCode buildFilter(const cpp2::TraverseSpec& traverseSpec);
+    cpp2::ErrorCode buildYields(const cpp2::TraverseSpec& traverseSpec);
 
     // build ttl info map
     void buildTagTTLInfo();

@@ -38,16 +38,7 @@ void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
         return;
     }
 
-    int64_t limit = 0;
-    bool random = false;
-    if (req.traverse_spec.__isset.limit) {
-        limit = req.traverse_spec.limit;
-        if (req.traverse_spec.__isset.random) {
-            random = req.traverse_spec.random;
-        }
-    }
-
-    auto plan = buildPlan(&resultDataSet_, limit, random);
+    auto plan = buildPlan(&resultDataSet_, limit_, random_);
     std::unordered_set<PartitionID> failedParts;
     for (const auto& partEntry : req.get_parts()) {
         auto partId = partEntry.first;
@@ -141,6 +132,11 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
 }
 
 cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) {
+    return checkAndBuildContexts(req.traverse_spec);
+}
+
+cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(
+    const cpp2::TraverseSpec& traverseSpec) {
     resultDataSet_.colNames.emplace_back(kVid);
     // reserve second colname for stat
     resultDataSet_.colNames.emplace_back("_stats");
@@ -153,21 +149,27 @@ cpp2::ErrorCode GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeig
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildTagContext(req.get_traverse_spec());
+    code = buildTagContext(traverseSpec);
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildEdgeContext(req.get_traverse_spec());
+    code = buildEdgeContext(traverseSpec);
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildYields(req);
+    code = buildYields(traverseSpec);
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
     }
-    code = buildFilter(req);
+    code = buildFilter(traverseSpec);
     if (code != cpp2::ErrorCode::SUCCEEDED) {
         return code;
+    }
+    if (traverseSpec.__isset.limit) {
+        limit_ = traverseSpec.limit;
+        if (traverseSpec.__isset.random) {
+            random_ = traverseSpec.random;
+        }
     }
     return cpp2::ErrorCode::SUCCEEDED;
 }

@@ -17,6 +17,7 @@ namespace storage {
 
 class GetNeighborsProcessor
     : public QueryBaseProcessor<cpp2::GetNeighborsRequest, cpp2::GetNeighborsResponse> {
+    friend class LookupTraverseProcessor;
     FRIEND_TEST(ScanEdgePropBench, EdgeTypePrefixScanVsVertexPrefixScan);
 
 public:
@@ -42,8 +43,9 @@ protected:
     void onProcessFinished() override;
 
     cpp2::ErrorCode checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) override;
-    cpp2::ErrorCode buildTagContext(const cpp2::TraverseSpec& req);
-    cpp2::ErrorCode buildEdgeContext(const cpp2::TraverseSpec& req);
+    cpp2::ErrorCode checkAndBuildContexts(const cpp2::TraverseSpec& traverseSpec);
+    cpp2::ErrorCode buildTagContext(const cpp2::TraverseSpec& traverseSpec);
+    cpp2::ErrorCode buildEdgeContext(const cpp2::TraverseSpec& traverseSpec);
 
     // build tag/edge col name in response when prop specified
     void buildTagColName(const std::vector<cpp2::VertexProp>& tagProps);
@@ -56,6 +58,8 @@ protected:
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
+    int64_t limit_ = 0;
+    bool random_ = false;
 };
 
 }  // namespace storage

@@ -9,6 +9,7 @@
 
 #include "common/base/Base.h"
 #include "storage/index/LookupBaseProcessor.h"
+#include "storage/query/GetNeighborsProcessor.h"
 
 namespace nebula {
 namespace storage {
@@ -30,9 +31,13 @@ protected:
                             stats::Stats* stats,
                             VertexCache* cache)
         : LookupBaseProcessor<cpp2::LookupAndTraverseRequest,
-                              cpp2::GetNeighborsResponse>(env, stats, cache) {}
+                              cpp2::GetNeighborsResponse>(env, stats, cache)
+        , traverse_(env, stats, cache) {}
 
     void onProcessFinished() override;
+
+private:
+    GetNeighborsProcessor traverse_;
 };
 
 }  // namespace storage
