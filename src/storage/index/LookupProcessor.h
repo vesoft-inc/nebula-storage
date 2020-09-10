@@ -32,6 +32,8 @@ protected:
         : LookupBaseProcessor<cpp2::LookupIndexRequest,
                               cpp2::LookupIndexResp>(env, stats, cache) {}
 
+    void prepare(const cpp2::LookupIndexRequest& req);
+
     void onProcessFinished() override;
 };
 

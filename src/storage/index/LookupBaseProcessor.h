@@ -39,7 +39,7 @@ protected:
 
     virtual void onProcessFinished() = 0;
 
-    cpp2::ErrorCode requestCheck(const cpp2::LookupIndexRequest& req);
+    cpp2::ErrorCode requestCheck(const REQ& req);
 
     bool isOutsideIndex(Expression* filter, const meta::cpp2::IndexItem* index);
 

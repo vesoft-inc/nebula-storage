@@ -4,12 +4,12 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "storage/index/LookupProcessor.h"
+#include "storage/index/LookupTraverseProcessor.h"
 
 namespace nebula {
 namespace storage {
 
-void LookupProcessor::process(const cpp2::LookupIndexRequest& req) {
+void LookupTraverseProcessor::process(const cpp2::LookupAndTraverseRequest& req) {
     auto retCode = requestCheck(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
@@ -18,8 +18,6 @@ void LookupProcessor::process(const cpp2::LookupIndexRequest& req) {
         onFinished();
         return;
     }
-
-    prepare(req);
 
     auto plan = buildPlan();
     if (!plan.ok()) {
@@ -44,29 +42,8 @@ void LookupProcessor::process(const cpp2::LookupIndexRequest& req) {
     onFinished();
 }
 
-void LookupProcessor::prepare(const cpp2::LookupIndexRequest& req) {
-    // setup yield columns.
-    if (req.__isset.return_columns) {
-        const auto& retcols = *req.get_return_columns();
-        yieldCols_ = retcols;
-    }
-
-    // setup result set columns.
-    if (planContext_->isEdge_) {
-        resultDataSet_.colNames.emplace_back("_src");
-        resultDataSet_.colNames.emplace_back("_ranking");
-        resultDataSet_.colNames.emplace_back("_dst");
-    } else {
-        resultDataSet_.colNames.emplace_back("_vid");
-    }
-
-    for (const auto& col : yieldCols_) {
-        resultDataSet_.colNames.emplace_back(col);
-    }
-}
-
-void LookupProcessor::onProcessFinished() {
-    resp_.set_data(std::move(resultDataSet_));
+void LookupTraverseProcessor::onProcessFinished() {
+    // resp_.set_data(std::move(resultDataSet_));
 }
 
 }  // namespace storage

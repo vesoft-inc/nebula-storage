@@ -9,7 +9,7 @@ namespace nebula {
 namespace storage {
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupIndexRequest& req) {
+cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const REQ& req) {
     spaceId_ = req.get_space_id();
     auto retCode = this->getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -29,25 +29,6 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         return cpp2::ErrorCode::E_INVALID_OPERATION;
     }
     contexts_ = indices.get_contexts();
-
-    // setup yield columns.
-    if (req.__isset.return_columns) {
-        const auto& retcols = *req.get_return_columns();
-        yieldCols_ = retcols;
-    }
-
-    // setup result set columns.
-    if (planContext_->isEdge_) {
-        resultDataSet_.colNames.emplace_back("_src");
-        resultDataSet_.colNames.emplace_back("_ranking");
-        resultDataSet_.colNames.emplace_back("_dst");
-    } else {
-        resultDataSet_.colNames.emplace_back("_vid");
-    }
-
-    for (const auto& col : yieldCols_) {
-        resultDataSet_.colNames.emplace_back(col);
-    }
 
     return cpp2::ErrorCode::SUCCEEDED;
 }
