@@ -602,7 +602,11 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
 
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse(std::move(hosts), 0, std::move(req), [] (auto client, auto request) {
+    std::vector<HostAddr> adminHosts(hosts.size());
+    std::transform(hosts.begin(), hosts.end(), adminHosts.begin(), [](const auto& h) {
+        return Utils::getAdminAddrFromStoreAddr(h);
+    });
+    getResponse(std::move(adminHosts), 0, std::move(req), [] (auto client, auto request) {
         return client->future_dropCheckpoint(request);
     }, 0, std::move(pro), 1 /*The snapshot operation only needs to be retried twice*/);
     return f;

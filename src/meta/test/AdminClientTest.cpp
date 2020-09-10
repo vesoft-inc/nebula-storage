@@ -307,7 +307,7 @@ TEST(AdminClientTest, SnapshotTest) {
     ASSERT_EQ(1, ActiveHostsMan::getActiveHosts(kv.get()).size());
 
     std::vector<HostAddr> addresses;
-    addresses.emplace_back(localIp, rpcServer->port_);
+    addresses.emplace_back(Utils::getStoreAddrFromAdminAddr({localIp, rpcServer->port_}));
     auto client = std::make_unique<AdminClient>(kv.get());
     {
         LOG(INFO) << "Test Blocking Writes On...";
