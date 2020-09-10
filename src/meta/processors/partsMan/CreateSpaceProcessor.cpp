@@ -80,7 +80,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         // Set the default value back to the struct, which will be written to storage
         properties.set_replica_factor(replicaFactor);
     }
-    if (vidSize <= 0 && vidSize > std::numeric_limits<int32_t>::max()) {
+    if (vidSize == 0) {
         LOG(ERROR) << "Create Space Failed : vid_size is illegal: " << vidSize;
         resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
