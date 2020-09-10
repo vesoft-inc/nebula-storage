@@ -46,7 +46,7 @@ public:
                             if (prop.name_ == "_tags") {
                                 // do nothing
                             } else {
-                                row[indexes_[tagName + ":" + prop.name_]] = Value::kNullValue;
+                                row[indexes_[tagName + ":" + prop.name_]] = Value();
                             }
                         }
                     }
@@ -112,7 +112,7 @@ public:
                 [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            row.emplace_back(NullType::__NULL__);
+                            row.emplace_back(Value());
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;
