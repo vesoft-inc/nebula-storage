@@ -189,9 +189,9 @@ MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId) {
 
         // Edge has two type: serve and teammate
         // When edgeType is 101, use serve data
-        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeSchema(ver));
+        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeEdgeSchema(ver));
         // When edgeType is 102, use teammate data
-        schemaMan->addEdgeSchema(spaceId, 102, MockData::mockTeammateSchema(ver));
+        schemaMan->addEdgeSchema(spaceId, 102, MockData::mockTeammateEdgeSchema(ver));
     }
 
     schemaMan->addTagSchema(spaceId, 3, MockData::mockGeneralTagSchemaV1());
@@ -205,7 +205,7 @@ std::unique_ptr<meta::IndexManager>
 MockCluster::memIndexMan(GraphSpaceID spaceId) {
     auto indexMan = std::make_unique<AdHocIndexManager>();
     indexMan->addTagIndex(spaceId, 1, 1, MockData::mockPlayerTagIndexColumns());
-    indexMan->addTagIndex(spaceId, 1, 2, MockData::mockTeamTagIndexColumns());
+    indexMan->addTagIndex(spaceId, 2, 2, MockData::mockTeamTagIndexColumns());
     indexMan->addTagIndex(spaceId, 3, 3, MockData::mockGeneralTagIndexColumns());
     indexMan->addEdgeIndex(spaceId, 101, 101, MockData::mockServeEdgeIndexColumns());
     indexMan->addEdgeIndex(spaceId, 102, 102, MockData::mockTeammateEdgeIndexColumns());
