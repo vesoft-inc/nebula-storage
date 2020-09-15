@@ -46,7 +46,7 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
         // setup V2 row
         auto vId2 = reinterpret_cast<const char*>(&vid2);
         const Date date = {2020, 2, 20};
-        const DateTime dt = {2020, 2, 20, 10, 30, 45, -8 * 3600, 0};
+        const DateTime dt = {2020, 2, 20, 10, 30, 45, 0};
         auto schemaV2 = env->schemaMan_->getTagSchema(1, 3, 1);
         RowWriterV2 writer2(schemaV2.get());
         writer2.setValue("col_bool", true);

@@ -46,10 +46,10 @@ public:
         for (const auto& edge : edges) {
             auto prefix = NebulaKeyUtils::edgePrefix(planContext_->vIdLen_,
                                                      partId,
-                                                     edge.get_src(),
+                                                     edge.src.getStr(),
                                                      planContext_->edgeType_,
                                                      edge.get_ranking(),
-                                                     edge.get_dst());
+                                                     edge.dst.getStr());
             std::unique_ptr<kvstore::KVIterator> eIter;
             ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_,
                                                        partId, prefix, &eIter);
