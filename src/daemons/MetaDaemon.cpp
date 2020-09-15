@@ -308,7 +308,9 @@ void signalHandler(int sig) {
             }
             {
                 auto gJobMgr = nebula::meta::JobManager::getInstance();
-                gJobMgr->shutDown();
+                if (gJobMgr) {
+                    gJobMgr->shutDown();
+                }
             }
             if (gKVStore) {
                 gKVStore->stop();
