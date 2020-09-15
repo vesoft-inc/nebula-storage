@@ -114,14 +114,12 @@ public:
     folly::Future<Status> rebuildTagIndex(const HostAddr& address,
                                           GraphSpaceID spaceId,
                                           IndexID indexID,
-                                          std::vector<PartitionID> parts,
-                                          bool isOffline);
+                                          std::vector<PartitionID> parts);
 
     folly::Future<Status> rebuildEdgeIndex(const HostAddr& address,
                                            GraphSpaceID spaceId,
                                            IndexID indexID,
-                                           std::vector<PartitionID> parts,
-                                           bool isOffline);
+                                           std::vector<PartitionID> parts);
 
     folly::Future<Status> addTask(cpp2::AdminCmd cmd,
                                   int32_t jobId,
@@ -170,7 +168,7 @@ private:
 
 private:
     std::unique_ptr<FaultInjector> injector_{nullptr};
-    kvstore::KVStore* kv_ = nullptr;
+    kvstore::KVStore* kv_{nullptr};
     std::unique_ptr<folly::IOThreadPoolExecutor> ioThreadPool_{nullptr};
     std::unique_ptr<thrift::ThriftClientManager<storage::cpp2::StorageAdminServiceAsyncClient>>
     clientsMan_;

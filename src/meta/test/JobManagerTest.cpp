@@ -287,7 +287,7 @@ TEST(JobDescriptionTest, parseVal) {
 TEST(TaskDescriptionTest, ctor) {
     int32_t iJob = std::pow(2, 4);
     int32_t iTask = 0;
-    auto dest = toHost("127.0.0.1");
+    auto dest = toHost("");
     TaskDescription td(iJob, iTask, dest);
     auto status = cpp2::JobStatus::RUNNING;
 
