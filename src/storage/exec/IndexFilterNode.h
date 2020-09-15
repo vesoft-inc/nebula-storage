@@ -58,11 +58,11 @@ public:
         }
         std::vector<kvstore::KV> data;
         if (evalExprByIndex_) {
-            data = indexScanNode_->getData();
+            data = indexScanNode_->moveData();
         } else if (isEdge_) {
-            data = indexEdgeNode_->getData();
+            data = indexEdgeNode_->moveData();
         } else {
-            data = indexVertexNode_->getData();
+            data = indexVertexNode_->moveData();
         }
         for (const auto& k : data) {
             if (evalExprByIndex_) {
@@ -84,7 +84,7 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    const std::vector<kvstore::KV>& getData() const {
+    std::vector<kvstore::KV> moveData() {
         return std::move(data_);
     }
 

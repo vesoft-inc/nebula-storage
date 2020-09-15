@@ -65,7 +65,7 @@ public:
         return iter_.get();
     }
 
-    const std::vector<kvstore::KV>& getData() {
+    std::vector<kvstore::KV> moveData() {
         data_.clear();
         while (!!iter_ && iter_->valid()) {
             data_.emplace_back(iter_->key(), "");

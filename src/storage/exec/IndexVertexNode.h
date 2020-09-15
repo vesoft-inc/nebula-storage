@@ -72,8 +72,8 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    const std::vector<kvstore::KV>& getData() const {
-        return data_;
+    std::vector<kvstore::KV> moveData() {
+        return std::move(data_);
     }
 
     const meta::NebulaSchemaProvider* getSchema() {

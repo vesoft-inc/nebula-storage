@@ -92,35 +92,35 @@ public:
 
         switch (type_) {
             case IndexResultType::kEdgeFromIndexScan: {
-                ret = collectResult(indexScanNode_->getData());
+                ret = collectResult(indexScanNode_->moveData());
                 break;
             }
             case IndexResultType::kEdgeFromIndexFilter: {
-                ret = collectResult(indexFilterNode_->getData());
+                ret = collectResult(indexFilterNode_->moveData());
                 break;
             }
             case IndexResultType::kEdgeFromDataScan: {
-                ret = collectResult(indexEdgeNode_->getData());
+                ret = collectResult(indexEdgeNode_->moveData());
                 break;
             }
             case IndexResultType::kEdgeFromDataFilter: {
-                ret = collectResult(indexFilterNode_->getData());
+                ret = collectResult(indexFilterNode_->moveData());
                 break;
             }
             case IndexResultType::kVertexFromIndexScan: {
-                ret = collectResult(indexScanNode_->getData());
+                ret = collectResult(indexScanNode_->moveData());
                 break;
             }
             case IndexResultType::kVertexFromIndexFilter: {
-                ret = collectResult(indexFilterNode_->getData());
+                ret = collectResult(indexFilterNode_->moveData());
                 break;
             }
             case IndexResultType::kVertexFromDataScan: {
-                ret = collectResult(indexVertexNode_->getData());
+                ret = collectResult(indexVertexNode_->moveData());
                 break;
             }
             case IndexResultType::kVertexFromDataFilter: {
-                ret = collectResult(indexFilterNode_->getData());
+                ret = collectResult(indexFilterNode_->moveData());
                 break;
             }
         }
@@ -187,7 +187,7 @@ private:
         for (const auto& val : data) {
             Row row;
             auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, val.first);
-            row.emplace_back(Value(vId));
+            row.emplace_back(Value(std::move(vId)));
 
             // skip vertexID
             for (size_t i = 1; i < returnCols.size(); i++) {
@@ -218,9 +218,9 @@ private:
             auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, val.first);
             auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first);
             auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
-            row.emplace_back(Value(src));
+            row.emplace_back(Value(std::move(src)));
             row.emplace_back(Value(rank));
-            row.emplace_back(Value(dst));
+            row.emplace_back(Value(std::move(dst)));
             auto reader = RowReader::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
