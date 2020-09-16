@@ -41,7 +41,7 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
 
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                            << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                               << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
                     pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
@@ -69,8 +69,9 @@ void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
                 if (!NebulaKeyUtils::isValidVidLen(
                         spaceVidLen_, edgeKey.src.getStr(), edgeKey.dst.getStr())) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
-                            << "space vid len: " << spaceVidLen_ << ", edge srcVid: " << edgeKey.src
-                            << ", dstVid: " << edgeKey.dst;
+                               << "space vid len: " << spaceVidLen_
+                               << ", edge srcVid: " << edgeKey.src
+                               << ", dstVid: " << edgeKey.dst;
                     pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
