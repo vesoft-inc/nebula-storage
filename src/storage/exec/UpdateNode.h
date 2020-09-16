@@ -27,25 +27,49 @@ public:
                FilterNode<T>* filterNode,
                bool insertable,
                std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap,
-               StorageExpressionContext* expCtx = nullptr)
+               StorageExpressionContext* expCtx,
+               bool isEdge)
         : planContext_(planCtx)
         , indexes_(indexes)
         , updatedProps_(updatedProps)
         , filterNode_(filterNode)
         , insertable_(insertable)
         , depPropMap_(depPropMap)
-        , expCtx_(expCtx) {}
+        , expCtx_(expCtx)
+        , isEdge_(isEdge) {}
+
+    kvstore::ResultCode checkField(const meta::SchemaProviderIf::Field* field) {
+        if (!field) {
+            VLOG(1) << "Fail to read prop";
+            if (isEdge_) {
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
+            }
+            return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+        }
+        return kvstore::ResultCode::SUCCEEDED;
+    }
+
+    kvstore::ResultCode getDefaultOrNullValue(const meta::SchemaProviderIf::Field* field,
+                                              const std::string& name) {
+        if (field->hasDefault()) {
+            props_[name] = field->defaultValue();
+        } else if (field->nullable()) {
+            props_[name] = Value::kNullValue;
+        } else {
+            return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+        }
+        return kvstore::ResultCode::SUCCEEDED;
+    }
 
     // Used for upsert tag/edge
-    kvstore::ResultCode checkPropsAndGetDefaultValue(bool isEdge) {
+    kvstore::ResultCode checkPropsAndGetDefaultValue() {
         // Store checked props
         // For example:
-        // set a = 1, b = a + 1, c = 2,             a does not require default value and nullable
-        // set a = 1, b = c + 1, c = 2,             c requires default value and nullable
+        // set a = 1, b = a + 1, c = 2,             `a` does not require default value and nullable
+        // set a = 1, b = c + 1, c = 2,             `c` requires default value and nullable
         // set a = 1, b = (a + 1) + 1, c = 2,       support recursion multiple times
         // set a = 1, c = 2, b = (a + 1) + (c + 1)  support multiple properties
         std::unordered_set<std::string> checkedProp;
-
         // check depPropMap_ in set clause
         // this props must have default value or nullable, or set int UpdatedProp_
         for (auto& prop : depPropMap_) {
@@ -53,20 +77,13 @@ public:
                 auto it = checkedProp.find(p);
                 if (it == checkedProp.end()) {
                     auto field = schema_->field(p);
-                    if (!field) {
-                        VLOG(1) << "Fail to read prop";
-                        if (isEdge) {
-                            return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-                        }
-                        return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                    auto ret = checkField(field);
+                    if (ret != kvstore::ResultCode::SUCCEEDED) {
+                        return ret;
                     }
-
-                    if (field->hasDefault()) {
-                        props_[p] = field->defaultValue();
-                    } else if (field->nullable()) {
-                        props_[p] = NullType::__NULL__;
-                    } else {
-                        return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+                    ret = getDefaultOrNullValue(field, p);
+                    if (ret != kvstore::ResultCode::SUCCEEDED) {
+                        return ret;
                     }
                     checkedProp.emplace(p);
                 }
@@ -74,38 +91,25 @@ public:
 
             // set field not need default value or nullable
             auto field = schema_->field(prop.first);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                if (isEdge) {
-                    return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-                }
-                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            auto ret = checkField(field);
+            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                return ret;
             }
             checkedProp.emplace(prop.first);
         }
 
         // props not in set clause must have default value or nullable
-        for (auto index = 0UL; index < schema_->getNumFields(); index++) {
-            auto field = schema_->field(index);
-            if (!field) {
-                VLOG(1) << "Fail to read prop";
-                if (isEdge) {
-                    return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
-                }
-                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
-            }
-
-            auto propName = field->name();
-            auto findIter = checkedProp.find(propName);
-            if (findIter == checkedProp.end()) {
-                if (field->hasDefault()) {
-                    props_[propName] = field->defaultValue();
-                } else if (field->nullable()) {
-                    props_[propName] = NullType::__NULL__;
-                } else {
-                    return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+        auto fieldIter = schema_->begin();
+        while (fieldIter) {
+            auto propName = fieldIter->name();
+            auto propIter = checkedProp.find(propName);
+            if (propIter == checkedProp.end()) {
+                auto ret = getDefaultOrNullValue(&(*fieldIter), propName);
+                if (ret != kvstore::ResultCode::SUCCEEDED) {
+                    return ret;
                 }
             }
+            ++fieldIter;
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -136,6 +140,7 @@ protected:
     std::vector<std::pair<std::string, std::unordered_set<std::string>>>    depPropMap_;
 
     StorageExpressionContext                                               *expCtx_;
+    bool                                                                    isEdge_{false};
 };
 
 // Only use for update vertex
@@ -151,7 +156,7 @@ public:
                   StorageExpressionContext* expCtx,
                   TagContext* tagContext)
         : UpdateNode<VertexID>(planCtx, indexes, updatedProps,
-                               filterNode, insertable, depPropMap, expCtx)
+                               filterNode, insertable, depPropMap, expCtx, false)
         , tagContext_(tagContext) {
             tagId_ = planContext_->tagId_;
         }
@@ -244,7 +249,7 @@ public:
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
-        ret = checkPropsAndGetDefaultValue(false);
+        ret = checkPropsAndGetDefaultValue();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
@@ -440,7 +445,7 @@ public:
                    StorageExpressionContext* expCtx,
                    EdgeContext* edgeContext)
         : UpdateNode<cpp2::EdgeKey>(planCtx, indexes, updatedProps, filterNode, insertable,
-                                    depPropMap, expCtx)
+                                    depPropMap, expCtx, true)
         , edgeContext_(edgeContext) {
             edgeType_ = planContext_->edgeType_;
         }
@@ -535,7 +540,7 @@ public:
             return ret;
         }
 
-        ret = checkPropsAndGetDefaultValue(true);
+        ret = checkPropsAndGetDefaultValue();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
