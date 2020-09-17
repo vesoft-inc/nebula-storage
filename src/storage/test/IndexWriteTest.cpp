@@ -63,7 +63,7 @@ TEST(IndexTest, SimpleVerticesTest) {
             nebula::storage::cpp2::NewTag newTag;
             newTag.set_tag_id(3);
             const Date date = {2020, 2, 20};
-            const DateTime dt = {2020, 2, 20, 10, 30, 45, 0, -8 * 3600};
+            const DateTime dt = {2020, 2, 20, 10, 30, 45, 0};
             std::vector<Value>  props;
             props.emplace_back(Value(true));
             props.emplace_back(Value(1L));
@@ -110,8 +110,8 @@ TEST(IndexTest, SimpleVerticesTest) {
         cpp2::DeleteVerticesRequest req;
         req.set_space_id(1);
         for (auto partId = 1; partId <= 6; partId++) {
-            std::vector<VertexID> vertices;
-            vertices.emplace_back(convertVertexId(vIdLen, partId));
+            std::vector<Value> vertices;
+            vertices.emplace_back(Value(convertVertexId(vIdLen, partId)));
             req.parts[partId] = std::move(vertices);
         }
         auto fut = processor->getFuture();
@@ -447,7 +447,7 @@ TEST(IndexTest, AlterTagIndexTest) {
             nebula::storage::cpp2::NewTag newTag;
             newTag.set_tag_id(tagId);
             const Date date = {2020, 2, 20};
-            const DateTime dt = {2020, 2, 20, 10, 30, 45, 0, -8 * 3600};
+            const DateTime dt = {2020, 2, 20, 10, 30, 45, 0};
             std::vector<Value>  props;
             props.emplace_back(Value(true));
             props.emplace_back(Value(1L));
