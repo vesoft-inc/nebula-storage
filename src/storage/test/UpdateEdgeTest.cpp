@@ -1933,10 +1933,10 @@ TEST(UpdateEdgeTest, Insertable_In_Set_Test) {
     EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
     EXPECT_TRUE(iter && iter->valid());
 
-    auto reader = RowReader::getEdgePropReader(env->schemaMan_,
-                                               spaceId,
-                                               std::abs(edgeType),
-                                               iter->val());
+    auto reader = RowReaderWrapper::getEdgePropReader(env->schemaMan_,
+                                                      spaceId,
+                                                      std::abs(edgeType),
+                                                      iter->val());
     auto val = reader->getValueByName("playerName");
     EXPECT_EQ("Brandon Ingram", val.getStr());
     val = reader->getValueByName("teamName");

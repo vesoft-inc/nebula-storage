@@ -1306,7 +1306,7 @@ TEST(UpdateVertexTest, Insertable_In_Set_Test) {
     EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
     EXPECT_TRUE(iter && iter->valid());
 
-    auto reader = RowReader::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
+    auto reader = RowReaderWrapper::getTagPropReader(env->schemaMan_, spaceId, tagId, iter->val());
     auto val = reader->getValueByName("name");
     EXPECT_EQ("Brandon Ingram", val.getStr());
     val = reader->getValueByName("age");

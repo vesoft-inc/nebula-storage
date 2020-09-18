@@ -71,8 +71,7 @@ TEST(RowReaderV1, headerInfo) {
 
     // Empty row, return illegal schema version
     SchemaWriter schema5;
-    auto reader2 = RowReaderWrapper::getRowReader(&schema5,
-                                           folly::StringPiece(""));
+    auto reader2 = RowReaderWrapper::getRowReader(&schema5, folly::StringPiece(""));
     ASSERT_FALSE(!!reader2);
     ASSERT_FALSE(reader2->reset(&schema5, folly::StringPiece("")));
 }
