@@ -73,6 +73,8 @@ cpp2::ErrorCode BaseProcessor<RESP>::writeResultTo(WriteResult code, bool isEdge
         return cpp2::ErrorCode::E_FIELD_UNSET;
     case WriteResult::OUT_OF_RANGE:
         return cpp2::ErrorCode::E_OUT_OF_RANGE;
+    case WriteResult::INCORRECT_VALUE:
+        return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
     default:
         return cpp2::ErrorCode::SUCCEEDED;
     }
