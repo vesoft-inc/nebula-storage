@@ -12,8 +12,7 @@
 #include "storage/exec/StoragePlan.h"
 #include "storage/exec/AggregateNode.h"
 #include "storage/exec/IndexScanNode.h"
-#include "storage/exec/IndexVertexNode.h"
-#include "storage/exec/IndexEdgeNode.h"
+#include "storage/exec/IndexNode.h"
 #include "storage/exec/IndexFilterNode.h"
 #include "storage/exec/IndexOutputNode.h"
 

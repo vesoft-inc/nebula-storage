@@ -284,10 +284,17 @@ private:
 
 class IndexIterator : public StorageIterator {
 public:
-    explicit IndexIterator(std::unique_ptr<kvstore::KVIterator> iter)
-    : iter_(std::move(iter)) {}
+    IndexIterator(std::unique_ptr<kvstore::KVIterator> iter, size_t vIdLen)
+        : vIdLen_(vIdLen)
+        , iter_(std::move(iter)) {}
 
-    virtual IndexID indexId() const = 0;
+    IndexID indexId() {
+        return IndexKeyUtils::getIndexId(iter_->key());
+    }
+
+    RowReader* reader() const override {
+        return nullptr;
+    }
 
     bool valid() const override {
         return !!iter_ && iter_->valid();
@@ -306,44 +313,24 @@ public:
     }
 
 protected:
+    size_t vIdLen_;
     std::unique_ptr<kvstore::KVIterator> iter_;
 };
 
 class VertexIndexIterator : public IndexIterator {
 public:
     VertexIndexIterator(std::unique_ptr<kvstore::KVIterator> iter, size_t vIdLen)
-        : IndexIterator(std::move(iter))
-        , vIdLen_(vIdLen) {}
-
-    RowReader* reader() const override {
-        return nullptr;
-    }
-
-    IndexID indexId() const override {
-        return IndexKeyUtils::getIndexId(iter_->key());
-    }
+        : IndexIterator(std::move(iter), vIdLen) {}
 
     VertexID vId() const {
         return IndexKeyUtils::getIndexVertexID(vIdLen_, iter_->key()).str();
     }
-
-protected:
-    size_t vIdLen_;
 };
 
 class EdgeIndexIterator : public IndexIterator {
 public:
     EdgeIndexIterator(std::unique_ptr<kvstore::KVIterator> iter, size_t vIdLen)
-        : IndexIterator(std::move(iter))
-        , vIdLen_(vIdLen) {}
-
-    RowReader* reader() const override {
-        return nullptr;
-    }
-
-    IndexID indexId() const override {
-        return IndexKeyUtils::getIndexId(iter_->key());
-    }
+        : IndexIterator(std::move(iter), vIdLen) {}
 
     VertexID srcId() const {
         return IndexKeyUtils::getIndexSrcId(vIdLen_, iter_->key()).str();
@@ -356,10 +343,6 @@ public:
     EdgeRanking ranking() const {
         return IndexKeyUtils::getIndexRank(vIdLen_, iter_->key());
     }
-
-
-protected:
-    size_t vIdLen_;
 };
 
 }  // namespace storage

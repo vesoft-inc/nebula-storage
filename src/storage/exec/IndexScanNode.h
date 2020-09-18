@@ -84,8 +84,7 @@ private:
     }
 
     std::pair<std::string, std::string> getPrefixStr(PartitionID partId) {
-        std::string prefix;
-        prefix.append(IndexKeyUtils::indexPrefix(partId, indexId_));
+        std::string prefix = IndexKeyUtils::indexPrefix(partId, indexId_);
         for (auto& col : columnHints_) {
             prefix.append(IndexKeyUtils::encodeValue(col.get_begin_value()));
         }
@@ -94,8 +93,7 @@ private:
 
     std::pair<std::string, std::string>  getRangeStr(PartitionID partId) {
         std::string start, end;
-        start.append(IndexKeyUtils::indexPrefix(partId, indexId_));
-        end.append(IndexKeyUtils::indexPrefix(partId, indexId_));
+        start = end = IndexKeyUtils::indexPrefix(partId, indexId_);
         for (auto& col : columnHints_) {
             if (col.get_scan_type() == cpp2::ScanType::PREFIX) {
                 start.append(IndexKeyUtils::encodeValue(col.get_begin_value()));

@@ -30,7 +30,7 @@ public:
         evalExprByIndex_ = true;
     }
 
-    IndexFilterNode(IndexEdgeNode<T>* indexEdgeNode,
+    IndexFilterNode(IndexEdgeNode* indexEdgeNode,
                     StorageExpressionContext* exprCtx = nullptr,
                     Expression* exp = nullptr)
         : indexEdgeNode_(indexEdgeNode)
@@ -40,7 +40,7 @@ public:
         isEdge_ = true;
     }
 
-    IndexFilterNode(IndexVertexNode<T>* indexVertexNode,
+    IndexFilterNode(IndexVertexNode* indexVertexNode,
                     StorageExpressionContext* exprCtx = nullptr,
                     Expression* exp = nullptr)
         : indexVertexNode_(indexVertexNode)
@@ -115,8 +115,6 @@ private:
             auto result = filterExp_->eval(*exprCtx_);
             if (result.type() == Value::Type::BOOL) {
                 return result.getBool();
-            } else {
-                return false;
             }
         }
         return false;
@@ -137,8 +135,8 @@ private:
 
 private:
     IndexScanNode<T>*                                 indexScanNode_{nullptr};
-    IndexEdgeNode<T>*                                 indexEdgeNode_{nullptr};
-    IndexVertexNode<T>*                               indexVertexNode_{nullptr};
+    IndexEdgeNode*                                    indexEdgeNode_{nullptr};
+    IndexVertexNode*                                  indexVertexNode_{nullptr};
     StorageExpressionContext                          *exprCtx_;
     Expression                                        *filterExp_;
     bool                                              isEdge_;

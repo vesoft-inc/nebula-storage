@@ -65,13 +65,8 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
         keyValues.emplace_back(std::move(key), writer2.moveEncodedStr());
 
         // setup index key
-
-        std::vector<Value> values;
-        values.emplace_back(Value(true));
-        values.emplace_back(Value(1L));
-        values.emplace_back(Value(1.1F));
-        values.emplace_back(Value(1.1F));
-        values.emplace_back(Value("row1"));
+        std::vector<Value> values = {Value(true), Value(1L), Value(1.1F),
+                                     Value(1.1F), Value("row1")};
 
         key = IndexKeyUtils::vertexIndexKey(vIdLen.value(), 1, 3, vId1, values);
         keyValues.emplace_back(std::move(key), "");
@@ -146,17 +141,11 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
             .append(vIdLen.value() - sizeof(int64_t), '\0');
         vId2.append(reinterpret_cast<const char*>(&vid2), sizeof(int64_t))
             .append(vIdLen.value() - sizeof(int64_t), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId1));
-        row1.emplace_back(Value(true));
-        row1.emplace_back(Value(1L));
-        expectRows.emplace_back(Row(row1));
+        std::vector<Value> row1 = {Value(vId1), Value(true), Value(1L)};
+        expectRows.emplace_back(std::move(row1));
 
-        Row row2;
-        row2.emplace_back(Value(vId2));
-        row2.emplace_back(Value(true));
-        row2.emplace_back(Value(1L));
-        expectRows.emplace_back(Row(row2));
+        std::vector<Value> row2 = {Value(vId2), Value(true), Value(1L)};
+        expectRows.emplace_back(std::move(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
@@ -192,7 +181,6 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -221,6 +209,7 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -229,11 +218,9 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
 
         std::string vId;
         vId.append(name.data(), name.size())
-            .append(vIdLen.value() - vId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId));
-        row1.emplace_back(Value(34L));
-        expectRows.emplace_back(Row(row1));
+           .append(vIdLen.value() - vId.size(), '\0');
+        std::vector<Value> row1 = {Value(vId), Value(34L)};
+        expectRows.emplace_back(std::move(row1));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
     /**
@@ -256,7 +243,6 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
      *   +----------+-----------+     +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -299,6 +285,7 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -308,16 +295,12 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         std::string vId1, vId2;
         vId1.append(name1.data(), name1.size())
             .append(vIdLen.value() - vId1.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId1));
-        row1.emplace_back(Value(34L));
-        expectRows.emplace_back(Row(row1));
+        std::vector<Value> row1 = {Value(vId1), Value(34L)};
+        expectRows.emplace_back(std::move(row1));
         vId2.append(name2.data(), name2.size())
             .append(vIdLen.value() - vId2.size(), '\0');
-        Row row2;
-        row2.emplace_back(Value(vId2));
-        row2.emplace_back(Value(41L));
-        expectRows.emplace_back(Row(row2));
+        std::vector<Value> row2 = {Value(vId2), Value(41L)};
+        expectRows.emplace_back(std::move(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
@@ -354,7 +337,6 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -384,6 +366,7 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -394,19 +377,12 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         srcId.append(tony.data(), tony.size())
              .append(vIdLen.value() - srcId.size(), '\0');
         dstId.append(manu.data(), manu.size())
-            .append(vIdLen.value() - dstId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(srcId));
-        row1.emplace_back(Value(2002L));
-        row1.emplace_back(Value(dstId));
-        row1.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row1));
-        Row row2;
-        row2.emplace_back(Value(dstId));
-        row2.emplace_back(Value(2002L));
-        row2.emplace_back(Value(srcId));
-        row2.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row2));
+             .append(vIdLen.value() - dstId.size(), '\0');
+        std::vector<Value> row1 = {Value(srcId), Value(2002L), Value(dstId), Value("Spurs")};
+        expectRows.emplace_back(std::move(row1));
+
+        std::vector<Value> row2 = {Value(dstId), Value(2002L), Value(srcId), Value("Spurs")};
+        expectRows.emplace_back(std::move(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
     /**
@@ -430,7 +406,6 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
      *   +----------+-----------+     +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -475,6 +450,7 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -490,30 +466,15 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
             .append(vIdLen.value() - vId3.size(), '\0');
         vId4.append(tracy.data(), tracy.size())
             .append(vIdLen.value() - vId4.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId1));
-        row1.emplace_back(Value(2002L));
-        row1.emplace_back(Value(vId2));
-        row1.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row1));
-        Row row2;
-        row2.emplace_back(Value(vId2));
-        row2.emplace_back(Value(2002L));
-        row2.emplace_back(Value(vId1));
-        row2.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row2));
-        Row row3;
-        row3.emplace_back(Value(vId3));
-        row3.emplace_back(Value(2004L));
-        row3.emplace_back(Value(vId4));
-        row3.emplace_back(Value("Rockets"));
-        expectRows.emplace_back(Row(row3));
-        Row row4;
-        row4.emplace_back(Value(vId4));
-        row4.emplace_back(Value(2004L));
-        row4.emplace_back(Value(vId3));
-        row4.emplace_back(Value("Rockets"));
-        expectRows.emplace_back(Row(row4));
+
+        std::vector<Value> row1 = {Value(vId1), Value(2002L), Value(vId2), Value("Spurs")};
+        expectRows.emplace_back(std::move(row1));
+        std::vector<Value> row2 = {Value(vId2), Value(2002L), Value(vId1), Value("Spurs")};
+        expectRows.emplace_back(std::move(row2));
+        std::vector<Value> row3 = {Value(vId3), Value(2004L), Value(vId4), Value("Rockets")};
+        expectRows.emplace_back(std::move(row3));
+        std::vector<Value> row4 = {Value(vId4), Value(2004L), Value(vId3), Value("Rockets")};
+        expectRows.emplace_back(std::move(row4));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
@@ -553,7 +514,6 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -588,6 +548,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -596,11 +557,9 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
 
         std::string vId;
         vId.append(name.data(), name.size())
-            .append(vIdLen.value() - vId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId));
-        row1.emplace_back(Value(34L));
-        expectRows.emplace_back(Row(row1));
+           .append(vIdLen.value() - vId.size(), '\0');
+        std::vector<Value> row = {Value(vId), Value(34L)};
+        expectRows.emplace_back(std::move(row));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
     /**
@@ -627,7 +586,6 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -662,6 +620,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -707,7 +666,6 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -743,6 +701,7 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -754,18 +713,10 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             .append(vIdLen.value() - srcId.size(), '\0');
         dstId.append(manu.data(), manu.size())
             .append(vIdLen.value() - dstId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(srcId));
-        row1.emplace_back(Value(2002L));
-        row1.emplace_back(Value(dstId));
-        row1.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row1));
-        Row row2;
-        row2.emplace_back(Value(dstId));
-        row2.emplace_back(Value(2002L));
-        row2.emplace_back(Value(srcId));
-        row2.emplace_back(Value("Spurs"));
-        expectRows.emplace_back(Row(row2));
+        std::vector<Value> row1 = {Value(srcId), Value(2002L), Value(dstId), Value("Spurs")};
+        expectRows.emplace_back(std::move(row1));
+        std::vector<Value> row2 = {Value(dstId), Value(2002L), Value(srcId), Value("Spurs")};
+        expectRows.emplace_back(std::move(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 
@@ -794,7 +745,6 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -830,6 +780,7 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -873,7 +824,6 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -902,6 +852,7 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -910,11 +861,9 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
 
         std::string vId;
         vId.append(name.data(), name.size())
-            .append(vIdLen.value() - vId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(vId));
-        row1.emplace_back(Value(939L));
-        expectRows.emplace_back(Row(row1));
+           .append(vIdLen.value() - vId.size(), '\0');
+        std::vector<Value> row = {Value(vId), Value(939L)};
+        expectRows.emplace_back(std::move(row));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
@@ -955,7 +904,6 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
      *            +----------+-----------+
     **/
     {
-        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
@@ -985,6 +933,7 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
         req.set_indices(std::move(indices));
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -994,18 +943,10 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         std::string srcId, dstId;
         srcId.append(tony.data(), tony.size()).append(vIdLen.value() - srcId.size(), '\0');
         dstId.append(manu.data(), manu.size()).append(vIdLen.value() - dstId.size(), '\0');
-        Row row1;
-        row1.emplace_back(Value(srcId));
-        row1.emplace_back(Value(2002L));
-        row1.emplace_back(Value(dstId));
-        row1.emplace_back(Value(2002L));
-        expectRows.emplace_back(Row(row1));
-        Row row2;
-        row2.emplace_back(Value(dstId));
-        row2.emplace_back(Value(2002L));
-        row2.emplace_back(Value(srcId));
-        row2.emplace_back(Value(2002L));
-        expectRows.emplace_back(Row(row2));
+        std::vector<Value> row1 = {Value(srcId), Value(2002L), Value(dstId), Value(2002L)};
+        expectRows.emplace_back(std::move(row1));
+        std::vector<Value> row2 = {Value(dstId), Value(2002L), Value(srcId), Value("2002L")};
+        expectRows.emplace_back(std::move(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }

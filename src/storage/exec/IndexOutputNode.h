@@ -47,7 +47,7 @@ public:
 
     IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
-                    IndexEdgeNode<T>* indexEdgeNode)
+                    IndexEdgeNode* indexEdgeNode)
         : result_(result)
         , planContext_(planCtx)
         , indexEdgeNode_(indexEdgeNode) {
@@ -56,7 +56,7 @@ public:
 
     IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
-                    IndexVertexNode<T>* indexVertexNode)
+                    IndexVertexNode* indexVertexNode)
         : result_(result)
         , planContext_(planCtx)
         , indexVertexNode_(indexVertexNode) {
@@ -164,14 +164,14 @@ private:
         }
         auto returnCols = result_->colNames;
         for (const auto& val : data) {
-            Row row;
-            auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, val.first);
-            row.emplace_back(Value(vId));
             auto reader = RowReader::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
+
+            auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, val.first);
+            std::vector<Value> row = {Value(vId)};
             // skip vertexID
             for (size_t i = 1; i < returnCols.size(); i++) {
                 auto v = reader->getValueByName(returnCols[i]);
@@ -185,9 +185,8 @@ private:
     kvstore::ResultCode vertexRowsFromIndex(const std::vector<kvstore::KV>& data) {
         auto returnCols = result_->colNames;
         for (const auto& val : data) {
-            Row row;
             auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, val.first);
-            row.emplace_back(Value(std::move(vId)));
+            std::vector<Value> row = {Value(std::move(vId))};
 
             // skip vertexID
             for (size_t i = 1; i < returnCols.size(); i++) {
@@ -214,19 +213,17 @@ private:
         }
         auto returnCols = result_->colNames;
         for (const auto& val : data) {
-            Row row;
-            auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, val.first);
-            auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first);
-            auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
-            row.emplace_back(Value(std::move(src)));
-            row.emplace_back(Value(rank));
-            row.emplace_back(Value(std::move(dst)));
             auto reader = RowReader::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
-            // skip column src_ , edgeType, ranking, dst_
+
+            auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, val.first);
+            auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first);
+            auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
+            std::vector<Value> row = {Value(src), Value(rank), Value(dst)};
+            // skip column src_ , ranking, dst_
             for (size_t i = 3; i < returnCols.size(); i++) {
                 auto v = reader->getValueByName(returnCols[i]);
                 row.emplace_back(std::move(v));
@@ -239,14 +236,10 @@ private:
     kvstore::ResultCode edgeRowsFromIndex(const std::vector<kvstore::KV>& data) {
         auto returnCols = result_->colNames;
         for (const auto& val : data) {
-            Row row;
-            auto src = IndexKeyUtils::getIndexSrcId(planContext_->vIdLen_, val.first);
-            auto rank = IndexKeyUtils::getIndexRank(planContext_->vIdLen_, val.first);
-            auto dst = IndexKeyUtils::getIndexDstId(planContext_->vIdLen_, val.first);
-
-            row.emplace_back(Value(std::move(src)));
-            row.emplace_back(Value(std::move(rank)));
-            row.emplace_back(Value(std::move(dst)));
+            auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, val.first);
+            auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first);
+            auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
+            std::vector<Value> row = {Value(src), Value(rank), Value(dst)};
 
             // skip column src_ , ranking, dst_
             for (size_t i = 3; i < returnCols.size(); i++) {
@@ -269,8 +262,8 @@ private:
     PlanContext*                                      planContext_;
     IndexResultType                                   type_;
     IndexScanNode<T>*                                 indexScanNode_{nullptr};
-    IndexEdgeNode<T>*                                 indexEdgeNode_{nullptr};
-    IndexVertexNode<T>*                               indexVertexNode_{nullptr};
+    IndexEdgeNode*                                    indexEdgeNode_{nullptr};
+    IndexVertexNode*                                  indexVertexNode_{nullptr};
     IndexFilterNode<T>*                               indexFilterNode_{nullptr};
     std::vector<std::pair<std::string, Value::Type>>  cols_{};
     int32_t                                           vColNum_{};
