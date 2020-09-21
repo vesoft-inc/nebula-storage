@@ -27,27 +27,29 @@ public:
 
     static Value::Type toValueType(PropertyType type) {
         switch (type) {
-            case PropertyType::BOOL :
+            case PropertyType::BOOL:
                 return Value::Type::BOOL;
-            case PropertyType::INT64 :
-            case PropertyType::INT32 :
-            case PropertyType::INT16 :
-            case PropertyType::INT8 :
-            case PropertyType::TIMESTAMP :
+            case PropertyType::INT64:
+            case PropertyType::INT32:
+            case PropertyType::INT16:
+            case PropertyType::INT8:
+            case PropertyType::TIMESTAMP:
                 return Value::Type::INT;
-            case PropertyType::VID :
+            case PropertyType::VID:
                 return Value::Type::VERTEX;
-            case PropertyType::FLOAT :
-            case PropertyType::DOUBLE :
+            case PropertyType::FLOAT:
+            case PropertyType::DOUBLE:
                 return Value::Type::FLOAT;
-            case PropertyType::STRING :
-            case PropertyType::FIXED_STRING :
+            case PropertyType::STRING:
+            case PropertyType::FIXED_STRING:
                 return Value::Type::STRING;
-            case PropertyType::DATE :
+            case PropertyType::DATE:
                 return Value::Type::DATE;
-            case PropertyType::DATETIME :
+            case PropertyType::TIME:
+                return Value::Type::TIME;
+            case PropertyType::DATETIME:
                 return Value::Type::DATETIME;
-            case PropertyType::UNKNOWN :
+            case PropertyType::UNKNOWN:
                 return Value::Type::__EMPTY__;
         }
         return Value::Type::__EMPTY__;
@@ -56,11 +58,11 @@ public:
     static std::string encodeNullValue(Value::Type type) {
         size_t len = 0;
         switch (type) {
-            case Value::Type::INT : {
+            case Value::Type::INT: {
                 len = sizeof(int64_t);
                 break;
             }
-            case Value::Type::FLOAT : {
+            case Value::Type::FLOAT: {
                 len = sizeof(double);
                 break;
             }
@@ -68,15 +70,19 @@ public:
                 len = sizeof(bool);
                 break;
             }
-            case Value::Type::STRING : {
+            case Value::Type::STRING: {
                 len = 1;
                 break;
             }
-            case Value::Type::DATE : {
+            case Value::Type::TIME: {
+                len = sizeof(int32_t) + sizeof(int8_t) * 3;
+                break;
+            }
+            case Value::Type::DATE: {
                 len = sizeof(int8_t) * 2 + sizeof(int16_t);
                 break;
             }
-            case Value::Type::DATETIME : {
+            case Value::Type::DATETIME: {
                 len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
                 break;
             }
@@ -91,9 +97,9 @@ public:
 
     static std::string encodeValue(const Value& v) {
         switch (v.type()) {
-            case Value::Type::INT :
+            case Value::Type::INT:
                 return encodeInt64(v.getInt());
-            case Value::Type::FLOAT :
+            case Value::Type::FLOAT:
                 return encodeDouble(v.getFloat());
             case Value::Type::BOOL: {
                 auto val = v.getBool();
@@ -102,28 +108,15 @@ public:
                 raw.append(reinterpret_cast<const char*>(&val), sizeof(bool));
                 return raw;
             }
-            case Value::Type::STRING :
+            case Value::Type::STRING:
                 return v.getStr();
-            case Value::Type::DATE : {
-                std::string buf;
-                buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
-                buf.append(reinterpret_cast<const char*>(&v.getDate().year), sizeof(int16_t))
-                   .append(reinterpret_cast<const char*>(&v.getDate().month), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&v.getDate().day), sizeof(int8_t));
-                return buf;
+            case Value::Type::TIME:
+                return encodeTime(v.getTime());
+            case Value::Type::DATE: {
+                return encodeDate(v.getDate());
             }
-            case Value::Type::DATETIME : {
-                std::string buf;
-                buf.reserve(sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5);
-                auto dt = v.getDateTime();
-                buf.append(reinterpret_cast<const char*>(&dt.year), sizeof(int16_t))
-                   .append(reinterpret_cast<const char*>(&dt.month), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&dt.day), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&dt.hour), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&dt.minute), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&dt.sec), sizeof(int8_t))
-                   .append(reinterpret_cast<const char*>(&dt.microsec), sizeof(int32_t));
-                return buf;
+            case Value::Type::DATETIME: {
+                return encodeDateTime(v.getDateTime());
             }
             default :
                 LOG(ERROR) << "Unsupported default value type";
@@ -198,59 +191,130 @@ public:
         return val;
     }
 
+    static std::string encodeTime(const nebula::Time& t) {
+        auto hour = folly::Endian::big8(t.hour);
+        auto minute = folly::Endian::big8(t.minute);
+        auto sec = folly::Endian::big8(t.sec);
+        auto microsec = folly::Endian::big32(t.microsec);
+        std::string buf;
+        buf.reserve(sizeof(int32_t) + sizeof(int8_t) * 3);
+        buf.append(reinterpret_cast<const char*>(&hour), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&minute), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&sec), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&microsec), sizeof(int32_t));
+        return buf;
+    }
+
+    static nebula::Time decodeTime(const folly::StringPiece& raw) {
+        int8_t hour = *reinterpret_cast<const int8_t *>(raw.data());
+        int8_t minute = *reinterpret_cast<const int8_t *>(raw.data() + sizeof(int8_t));
+        int8_t sec = *reinterpret_cast<const int8_t *>(raw.data() + 2 * sizeof(int8_t));
+        int32_t microsec = *reinterpret_cast<const int32_t *>(raw.data() + 3 * sizeof(int8_t));
+
+        nebula::Time t;
+        t.hour = folly::Endian::big8(hour);
+        t.minute = folly::Endian::big8(minute);
+        t.sec = folly::Endian::big8(sec);
+        t.microsec = folly::Endian::big32(microsec);
+        return t;
+    }
+
+    static std::string encodeDate(const nebula::Date& d) {
+        auto year = folly::Endian::big16(d.year);
+        auto month = folly::Endian::big8(d.month);
+        auto day = folly::Endian::big8(d.day);
+        std::string buf;
+        buf.reserve(sizeof(int8_t) * 2 + sizeof(int16_t));
+        buf.append(reinterpret_cast<const char*>(&year), sizeof(int16_t))
+           .append(reinterpret_cast<const char*>(&month), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&day), sizeof(int8_t));
+        return buf;
+    }
+
+    static nebula::Date decodeDate(const folly::StringPiece& raw) {
+        int16_t year = *reinterpret_cast<const int16_t *>(raw.data());
+        int8_t month = *reinterpret_cast<const int8_t *>(raw.data() + sizeof(int16_t));
+        int8_t  day = *reinterpret_cast<const int8_t *>(
+            raw.data() + sizeof(int16_t) + sizeof(int8_t));
+        return Date(folly::Endian::big16(year),
+                    folly::Endian::big8(month),
+                    folly::Endian::big8(day));
+    }
+
+    static std::string encodeDateTime(const nebula::DateTime& dt) {
+        auto year = folly::Endian::big16(dt.year);
+        auto month = folly::Endian::big8(dt.month);
+        auto day = folly::Endian::big8(dt.day);
+        auto hour = folly::Endian::big8(dt.hour);
+        auto minute = folly::Endian::big8(dt.minute);
+        auto sec = folly::Endian::big8(dt.sec);
+        auto microsec = folly::Endian::big32(dt.microsec);
+        std::string buf;
+        buf.reserve(sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5);
+        buf.append(reinterpret_cast<const char*>(&year), sizeof(int16_t))
+           .append(reinterpret_cast<const char*>(&month), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&day), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&hour), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&minute), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&sec), sizeof(int8_t))
+           .append(reinterpret_cast<const char*>(&microsec), sizeof(int32_t));
+        return buf;
+    }
+
+    static nebula::DateTime decodeDateTime(const folly::StringPiece& raw) {
+        int16_t year = *reinterpret_cast<const int16_t *>(raw.data());
+        int8_t month = *reinterpret_cast<const int8_t *>(raw.data() + sizeof(int16_t));
+        int8_t day = *reinterpret_cast<const int8_t *>(
+            raw.data() + sizeof(int16_t) + sizeof(int8_t));
+        int8_t hour = *reinterpret_cast<const int8_t *>(
+            raw.data() + sizeof(int16_t) + 2 * sizeof(int8_t));
+        int8_t minute = *reinterpret_cast<const int8_t *>(
+            raw.data() + sizeof(int16_t) + 3 * sizeof(int8_t));
+        int8_t sec = *reinterpret_cast<const int8_t *>(
+            raw.data() + sizeof(int16_t) + 4 * sizeof(int8_t));
+        int32_t microsec = *reinterpret_cast<const int32_t *>(
+            raw.data() + sizeof(int16_t) + 5 * sizeof(int8_t));
+
+        nebula::DateTime dt;
+        dt.year = folly::Endian::big16(year);
+        dt.month = folly::Endian::big8(month);
+        dt.day = folly::Endian::big8(day);
+        dt.hour = folly::Endian::big8(hour);
+        dt.minute = folly::Endian::big8(minute);
+        dt.sec = folly::Endian::big8(sec);
+        dt.microsec = folly::Endian::big32(microsec);
+        return dt;
+    }
+
     static Value decodeValue(const folly::StringPiece& raw, Value::Type type) {
         Value v;
         switch (type) {
-            case Value::Type::INT : {
+            case Value::Type::INT: {
                 v.setInt(decodeInt64(raw));
                 break;
             }
-            case Value::Type::FLOAT : {
+            case Value::Type::FLOAT: {
                 v.setFloat(decodeDouble(raw));
                 break;
             }
-            case Value::Type::BOOL : {
+            case Value::Type::BOOL: {
                 v.setBool(*reinterpret_cast<const bool*>(raw.data()));
                 break;
             }
-            case Value::Type::STRING : {
+            case Value::Type::STRING: {
                 v.setStr(raw.str());
                 break;
             }
+            case Value::Type::TIME: {
+                v.setTime(decodeTime(raw));
+                break;
+            }
             case Value::Type::DATE: {
-                nebula::Date dt;
-                memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
-                memcpy(reinterpret_cast<void*>(&dt.month),
-                       &raw[sizeof(int16_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.day),
-                       &raw[sizeof(int16_t) + sizeof(int8_t)],
-                       sizeof(int8_t));
-                v.setDate(dt);
+                v.setDate(decodeDate(raw));
                 break;
             }
             case Value::Type::DATETIME: {
-                nebula::DateTime dt;
-                memcpy(reinterpret_cast<void*>(&dt.year), &raw[0], sizeof(int16_t));
-                memcpy(reinterpret_cast<void*>(&dt.month),
-                       &raw[sizeof(int16_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.day),
-                       &raw[sizeof(int16_t) + sizeof(int8_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.hour),
-                       &raw[sizeof(int16_t) + 2 * sizeof(int8_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.minute),
-                       &raw[sizeof(int16_t) + 3 * sizeof(int8_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.sec),
-                       &raw[sizeof(int16_t) + 4 * sizeof(int8_t)],
-                       sizeof(int8_t));
-                memcpy(reinterpret_cast<void*>(&dt.microsec),
-                       &raw[sizeof(int16_t) + 5 * sizeof(int8_t)],
-                       sizeof(int32_t));
-                v.setDateTime(dt);
+                v.setDateTime(decodeDateTime(raw));
                 break;
             }
             default:
@@ -261,9 +325,9 @@ public:
 
     static Value getValueFromIndexKey(size_t vIdLen,
                                       int32_t vColNum,
-                                      const folly::StringPiece& key,
-                                      const folly::StringPiece& prop,
-                                      std::vector<std::pair<std::string, Value::Type>>& cols,
+                                      const std::string& key,
+                                      const std::string& prop,
+                                      const std::vector<std::pair<std::string, Value::Type>>& cols,
                                       bool isEdgeIndex = false,
                                       bool hasNullableCol = false) {
         size_t len = 0;
@@ -275,7 +339,7 @@ public:
 
         auto it = std::find_if(cols.begin(), cols.end(),
                                [&prop] (const auto& col) {
-                                   return prop.str() == col.first;
+                                   return prop == col.first;
                                });
         if (it == cols.end()) {
             return Value(NullType::BAD_DATA);
@@ -284,13 +348,13 @@ public:
 
         if (hasNullableCol) {
             auto bitOffset = key.size() - tailLen - sizeof(u_short) - vCount * sizeof(int32_t);
-            auto v = *reinterpret_cast<const u_short*>(key.begin() + bitOffset);
+            auto v = *reinterpret_cast<const u_short*>(key.c_str() + bitOffset);
             nullableBit = v;
         }
 
         for (const auto& col : cols) {
-            if (hasNullableCol && col.first == prop.str() && nullableBit.test(nullableColPosit)) {
-                    return Value(NullType::__NULL__);
+            if (hasNullableCol && col.first == prop && nullableBit.test(nullableColPosit)) {
+                return Value(NullType::__NULL__);
             }
             switch (col.second) {
                 case Value::Type::BOOL: {
@@ -307,15 +371,19 @@ public:
                 }
                 case Value::Type::STRING: {
                     auto off = key.size() - vCount * sizeof(int32_t) - tailLen;
-                    len = *reinterpret_cast<const int32_t*>(key.data() + off);
+                    len = *reinterpret_cast<const int32_t*>(key.c_str() + off);
                     --vCount;
                     break;
                 }
-                case Value::Type::DATE : {
+                case Value::Type::TIME: {
+                    len = sizeof(int8_t) * 3 + sizeof(int32_t);
+                    break;
+                }
+                case Value::Type::DATE: {
                     len = sizeof(int8_t) * 2 + sizeof(int16_t);
                     break;
                 }
-                case Value::Type::DATETIME : {
+                case Value::Type::DATETIME: {
                     len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
                     break;
                 }
@@ -325,7 +393,7 @@ public:
             if (hasNullableCol) {
                 nullableColPosit -= 1;
             }
-            if (col.first == prop.str()) {
+            if (col.first == prop) {
                 break;
             }
             offset += len;
@@ -333,7 +401,7 @@ public:
         /*
          * here need a string copy.
          */
-        auto propVal = key.subpiece(offset, len);
+        auto propVal = key.substr(offset, len);
         return decodeValue(propVal, type);
     }
 
