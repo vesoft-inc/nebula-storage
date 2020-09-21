@@ -273,7 +273,7 @@ TEST(ProcessorTest, SpaceTest) {
         properties.set_space_name("default_space");
         properties.set_partition_num(8);
         properties.set_replica_factor(3);
-        properties.set_vid_size(10);
+        properties.vid_type.set_type_length(10);
         properties.set_charset_name("utf8");
         properties.set_collate_name("utf8_bin");
         cpp2::CreateSpaceReq req;
@@ -296,7 +296,7 @@ TEST(ProcessorTest, SpaceTest) {
         ASSERT_EQ("default_space", resp.item.properties.space_name);
         ASSERT_EQ(8, resp.item.properties.partition_num);
         ASSERT_EQ(3, resp.item.properties.replica_factor);
-        ASSERT_EQ(10, resp.item.properties.vid_size);
+        ASSERT_EQ(10, *resp.item.properties.vid_type.get_type_length());
         ASSERT_EQ("utf8", resp.item.properties.charset_name);
         ASSERT_EQ("utf8_bin", resp.item.properties.collate_name);
     }
