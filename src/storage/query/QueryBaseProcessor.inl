@@ -464,16 +464,20 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             return cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kInputProperty:
+        case Expression::Kind::kContains:
+        case Expression::Kind::kSubscript:
+        case Expression::Kind::kAttribute:
+        case Expression::Kind::kLabelAttribute:
+        case Expression::Kind::kTagProperty:
+        case Expression::Kind::kVertex:
+        case Expression::Kind::kEdge:
+        case Expression::Kind::kLabel:
         case Expression::Kind::kVarProperty:
         case Expression::Kind::kDstProperty:
         case Expression::Kind::kUUID:
         case Expression::Kind::kVar:
         case Expression::Kind::kVersionedVar: {
-            return cpp2::ErrorCode::E_INVALID_FILTER;
-        }
-        default: {
-            LOG(INFO) << "Unsupport expression type! kind = "
-                      << exp->kind();
+            LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
             return cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
