@@ -305,10 +305,19 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             return checkExp(relExp->right(), returned, filtered, updated);
         }
-        case Expression::Kind::kList:
-        case Expression::Kind::kSet: {
+        case Expression::Kind::kList: {
             auto* listExp = static_cast<const ListExpression*>(exp);
             for (auto& item : listExp->items()) {
+                auto ret = checkExp(item, returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
+        case Expression::Kind::kSet: {
+            auto* setExp = static_cast<const SetExpression*>(exp);
+            for (auto& item : setExp->items()) {
                 auto ret = checkExp(item, returned, filtered, updated);
                 if (ret != cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
@@ -341,7 +350,15 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             return checkExp(typExp->operand(), returned, filtered, updated);
         }
         case Expression::Kind::kFunctionCall: {
-            return cpp2::ErrorCode::E_INVALID_FILTER;
+            auto* funExp = static_cast<const FunctionCallExpression*>(exp);
+            auto& args = funExp->args()->args();
+            for (auto iter = args.begin(); iter < args.end(); ++iter) {
+                auto ret = checkExp(iter->get(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kSrcProperty: {
             auto* sourceExp = static_cast<const SourcePropertyExpression*>(exp);
