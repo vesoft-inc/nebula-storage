@@ -48,7 +48,13 @@ void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
     }
 
     int32_t rowLimit = req.get_limit();
-    int64_t startTime = req.get_start_time(), endTime = req.get_end_time();
+    int64_t startTime = 0, endTime = std::numeric_limits<int64_t>::max();
+    if (req.__isset.start_time) {
+        startTime = *req.get_start_time();
+    }
+    if (req.__isset.end_time) {
+        endTime = *req.get_end_time();
+    }
     RowReaderWrapper reader;
 
     for (int32_t rowCount = 0; iter->valid() && rowCount < rowLimit; iter->next()) {

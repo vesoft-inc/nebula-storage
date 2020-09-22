@@ -505,21 +505,20 @@ nebula_add_executable(
 #        gtest
 #)
 
-#
-#nebula_add_test(
-#    NAME
-#        scan_edge_test
-#    SOURCES
-#        ScanEdgeTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
+nebula_add_test(
+    NAME
+        scan_edge_test
+    SOURCES
+        ScanEdgeTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 nebula_add_test(
     NAME
         scan_vertex_test

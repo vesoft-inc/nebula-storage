@@ -148,7 +148,8 @@ protected:
     cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps,
                                       bool returnNoProps = false);
     // build edgeContexts_ according to return props
-    cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps);
+    cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps,
+                                    bool returnNoProps = false);
 
     cpp2::ErrorCode buildFilter(const REQ& req);
     cpp2::ErrorCode buildYields(const REQ& req);

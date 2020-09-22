@@ -62,7 +62,8 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
-        std::vector<cpp2::EdgeProp>& edgeProps) {
+        std::vector<cpp2::EdgeProp>& edgeProps,
+        bool returnNoProps) {
     for (auto& edgeProp : edgeProps) {
         auto edgeType = edgeProp.type;
         auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
@@ -79,7 +80,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         }
 
         std::vector<PropContext> ctxs;
-        if (!edgeProp.props.empty()) {
+        if (returnNoProps) {
+            // just add the edgeType into edgeContext_
+        } else if (!edgeProp.props.empty()) {
             for (const auto& name : edgeProp.props) {
                 if (name != kSrc && name != kType && name != kRank && name != kDst) {
                     auto field = edgeSchema->field(name);
