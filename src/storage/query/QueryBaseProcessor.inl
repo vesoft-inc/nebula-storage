@@ -13,7 +13,8 @@ namespace storage {
 
 template<typename REQ, typename RESP>
 cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
-        std::vector<cpp2::VertexProp>& vertexProps) {
+        std::vector<cpp2::VertexProp>& vertexProps,
+        bool returnNoProps) {
     for (auto& vertexProp : vertexProps) {
         auto tagId = vertexProp.tag;
         auto iter = tagContext_.schemas_.find(tagId);
@@ -30,7 +31,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         }
 
         std::vector<PropContext> ctxs;
-        if (!vertexProp.props.empty()) {
+        if (returnNoProps) {
+            // just add the tagId into tagContext_
+        } else if (!vertexProp.props.empty()) {
             for (const auto& name : vertexProp.props) {
                 auto field = tagSchema->field(name);
                 if (field == nullptr) {

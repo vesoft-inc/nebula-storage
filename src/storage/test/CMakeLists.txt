@@ -520,20 +520,20 @@ nebula_add_executable(
 #        gtest
 #)
 #
-#nebula_add_test(
-#    NAME
-#        scan_vertex_test
-#    SOURCES
-#        ScanVertexTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
+nebula_add_test(
+    NAME
+        scan_vertex_test
+    SOURCES
+        ScanVertexTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_executable(
 #    NAME
 #        storage_index_write_bm

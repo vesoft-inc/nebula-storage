@@ -46,8 +46,14 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
     std::vector<cpp2::ScanEdge> edgeData;
     int32_t rowCount = 0;
     int32_t rowLimit = req.get_limit();
-    int64_t startTime = req.get_start_time(), endTime = req.get_end_time();
-    int32_t blockSize = 0;
+    int64_t startTime = 0, endTime = std::numeric_limits<int64_t>::max();
+    if (req.__isset.start_time) {
+        startTime = *req.get_start_time();
+    }
+    if (req.__isset.end_time) {
+        endTime = *req.get_end_time();
+    }
+    RowReaderWrapper reader;
 
     for (; iter->valid() && rowCount < rowLimit && blockSize < FLAGS_max_scan_block_size;
          iter->next()) {
