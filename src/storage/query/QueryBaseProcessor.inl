@@ -296,6 +296,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kRelLE:
         case Expression::Kind::kRelGT:
         case Expression::Kind::kRelGE:
+        case Expression::Kind::kRelNotIn:
         case Expression::Kind::kRelIn: {
             auto* relExp = static_cast<const RelationalExpression*>(exp);
             auto ret = checkExp(relExp->left(), returned, filtered, updated);
@@ -303,6 +304,27 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                 return ret;
             }
             return checkExp(relExp->right(), returned, filtered, updated);
+        }
+        case Expression::Kind::kList:
+        case Expression::Kind::kSet: {
+            auto* listExp = static_cast<const ListExpression*>(exp);
+            for (auto& item : listExp->items()) {
+                auto ret = checkExp(item, returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
+        case Expression::Kind::kMap: {
+            auto* mapExp = static_cast<const MapExpression*>(exp);
+            for (auto& item : mapExp->items()) {
+                auto ret = checkExp(item.second, returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kLogicalAnd:
         case Expression::Kind::kLogicalOr:
