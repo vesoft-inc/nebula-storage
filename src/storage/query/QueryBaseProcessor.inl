@@ -481,6 +481,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             return cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
+    return cpp2::ErrorCode::E_INVALID_FILTER;
 }
 
 template <typename REQ, typename RESP>
