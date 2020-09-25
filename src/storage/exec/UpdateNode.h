@@ -12,6 +12,7 @@
 #include "storage/context/StorageExpressionContext.h"
 #include "storage/exec/TagNode.h"
 #include "storage/exec/FilterNode.h"
+#include "storage/StorageFlags.h"
 #include "kvstore/LogEncoder.h"
 #include "utils/OperationKeyUtils.h"
 
@@ -168,9 +169,8 @@ public:
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
-        std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
-            [&partId, requestPtr, &vId, this] ()
+            [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
 
@@ -183,7 +183,9 @@ public:
                         return folly::none;
                     }
 
-                    this->reader_ = filterNode_->reader();
+                    if (filterNode_->valid()) {
+                        this->reader_ = filterNode_->reader();
+                    }
                     // reset StorageExpressionContext reader_ to nullptr
                     this->expCtx_->reset();
 
@@ -199,14 +201,14 @@ public:
                     if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
                     }
-                    return this->updateAndWriteBack(partId, vId, requestPtr);
+                    return this->updateAndWriteBack(partId, vId);
                 } else {
                     // if tagnode/edgenode error
                     return folly::none;
                 }
             },
-            [&ret, requestPtr, &baton, this] (kvstore::ResultCode code) {
-                planContext_->env_->onFlyingRequest_.fetch_sub(*requestPtr);
+            [&ret, &baton, this] (kvstore::ResultCode code) {
+                planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                     this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                     ret = this->exeResult_;
@@ -261,8 +263,8 @@ public:
         }
 
         // build key, value is emtpy
-        auto version =
-            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version = FLAGS_enable_multi_versions ?
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() : 0L;
         // Switch version to big-endian, make sure the key is in ordered.
         version = folly::Endian::big(version);
         key_ = NebulaKeyUtils::vertexKey(planContext_->vIdLen_,
@@ -308,8 +310,8 @@ public:
     }
 
     folly::Optional<std::string>
-    updateAndWriteBack(const PartitionID partId, const VertexID vId,
-                       std::shared_ptr<int32_t> requestPtr) {
+    updateAndWriteBack(const PartitionID partId, const VertexID vId) {
+        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -349,7 +351,7 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader;
+            RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
@@ -361,7 +363,6 @@ public:
                         }
                         auto oi = indexKey(partId, vId, reader_, index);
                         if (!oi.empty()) {
-                            (*requestPtr)++;
                             if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                     partId, indexId)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
@@ -370,7 +371,6 @@ public:
                                                                             partId, indexId)) {
                                 LOG(ERROR) << "The index has been locked: "
                                            << index->get_index_name();
-                                planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
                                 return folly::none;
                             } else {
                                 batchHolder->remove(std::move(oi));
@@ -380,10 +380,8 @@ public:
 
                     // step 2, insert new vertex index
                     if (!nReader) {
-                        nReader = RowReader::getTagPropReader(planContext_->env_->schemaMan_,
-                                                              planContext_->spaceId_,
-                                                              tagId_,
-                                                              nVal);
+                        nReader = RowReaderWrapper::getTagPropReader(
+                            planContext_->env_->schemaMan_, planContext_->spaceId_, tagId_, nVal);
                     }
                     if (!nReader) {
                         LOG(ERROR) << "Bad format row";
@@ -391,7 +389,6 @@ public:
                     }
                     auto ni = indexKey(partId, vId, nReader.get(), index);
                     if (!ni.empty()) {
-                        (*requestPtr)++;
                         if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                 partId, indexId)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
@@ -400,7 +397,6 @@ public:
                         } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
                                                                         partId, indexId)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
                             batchHolder->put(std::move(ni), "");
@@ -411,7 +407,6 @@ public:
         }
         // step 3, insert new vertex data
         batchHolder->put(std::move(key_), std::move(nVal));
-        planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
         return encodeBatchValue(batchHolder->getBatch());
     }
 
@@ -459,9 +454,8 @@ public:
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
-        std::shared_ptr<int32_t> requestPtr = std::make_shared<int32_t>(0);
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
-            [&partId, requestPtr, &edgeKey, this] ()
+            [&partId, &edgeKey, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, edgeKey);
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
@@ -477,7 +471,9 @@ public:
                         return folly::none;
                     }
 
-                    this->reader_ = filterNode_->reader();
+                    if (filterNode_->valid()) {
+                        this->reader_ = filterNode_->reader();
+                    }
                     // reset StorageExpressionContext reader_ to nullptr
                     this->expCtx_->reset();
 
@@ -493,13 +489,14 @@ public:
                     if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
                     }
-                    return this->updateAndWriteBack(partId, edgeKey, requestPtr);
+                    return this->updateAndWriteBack(partId, edgeKey);
                 } else {
                     // If filter out, StorageExpressionContext is set in filterNode
                     return folly::none;
                 }
             },
-            [&ret, requestPtr, &baton, this] (kvstore::ResultCode code) {
+            [&ret, &baton, this] (kvstore::ResultCode code) {
+                planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                     this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                     ret = this->exeResult_;
@@ -561,8 +558,8 @@ public:
         }
 
         // build key, value is emtpy
-        auto version =
-            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec();
+        auto version = FLAGS_enable_multi_versions ?
+            std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() : 0L;
         // Switch version to big-endian, make sure the key is in ordered.
         version = folly::Endian::big(version);
         key_ = NebulaKeyUtils::edgeKey(planContext_->vIdLen_,
@@ -620,8 +617,8 @@ public:
     }
 
     folly::Optional<std::string>
-    updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey,
-                       std::shared_ptr<int32_t> requestPtr) {
+    updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
+        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -659,7 +656,7 @@ public:
         // when TTL exists, there is no index.
         // when insert_ is true, not old index, val_ is empty.
         if (!indexes_.empty()) {
-            std::unique_ptr<RowReader> nReader;
+            RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
@@ -671,7 +668,6 @@ public:
                         }
                         auto oi = indexKey(partId, reader_, edgeKey, index);
                         if (!oi.empty()) {
-                            (*requestPtr)++;
                             if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                     partId, indexId)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
@@ -680,7 +676,6 @@ public:
                                                                             partId, indexId)) {
                                 LOG(ERROR) << "The index has been locked: "
                                            << index->get_index_name();
-                                planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
                                 return folly::none;
                             } else {
                                 batchHolder->remove(std::move(oi));
@@ -690,10 +685,9 @@ public:
 
                     // step 2, insert new edge index
                     if (!nReader) {
-                        nReader = RowReader::getEdgePropReader(planContext_->env_->schemaMan_,
-                                                               planContext_->spaceId_,
-                                                               std::abs(edgeType_),
-                                                               nVal);
+                        nReader = RowReaderWrapper::getEdgePropReader(
+                            planContext_->env_->schemaMan_, planContext_->spaceId_,
+                            std::abs(edgeType_), nVal);
                     }
                     if (!nReader) {
                         LOG(ERROR) << "Bad format row";
@@ -701,7 +695,6 @@ public:
                     }
                     auto ni = indexKey(partId, nReader.get(), edgeKey, index);
                     if (!ni.empty()) {
-                        (*requestPtr)++;
                         if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                 partId, indexId)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
@@ -710,7 +703,6 @@ public:
                         } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
                                                                         partId, indexId)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
                             return folly::none;
                         } else {
                             batchHolder->put(std::move(ni), "");
@@ -721,7 +713,6 @@ public:
         }
         // step 3, insert new edge data
         batchHolder->put(std::move(key_), std::move(nVal));
-        planContext_->env_->onFlyingRequest_.fetch_add(*requestPtr);
         return encodeBatchValue(batchHolder->getBatch());
     }
 
