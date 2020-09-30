@@ -7,6 +7,8 @@
 #ifndef STORAGE_TEST_QUERYTESTUTILS_H_
 #define STORAGE_TEST_QUERYTESTUTILS_H_
 
+#include <gtest/gtest.h>
+#include <gtest/internal/gtest-internal.h>
 #include "common/base/Base.h"
 #include "common/expression/Expression.h"
 #include "common/expression/PropertyExpression.h"
@@ -828,6 +830,21 @@ public:
         }
         // return {} means all property
         return {};
+    }
+
+    static ::testing::AssertionResult verifyResultWithoutOrder(const DataSet& resp,
+                                                               const DataSet& expect) {
+        DataSet respCopy = resp;
+        DataSet expectCopy = expect;
+        std::sort(respCopy.rows.begin(), respCopy.rows.end());
+        std::sort(expectCopy.rows.begin(), expectCopy.rows.end());
+        if (respCopy != expectCopy) {
+            return ::testing::AssertionFailure() << "Resp is : "
+                                                 << resp << std::endl
+                                                 << "Expect : "
+                                                 << expect;
+        }
+        return ::testing::AssertionSuccess();
     }
 };
 

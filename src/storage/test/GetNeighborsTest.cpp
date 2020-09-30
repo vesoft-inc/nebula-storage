@@ -1591,6 +1591,46 @@ TEST(GetNeighborsTest, FilterTest) {
     }
 }
 
+TEST(GetNeighborsTest, GetTagsTest) {
+    fs::TempDir rootPath("/tmp/GetNeighborsTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    TagID player = 1;
+    EdgeType serve = 101;
+
+    {
+        LOG(INFO) << "OneOutEdgeMultiProperty";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<EdgeType> over = {serve};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore", "_exist"});
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
+
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        DataSet expected({"_vid", "_stats", "_tag:1:name:age:avgScore:_exist",
+                          "_edge:+101:teamName:startYear:endYear", "_expr"});
+        expected.emplace_back(Row({"Tim Duncan",
+                                   Value(),
+                                   List({"Tim Duncan", 44, 19, true}),
+                                   List({Value(List({"Spurs", 1997, 2016}))}),
+                                   Value()}));
+        // vId, stat, player, serve, expr
+        EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.vertices, expected));
+    }
+}
+
 }  // namespace storage
 }  // namespace nebula
 

@@ -85,16 +85,6 @@ cpp2::GetPropRequest buildEdgeRequest(
     return req;
 }
 
-void verifyResult(const std::vector<nebula::Row>& expect,
-                  const nebula::DataSet& dataSet) {
-    ASSERT_EQ(expect.size(), dataSet.rows.size());
-    for (size_t i = 0; i < expect.size(); i++) {
-        const auto& expectRow = expect[i];
-        const auto& actualRow = dataSet.rows[i];
-        ASSERT_EQ(expectRow, actualRow);
-    }
-}
-
 TEST(GetPropTest, PropertyTest) {
     fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
     mock::MockCluster cluster;
@@ -248,7 +238,11 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
-            std::vector<nebula::Row> expected;
+            DataSet expected({"_vid", "1:name", "1:age", "1:playing", "1:career", "1:startYear",
+                              "1:endYear", "1:games", "1:avgScore", "1:serveTeams", "1:country",
+                              "1:champions", "2:name", "3:col_bool", "3:col_int", "3:col_float",
+                              "3:col_double", "3:col_str", "3:col_int8", "3:col_int16",
+                              "3:col_int32", "3:col_timestamp", "3:col_date", "3:col_datetime"});
             nebula::Row row;
             std::vector<Value> values {  // player
                 "Tim Duncan", "Tim Duncan", 44, false, 19, 1997, 2016, 1392, 19.0, 1, "America", 5};
@@ -258,7 +252,7 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
-            verifyResult(expected, resp.props);
+            EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.props, expected));
         }
     }
     {
@@ -282,7 +276,16 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
-            std::vector<nebula::Row> expected;
+            DataSet expected({"102:_src", "102:_type", "102:_rank", "102:_dst", "102:player1",
+                              "102:player2", "102:teamName", "102:startYear", "102:endYear",
+                              "101:_src", "101:_type", "101:_rank", "101:_dst", "101:playerName",
+                              "101:teamName", "101:startYear", "101:endYear", "101:teamCareer",
+                              "101:teamGames", "101:teamAvgScore", "101:type", "101:champions",
+                              "101:_src", "101:_type", "101:_rank", "101:_dst", "101:playerName",
+                              "101:teamName", "101:startYear", "101:endYear", "101:teamCareer",
+                              "101:teamGames", "101:teamAvgScore", "101:type", "101:champions",
+                              "102:_src", "102:_type", "102:_rank", "102:_dst", "102:player1",
+                              "102:player2", "102:teamName", "102:startYear", "102:endYear"});
             nebula::Row row;
             std::vector<Value> values;
             // -teammate
@@ -314,7 +317,7 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
-            verifyResult(expected, resp.props);
+            EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.props, expected));
         }
     }
     {
@@ -330,7 +333,11 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
-            std::vector<nebula::Row> expected;
+            DataSet expected({"_vid", "1:name", "1:age", "1:playing", "1:career", "1:startYear",
+                              "1:endYear", "1:games", "1:avgScore", "1:serveTeams", "1:country",
+                              "1:champions", "2:name", "3:col_bool", "3:col_int", "3:col_float",
+                              "3:col_double", "3:col_str", "3:col_int8", "3:col_int16",
+                              "3:col_int32", "3:col_timestamp", "3:col_date", "3:col_datetime"});
             nebula::Row row;
             std::vector<Value> values;
             values.emplace_back("Not existed");
@@ -340,7 +347,7 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
-            verifyResult(expected, resp.props);
+            EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.props, expected));
         }
     }
 }
@@ -372,13 +379,13 @@ TEST(GetPropTest, GetTagsTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
-            std::vector<nebula::Row> expected;
+            DataSet expected({"_vid", "1:_exist", "2:_exist"});
             Row row({
                 "Tim Duncan", true, false
             });
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
-            verifyResult(expected, resp.props);
+            EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.props, expected));
         }
     }
     // with properties
@@ -399,13 +406,13 @@ TEST(GetPropTest, GetTagsTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
-            std::vector<nebula::Row> expected;
+            DataSet expected({"_vid", "1:name", "1:_exist", "2:_exist"});
             Row row({
                 "Tim Duncan", "Tim Duncan", true, false
             });
             expected.emplace_back(std::move(row));
             ASSERT_TRUE(resp.__isset.props);
-            verifyResult(expected, resp.props);
+            EXPECT_TRUE(QueryTestUtils::verifyResultWithoutOrder(resp.props, expected));
         }
     }
 }
