@@ -792,7 +792,7 @@ TEST(GetNeighborsTest, TtlTest) {
         ASSERT_EQ(5, resp.vertices.rows[0].values.size());
         ASSERT_EQ("Tim Duncan", resp.vertices.rows[0].values[0].getStr());
         ASSERT_EQ(Value::Type::__EMPTY__, resp.vertices.rows[0].values[1].type());
-        ASSERT_EQ(Value::Type::__EMPTY__, resp.vertices.rows[0].values[2].type());
+        ASSERT_EQ(Value::Type::LIST, resp.vertices.rows[0].values[2].type());
         ASSERT_EQ(Value::Type::__EMPTY__, resp.vertices.rows[0].values[3].type());
         ASSERT_EQ(Value::Type::__EMPTY__, resp.vertices.rows[0].values[4].type());
     }
@@ -816,9 +816,9 @@ TEST(GetNeighborsTest, TtlTest) {
         ASSERT_EQ(10, resp.vertices.rows[0].values.size());
         ASSERT_EQ("Tim Duncan", resp.vertices.rows[0].values[0].getStr());
         ASSERT_TRUE(resp.vertices.rows[0].values[1].empty());      // stat
-        ASSERT_TRUE(resp.vertices.rows[0].values[2].empty());      // player expired
-        ASSERT_TRUE(resp.vertices.rows[0].values[3].empty());      // team not exists
-        ASSERT_TRUE(resp.vertices.rows[0].values[4].empty());      // general tag not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[2].isList());     // player expired
+        ASSERT_TRUE(resp.vertices.rows[0].values[3].isList());     // team not exists
+        ASSERT_TRUE(resp.vertices.rows[0].values[4].isList());     // general tag not exists
         ASSERT_TRUE(resp.vertices.rows[0].values[5].isList());     // - teammate valid
         ASSERT_TRUE(resp.vertices.rows[0].values[6].empty());      // - serve expired
         ASSERT_TRUE(resp.vertices.rows[0].values[7].empty());      // + serve expired

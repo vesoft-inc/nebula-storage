@@ -38,7 +38,12 @@ public:
                 [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
-                            row.emplace_back(Value());
+                            if (prop.name_ == "_exist") {
+                                // not exist
+                                row.emplace_back(Value(false));
+                            } else {
+                                row.emplace_back(Value());
+                            }
                         }
                     }
                     return kvstore::ResultCode::SUCCEEDED;

@@ -120,11 +120,16 @@ protected:
             StorageExpressionContext* ctx = nullptr) {
         for (auto& prop : *props) {
             VLOG(2) << "Collect prop " << prop.name_ << ", type " << tagId;
-            auto status = QueryUtils::readValue(reader, prop.name_, prop.field_);
-            if (!status.ok()) {
-                return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+            Value value;
+            if (prop.name_ == "_exist") {
+                value = Value(true);
+            } else {
+                auto status = QueryUtils::readValue(reader, prop.name_, prop.field_);
+                if (!status.ok()) {
+                    return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                }
+                value = std::move(status).value();
             }
-            auto value = std::move(status).value();
             if (ctx != nullptr && prop.filtered_) {
                 ctx->setTagProp(tagName, prop.name_, value);
             }

@@ -345,6 +345,71 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
     }
 }
 
+TEST(GetPropTest, GetTagsTest) {
+    fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+
+    // only tags
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(1,
+                                         std::vector<std::string>{"_exist"}));
+        tags.emplace_back(std::make_pair(2,
+                                         std::vector<std::string>{"_exist"}));
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
+            Row row({
+                "Tim Duncan", true, false
+            });
+            expected.emplace_back(std::move(row));
+            ASSERT_TRUE(resp.__isset.props);
+            verifyResult(expected, resp.props);
+        }
+    }
+    // with properties
+    {
+        LOG(INFO) << "GetVertexProp";
+        std::vector<VertexID> vertices = {"Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(std::make_pair(1,
+                                         std::vector<std::string>{"name", "_exist"}));
+        tags.emplace_back(std::make_pair(2,
+                                         std::vector<std::string>{"_exist"}));
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
+            Row row({
+                "Tim Duncan", "Tim Duncan", true, false
+            });
+            expected.emplace_back(std::move(row));
+            ASSERT_TRUE(resp.__isset.props);
+            verifyResult(expected, resp.props);
+        }
+    }
+}
+
 }  // namespace storage
 }  // namespace nebula
 

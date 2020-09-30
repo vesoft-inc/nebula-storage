@@ -104,6 +104,11 @@ public:
                                        RowReader* reader,
                                        const std::string& ttlCol,
                                        int64_t ttlDuration);
+
+    static bool isReservedProperty(const std::string& name) {
+        DCHECK(!name.empty());  // guranteed by parser
+        return name[0] == '_';
+    }
 };
 
 }  // namespace storage

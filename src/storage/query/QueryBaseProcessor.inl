@@ -33,7 +33,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         if (!vertexProp.props.empty()) {
             for (const auto& name : vertexProp.props) {
                 auto field = tagSchema->field(name);
-                if (field == nullptr) {
+                if (field == nullptr && !CommonUtils::isReservedProperty(name)) {
                     VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
                     return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
                 }

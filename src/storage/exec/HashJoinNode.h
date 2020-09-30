@@ -59,8 +59,19 @@ public:
         for (auto* tagNode : tagNodes_) {
             const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&result] (const std::vector<PropContext>*) -> kvstore::ResultCode {
-                    result.values.emplace_back(Value());
+                [&result] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                    nebula::List list;
+                    for (const auto& prop : *props) {
+                        if (prop.returned_) {
+                            if (prop.name_ == "_exist") {
+                                // not exist
+                                list.emplace_back(Value(false));
+                            } else {
+                                list.emplace_back(Value());
+                            }
+                        }
+                    }
+                    result.values.emplace_back(std::move(list));
                     return kvstore::ResultCode::SUCCEEDED;
                 },
                 [this, &result, &tagName] (TagID tagId,

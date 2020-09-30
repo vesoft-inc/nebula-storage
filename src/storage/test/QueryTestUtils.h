@@ -713,7 +713,8 @@ public:
                         auto tagCell = row.values[i].getList();
                         checkPlayer(props, *iter, tagCell.values);
                     } else {
-                        ASSERT_EQ(Value::Type::__EMPTY__, row.values[i].type());
+                        // TODO(shylock) check more detail
+                        ASSERT_EQ(Value::Type::LIST, row.values[i].type());
                     }
                     break;
                 }
@@ -727,7 +728,7 @@ public:
                         ASSERT_EQ(1, tagCell.values.size());
                         ASSERT_EQ(*iter, tagCell.values[0].getStr());
                     } else {
-                        ASSERT_EQ(Value::Type::__EMPTY__, row.values[i].type());
+                        ASSERT_EQ(Value::Type::LIST, row.values[i].type());
                     }
                     break;
                 }
