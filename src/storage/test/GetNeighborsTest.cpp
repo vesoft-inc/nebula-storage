@@ -1601,16 +1601,17 @@ TEST(GetNeighborsTest, GetTagsTest) {
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
     TagID player = 1;
+    TagID team = 2;
     EdgeType serve = 101;
 
     // only _exists
     {
-        LOG(INFO) << "OneOutEdgeMultiProperty";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<EdgeType> over = {serve};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
         std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
         tags.emplace_back(player, std::vector<std::string>{"_exist"});
+        tags.emplace_back(team, std::vector<std::string>{"_exist"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
@@ -1620,11 +1621,12 @@ TEST(GetNeighborsTest, GetTagsTest) {
         auto resp = std::move(fut).get();
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
-        DataSet expected({"_vid", "_stats", "_tag:1:_exist",
+        DataSet expected({"_vid", "_stats", "_tag:1:_exist", "_tag:2:_exist",
                           "_edge:+101:teamName:startYear:endYear", "_expr"});
         expected.emplace_back(Row({"Tim Duncan",
                                    Value(),
                                    List({true}),
+                                   List({false}),
                                    List({Value(List({"Spurs", 1997, 2016}))}),
                                    Value()}));
         // vId, stat, player, serve, expr
@@ -1633,12 +1635,12 @@ TEST(GetNeighborsTest, GetTagsTest) {
 
     // with properties
     {
-        LOG(INFO) << "OneOutEdgeMultiProperty";
         std::vector<VertexID> vertices = {"Tim Duncan"};
         std::vector<EdgeType> over = {serve};
         std::vector<std::pair<TagID, std::vector<std::string>>> tags;
         std::vector<std::pair<EdgeType, std::vector<std::string>>> edges;
         tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore", "_exist"});
+        tags.emplace_back(team, std::vector<std::string>{"name", "_exist"});
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
@@ -1649,10 +1651,11 @@ TEST(GetNeighborsTest, GetTagsTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         DataSet expected({"_vid", "_stats", "_tag:1:name:age:avgScore:_exist",
-                          "_edge:+101:teamName:startYear:endYear", "_expr"});
+                          "_tag:2:name:_exist", "_edge:+101:teamName:startYear:endYear", "_expr"});
         expected.emplace_back(Row({"Tim Duncan",
                                    Value(),
                                    List({"Tim Duncan", 44, 19, true}),
+                                   List({Value(), false}),
                                    List({Value(List({"Spurs", 1997, 2016}))}),
                                    Value()}));
         // vId, stat, player, serve, expr
