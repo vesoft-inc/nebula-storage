@@ -379,11 +379,15 @@ cpp2::Schema MetaServiceUtils::parseSchema(folly::StringPiece rawData) {
     return schema;
 }
 
-std::string MetaServiceUtils::indexKey(GraphSpaceID spaceID, IndexID indexID) {
+std::string MetaServiceUtils::indexKey(GraphSpaceID spaceID,
+                                       cpp2::IndexType indexType,
+                                       IndexID indexID) {
     std::string key;
-    key.reserve(sizeof(GraphSpaceID) + sizeof(IndexID));
+    key.reserve(kIndexesTable.size() + sizeof(GraphSpaceID) +
+                sizeof(cpp2::IndexType) + sizeof(IndexID));
     key.append(kIndexesTable.data(), kIndexesTable.size());
     key.append(reinterpret_cast<const char*>(&spaceID), sizeof(GraphSpaceID))
+       .append(reinterpret_cast<const char*>(&indexType), sizeof(cpp2::IndexType))
        .append(reinterpret_cast<const char*>(&indexID), sizeof(IndexID));
     return key;
 }
@@ -402,10 +406,48 @@ std::string MetaServiceUtils::indexPrefix(GraphSpaceID spaceId) {
     return key;
 }
 
+std::string MetaServiceUtils::indexPrefix(GraphSpaceID spaceId, cpp2::IndexType indexType) {
+    std::string key;
+    key.reserve(kIndexesTable.size() + sizeof(GraphSpaceID) + sizeof(cpp2::IndexType));
+    key.append(kIndexesTable.data(), kIndexesTable.size())
+       .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
+       .append(reinterpret_cast<const char*>(&indexType), sizeof(cpp2::IndexType));
+    return key;
+}
+
 nebula::meta::cpp2::IndexItem MetaServiceUtils::parseIndex(const folly::StringPiece& rawData) {
     nebula::meta::cpp2::IndexItem item;
     apache::thrift::CompactSerializer::deserialize(rawData, item);
     return item;
+}
+
+IndexID MetaServiceUtils::parseIndexID(const folly::StringPiece& rawData) {
+    auto offset = kIndexesTable.size() + sizeof(GraphSpaceID) + sizeof(cpp2::IndexType);
+    return *reinterpret_cast<const IndexID*>(rawData.data() + offset);
+}
+
+cpp2::IndexType MetaServiceUtils::parseIndexType(const folly::StringPiece& rawData) {
+    auto offset = kIndexesTable.size() + sizeof(GraphSpaceID);
+    return *reinterpret_cast<const cpp2::IndexType*>(rawData.data() + offset);
+}
+
+std::string MetaServiceUtils::IndexTypeToString(cpp2::IndexType indexType) {
+    switch (indexType) {
+        case cpp2::IndexType::ALL:
+            return std::string("all");
+        case cpp2::IndexType::NORMAL:
+            return std::string("normal");
+        case cpp2::IndexType::VERTEX_COUNT:
+            return std::string("vertexcount");
+        case cpp2::IndexType::EDGE_COUNT:
+            return std::string("edgecount");
+        case cpp2::IndexType::VERTEX:
+            return std::string("vertex");
+        case cpp2::IndexType::EDGE:
+            return std::string("edge");
+    }
+    // Never reach here
+    return std::string("");
 }
 
 // This method should replace with JobManager when it ready.

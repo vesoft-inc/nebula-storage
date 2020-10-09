@@ -312,6 +312,34 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
+        get_vertices_statis_test
+    SOURCES
+        GetVerticesStatisTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        get_edges_statis_test
+    SOURCES
+        GetEdgesStatisTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
         storage_http_stats_test
     SOURCES
         StorageHttpStatsHandlerTest.cpp

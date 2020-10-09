@@ -12,9 +12,10 @@
 namespace nebula {
 namespace storage {
 
+// TODO(pandasheep)
 StatusOr<IndexItems>
 RebuildTagIndexTask::getIndexes(GraphSpaceID space) {
-    return env_->indexMan_->getTagIndexes(space);
+    return env_->indexMan_->getTagIndexes(space, nebula::meta::cpp2::IndexType::NORMAL);
 }
 
 

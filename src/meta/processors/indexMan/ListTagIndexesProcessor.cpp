@@ -12,14 +12,15 @@ namespace meta {
 void ListTagIndexesProcessor::process(const cpp2::ListTagIndexesReq& req) {
     auto space = req.get_space_id();
     CHECK_SPACE_ID_AND_RETURN(space);
+
     folly::SharedMutex::ReadHolder rHolder(LockUtils::tagIndexLock());
     auto prefix = MetaServiceUtils::indexPrefix(space);
 
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-    handleErrorCode(MetaCommon::to(ret));
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Tag Index Failed: SpaceID " << space;
+        handleErrorCode(MetaCommon::to(ret));
         onFinished();
         return;
     }

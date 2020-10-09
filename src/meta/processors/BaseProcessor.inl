@@ -303,6 +303,44 @@ BaseProcessor<RESP>::getIndexID(GraphSpaceID spaceId, const std::string& indexNa
 }
 
 template<typename RESP>
+StatusOr<cpp2::IndexType>
+BaseProcessor<RESP>::getIndexType(GraphSpaceID spaceId, IndexID indexID) {
+    auto indexKey = MetaServiceUtils::indexPrefix(spaceId);
+    auto ret = doPrefix(indexKey);
+    if (ret.ok()) {
+        auto iter = ret.value().get();
+        while (iter->valid()) {
+            auto id = MetaServiceUtils::parseIndexID(iter->key());
+            if (id == indexID) {
+                return MetaServiceUtils::parseIndexType(iter->key());
+            }
+            iter->next();
+        }
+    }
+    return Status::IndexNotFound(folly::stringPrintf("Index id %d not found in space id %d",
+                                 indexID, spaceId));
+}
+
+template<typename RESP>
+StatusOr<cpp2::IndexItem>
+BaseProcessor<RESP>::getIndexItem(GraphSpaceID spaceId, IndexID indexID) {
+    auto indexKey = MetaServiceUtils::indexPrefix(spaceId);
+    auto ret = doPrefix(indexKey);
+    if (ret.ok()) {
+        auto iter = ret.value().get();
+        while (iter->valid()) {
+            auto id = MetaServiceUtils::parseIndexID(iter->key());
+            if (id == indexID) {
+                return MetaServiceUtils::parseIndex(iter->val());
+            }
+            iter->next();
+        }
+    }
+    return Status::IndexNotFound(folly::stringPrintf("Index id %d not found in space id %d",
+                                 indexID, spaceId));
+}
+
+template<typename RESP>
 bool BaseProcessor<RESP>::checkPassword(const std::string& account, const std::string& password) {
     auto userKey = MetaServiceUtils::userKey(account);
     auto ret = doGet(userKey);

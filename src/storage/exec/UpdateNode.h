@@ -115,6 +115,25 @@ public:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
+    folly::Optional<std::string> rebuildingModifyOp(GraphSpaceID spaceId,
+                                                    PartitionID partId,
+                                                    IndexID indexId,
+                                                    std::string key,
+                                                    kvstore::BatchHolder* batchHolder,
+                                                    std::string val = "") {
+        // Check the index is building for the specified partition or not.
+        if (planContext_->env_->checkRebuilding(spaceId, partId, indexId)) {
+            auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, key);
+            batchHolder->put(std::move(modifyOpKey), std::move(val));
+        } else if (planContext_->env_->checkIndexLocked(spaceId, partId, indexId)) {
+            LOG(ERROR) << "The index has been locked, index id:" << indexId;
+            return folly::none;
+        } else {
+            batchHolder->put(std::move(key), std::move(val));
+        }
+        return std::string("");
+    }
+
 protected:
     // ============================ input =====================================================
     PlanContext                                                            *planContext_;
@@ -152,6 +171,9 @@ public:
 
     UpdateTagNode(PlanContext* planCtx,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
+                  std::shared_ptr<nebula::meta::cpp2::IndexItem> allVertexStatIndex,
+                  std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> vertexIndexes,
+                  std::unordered_map<TagID, IndexID> tagIdToIndexId,
                   std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                   FilterNode<VertexID>* filterNode,
                   bool insertable,
@@ -160,6 +182,9 @@ public:
                   TagContext* tagContext)
         : UpdateNode<VertexID>(planCtx, indexes, updatedProps,
                                filterNode, insertable, depPropMap, expCtx, false)
+        , allVertexStatIndex_(allVertexStatIndex)
+        , vertexIndexes_(vertexIndexes)
+        , tagIdToIndexId_(tagIdToIndexId)
         , tagContext_(tagContext) {
             tagId_ = planContext_->tagId_;
         }
@@ -172,14 +197,14 @@ public:
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
             [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
-                this->exeResult_ = RelNode::execute(partId, vId);
+                exeResult_ = RelNode::execute(partId, vId);
 
-                if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                    if (this->planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
-                        this->exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
+                if (exeResult_ == kvstore::ResultCode::SUCCEEDED) {
+                    if (planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
+                        exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
                         return folly::none;
-                    } else if (this->planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
-                        this->exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
+                    } else if (planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
+                        exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
                         return folly::none;
                     }
 
@@ -187,21 +212,21 @@ public:
                         this->reader_ = filterNode_->reader();
                     }
                     // reset StorageExpressionContext reader_ to nullptr
-                    this->expCtx_->reset();
+                    expCtx_->reset();
 
-                    if (!this->reader_ && this->insertable_) {
-                        this->exeResult_ = this->insertTagProps(partId, vId);
-                    } else if (this->reader_) {
-                        this->key_ = filterNode_->key().str();
-                        this->exeResult_ = this->collTagProp();
+                    if (!reader_ && insertable_) {
+                        exeResult_ = insertTagProps(partId, vId);
+                    } else if (reader_) {
+                        key_ = filterNode_->key().str();
+                        exeResult_ = collTagProp();
                     } else {
-                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                        exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
 
-                    if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                    if (exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
                     }
-                    return this->updateAndWriteBack(partId, vId);
+                    return updateAndWriteBack(partId, vId);
                 } else {
                     // if tagnode/edgenode error
                     return folly::none;
@@ -210,8 +235,8 @@ public:
             [&ret, &baton, this] (kvstore::ResultCode code) {
                 planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
-                    this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
-                    ret = this->exeResult_;
+                    exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                    ret = exeResult_;
                 } else {
                     ret = code;
                 }
@@ -349,19 +374,23 @@ public:
         // Note: when insert_ is true, either there is no origin data or TTL expired
         // when there is no origin data, there is no the old index.
         // when TTL exists, there is no index.
+        // TODO(pandasheep) support index when ttl exists
         // when insert_ is true, not old index, val_ is empty.
-        if (!indexes_.empty()) {
+        if (!indexes_.empty() || !vertexIndexes_.empty() || allVertexStatIndex_ != nullptr) {
+            // Normal index
             RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
-                    // step 1, delete old version index if exists.
+                    /*
+                     * step 1, delete old version normal index if exists.
+                     */
                     if (!val_.empty()) {
                         if (!reader_) {
                             LOG(ERROR) << "Bad format row";
                             return folly::none;
                         }
-                        auto oi = indexKey(partId, vId, reader_, index);
+                        auto oi = normalIndexKey(partId, vId, reader_, index);
                         if (!oi.empty()) {
                             if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                     partId, indexId)) {
@@ -378,7 +407,9 @@ public:
                         }
                     }
 
-                    // step 2, insert new vertex index
+                    /*
+                     * step 2, insert new vertex normal index
+                     */
                     if (!nReader) {
                         nReader = RowReaderWrapper::getTagPropReader(
                             planContext_->env_->schemaMan_, planContext_->spaceId_, tagId_, nVal);
@@ -387,33 +418,126 @@ public:
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
                     }
-                    auto ni = indexKey(partId, vId, nReader.get(), index);
+                    auto ni = normalIndexKey(partId, vId, nReader.get(), index);
                     if (!ni.empty()) {
-                        if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
-                                                                partId, indexId)) {
-                            auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
-                                                                                   std::move(ni));
-                            batchHolder->put(std::move(modifyKey), "");
-                        } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
-                                                                        partId, indexId)) {
-                            LOG(ERROR) << "The index has been locked: " << index->get_index_name();
+                        auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                             partId,
+                                                             indexId,
+                                                             ni,
+                                                             batchHolder.get());
+                        if (retRebuild == folly::none) {
+                            return folly::none;
+                        }
+                    }
+                }
+            }
+
+            /*
+             * step 3, upsert vertex index data
+             * Only allow to update/upsert a tag of a vertex,
+             * Check whether the vertex index data exists, insert vertex index data if not exists
+             */
+            auto vIndexIt = tagIdToIndexId_.find(tagId_);
+            if (vIndexIt != tagIdToIndexId_.end()) {
+                auto indexId = vIndexIt->second;
+                auto vIndexKey = StatisticsIndexKeyUtils::vertexIndexKey(planContext_->vIdLen_,
+                                                                         partId,
+                                                                         indexId,
+                                                                         vId);
+                if (!vIndexKey.empty()) {
+                    std::string val;
+                    auto ret = planContext_->env_->kvstore_->get(planContext_->spaceId_,
+                                                                 partId,
+                                                                 vIndexKey,
+                                                                 &val);
+                    if (ret != kvstore::ResultCode::SUCCEEDED) {
+                        if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                            LOG(ERROR) << "Get vertex index faild, index id " << indexId;
                             return folly::none;
                         } else {
-                            batchHolder->put(std::move(ni), "");
+                            auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                                 partId,
+                                                                 indexId,
+                                                                 vIndexKey,
+                                                                 batchHolder.get());
+                            if (retRebuild == folly::none) {
+                                return folly::none;
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+             * step 4, upsert statistic all vertex index data
+             * First check vertex data exists, if not exists, update vertex count index
+             */
+            if (planContext_->insert_ && allVertexStatIndex_ != nullptr) {
+                auto prefix = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId, vId);
+                std::unique_ptr<kvstore::KVIterator> iter;
+                auto ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_,
+                                                                partId, prefix, &iter);
+                if (ret != kvstore::ResultCode::SUCCEEDED) {
+                    LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
+                               << ", spaceId " << planContext_->spaceId_;
+                    return folly::none;
+                }
+                bool isExist = false;
+                while (iter && iter->valid()) {
+                    auto key = iter->key();
+                    if (!NebulaKeyUtils::isVertex(planContext_->vIdLen_, key)) {
+                        iter->next();
+                        continue;
+                    }
+                    isExist = true;
+                    break;
+                }
+
+                // Add one when vertex not exist
+                if (!isExist) {
+                    auto vCountIndexId = allVertexStatIndex_->get_index_id();
+                    int64_t countVal = 1;
+                    std::string val;
+                    auto vCountIndexKey = StatisticsIndexKeyUtils::countIndexKey(partId,
+                                                                                 vCountIndexId);
+                    ret = planContext_->env_->kvstore_->get(planContext_->spaceId_,
+                                                            partId, vCountIndexKey, &val);
+                    if (ret != kvstore::ResultCode::SUCCEEDED) {
+                        if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                            LOG(ERROR) << "Get all vertex count index error";
+                            return folly::none;
+                        }
+                        // key does not exist
+                    } else {
+                        countVal += *reinterpret_cast<const int64_t*>(val.c_str());
+                    }
+
+                    if (!vCountIndexKey.empty()) {
+                        auto newCount = std::string(reinterpret_cast<const char*>(&countVal),
+                                                    sizeof(int64_t));
+                        auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                             partId,
+                                                             vCountIndexId,
+                                                             vCountIndexKey,
+                                                             batchHolder.get(),
+                                                             newCount);
+                        if (retRebuild == folly::none) {
+                            return folly::none;
                         }
                     }
                 }
             }
         }
-        // step 3, insert new vertex data
+        // step 5, insert new vertex data
         batchHolder->put(std::move(key_), std::move(nVal));
+
         return encodeBatchValue(batchHolder->getBatch());
     }
 
-    std::string indexKey(PartitionID partId,
-                         VertexID vId,
-                         RowReader* reader,
-                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
+    std::string normalIndexKey(PartitionID partId,
+                               VertexID vId,
+                               RowReader* reader,
+                               std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
         std::vector<Value::Type> colsType;
         auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
         if (!values.ok()) {
@@ -424,9 +548,19 @@ public:
     }
 
 private:
-    TagContext                 *tagContext_;
-    TagID                       tagId_;
-    std::string                 tagName_;
+    // VERTEX_COUNT index, statistic all vertice count in current space
+    std::shared_ptr<nebula::meta::cpp2::IndexItem>                     allVertexStatIndex_{nullptr};
+
+    // VERTEX index, statistic all vertice in every tag of current space
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>        vertexIndexes_;
+
+    std::unordered_map<TagID, IndexID>                                 tagIdToIndexId_;
+
+    TagContext                                                        *tagContext_;
+
+    TagID                                                              tagId_;
+
+    std::string                                                        tagName_;
 };
 
 // Only use for update edge
@@ -437,6 +571,9 @@ public:
 
     UpdateEdgeNode(PlanContext* planCtx,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
+                   std::shared_ptr<nebula::meta::cpp2::IndexItem> allEdgeStatIndex,
+                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes,
+                   std::unordered_map<EdgeType, IndexID> edgeTypeToIndexId,
                    std::vector<storage::cpp2::UpdatedProp>& updatedProps,
                    FilterNode<cpp2::EdgeKey>* filterNode,
                    bool insertable,
@@ -445,6 +582,9 @@ public:
                    EdgeContext* edgeContext)
         : UpdateNode<cpp2::EdgeKey>(planCtx, indexes, updatedProps, filterNode, insertable,
                                     depPropMap, expCtx, true)
+        , allEdgeStatIndex_(allEdgeStatIndex)
+        , edgeIndexes_(edgeIndexes)
+        , edgeTypeToIndexId_(edgeTypeToIndexId)
         , edgeContext_(edgeContext) {
             edgeType_ = planContext_->edgeType_;
         }
@@ -457,39 +597,39 @@ public:
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
             [&partId, &edgeKey, this] ()
             -> folly::Optional<std::string> {
-                this->exeResult_ = RelNode::execute(partId, edgeKey);
-                if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                    if (edgeKey.edge_type != this->edgeType_) {
-                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                exeResult_ = RelNode::execute(partId, edgeKey);
+                if (exeResult_ == kvstore::ResultCode::SUCCEEDED) {
+                    if (edgeKey.edge_type != edgeType_) {
+                        exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                         return folly::none;
                     }
-                    if (this->planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
-                        this->exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
+                    if (planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
+                        exeResult_ = kvstore::ResultCode::ERR_INVALID_DATA;
                         return folly::none;
-                    } else if (this->planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
-                        this->exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
+                    } else if (planContext_->resultStat_ ==  ResultStatus::FILTER_OUT) {
+                        exeResult_ = kvstore::ResultCode::ERR_RESULT_FILTERED;
                         return folly::none;
                     }
 
                     if (filterNode_->valid()) {
-                        this->reader_ = filterNode_->reader();
+                        reader_ = filterNode_->reader();
                     }
                     // reset StorageExpressionContext reader_ to nullptr
-                    this->expCtx_->reset();
+                    expCtx_->reset();
 
-                    if (!this->reader_ && this->insertable_) {
-                        this->exeResult_ = this->insertEdgeProps(partId, edgeKey);
-                    } else if (this->reader_) {
-                        this->key_ = filterNode_->key().str();
-                        this->exeResult_ = this->collEdgeProp(edgeKey);
+                    if (!reader_ && insertable_) {
+                        exeResult_ = insertEdgeProps(partId, edgeKey);
+                    } else if (reader_) {
+                        key_ = filterNode_->key().str();
+                        exeResult_ = collEdgeProp(edgeKey);
                     } else {
-                        this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
+                        exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
 
-                    if (this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                    if (exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                         return folly::none;
                     }
-                    return this->updateAndWriteBack(partId, edgeKey);
+                    return updateAndWriteBack(partId, edgeKey);
                 } else {
                     // If filter out, StorageExpressionContext is set in filterNode
                     return folly::none;
@@ -498,8 +638,8 @@ public:
             [&ret, &baton, this] (kvstore::ResultCode code) {
                 planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
-                    this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
-                    ret = this->exeResult_;
+                    exeResult_ != kvstore::ResultCode::SUCCEEDED) {
+                    ret = exeResult_;
                 } else {
                     ret = code;
                 }
@@ -610,7 +750,7 @@ public:
 
         // After alter edge, the schema get from meta and the schema in RowReader
         // may be inconsistent, so the following method cannot be used
-        // this->rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
+        // rowWriter_ = std::make_unique<RowWriterV2>(schema.get(), reader->getData());
         rowWriter_ = std::make_unique<RowWriterV2>(schema_);
         val_ = reader_->getData();
         return kvstore::ResultCode::SUCCEEDED;
@@ -650,23 +790,28 @@ public:
         }
 
         auto nVal = rowWriter_->moveEncodedStr();
+
         // update index if exists
         // Note: when insert_ is true, either there is no origin data or TTL expired
         // when there is no origin data, there is no the old index.
         // when TTL exists, there is no index.
+        // TODO(pandasheep) support index when ttl exists
         // when insert_ is true, not old index, val_ is empty.
-        if (!indexes_.empty()) {
+        if (!indexes_.empty() || !edgeIndexes_.empty() || allEdgeStatIndex_ != nullptr) {
+            // Normal index
             RowReaderWrapper nReader;
             for (auto& index : indexes_) {
                 auto indexId = index->get_index_id();
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
-                    // step 1, delete old version index if exists.
+                    /*
+                     * step 1, delete old version normal index if exists.
+                     */
                     if (!val_.empty()) {
                         if (!reader_) {
                             LOG(ERROR) << "Bad format row";
                             return folly::none;
                         }
-                        auto oi = indexKey(partId, reader_, edgeKey, index);
+                        auto oi = normalIndexKey(partId, reader_, edgeKey, index);
                         if (!oi.empty()) {
                             if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
                                                                     partId, indexId)) {
@@ -683,7 +828,9 @@ public:
                         }
                     }
 
-                    // step 2, insert new edge index
+                    /*
+                     * step 2, insert new edge normal index
+                     */
                     if (!nReader) {
                         nReader = RowReaderWrapper::getEdgePropReader(
                             planContext_->env_->schemaMan_, planContext_->spaceId_,
@@ -693,33 +840,108 @@ public:
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
                     }
-                    auto ni = indexKey(partId, nReader.get(), edgeKey, index);
+                    auto ni = normalIndexKey(partId, nReader.get(), edgeKey, index);
                     if (!ni.empty()) {
-                        if (planContext_->env_->checkRebuilding(planContext_->spaceId_,
-                                                                partId, indexId)) {
-                            auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
-                                                                                   std::move(ni));
-                            batchHolder->put(std::move(modifyKey), "");
-                        } else if (planContext_->env_->checkIndexLocked(planContext_->spaceId_,
-                                                                        partId, indexId)) {
-                            LOG(ERROR) << "The index has been locked: " << index->get_index_name();
+                        auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                             partId,
+                                                             indexId,
+                                                             ni,
+                                                             batchHolder.get());
+                        if (retRebuild == folly::none) {
                             return folly::none;
-                        } else {
-                            batchHolder->put(std::move(ni), "");
                         }
                     }
                 }
             }
+
+            /*
+             * step 3, upsert edge index data
+             * Check whether the edge index data exists, insert edge index data if not exists
+             */
+            auto eIndexIt = edgeTypeToIndexId_.find(edgeType_);
+            if (eIndexIt != edgeTypeToIndexId_.end()) {
+                auto eIndexId = eIndexIt->second;
+                auto eIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(planContext_->vIdLen_,
+                                                                       partId,
+                                                                       eIndexId,
+                                                                       edgeKey.get_src().getStr(),
+                                                                       edgeType_,
+                                                                       edgeKey.get_ranking(),
+                                                                       edgeKey.get_dst().getStr());
+                if (!eIndexKey.empty()) {
+                    std::string val;
+                    auto ret = planContext_->env_->kvstore_->get(planContext_->spaceId_,
+                                                                 partId,
+                                                                 eIndexKey,
+                                                                 &val);
+                    if (ret != kvstore::ResultCode::SUCCEEDED) {
+                        if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                            LOG(ERROR) << "Get edge index faild, index id " << eIndexId;
+                            return folly::none;
+                        } else {
+                            auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                                 partId,
+                                                                 eIndexId,
+                                                                 eIndexKey,
+                                                                 batchHolder.get());
+                            if (retRebuild == folly::none) {
+                                return folly::none;
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+             * Step 4, upsert statistic all edge index data
+             * First check edge data exists, if not exists, update edge count index
+             * For edge, if planContext_->insert_ is true, edge count add one
+             */
+            if (planContext_->insert_ && allEdgeStatIndex_ != nullptr) {
+                auto eCountIndexId = allEdgeStatIndex_->get_index_id();
+                int64_t countVal = 1;
+                std::string val;
+                auto eCountIndexKey = StatisticsIndexKeyUtils::countIndexKey(partId,
+                                                                             eCountIndexId);
+                auto ret = planContext_->env_->kvstore_->get(planContext_->spaceId_,
+                                                             partId, eCountIndexKey, &val);
+                if (ret != kvstore::ResultCode::SUCCEEDED) {
+                    if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                        LOG(ERROR) << "Get statistics index error";
+                        return folly::none;
+                    }
+                    // key does not exist
+                } else {
+                    countVal += *reinterpret_cast<const int64_t*>(val.c_str());
+                }
+
+                if (!eCountIndexKey.empty()) {
+                    auto newCount = std::string(reinterpret_cast<const char*>(&countVal),
+                                                sizeof(int64_t));
+                    auto retRebuild = rebuildingModifyOp(planContext_->spaceId_,
+                                                         partId,
+                                                         eCountIndexId,
+                                                         eCountIndexKey,
+                                                         batchHolder.get(),
+                                                         newCount);
+                    if (retRebuild == folly::none) {
+                        return folly::none;
+                    }
+                }
+            }
         }
-        // step 3, insert new edge data
+
+        /*
+         * step 5, insert new edge data
+         */
         batchHolder->put(std::move(key_), std::move(nVal));
         return encodeBatchValue(batchHolder->getBatch());
     }
 
-    std::string indexKey(PartitionID partId,
-                         RowReader* reader,
-                         const cpp2::EdgeKey& edgeKey,
-                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
+    std::string normalIndexKey(PartitionID partId,
+                               RowReader* reader,
+                               const cpp2::EdgeKey& edgeKey,
+                               std::shared_ptr<nebula::meta::cpp2::IndexItem> index) {
         std::vector<Value::Type> colsType;
         auto values = IndexKeyUtils::collectIndexValues(reader, index->get_fields(), colsType);
         if (!values.ok()) {
@@ -736,9 +958,17 @@ public:
     }
 
 private:
-    EdgeContext                            *edgeContext_;
-    EdgeType                                edgeType_;
-    std::string                             edgeName_;
+    // EDGE_COUNT index, statistic all edge count ont current space
+    std::shared_ptr<nebula::meta::cpp2::IndexItem>              allEdgeStatIndex_{nullptr};
+
+    // EDGE index, statistic all edge in every edgetype of current space
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes_;
+
+    std::unordered_map<EdgeType, IndexID>                       edgeTypeToIndexId_;
+
+    EdgeContext                                                *edgeContext_;
+    EdgeType                                                    edgeType_;
+    std::string                                                 edgeName_;
 };
 
 }  // namespace storage

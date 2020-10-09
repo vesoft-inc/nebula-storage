@@ -50,10 +50,7 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
     }
 
     CHECK_NOTNULL(env_->indexMan_);
-    auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
-    }
+    handleTagIndexes(spaceId_);
 
     VLOG(3) << "Update vertex, spaceId: " << spaceId_
             << ", partId: " << partId << ", vId: " << vId;
@@ -125,6 +122,9 @@ StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) 
 
     auto updateNode = std::make_unique<UpdateTagNode>(planContext_.get(),
                                                       indexes_,
+                                                      allVertexStatIndex_,
+                                                      vertexIndexes_,
+                                                      tagIdToIndexId_,
                                                       updatedProps_,
                                                       filterNode.get(),
                                                       insertable_,

@@ -18,6 +18,8 @@
 #include "codec/RowReaderWrapper.h"
 #include "codec/RowWriterV2.h"
 #include "utils/IndexKeyUtils.h"
+#include "utils/OperationKeyUtils.h"
+#include "kvstore/LogEncoder.h"
 
 namespace nebula {
 namespace storage {
@@ -92,19 +94,45 @@ protected:
                                        const std::vector<Value>& props,
                                        WriteResult& wRet);
 
-protected:
-    StorageEnv*                                     env_{nullptr};
-    stats::Stats*                                   stats_{nullptr};
-    RESP                                            resp_;
-    folly::Promise<RESP>                            promise_;
-    cpp2::ResponseCommon                            result_;
+    folly::Optional<std::string> rebuildingModifyOp(GraphSpaceID spaceId,
+                                                    PartitionID partId,
+                                                    IndexID indexId,
+                                                    std::string key,
+                                                    kvstore::BatchHolder* batchHolder,
+                                                    std::string val = "");
 
-    std::unique_ptr<PlanContext>                    planContext_;
-    time::Duration                                  duration_;
-    std::vector<cpp2::PartitionResult>              codes_;
-    std::mutex                                      lock_;
-    int32_t                                         callingNum_{0};
-    int32_t                                         spaceVidLen_;
+    void handleTagIndexes(GraphSpaceID spaceId);
+
+    void handleEdgeIndexes(GraphSpaceID spaceId);
+
+protected:
+    StorageEnv*                                                 env_{nullptr};
+    stats::Stats*                                               stats_{nullptr};
+    RESP                                                        resp_;
+    folly::Promise<RESP>                                        promise_;
+    cpp2::ResponseCommon                                        result_;
+
+    std::unique_ptr<PlanContext>                                planContext_;
+    time::Duration                                              duration_;
+    std::vector<cpp2::PartitionResult>                          codes_;
+    std::mutex                                                  lock_;
+    int32_t                                                     callingNum_{0};
+    int32_t                                                     spaceVidLen_;
+
+    // Normal index
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
+
+    // VERTEX_COUNT index, statistic all vertice count in current space
+    std::shared_ptr<nebula::meta::cpp2::IndexItem>              allVertexStatIndex_{nullptr};
+    // VERTEX index, statistic all vertice in every tag of current space
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> vertexIndexes_;
+    std::unordered_map<TagID, IndexID>                          tagIdToIndexId_;
+
+    // EDGE_COUNT index, statistic all edge count ont current space
+    std::shared_ptr<nebula::meta::cpp2::IndexItem>              allEdgeStatIndex_{nullptr};
+    // EDGE index, statistic all edge in every edgetype of current space
+    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes_;
+    std::unordered_map<EdgeType, IndexID>                       edgeTypeToIndexId_;
 };
 
 }  // namespace storage

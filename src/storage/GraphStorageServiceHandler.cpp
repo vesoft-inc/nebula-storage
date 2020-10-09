@@ -14,6 +14,8 @@
 #include "storage/query/GetNeighborsProcessor.h"
 #include "storage/query/GetPropProcessor.h"
 #include "storage/index/LookupProcessor.h"
+#include "storage/query/GetVerticesStatisProcessor.h"
+#include "storage/query/GetEdgesStatisProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -42,6 +44,12 @@ GraphStorageServiceHandler::future_updateVertex(const cpp2::UpdateVertexRequest&
     RETURN_FUTURE(processor);
 }
 
+folly::Future<cpp2::GetStatisResponse>
+GraphStorageServiceHandler::future_getVerticesStatis(const cpp2::GetVerticesStatisRequest& req) {
+    auto* processor = GetVerticesStatisProcessor::instance(env_, &getVerticesStatisQpsStat_);
+    RETURN_FUTURE(processor);
+}
+
 // Edge section
 folly::Future<cpp2::ExecResponse>
 GraphStorageServiceHandler::future_addEdges(const cpp2::AddEdgesRequest& req) {
@@ -58,6 +66,12 @@ GraphStorageServiceHandler::future_deleteEdges(const cpp2::DeleteEdgesRequest& r
 folly::Future<cpp2::UpdateResponse>
 GraphStorageServiceHandler::future_updateEdge(const cpp2::UpdateEdgeRequest& req) {
     auto* processor = UpdateEdgeProcessor::instance(env_, &updateEdgeQpsStat_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::GetStatisResponse>
+GraphStorageServiceHandler::future_getEdgesStatis(const cpp2::GetEdgesStatisRequest& req) {
+    auto* processor = GetEdgesStatisProcessor::instance(env_, &getEdgesStatisQpsStat_);
     RETURN_FUTURE(processor);
 }
 

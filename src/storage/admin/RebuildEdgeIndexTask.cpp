@@ -12,9 +12,10 @@
 namespace nebula {
 namespace storage {
 
+// TODO(pandasheep)
 StatusOr<IndexItems>
 RebuildEdgeIndexTask::getIndexes(GraphSpaceID space) {
-    return env_->indexMan_->getEdgeIndexes(space);
+    return env_->indexMan_->getEdgeIndexes(space, nebula::meta::cpp2::IndexType::NORMAL);
 }
 
 kvstore::ResultCode

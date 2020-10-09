@@ -172,7 +172,7 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
                        StorageEnv* env,
                        int expectNum,
                        /* 0 not specify prop_names, 1 specify prop_names, 2 mix */
-                       int mode = 0 ) {
+                       int mode = 0) {
     EXPECT_TRUE(mode == 0 || mode == 1 || mode == 2);
     auto spaceId = req.space_id;
     auto ret = env->schemaMan_->getSpaceVidLen(spaceId);
@@ -204,37 +204,12 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
             int num = 0;
             while (iter && iter->valid()) {
                 auto reader = RowReaderWrapper::getRowReader(schema.get(), iter->val());
-                if (mode == 0) {
-                    for (auto i = 0; i < 7; i++) {
-                        val = reader->getValueByIndex(i);
-                        EXPECT_EQ(newEdgeProp[i], val);
-                    }
-                    if (newEdgeProp.size() >= 8) {
-                        val = reader->getValueByIndex(7);
-                        EXPECT_EQ(newEdgeProp[7], val);
-                        if (newEdgeProp.size() == 9) {
-                            val = reader->getValueByIndex(8);
-                            EXPECT_EQ(newEdgeProp[8], val);
+                if (std::abs(edgekey.edge_type) == 101) {
+                    if (mode == 0) {
+                        for (auto i = 0; i < 7; i++) {
+                            val = reader->getValueByIndex(i);
+                            EXPECT_EQ(newEdgeProp[i], val);
                         }
-                    }
-                } else if (mode == 1) {
-                    // For the specified attribute order, the default value and nullable columns
-                    // always use the default value or null value
-                    for (auto i = 0; i < 7; i++) {
-                        val = reader->getValueByIndex(i);
-                        EXPECT_EQ(newEdgeProp[6 - i], val);
-                    }
-                } else {  // mode is 2
-                    for (auto i = 0; i < 7; i++) {
-                        val = reader->getValueByIndex(i);
-                        EXPECT_EQ(newEdgeProp[i], val);
-                    }
-                    // When adding edge in specified Order, the last two columns
-                    // use the default value and null
-                    if (num == 0) {
-                        val = reader->getValueByIndex(7);
-                        EXPECT_EQ("trade", val.getStr());
-                    } else {
                         if (newEdgeProp.size() >= 8) {
                             val = reader->getValueByIndex(7);
                             EXPECT_EQ(newEdgeProp[7], val);
@@ -243,7 +218,36 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
                                 EXPECT_EQ(newEdgeProp[8], val);
                             }
                         }
+                    } else if (mode == 1) {
+                        // For the specified attribute order, the default value and nullable columns
+                        // always use the default value or null value
+                        for (auto i = 0; i < 7; i++) {
+                            val = reader->getValueByIndex(i);
+                            EXPECT_EQ(newEdgeProp[6 - i], val);
+                        }
+                    } else {  // mode is 2
+                        for (auto i = 0; i < 7; i++) {
+                            val = reader->getValueByIndex(i);
+                            EXPECT_EQ(newEdgeProp[i], val);
+                        }
+                        // When adding edge in specified Order, the last two columns
+                        // use the default value and null
+                        if (num == 0) {
+                            val = reader->getValueByIndex(7);
+                            EXPECT_EQ("trade", val.getStr());
+                        } else {
+                            if (newEdgeProp.size() >= 8) {
+                                val = reader->getValueByIndex(7);
+                                EXPECT_EQ(newEdgeProp[7], val);
+                                if (newEdgeProp.size() == 9) {
+                                    val = reader->getValueByIndex(8);
+                                    EXPECT_EQ(newEdgeProp[8], val);
+                                }
+                            }
+                        }
                     }
+                } else {
+                    EXPECT_EQ(102, std::abs(edgekey.edge_type));
                 }
                 num++;
                 totalCount++;

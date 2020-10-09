@@ -27,12 +27,24 @@ void DropTagIndexProcessor::process(const cpp2::DropTagIndexReq& req) {
         return;
     }
 
+    auto indexId = tagIndexID.value();
+    // Now, there are multiple index types.
+    // when we delete the index, there is no need to specify the index type
+    // Find indextype by indexId
+    auto ret = getIndexType(spaceID, indexId);
+    if (!ret.ok()) {
+        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        onFinished();
+        return;
+    }
+    auto indexType = ret.value();
+
     std::vector<std::string> keys;
     keys.emplace_back(MetaServiceUtils::indexIndexKey(spaceID, indexName));
-    keys.emplace_back(MetaServiceUtils::indexKey(spaceID, tagIndexID.value()));
+    keys.emplace_back(MetaServiceUtils::indexKey(spaceID, indexType, indexId));
 
     LOG(INFO) << "Drop Tag Index " << indexName;
-    resp_.set_id(to(tagIndexID.value(), EntryType::INDEX));
+    resp_.set_id(to(indexId, EntryType::INDEX));
     doSyncMultiRemoveAndUpdate(std::move(keys));
 }
 

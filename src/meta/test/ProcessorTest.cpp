@@ -10,7 +10,6 @@
 #include "meta/test/TestUtils.h"
 #include "meta/processors/partsMan/CreateSpaceProcessor.h"
 #include "meta/processors/partsMan/ListSpacesProcessor.h"
-#include "meta/processors/partsMan/ListSpacesProcessor.h"
 #include "meta/processors/partsMan/ListPartsProcessor.h"
 #include "meta/processors/partsMan/DropSpaceProcessor.h"
 #include "meta/processors/partsMan/GetSpaceProcessor.h"
@@ -2138,6 +2137,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2151,6 +2151,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2164,6 +2165,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0", "tag_0_col_1"};
         req.set_fields(std::move(fields));
         req.set_index_name("multi_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2177,6 +2179,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0", "tag_0_col_1"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2190,6 +2193,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2203,6 +2207,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_1", "tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("disorder_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2216,6 +2221,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0", "tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("conflict_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2229,6 +2235,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("tag_not_exist_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2242,6 +2249,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"field_not_exist"};
         req.set_fields(std::move(fields));
         req.set_index_name("field_not_exist_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2256,6 +2264,7 @@ TEST(ProcessorTest, TagIndexTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2390,6 +2399,7 @@ TEST(ProcessorTest, TagIndexTestV2) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2434,6 +2444,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2447,6 +2458,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2460,6 +2472,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0", "edge_0_col_1"};
         req.set_fields(std::move(fields));
         req.set_index_name("multi_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2473,6 +2486,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0", "edge_0_col_1"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2486,6 +2500,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("duplicate_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2499,6 +2514,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_1", "edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("disorder_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2512,6 +2528,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0", "edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("conflict_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2525,6 +2542,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("edge_not_exist_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2538,6 +2556,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_field_not_exist"};
         req.set_fields(std::move(fields));
         req.set_index_name("field_not_exist_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2551,6 +2570,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2674,6 +2694,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         req.set_tag_name("tag_0");
         req.set_fields(bigFields);
         req.set_index_name("index_0");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2686,6 +2707,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         req.set_edge_name("edge_0");
         req.set_fields(std::move(bigFields));
         req.set_index_name("index_0");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2707,6 +2729,7 @@ TEST(ProcessorTest, EdgeIndexTestV2) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2748,6 +2771,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2882,6 +2906,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3006,6 +3031,7 @@ TEST(ProcessorTest, IndexCheckDropEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3038,6 +3064,7 @@ TEST(ProcessorTest, IndexCheckDropTagTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3069,7 +3096,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
-
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3167,6 +3194,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3182,6 +3210,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         std::vector<std::string> fields{"tag_0_col_10"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3213,6 +3242,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         std::vector<std::string> fields{"tag_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index_col_0");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3226,6 +3256,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         std::vector<std::string> fields{"tag_0_col_10"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index_col_10");
+        req.set_index_type(cpp2::IndexType::NORMAL);
         auto *processor = CreateTagIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -3270,6 +3301,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3368,6 +3400,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3383,6 +3416,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_10"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3414,6 +3448,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_0"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index_col_0");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -3428,6 +3463,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         std::vector<std::string> fields{"edge_0_col_10"};
         req.set_fields(std::move(fields));
         req.set_index_name("single_field_index_col_10");
+        req.set_index_type(cpp2::IndexType::NORMAL);
 
         auto *processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();

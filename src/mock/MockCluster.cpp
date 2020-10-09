@@ -204,11 +204,23 @@ MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId) {
 std::unique_ptr<meta::IndexManager>
 MockCluster::memIndexMan(GraphSpaceID spaceId) {
     auto indexMan = std::make_unique<AdHocIndexManager>();
-    indexMan->addTagIndex(spaceId, 1, 1, MockData::mockPlayerTagIndexColumns());
-    indexMan->addTagIndex(spaceId, 2, 2, MockData::mockTeamTagIndexColumns());
-    indexMan->addTagIndex(spaceId, 3, 3, MockData::mockGeneralTagIndexColumns());
-    indexMan->addEdgeIndex(spaceId, 101, 101, MockData::mockServeEdgeIndexColumns());
-    indexMan->addEdgeIndex(spaceId, 102, 102, MockData::mockTeammateEdgeIndexColumns());
+    indexMan->addTagIndex(spaceId, 1, 1, nebula::meta::cpp2::IndexType::NORMAL,
+                          MockData::mockPlayerTagIndexColumns());
+    indexMan->addTagIndex(spaceId, 2, 2, nebula::meta::cpp2::IndexType::NORMAL,
+                          MockData::mockTeamTagIndexColumns());
+    indexMan->addTagIndex(spaceId, 3, 3, nebula::meta::cpp2::IndexType::NORMAL,
+                          MockData::mockGeneralTagIndexColumns());
+    indexMan->addTagIndex(spaceId, 0, 4, nebula::meta::cpp2::IndexType::VERTEX_COUNT);
+    indexMan->addTagIndex(spaceId, 1, 5, nebula::meta::cpp2::IndexType::VERTEX);
+    indexMan->addTagIndex(spaceId, 2, 6, nebula::meta::cpp2::IndexType::VERTEX);
+
+    indexMan->addEdgeIndex(spaceId, 101, 101, nebula::meta::cpp2::IndexType::NORMAL,
+                           MockData::mockServeEdgeIndexColumns());
+    indexMan->addEdgeIndex(spaceId, 102, 102, nebula::meta::cpp2::IndexType::NORMAL,
+                           MockData::mockTeammateEdgeIndexColumns());
+    indexMan->addEdgeIndex(spaceId,   0, 103, nebula::meta::cpp2::IndexType::EDGE_COUNT);
+    indexMan->addEdgeIndex(spaceId, 101, 104, nebula::meta::cpp2::IndexType::EDGE);
+    indexMan->addEdgeIndex(spaceId, 102, 105, nebula::meta::cpp2::IndexType::EDGE);
     return indexMan;
 }
 

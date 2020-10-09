@@ -31,17 +31,26 @@ private:
     folly::Optional<std::string> addEdges(PartitionID partId,
                                           const std::vector<kvstore::KV>& edges);
 
-    folly::Optional<std::string> findObsoleteIndex(PartitionID partId,
-                                                   const folly::StringPiece& rawKey);
+    folly::Optional<std::string> findOldValue(PartitionID partId,
+                                              VertexID srcId,
+                                              EdgeType eType,
+                                              EdgeRanking rank,
+                                              VertexID dstId);
 
-    std::string indexKey(PartitionID partId,
-                         RowReader* reader,
-                         const folly::StringPiece& rawKey,
-                         std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
+    std::string normalIndexKey(PartitionID partId,
+                               RowReader* reader,
+                               VertexID srcId,
+                               EdgeRanking rank,
+                               VertexID dstId,
+                               std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
 private:
     GraphSpaceID                                                spaceId_;
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
+
+    // In a part, when processing the normal index, whether the record has been read
+    // In one part, same <VertexID, EdgeType, EdgeRanking, VertexID> has
+    // only one data in addEdges
+    std::unordered_map<std::tuple<VertexID, EdgeType, EdgeRanking, VertexID>, bool>  keyExist_;
 };
 
 }  // namespace storage

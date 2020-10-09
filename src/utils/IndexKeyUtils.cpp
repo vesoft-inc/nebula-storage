@@ -190,4 +190,77 @@ Status IndexKeyUtils::checkValue(const Value& v, bool isNullable) {
     LOG(FATAL) << "Unknown Null type " << static_cast<int>(v.getNull());
 }
 
+// static
+std::string StatisticsIndexKeyUtils::vertexIndexKey(size_t vIdLen,
+                                                    PartitionID partId,
+                                                    IndexID indexId,
+                                                    VertexID vId) {
+    CHECK_GE(vIdLen, vId.size());
+    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID) + vIdLen);
+    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID))
+       .append(vId.data(), vId.size())
+       .append(vIdLen - vId.size(), '\0');
+    return key;
+}
+
+// static
+std::string StatisticsIndexKeyUtils::vertexIndexPrefix(PartitionID partId,
+                                                       IndexID indexId) {
+    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
+    return key;
+}
+
+// static
+std::string StatisticsIndexKeyUtils::edgeIndexKey(size_t vIdLen,
+                                                  PartitionID partId,
+                                                  IndexID indexId,
+                                                  VertexID srcId,
+                                                  EdgeType type,
+                                                  EdgeRanking rank,
+                                                  VertexID dstId) {
+    CHECK_GE(vIdLen, srcId.size());
+    CHECK_GE(vIdLen, dstId.size());
+    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID) + (vIdLen << 1) +
+                sizeof(EdgeType) + sizeof(EdgeRanking));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID))
+       .append(srcId.data(), srcId.size())
+       .append(vIdLen - srcId.size(), '\0')
+       .append(reinterpret_cast<const char*>(&type), sizeof(EdgeType))
+       .append(reinterpret_cast<const char*>(&rank), sizeof(EdgeRanking))
+       .append(dstId.data(), dstId.size())
+       .append(vIdLen - dstId.size(), '\0');
+    return key;
+}
+
+// static
+std::string StatisticsIndexKeyUtils::edgeIndexPrefix(PartitionID partId,
+                                                     IndexID indexId) {
+    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
+    return key;
+}
+
+// static
+std::string StatisticsIndexKeyUtils::countIndexKey(PartitionID partId, IndexID indexId) {
+    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
+    std::string key;
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID));
+    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
+       .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID));
+    return key;
+}
+
 }  // namespace nebula

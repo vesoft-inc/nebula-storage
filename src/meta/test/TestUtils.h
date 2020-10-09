@@ -250,12 +250,16 @@ public:
     }
 
     static bool mockTagIndex(kvstore::KVStore* kv,
-                             TagID tagID, std::string tagName,
-                             IndexID indexID, std::string indexName,
+                             TagID tagID,
+                             std::string tagName,
+                             IndexID indexID,
+                             nebula::meta::cpp2::IndexType indexType,
+                             std::string indexName,
                              std::vector<cpp2::ColumnDef> columns) {
         GraphSpaceID space = 1;
         cpp2::IndexItem item;
         item.set_index_id(indexID);
+        item.set_index_type(indexType);
         item.set_index_name(indexName);
         cpp2::SchemaID schemaID;
         schemaID.set_tag_id(tagID);
@@ -266,7 +270,7 @@ public:
         std::vector<nebula::kvstore::KV> data;
         data.emplace_back(MetaServiceUtils::indexIndexKey(space, indexName),
                           std::string(reinterpret_cast<const char*>(&indexID), sizeof(IndexID)));
-        data.emplace_back(MetaServiceUtils::indexKey(space, indexID),
+        data.emplace_back(MetaServiceUtils::indexKey(space, indexType, indexID),
                           MetaServiceUtils::indexVal(item));
         kvstore::ResultCode ret;
         folly::Baton<true, std::atomic> baton;
@@ -280,12 +284,16 @@ public:
     }
 
     static bool mockEdgeIndex(kvstore::KVStore* kv,
-                              EdgeType edgeType, std::string edgeName,
-                              IndexID indexID, std::string indexName,
+                              EdgeType edgeType,
+                              std::string edgeName,
+                              IndexID indexID,
+                              nebula::meta::cpp2::IndexType indexType,
+                              std::string indexName,
                               std::vector<cpp2::ColumnDef> columns) {
         GraphSpaceID space = 1;
         cpp2::IndexItem item;
         item.set_index_id(indexID);
+        item.set_index_type(indexType);
         item.set_index_name(indexName);
         cpp2::SchemaID schemaID;
         schemaID.set_edge_type(edgeType);
@@ -296,7 +304,7 @@ public:
         std::vector<nebula::kvstore::KV> data;
         data.emplace_back(MetaServiceUtils::indexIndexKey(space, indexName),
                           std::string(reinterpret_cast<const char*>(&indexID), sizeof(IndexID)));
-        data.emplace_back(MetaServiceUtils::indexKey(space, indexID),
+        data.emplace_back(MetaServiceUtils::indexKey(space, indexType, indexID),
                           MetaServiceUtils::indexVal(item));
         kvstore::ResultCode ret;
         folly::Baton<true, std::atomic> baton;

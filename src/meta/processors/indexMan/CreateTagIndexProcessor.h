@@ -23,6 +23,21 @@ public:
 private:
     explicit CreateTagIndexProcessor(kvstore::KVStore* kvstore)
             : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+
+    // For different type indexes, check whether the fields are legal
+    cpp2::ErrorCode checkFields();
+
+    cpp2::ErrorCode checkAndBuildIndex();
+
+private:
+    GraphSpaceID                     spaceId_;
+    cpp2::IndexType                  indexType_;
+    std::string                      indexName_;
+    std::string                      tagName_;
+    std::vector<std::string>         fieldNames_;
+
+    TagID                            tagId_;
+    std::vector<cpp2::ColumnDef>     columns_{};
 };
 
 }  // namespace meta

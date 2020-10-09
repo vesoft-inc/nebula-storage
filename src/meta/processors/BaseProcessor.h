@@ -211,6 +211,10 @@ protected:
 
     StatusOr<IndexID> getIndexID(GraphSpaceID spaceId, const std::string& indexName);
 
+    StatusOr<cpp2::IndexType> getIndexType(GraphSpaceID spaceId, IndexID indexID);
+
+    StatusOr<cpp2::IndexItem> getIndexItem(GraphSpaceID spaceId, IndexID indexID);
+
     bool checkPassword(const std::string& account, const std::string& password);
 
     kvstore::ResultCode doSyncPut(std::vector<kvstore::KV> data);

@@ -12,10 +12,12 @@ namespace mock {
 void AdHocIndexManager::addTagIndex(GraphSpaceID space,
                                     TagID tagID,
                                     IndexID indexID,
+                                    nebula::meta::cpp2::IndexType indexType,
                                     std::vector<nebula::meta::cpp2::ColumnDef>&& fields) {
     folly::RWSpinLock::WriteHolder wh(tagIndexLock_);
     IndexItem item;
     item.set_index_id(indexID);
+    item.set_index_type(indexType);
     item.set_index_name(folly::stringPrintf("index_%d", indexID));
     nebula::meta::cpp2::SchemaID schemaID;
     schemaID.set_tag_id(tagID);
@@ -36,10 +38,12 @@ void AdHocIndexManager::addTagIndex(GraphSpaceID space,
 void AdHocIndexManager::addEdgeIndex(GraphSpaceID space,
                                      EdgeType edgeType,
                                      IndexID indexID,
+                                     nebula::meta::cpp2::IndexType indexType,
                                      std::vector<nebula::meta::cpp2::ColumnDef>&& fields) {
     folly::RWSpinLock::WriteHolder wh(edgeIndexLock_);
     IndexItem item;
     item.set_index_id(indexID);
+    item.set_index_type(indexType);
     item.set_index_name(folly::stringPrintf("index_%d", indexID));
     nebula::meta::cpp2::SchemaID schemaID;
     schemaID.set_edge_type(edgeType);
@@ -90,23 +94,43 @@ AdHocIndexManager::getEdgeIndex(GraphSpaceID space, IndexID index) {
 }
 
 StatusOr<std::vector<std::shared_ptr<IndexItem>>>
-AdHocIndexManager::getTagIndexes(GraphSpaceID space) {
+AdHocIndexManager::getTagIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexType indexType) {
     folly::RWSpinLock::ReadHolder rh(tagIndexLock_);
     auto iter = tagIndexes_.find(space);
     if (iter == tagIndexes_.end()) {
         return Status::SpaceNotFound();
+    } else {
+        auto tagIndexes = iter->second;
+        std::vector<std::shared_ptr<IndexItem>> items;
+        auto tagIter = tagIndexes.begin();
+        while (tagIter != tagIndexes.end()) {
+            if ((*tagIter)->index_type == indexType) {
+                items.emplace_back(*tagIter);
+            }
+            tagIter++;
+        }
+        return items;
     }
-    return iter->second;
 }
 
 StatusOr<std::vector<std::shared_ptr<IndexItem>>>
-AdHocIndexManager::getEdgeIndexes(GraphSpaceID space) {
+AdHocIndexManager::getEdgeIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexType indexType) {
     folly::RWSpinLock::ReadHolder rh(edgeIndexLock_);
     auto iter = edgeIndexes_.find(space);
     if (iter == edgeIndexes_.end()) {
         return Status::SpaceNotFound();
+    } else {
+        auto edgeIndexes = iter->second;
+        std::vector<std::shared_ptr<IndexItem>> items;
+        auto edgeIter = edgeIndexes.begin();
+        while (edgeIter != edgeIndexes.end()) {
+            if ((*edgeIter)->index_type == indexType) {
+                items.emplace_back(*edgeIter);
+            }
+            edgeIter++;
+        }
+        return items;
     }
-    return iter->second;
 }
 
 StatusOr<IndexID>
@@ -143,7 +167,7 @@ AdHocIndexManager::toEdgeIndexID(GraphSpaceID space, std::string indexName) {
     return Status::EdgeNotFound();
 }
 
-Status AdHocIndexManager::checkTagIndexed(GraphSpaceID space, TagID tagID) {
+Status AdHocIndexManager::checkTagIndexed(GraphSpaceID space, IndexID index) {
     folly::RWSpinLock::ReadHolder rh(tagIndexLock_);
     auto iter = tagIndexes_.find(space);
     if (iter == tagIndexes_.end()) {
@@ -152,14 +176,14 @@ Status AdHocIndexManager::checkTagIndexed(GraphSpaceID space, TagID tagID) {
 
     auto items = iter->second;
     for (auto &item : items) {
-        if (item->get_schema_id().get_tag_id() == tagID) {
+        if (item->get_schema_id().get_tag_id() == index) {
             return Status::OK();
         }
     }
-    return Status::TagNotFound();
+    return Status::IndexNotFound();
 }
 
-Status AdHocIndexManager::checkEdgeIndexed(GraphSpaceID space, EdgeType edgeType) {
+Status AdHocIndexManager::checkEdgeIndexed(GraphSpaceID space, IndexID index) {
     folly::RWSpinLock::ReadHolder rh(edgeIndexLock_);
     auto iter = edgeIndexes_.find(space);
     if (iter == edgeIndexes_.end()) {
@@ -168,11 +192,11 @@ Status AdHocIndexManager::checkEdgeIndexed(GraphSpaceID space, EdgeType edgeType
 
     auto items = iter->second;
     for (auto &item : items) {
-        if (item->get_schema_id().get_edge_type() == edgeType) {
+        if (item->get_schema_id().get_edge_type() == index) {
             return Status::OK();
         }
     }
-    return Status::EdgeNotFound();
+    return Status::IndexNotFound();
 }
 
 }  // namespace mock
