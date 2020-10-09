@@ -75,6 +75,17 @@ folly::Future<Status> AdminClient::addPart(GraphSpaceID spaceId,
     req.set_space_id(spaceId);
     req.set_part_id(partId);
     req.set_as_learner(asLearner);
+    auto ret = getPeers(spaceId, partId);
+    if (!ret.ok()) {
+        return ret.status();
+    }
+    auto peers = std::move(ret).value();
+    std::vector<HostAddr> thriftPeers;
+    thriftPeers.resize(peers.size());
+    std::transform(peers.begin(), peers.end(), thriftPeers.begin(), [this](const auto& h) {
+        return toThriftHost(h);
+    });
+    req.set_peers(std::move(thriftPeers));
     return getResponse(host, std::move(req), [] (auto client, auto request) {
                return client->future_addPart(request);
            }, [] (auto&& resp) -> Status {
@@ -268,13 +279,17 @@ folly::Future<Status> AdminClient::checkPeers(GraphSpaceID spaceId, PartitionID 
     auto fut = pro.getFuture();
     std::vector<folly::Future<Status>> futures;
     for (auto& p : peers) {
+        if (!ActiveHostsMan::isLived(kv_, p)) {
+            LOG(INFO) << "[" << spaceId << ":" << partId << "], Skip the dead host " << p;
+            continue;
+        }
         auto f = getResponse(p, req, [] (auto client, auto request) {
                     return client->future_checkPeers(request);
                  }, [] (auto&& resp) -> Status {
                     if (resp.get_code() == storage::cpp2::ErrorCode::SUCCEEDED) {
                         return Status::OK();
                     } else {
-                        return Status::Error("Add part failed! code=%d",
+                        return Status::Error("Check peers failed! code=%d",
                                              static_cast<int32_t>(resp.get_code()));
                     }
                  });
@@ -317,12 +332,14 @@ folly::Future<Status> AdminClient::getResponse(
                      this] () mutable {
         auto client = clientsMan_->client(host, evb);
         remoteFunc(client, std::move(req)).via(evb)
-            .then([p = std::move(pro), partId, respGen = std::move(respGen)](
+            .then([p = std::move(pro), partId, respGen = std::move(respGen), host](
                            folly::Try<storage::cpp2::AdminExecResp>&& t) mutable {
                 // exception occurred during RPC
                 if (t.hasException()) {
-                    p.setValue(Status::Error(folly::stringPrintf("RPC failure in AdminClient: %s",
-                                                                 t.exception().what().c_str())));
+                    p.setValue(Status::Error(folly::stringPrintf(
+                                                    "[%s] RPC failure in AdminClient: %s",
+                                                     host.toString().c_str(),
+                                                     t.exception().what().c_str())));
                     return;
                 }
                 auto&& result = std::move(t).value().get_result();

@@ -58,7 +58,8 @@ meta::PartsMap MetaServerBasedPartManager::parts(const HostAddr& hostAddr) {
     return client_->getPartsMapFromCache(hostAddr);
 }
 
-StatusOr<meta::PartHosts> MetaServerBasedPartManager::partMeta(GraphSpaceID spaceId, PartitionID partId) {
+StatusOr<meta::PartHosts> MetaServerBasedPartManager::partMeta(GraphSpaceID spaceId,
+                                                               PartitionID partId) {
     return client_->getPartHostsFromCache(spaceId, partId);
 }
 
@@ -142,7 +143,7 @@ void MetaServerBasedPartManager::onSpaceOptionUpdated(
 
 void MetaServerBasedPartManager::onPartAdded(const meta::PartHosts& partMeta) {
     if (handler_ != nullptr) {
-        handler_->addPart(partMeta.spaceId_, partMeta.partId_, false);
+        handler_->addPart(partMeta.spaceId_, partMeta.partId_, false, {});
     } else {
         VLOG(1) << "handler_ is nullptr!";
     }
