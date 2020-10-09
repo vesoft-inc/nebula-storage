@@ -248,7 +248,8 @@ TEST(IndexTest, VerticesValueTest) {
     // Mock a index for nullable column and default column.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, tagId, indexId, mock::MockData::mockTypicaIndexColumns());
+        indexMan->addTagIndex(spaceId, tagId, indexId, nebula::meta::cpp2::IndexType::NORMAL,
+                              mock::MockData::mockTypicaIndexColumns());
     }
     // verify insert
     {
@@ -378,7 +379,7 @@ TEST(IndexTest, AlterTagIndexTest) {
     // Mock a index for nullable column and default column.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, tagId, indexId1,
+        indexMan->addTagIndex(spaceId, tagId, indexId1, nebula::meta::cpp2::IndexType::NORMAL,
                               mock::MockData::mockGeneralTagIndexColumns());
     }
     // verify insert
@@ -434,7 +435,7 @@ TEST(IndexTest, AlterTagIndexTest) {
     // create new index with newly added columns.
     {
         auto* indexMan = reinterpret_cast<mock::AdHocIndexManager*>(env->indexMan_);
-        indexMan->addTagIndex(spaceId, tagId, indexId2,
+        indexMan->addTagIndex(spaceId, tagId, indexId2, nebula::meta::cpp2::IndexType::NORMAL,
                               mock::MockData::mockSimpleTagIndexColumns());
     }
     // verify insert

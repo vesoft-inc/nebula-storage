@@ -58,7 +58,6 @@ AdminTaskManager* RebuildIndexTest::manager_{nullptr};
 std::unique_ptr<fs::TempDir> RebuildIndexTest::rootPath_{nullptr};
 std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 
-
 // Check data after rebuild index, then delete data
 TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
     // Add Vertices
@@ -126,8 +125,12 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
             iter->next();
         }
     }
-    // The number of vertices index is 81, the count of players_ and teams_
-    EXPECT_EQ(81, indexDataNum);
+
+    // The index data of the count of players_ and teams_
+    // Normal index data count: 81 (equal to data count)
+    // Vertex index data count: 81 (equal to data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    EXPECT_EQ(168, indexDataNum);
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     sleep(1);
@@ -213,8 +216,11 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
             iter->next();
         }
     }
-    // The number of edges index is 167, only positive side count of serves_
-    EXPECT_EQ(167, indexDataNum);
+    // The index data of the count of serves_
+    // Normal index data count: 167 (equal to data count)
+    // Vertex index data count: 167 (equal to data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    EXPECT_EQ(340, indexDataNum);
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     sleep(1);
@@ -232,7 +238,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
         EXPECT_EQ(0, resp.result.failed_parts.size());
     }
 }
-
 
 TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
     auto writer = std::make_unique<thread::GenericWorker>();

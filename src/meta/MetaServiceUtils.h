@@ -125,13 +125,22 @@ public:
 
     static cpp2::Schema parseSchema(folly::StringPiece rawData);
 
-    static std::string indexKey(GraphSpaceID spaceId, IndexID indexID);
+    static std::string indexKey(GraphSpaceID spaceId, cpp2::IndexType indexType, IndexID indexID);
 
     static std::string indexVal(const cpp2::IndexItem& item);
 
+    // Prefix for index
     static std::string indexPrefix(GraphSpaceID spaceId);
 
+    static std::string indexPrefix(GraphSpaceID spaceId, cpp2::IndexType indexType);
+
     static cpp2::IndexItem parseIndex(const folly::StringPiece& rawData);
+
+    static IndexID parseIndexID(const folly::StringPiece& rawData);
+
+    static cpp2::IndexType parseIndexType(const folly::StringPiece& rawData);
+
+    static std::string IndexTypeToString(cpp2::IndexType indexType);
 
     static std::string rebuildIndexStatus(GraphSpaceID space,
                                           char type,

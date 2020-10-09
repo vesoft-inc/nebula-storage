@@ -35,8 +35,10 @@ protected:
         // Make sure the rebuild job could find the index name.
         std::vector<cpp2::ColumnDef> columns;
         ASSERT_TRUE(TestUtils::mockTagIndex(kv_.get(), 1, "tag_name", 11,
+                                            cpp2::IndexType::NORMAL,
                                             "tag_index_name", columns));
         ASSERT_TRUE(TestUtils::mockEdgeIndex(kv_.get(), 1, "edge_name", 21,
+                                             cpp2::IndexType::NORMAL,
                                              "edge_index_name", columns));
 
         std::vector<Status> sts(14, Status::OK());

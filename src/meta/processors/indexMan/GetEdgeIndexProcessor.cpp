@@ -14,6 +14,7 @@ void GetEdgeIndexProcessor::process(const cpp2::GetEdgeIndexReq& req) {
     CHECK_SPACE_ID_AND_RETURN(spaceID);
     auto indexName = req.get_index_name();
     folly::SharedMutex::ReadHolder rHolder(LockUtils::edgeIndexLock());
+
     auto edgeIndexIDResult = getIndexID(spaceID, indexName);
     if (!edgeIndexIDResult.ok()) {
         LOG(ERROR) << "Get Edge Index SpaceID: " << spaceID
@@ -24,19 +25,19 @@ void GetEdgeIndexProcessor::process(const cpp2::GetEdgeIndexReq& req) {
     }
 
     LOG(INFO) << "Get Edge Index SpaceID: " << spaceID << " Index Name: " << indexName;
-    auto edgeKey = MetaServiceUtils::indexKey(spaceID, edgeIndexIDResult.value());
-    auto edgeResult = doGet(edgeKey);
-    if (!edgeResult.ok()) {
+    auto indexId = edgeIndexIDResult.value();
+
+    auto retItem = getIndexItem(spaceID, indexId);
+    if (!retItem.ok()) {
         LOG(ERROR) << "Get Edge Index Failed: SpaceID " << spaceID
-                   << " Index Name: " << indexName << " status: " << edgeResult.status();
+                   << " Index Name: " << indexName << " status: " << retItem.status();
         resp_.set_code(cpp2::ErrorCode::E_NOT_FOUND);
         onFinished();
         return;
     }
 
-    auto item = MetaServiceUtils::parseIndex(edgeResult.value());
     handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
-    resp_.set_item(std::move(item));
+    resp_.set_item(std::move(retItem.value()));
     onFinished();
 }
 

@@ -31,13 +31,10 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     callingNum_ = partEdges.size();
 
     CHECK_NOTNULL(env_->indexMan_);
-    auto iRet = env_->indexMan_->getEdgeIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
-    }
+    handleEdgeIndexes(spaceId_);
 
     CHECK_NOTNULL(env_->kvstore_);
-    if (indexes_.empty()) {
+    if (indexes_.empty() && edgeIndexes_.empty() && allEdgeStatIndex_ == nullptr) {
         // Operate every part, the graph layer guarantees the unique of the edgeKey
         std::vector<std::string> keys;
         keys.reserve(32);
@@ -101,12 +98,13 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     }
 }
 
-
 folly::Optional<std::string>
 DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                   const std::vector<cpp2::EdgeKey>& edges) {
     env_->onFlyingRequest_.fetch_add(1);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
+    int64_t countVal = 0;
+
     for (auto& edge : edges) {
         auto type = edge.edge_type;
         auto srcId = edge.src.getStr();
@@ -121,15 +119,17 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
             return folly::none;
         }
 
-        if (iter->valid()) {
+        if (iter && iter->valid()) {
             /**
-             * just get the latest version edge for index.
+             * Just get the latest version edge for index.
              */
             RowReaderWrapper reader;
             for (auto& index : indexes_) {
                 if (type == index->get_schema_id().get_edge_type()) {
+                    /*
+                     * Step 1, Delete the normal index of the edge if exists
+                     */
                     auto indexId = index->get_index_id();
-
                     if (reader == nullptr) {
                         reader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
                                                                      spaceId_,
@@ -167,13 +167,103 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                 }
             }
 
+            /*
+             * Step 2, delete edge index data
+             */
+            auto eIndexIt = edgeTypeToIndexId_.find(type);
+            if (eIndexIt != edgeTypeToIndexId_.end()) {
+                auto eIndexId = eIndexIt->second;
+                auto edgeIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(spaceVidLen_,
+                                                                          partId,
+                                                                          eIndexId,
+                                                                          srcId,
+                                                                          type,
+                                                                          rank,
+                                                                          dstId);
+                if (!edgeIndexKey.empty()) {
+                    if (env_->checkRebuilding(spaceId_, partId, eIndexId)) {
+                        auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                        batchHolder->put(std::move(deleteOpKey), std::move(edgeIndexKey));
+                    } else if (env_->checkIndexLocked(spaceId_, partId, eIndexId)) {
+                        LOG(ERROR) << "The index has been locked, index id " << eIndexId;
+                        return folly::none;
+                    } else {
+                        batchHolder->remove(std::move(edgeIndexKey));
+                    }
+                }
+            }
+
+            /*
+             * Step 3, delete the edge data
+             */
             batchHolder->remove(iter->key().str());
+
+            /*
+             * Step 4, for statistics all edge count
+             */
+            if (allEdgeStatIndex_ != nullptr && type > 0) {
+                countVal++;
+            }
+
             iter->next();
         }
 
-        while (iter->valid()) {
+        while (iter && iter->valid()) {
             batchHolder->remove(iter->key().str());
             iter->next();
+        }
+    }
+
+    /*
+     * Step 5, update statistic all edge index data
+     * When value is 0, remove index data
+     */
+    if (allEdgeStatIndex_ != nullptr) {
+        auto edgeCountIndexId = allEdgeStatIndex_->get_index_id();
+        if (countVal != 0) {
+            std::string val;
+            auto eCountIndexKey = StatisticsIndexKeyUtils::countIndexKey(partId, edgeCountIndexId);
+            auto ret = env_->kvstore_->get(spaceId_, partId, eCountIndexKey, &val);
+            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                    LOG(ERROR) << "Get statistics index error";
+                    return folly::none;
+                } else {
+                    // key does not exist
+                    VLOG(3) << "Statistic all edge index data not exist, partID " << partId;
+                }
+            } else {
+                countVal = *reinterpret_cast<const int64_t*>(val.c_str()) - countVal;
+
+                if (countVal > 0) {
+                    auto newCount = std::string(reinterpret_cast<const char*>(&countVal),
+                                                sizeof(int64_t));
+                    auto retRebuild = rebuildingModifyOp(spaceId_,
+                                                         partId,
+                                                         edgeCountIndexId,
+                                                         eCountIndexKey,
+                                                         batchHolder.get(),
+                                                         newCount);
+                    if (retRebuild == folly::none) {
+                        return folly::none;
+                    }
+                 } else {
+                    if (countVal < 0) {
+                        LOG(ERROR) << "statistics all edge index value is illegal, "
+                                   << "please rebuild index";
+                    }
+                    // Remove statistic all edge index data
+                    if (env_->checkRebuilding(spaceId_, partId, edgeCountIndexId)) {
+                        auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                        batchHolder->put(std::move(deleteOpKey), std::move(eCountIndexKey));
+                    } else if (env_->checkIndexLocked(spaceId_, partId, edgeCountIndexId)) {
+                        LOG(ERROR) << "The index has been locked, index id " << edgeCountIndexId;
+                        return folly::none;
+                    } else {
+                        batchHolder->remove(std::move(eCountIndexKey));
+                    }
+                }
+            }
         }
     }
 

@@ -19,7 +19,7 @@ namespace nebula {
 using PropertyType = nebula::meta::cpp2::PropertyType;
 
 /**
- * This class supply some utils for index in kvstore.
+ * This class supply some utils for normal index in kvstore.
  * */
 class IndexKeyUtils final {
 public:
@@ -481,6 +481,54 @@ private:
     IndexKeyUtils() = delete;
 
     static Status checkValue(const Value& v, bool isNullable);
+};
+
+
+/**
+ * This class supply some utils for all statistics index in kvstore.
+ * */
+class StatisticsIndexKeyUtils final {
+public:
+    ~StatisticsIndexKeyUtils() = default;
+
+    /*
+     * vertex index key
+     */
+    static std::string vertexIndexKey(size_t vIdLen,
+                                      PartitionID partId,
+                                      IndexID indexId,
+                                      VertexID vId);
+    /*
+     * vertex index key preifx
+     */
+    static std::string vertexIndexPrefix(PartitionID partId,
+                                         IndexID indexId);
+
+    /*
+     * edge index key
+     */
+    static std::string edgeIndexKey(size_t vIdLen,
+                                    PartitionID partId,
+                                    IndexID indexId,
+                                    VertexID srcId,
+                                    EdgeType type,
+                                    EdgeRanking rank,
+                                    VertexID dstId);
+
+    /*
+     * edge index key prefix
+     */
+    static std::string edgeIndexPrefix(PartitionID partId,
+                                       IndexID indexId);
+
+    /*
+     * all vertex/edge count index key
+     */
+    static std::string countIndexKey(PartitionID partId,
+                                     IndexID indexId);
+
+private:
+    StatisticsIndexKeyUtils() = delete;
 };
 
 }  // namespace nebula

@@ -24,14 +24,14 @@ public:
     void process(const cpp2::DeleteEdgesRequest& req);
 
 private:
-    explicit DeleteEdgesProcessor(StorageEnv* env, stats::Stats* stats)
+    DeleteEdgesProcessor(StorageEnv* env, stats::Stats* stats)
             : BaseProcessor<cpp2::ExecResponse>(env, stats) {}
 
     folly::Optional<std::string> deleteEdges(PartitionID partId,
                                              const std::vector<cpp2::EdgeKey>& edges);
+
 private:
     GraphSpaceID                                                spaceId_;
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
 };
 
 }  // namespace storage

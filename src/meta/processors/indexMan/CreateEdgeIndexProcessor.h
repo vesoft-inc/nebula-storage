@@ -23,6 +23,21 @@ public:
 private:
     explicit CreateEdgeIndexProcessor(kvstore::KVStore* kvstore)
             : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+
+    // For different type indexes, check whether the fields are legal
+    cpp2::ErrorCode checkFields();
+
+    cpp2::ErrorCode checkAndBuildIndex();
+
+private:
+    GraphSpaceID                     spaceId_;
+    cpp2::IndexType                  indexType_;
+    std::string                      indexName_;
+    std::string                      edgeName_;
+    std::vector<std::string>         fieldNames_;
+
+    EdgeType                         edgeType_;
+    std::vector<cpp2::ColumnDef>     columns_{};
 };
 
 }  // namespace meta

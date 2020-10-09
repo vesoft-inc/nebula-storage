@@ -10,16 +10,17 @@ namespace nebula {
 namespace meta {
 
 void ListEdgeIndexesProcessor::process(const cpp2::ListEdgeIndexesReq& req) {
-    CHECK_SPACE_ID_AND_RETURN(req.get_space_id());
-    folly::SharedMutex::ReadHolder rHolder(LockUtils::edgeIndexLock());
     auto space = req.get_space_id();
+    CHECK_SPACE_ID_AND_RETURN(space);
+
+    folly::SharedMutex::ReadHolder rHolder(LockUtils::edgeIndexLock());
     auto prefix = MetaServiceUtils::indexPrefix(space);
 
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-    handleErrorCode(MetaCommon::to(ret));
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Edge Index Failed: SpaceID " << space;
+        handleErrorCode(MetaCommon::to(ret));
         onFinished();
         return;
     }

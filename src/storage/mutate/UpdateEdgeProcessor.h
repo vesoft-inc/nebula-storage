@@ -57,8 +57,6 @@ private:
 
     cpp2::EdgeKey                                                        edgeKey_;
 
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>>          indexes_;
-
     std::unique_ptr<StorageExpressionContext>                            expCtx_;
 
     // update <prop name, new value expression>

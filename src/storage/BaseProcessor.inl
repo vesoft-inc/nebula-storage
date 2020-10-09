@@ -239,5 +239,76 @@ BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
     return std::move(rowWrite).moveEncodedStr();
 }
 
+template <typename RESP>
+folly::Optional<std::string>
+BaseProcessor<RESP>::rebuildingModifyOp(GraphSpaceID spaceId,
+                                        PartitionID partId,
+                                        IndexID indexId,
+                                        std::string key,
+                                        kvstore::BatchHolder* batchHolder,
+                                        std::string val) {
+    // Check the index is building for the specified partition or not.
+    if (env_->checkRebuilding(spaceId, partId, indexId)) {
+        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, key);
+        batchHolder->put(std::move(modifyOpKey), std::move(val));
+    } else if (env_->checkIndexLocked(spaceId, partId, indexId)) {
+        LOG(ERROR) << "The index has been locked, index id:" << indexId;
+        return folly::none;
+    } else {
+        batchHolder->put(std::move(key), std::move(val));
+    }
+    return std::string("");
+}
+
+template <typename RESP>
+void BaseProcessor<RESP>::handleTagIndexes(GraphSpaceID spaceId) {
+    // Distinguish different index
+    auto iRet = env_->indexMan_->getTagIndexes(spaceId, nebula::meta::cpp2::IndexType::NORMAL);
+    if (iRet.ok()) {
+        indexes_ = std::move(iRet).value();
+    }
+    iRet = env_->indexMan_->getTagIndexes(spaceId, nebula::meta::cpp2::IndexType::VERTEX_COUNT);
+    if (iRet.ok()) {
+        auto vertexStat = std::move(iRet).value();
+        CHECK_LE(vertexStat.size(), 1);
+        if (vertexStat.size() == 1) {
+            allVertexStatIndex_ = vertexStat[0];
+        }
+    }
+    iRet = env_->indexMan_->getTagIndexes(spaceId, nebula::meta::cpp2::IndexType::VERTEX);
+    if (iRet.ok()) {
+        vertexIndexes_ = std::move(iRet).value();
+    }
+    for (auto& vIndex : vertexIndexes_) {
+        tagIdToIndexId_.emplace(vIndex->get_schema_id().get_tag_id(),
+                                vIndex->get_index_id());
+    }
+}
+
+template <typename RESP>
+void BaseProcessor<RESP>::handleEdgeIndexes(GraphSpaceID spaceId) {
+    // Distinguish different index
+    auto iRet = env_->indexMan_->getEdgeIndexes(spaceId, meta::cpp2::IndexType::NORMAL);
+    if (iRet.ok()) {
+        indexes_ = std::move(iRet).value();
+    }
+    iRet = env_->indexMan_->getEdgeIndexes(spaceId, meta::cpp2::IndexType::EDGE_COUNT);
+    if (iRet.ok()) {
+        auto edgeStat = std::move(iRet).value();
+        CHECK_LE(edgeStat.size(), 1);
+        if (edgeStat.size() == 1) {
+            allEdgeStatIndex_ = edgeStat[0];
+        }
+    }
+    iRet = env_->indexMan_->getEdgeIndexes(spaceId, meta::cpp2::IndexType::EDGE);
+    if (iRet.ok()) {
+        edgeIndexes_ = std::move(iRet).value();
+    }
+    for (auto& vIndex : edgeIndexes_) {
+        edgeTypeToIndexId_.emplace(vIndex->get_schema_id().get_edge_type(),
+                                   vIndex->get_index_id());
+    }
+}
+
 }  // namespace storage
 }  // namespace nebula

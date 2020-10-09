@@ -384,8 +384,8 @@ TEST(UpdateVertexTest, Insertable_Test) {
         tmpProps.emplace_back(Expression::encode(sourcePropExp3));
 
         req.set_return_props(std::move(tmpProps));
-        req.set_insertable(true);
     }
+    req.set_insertable(true);
 
     LOG(INFO) << "Test UpdateVertexRequest...";
     auto* processor = UpdateVertexProcessor::instance(env, nullptr);

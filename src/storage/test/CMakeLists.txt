@@ -295,14 +295,42 @@ nebula_add_executable(
 )
 
 nebula_add_test(
-        NAME
+    NAME
         lookup_index_test
-        SOURCES
+    SOURCES
         LookupIndexTest.cpp
         ../../codec/test/RowWriterV1.cpp
-        OBJECTS
+    OBJECTS
         ${storage_test_deps}
-        LIBRARIES
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        get_vertices_statis_test
+    SOURCES
+        GetVerticesStatisTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        get_edges_statis_test
+    SOURCES
+        GetEdgesStatisTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         wangle

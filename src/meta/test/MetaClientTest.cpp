@@ -610,6 +610,7 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         std::vector<std::string>&& fields {"tag_0_col_0"};
         auto result = client->createTagIndex(space,
+                                             meta::cpp2::IndexType::NORMAL,
                                              "tag_single_field_index",
                                              "tag_0",
                                              std::move(fields)).get();
@@ -619,6 +620,7 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_1"};
         auto result = client->createTagIndex(space,
+                                             meta::cpp2::IndexType::NORMAL,
                                              "tag_multi_field_index",
                                              "tag_0",
                                              std::move(fields)).get();
@@ -628,6 +630,7 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "not_exist_field"};
         auto result = client->createTagIndex(space,
+                                             meta::cpp2::IndexType::NORMAL,
                                              "tag_field_not_exist_index",
                                              "tag_0",
                                              std::move(fields)).get();
@@ -637,6 +640,7 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_1"};
         auto result = client->createTagIndex(space,
+                                             meta::cpp2::IndexType::NORMAL,
                                              "tag_not_exist_index",
                                              "tag_not_exist",
                                              std::move(fields)).get();
@@ -646,6 +650,7 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         std::vector<std::string>&& fields {"tag_0_col_0",  "tag_0_col_0"};
         auto result = client->createTagIndex(space,
+                                             meta::cpp2::IndexType::NORMAL,
                                              "tag_conflict_index",
                                              "tag_0",
                                              std::move(fields)).get();
@@ -704,13 +709,14 @@ TEST(MetaClientTest, TagIndexTest) {
         ASSERT_FALSE(spaceNotExistRet.ok());
     }
     {
-        auto tagIndexes = client->getTagIndexesFromCache(space);
+        auto tagIndexes = client->getTagIndexesFromCache(space, cpp2::IndexType::NORMAL);
         ASSERT_TRUE(tagIndexes.ok());
         ASSERT_EQ(2, tagIndexes.value().size());
     }
     {
         GraphSpaceID spaceNotExist = 99;
-        auto spaceNotExistRet = client->getTagIndexesFromCache(spaceNotExist);
+        auto spaceNotExistRet = client->getTagIndexesFromCache(spaceNotExist,
+                                                               cpp2::IndexType::NORMAL);
         ASSERT_FALSE(spaceNotExistRet.ok());
     }
     {
@@ -773,6 +779,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         std::vector<std::string>&& fields {"edge_0_col_0"};
         auto result = client->createEdgeIndex(space,
+                                              meta::cpp2::IndexType::NORMAL,
                                               "edge_single_field_index",
                                               "edge_0",
                                               std::move(fields)).get();
@@ -782,6 +789,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_1"};
         auto result = client->createEdgeIndex(space,
+                                              meta::cpp2::IndexType::NORMAL,
                                               "edge_multi_field_index",
                                               "edge_0",
                                               std::move(fields)).get();
@@ -791,6 +799,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_1"};
         auto result = client->createEdgeIndex(space,
+                                              meta::cpp2::IndexType::NORMAL,
                                               "edge_not_exist_index",
                                               "edge_not_exist",
                                               std::move(fields)).get();
@@ -800,6 +809,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "edge_0_col_0"};
         auto result = client->createEdgeIndex(space,
+                                              meta::cpp2::IndexType::NORMAL,
                                               "edge_conflict_index",
                                               "edge_0",
                                               std::move(fields)).get();
@@ -809,6 +819,7 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         std::vector<std::string>&& fields {"edge_0_col_0",  "not_exist_field"};
         auto result = client->createEdgeIndex(space,
+                                              meta::cpp2::IndexType::NORMAL,
                                               "edge_field_not_exist_index",
                                               "edge_0",
                                               std::move(fields)).get();
@@ -869,13 +880,14 @@ TEST(MetaClientTest, EdgeIndexTest) {
         ASSERT_FALSE(spaceNotExistRet.ok());
     }
     {
-        auto edgeIndexes = client->getEdgeIndexesFromCache(space);
+        auto edgeIndexes = client->getEdgeIndexesFromCache(space, cpp2::IndexType::NORMAL);
         ASSERT_TRUE(edgeIndexes.ok());
         ASSERT_EQ(2, edgeIndexes.value().size());
     }
     {
         GraphSpaceID spaceNotExist = 99;
-        auto spaceNotExistRet = client->getEdgeIndexesFromCache(spaceNotExist);
+        auto spaceNotExistRet = client->getEdgeIndexesFromCache(spaceNotExist,
+                                                                cpp2::IndexType::NORMAL);
         ASSERT_FALSE(spaceNotExistRet.ok());
     }
     {

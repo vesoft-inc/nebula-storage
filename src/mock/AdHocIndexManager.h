@@ -23,12 +23,14 @@ public:
     void addTagIndex(GraphSpaceID space,
                      TagID tagID,
                      IndexID indexID,
-                     std::vector<nebula::meta::cpp2::ColumnDef>&& fields);
+                     nebula::meta::cpp2::IndexType indexType,
+                     std::vector<nebula::meta::cpp2::ColumnDef>&& fields = {});
 
     void addEdgeIndex(GraphSpaceID space,
                       EdgeType edgeType,
                       IndexID indexID,
-                      std::vector<nebula::meta::cpp2::ColumnDef>&& fields);
+                      nebula::meta::cpp2::IndexType indexType,
+                      std::vector<nebula::meta::cpp2::ColumnDef>&& fields = {});
 
     StatusOr<std::shared_ptr<IndexItem>>
     getTagIndex(GraphSpaceID space, IndexID index) override;
@@ -37,10 +39,10 @@ public:
     getEdgeIndex(GraphSpaceID space, IndexID index) override;
 
     StatusOr<std::vector<std::shared_ptr<IndexItem>>>
-    getTagIndexes(GraphSpaceID space) override;
+    getTagIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexType indexType) override;
 
     StatusOr<std::vector<std::shared_ptr<IndexItem>>>
-    getEdgeIndexes(GraphSpaceID space) override;
+    getEdgeIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexType indexType) override;
 
     StatusOr<IndexID>
     toTagIndexID(GraphSpaceID space, std::string tagName) override;
@@ -48,12 +50,11 @@ public:
     StatusOr<IndexID>
     toEdgeIndexID(GraphSpaceID space, std::string edgeName) override;
 
-    Status checkTagIndexed(GraphSpaceID space, TagID tagID) override;
+    Status checkTagIndexed(GraphSpaceID space, IndexID index) override;
 
-    Status checkEdgeIndexed(GraphSpaceID space, EdgeType edgeType) override;
+    Status checkEdgeIndexed(GraphSpaceID space, IndexID index) override;
 
-    void init(nebula::meta::MetaClient *) override {
-    }
+    void init(nebula::meta::MetaClient *) override {}
 
 protected:
     folly::RWSpinLock tagIndexLock_;

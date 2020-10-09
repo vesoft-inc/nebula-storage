@@ -31,15 +31,12 @@ private:
         , vertexCache_(cache) {}
 
     folly::Optional<std::string>
-    deleteVertices(PartitionID partId,
-                   const std::vector<Value>& vertices);
+    deleteVertices(PartitionID partId, const std::vector<Value>& vertices);
 
 private:
-    GraphSpaceID                                                spaceId_;
-    VertexCache*                                                vertexCache_{nullptr};
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
+    GraphSpaceID                                                  spaceId_;
+    VertexCache*                                                  vertexCache_{nullptr};
 };
-
 
 }  // namespace storage
 }  // namespace nebula
