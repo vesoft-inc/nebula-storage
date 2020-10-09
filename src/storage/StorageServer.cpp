@@ -162,7 +162,11 @@ bool StorageServer::start() {
             storageServer_->setStopWorkersOnStopListening(false);
             storageServer_->setInterface(std::move(handler));
 
-            storageSvcStatus_.store(STATUS_RUNNING);
+            ServiceStatus expected = STATUS_UNINITIALIZED;
+            if (!storageSvcStatus_.compare_exchange_strong(expected, STATUS_RUNNING)) {
+                LOG(ERROR) << "Impossible! How could it happens!";
+                return;
+            }
             LOG(INFO) << "The storage service start on " << localHost_;
             storageServer_->serve();  // Will wait until the server shuts down
         } catch (const std::exception& e) {
@@ -185,7 +189,11 @@ bool StorageServer::start() {
             adminServer_->setStopWorkersOnStopListening(false);
             adminServer_->setInterface(std::move(handler));
 
-            adminSvcStatus_.store(STATUS_RUNNING);
+            ServiceStatus expected = STATUS_UNINITIALIZED;
+            if (!adminSvcStatus_.compare_exchange_strong(expected, STATUS_RUNNING)) {
+                LOG(ERROR) << "Impossible! How could it happens!";
+                return;
+            }
             LOG(INFO) << "The admin service start on " << adminAddr;
             adminServer_->serve();  // Will wait until the server shuts down
         } catch (const std::exception& e) {
@@ -212,7 +220,10 @@ void StorageServer::waitUntilStop() {
 }
 
 void StorageServer::stop() {
-    if (stopped_) {
+    ServiceStatus adminExpected = ServiceStatus::STATUS_RUNNING;
+    ServiceStatus storageExpected = ServiceStatus::STATUS_RUNNING;
+    if (!adminSvcStatus_.compare_exchange_strong(adminExpected, STATUS_STTOPED) &&
+        !storageSvcStatus_.compare_exchange_strong(storageExpected, STATUS_STTOPED)) {
         LOG(INFO) << "All services has been stopped";
         return;
     }
