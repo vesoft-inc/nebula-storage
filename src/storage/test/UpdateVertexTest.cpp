@@ -7,6 +7,7 @@
 #include "common/base/Base.h"
 #include "common/fs/TempDir.h"
 #include "storage/mutate/UpdateVertexProcessor.h"
+#include "storage/mutate/AddVerticesProcessor.h"
 #include "utils/NebulaKeyUtils.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
@@ -1311,6 +1312,213 @@ TEST(UpdateVertexTest, Insertable_In_Set_Test) {
     EXPECT_EQ("Brandon Ingram", val.getStr());
     val = reader->getValueByName("age");
     EXPECT_EQ(10, val.getInt());
+}
+
+// Check data and index data after update
+TEST(UpdateVertexTest, CheckDataForUpdate) {
+    fs::TempDir rootPath("/tmp/UpdateVertexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    TagID tagId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Do not use mockVertexData, it only add data
+    // EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
+    // Add vertices
+    {
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddVerticesRequest...";
+        cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
+
+        LOG(INFO) << "Test AddVerticesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of vertices is 81, the count of players_ and teams_
+        // The index data of the count of players_ and teams_
+        // Normal index data count: 81 (equal to data count)
+        // Vertex index data count: 81 (equal to data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 81, 168);
+    }
+
+    LOG(INFO) << "Build UpdateVertexRequest...";
+    cpp2::UpdateVertexRequest req;
+
+    req.set_space_id(spaceId);
+    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
+    VertexID vertexId("Tim Duncan");
+    req.set_part_id(partId);
+    req.set_vertex_id(vertexId);
+    req.set_tag_id(tagId);
+
+    LOG(INFO) << "Build updated props...";
+    std::vector<cpp2::UpdatedProp> updatedProps;
+    // int: player.age = 45
+    cpp2::UpdatedProp uProp1;
+    uProp1.set_name("age");
+    ConstantExpression val1(45L);
+    uProp1.set_value(Expression::encode(val1));
+    updatedProps.emplace_back(uProp1);
+
+    // string: player.country= China
+    cpp2::UpdatedProp uProp2;
+    uProp2.set_name("country");
+    std::string col4new("China");
+    ConstantExpression val2(col4new);
+    uProp2.set_value(Expression::encode(val2));
+    updatedProps.emplace_back(uProp2);
+    req.set_updated_props(std::move(updatedProps));
+
+    LOG(INFO) << "Build yield...";
+    // Return player props: name, age, country
+    decltype(req.return_props) tmpProps;
+    auto* yTag1 = new std::string("1");
+    auto* yProp1 = new std::string("name");
+    SourcePropertyExpression sourcePropExp1(yTag1, yProp1);
+    tmpProps.emplace_back(Expression::encode(sourcePropExp1));
+
+    auto* yTag2 = new std::string("1");
+    auto* yProp2 = new std::string("age");
+    SourcePropertyExpression sourcePropExp2(yTag2, yProp2);
+    tmpProps.emplace_back(Expression::encode(sourcePropExp2));
+
+    auto* yTag3 = new std::string("1");
+    auto* yProp3 = new std::string("country");
+    SourcePropertyExpression sourcePropExp3(yTag3, yProp3);
+    tmpProps.emplace_back(Expression::encode(sourcePropExp3));
+
+    req.set_return_props(std::move(tmpProps));
+    req.set_insertable(false);
+
+    LOG(INFO) << "Test UpdateVertexRequest...";
+    auto* processor = UpdateVertexProcessor::instance(env, nullptr);
+    auto f = processor->getFuture();
+    processor->process(req);
+    auto resp = std::move(f).get();
+
+    LOG(INFO) << "Check the results...";
+    EXPECT_EQ(0, resp.result.failed_parts.size());
+
+    // Check data and index data after update vertex
+    // The number of vertices is 81, the count of players_ and teams_
+    // The index data of the count of players_ and teams_
+    // Normal index data count: 81 (equal to data count)
+    // Vertex index data count: 81 (equal to data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 81, 168);
+}
+
+// Check data and index data after upsert
+TEST(UpdateVertexTest, CheckDataForUpsert) {
+    fs::TempDir rootPath("/tmp/UpdateVertexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    TagID tagId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Do not use mockVertexData, it only add data
+    // EXPECT_TRUE(mockVertexData(env, parts, spaceVidLen));
+    // Add vertices
+    {
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddVerticesRequest...";
+        cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
+
+        LOG(INFO) << "Test AddVerticesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of vertices is 81, the count of players_ and teams_
+        // The index data of the count of players_ and teams_
+        // Normal index data count: 81 (equal to data count)
+        // Vertex index data count: 81 (equal to data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 81, 168);
+    }
+
+    LOG(INFO) << "Build UpdateVertexRequest...";
+    cpp2::UpdateVertexRequest req;
+
+    req.set_space_id(spaceId);
+    auto partId = std::hash<std::string>()("Brandon Ingram") % parts + 1;
+    VertexID vertexId("Brandon Ingram");
+    req.set_part_id(partId);
+    req.set_vertex_id(vertexId);
+    req.set_tag_id(tagId);
+
+    LOG(INFO) << "Build updated props...";
+    std::vector<cpp2::UpdatedProp> updatedProps;
+    // string: player.name= "Brandon Ingram"
+    cpp2::UpdatedProp uProp1;
+    uProp1.set_name("name");
+    std::string colnew("Brandon Ingram");
+    ConstantExpression val1(colnew);
+    uProp1.set_value(Expression::encode(val1));
+    updatedProps.emplace_back(uProp1);
+
+    // int: player.age = $^.player.career
+    cpp2::UpdatedProp uProp2;
+    uProp2.set_name("age");
+    auto* uTag = new std::string("1");
+    auto* uProp = new std::string("career");
+    SourcePropertyExpression val2(uTag, uProp);
+    uProp2.set_value(Expression::encode(val2));
+    updatedProps.emplace_back(uProp2);
+    req.set_updated_props(std::move(updatedProps));
+
+    LOG(INFO) << "Build yield...";
+    // Return player props: name, age
+    {
+        decltype(req.return_props) tmpProps;
+        auto* yTag1 = new std::string("1");
+        auto* yProp1 = new std::string("name");
+        SourcePropertyExpression sourcePropExp1(yTag1, yProp1);
+        tmpProps.emplace_back(Expression::encode(sourcePropExp1));
+
+        auto* yTag2 = new std::string("1");
+        auto* yProp2 = new std::string("age");
+        SourcePropertyExpression sourcePropExp2(yTag2, yProp2);
+        tmpProps.emplace_back(Expression::encode(sourcePropExp2));
+
+        req.set_return_props(std::move(tmpProps));
+        req.set_insertable(true);
+    }
+
+    LOG(INFO) << "Test UpdateVertexRequest...";
+    auto* processor = UpdateVertexProcessor::instance(env, nullptr);
+    auto f = processor->getFuture();
+    processor->process(req);
+    auto resp = std::move(f).get();
+
+    LOG(INFO) << "Check the results...";
+    EXPECT_EQ(0, resp.result.failed_parts.size());
+
+    // Check data and index data after update vertex
+    // The number of vertices is 82, the count of players_ and teams_
+    // The index data of the count of players_ and teams_
+    // Normal index data count: 82 (equal to data count)
+    // Vertex index data count: 82 (equal to data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 82, 170);
 }
 
 }  // namespace storage

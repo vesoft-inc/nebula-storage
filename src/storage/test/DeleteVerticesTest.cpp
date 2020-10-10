@@ -127,6 +127,62 @@ TEST(DeleteVerticesTest, MultiVersionTest) {
     FLAGS_enable_multi_versions = false;
 }
 
+// Check data and index data after delete vertex data
+TEST(DeleteVerticesTest, CheckData) {
+    fs::TempDir rootPath("/tmp/DeleteVertexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Add vertices
+    {
+        auto* processor = AddVerticesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddVerticesRequest...";
+        cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
+
+        LOG(INFO) << "Test AddVerticesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of vertices is 81, the count of players_ and teams_
+        // The index data of the count of players_ and teams_
+        // Normal index data count: 81 (equal to data count)
+        // Vertex index data count: 81 (equal to data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 81, 168);
+    }
+
+    // Delete vertices
+    {
+        auto* processor = DeleteVerticesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build DeleteVerticesRequest...";
+        cpp2::DeleteVerticesRequest req = mock::MockData::mockDeleteVerticesReq();
+
+        LOG(INFO) << "Test DeleteVerticesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of vertices is 0, the count of players_ and teams_
+        // The index data of the count of players_ and teams_
+        // Normal index data count: 0 (equal to data count)
+        // Vertex index data count: 0 (equal to data count)
+        // Vertex_count index data count: 0 (equal to part count of current space)
+        checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 0, 0);
+    }
+}
+
 }  // namespace storage
 }  // namespace nebula
 

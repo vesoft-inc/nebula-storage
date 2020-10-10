@@ -11,6 +11,7 @@
 #include <rocksdb/db.h>
 #include "storage/test/TestUtils.h"
 #include "storage/mutate/UpdateEdgeProcessor.h"
+#include "storage/mutate/AddEdgesProcessor.h"
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
 #include "common/interface/gen-cpp2/storage_types.h"
@@ -1943,6 +1944,252 @@ TEST(UpdateEdgeTest, Insertable_In_Set_Test) {
     EXPECT_EQ("Lakers", val.getStr());
     val = reader->getValueByName("teamCareer");
     EXPECT_EQ(1, val.getInt());
+}
+
+// Check data and index data after update
+TEST(UpdateEdgeTest, CheckDataForUpdate) {
+    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Do not use mockEdgeData, it only add data
+    // EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
+    // Add edges
+    {
+        auto* processor = AddEdgesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddEdgesRequest...";
+        cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
+
+        LOG(INFO) << "Test AddEdgesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of edges is 334, only serves_ count
+        // The index data of the count of serves_
+        // Normal index data count: 167 (equal to forward edge data count)
+        // Vertex index data count: 167 (equal to forward edge data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 334, 340);
+    }
+
+    LOG(INFO) << "Build UpdateEdgeRequest...";
+    cpp2::UpdateEdgeRequest req;
+    auto partId = std::hash<std::string>()("Tim Duncan") % parts + 1;
+    req.set_space_id(spaceId);
+    req.set_part_id(partId);
+    // src = Tim Duncan, edge_type = 101, ranking = 1997, dst = Spurs
+    VertexID srcId = "Tim Duncan";
+    VertexID dstId = "Spurs";
+    EdgeRanking rank = 1997;
+    EdgeType edgeType = 101;
+    storage::cpp2::EdgeKey edgeKey;
+    edgeKey.set_src(srcId);
+    edgeKey.set_edge_type(edgeType);
+    edgeKey.set_ranking(rank);
+    edgeKey.set_dst(dstId);
+    req.set_edge_key(edgeKey);
+
+    LOG(INFO) << "Build updated props...";
+    std::vector<cpp2::UpdatedProp> props;
+    // int: 101.teamCareer = 20
+    cpp2::UpdatedProp uProp1;
+    uProp1.set_name("teamCareer");
+    ConstantExpression val1(20);
+    uProp1.set_value(Expression::encode(val1));
+    props.emplace_back(uProp1);
+
+    // bool: 101.type = trade
+    cpp2::UpdatedProp uProp2;
+    uProp2.set_name("type");
+    std::string colnew("trade");
+    ConstantExpression val2(colnew);
+    uProp2.set_value(Expression::encode(val2));
+    props.emplace_back(uProp2);
+    req.set_updated_props(std::move(props));
+
+    LOG(INFO) << "Build yield...";
+    // Return serve props: playerName, teamName, teamCareer, type
+    decltype(req.return_props) tmpProps;
+    auto* yEdge1 = new std::string("101");
+    auto* yProp1 = new std::string("playerName");
+    EdgePropertyExpression edgePropExp1(yEdge1, yProp1);
+    tmpProps.emplace_back(Expression::encode(edgePropExp1));
+
+    auto* yEdge2 = new std::string("101");
+    auto* yProp2 = new std::string("teamName");
+    EdgePropertyExpression edgePropExp2(yEdge2, yProp2);
+    tmpProps.emplace_back(Expression::encode(edgePropExp2));
+
+    auto* yEdge3 = new std::string("101");
+    auto* yProp3 = new std::string("teamCareer");
+    EdgePropertyExpression edgePropExp3(yEdge3, yProp3);
+    tmpProps.emplace_back(Expression::encode(edgePropExp3));
+
+    auto* yEdge4 = new std::string("101");
+    auto* yProp4 = new std::string("type");
+    EdgePropertyExpression edgePropExp4(yEdge4, yProp4);
+    tmpProps.emplace_back(Expression::encode(edgePropExp4));
+
+    req.set_return_props(std::move(tmpProps));
+    req.set_insertable(false);
+
+    LOG(INFO) << "Test UpdateEdgeRequest...";
+    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
+    auto f = processor->getFuture();
+    processor->process(req);
+    auto resp = std::move(f).get();
+
+    LOG(INFO) << "Check the results...";
+    EXPECT_EQ(0, resp.result.failed_parts.size());
+
+    // The number of edges is 334, only serves_ count
+    // The index data of the count of serves_
+    // Normal index data count: 167 (equal to forward edge data count)
+    // Vertex index data count: 167 (equal to forward edge data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 334, 340);
+}
+
+// Check data and index data after upsert
+TEST(UpdateEdgeTest, CheckDataForUpsert) {
+    fs::TempDir rootPath("/tmp/UpdateEdgeTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Do not use mockEdgeData, it only add data
+    // EXPECT_TRUE(mockEdgeData(env, parts, spaceVidLen));
+    // Add edges
+    {
+        auto* processor = AddEdgesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddEdgesRequest...";
+        cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
+
+        LOG(INFO) << "Test AddEdgesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of edges is 334, only serves_ count
+        // The index data of the count of serves_
+        // Normal index data count: 167 (equal to forward edge data count)
+        // Vertex index data count: 167 (equal to forward edge data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 334, 340);
+    }
+
+    LOG(INFO) << "Build UpdateEdgeRequest...";
+    cpp2::UpdateEdgeRequest req;
+
+    auto partId = std::hash<std::string>()("Brandon Ingram") % parts + 1;
+    req.set_space_id(spaceId);
+    req.set_part_id(partId);
+    VertexID srcId = "Brandon Ingram";
+    VertexID dstId = "Lakers";
+    EdgeRanking rank = 2016;
+    EdgeType edgeType = 101;
+    // src = Brandon Ingram, edge_type = 101, ranking = 2016, dst = Lakers
+    storage::cpp2::EdgeKey edgeKey;
+    edgeKey.set_src(srcId);
+    edgeKey.set_edge_type(edgeType);
+    edgeKey.set_ranking(rank);
+    edgeKey.set_dst(dstId);
+    req.set_edge_key(edgeKey);
+
+    LOG(INFO) << "Build updated props...";
+    std::vector<cpp2::UpdatedProp> props;
+
+    // string: 101.playerName = Brandon Ingram
+    cpp2::UpdatedProp uProp1;
+    uProp1.set_name("playerName");
+    std::string col1new("Brandon Ingram");
+    ConstantExpression val1(col1new);
+    uProp1.set_value(Expression::encode(val1));
+    props.emplace_back(uProp1);
+
+    // string: 101.teamName = Lakers
+    cpp2::UpdatedProp uProp2;
+    uProp2.set_name("teamName");
+    std::string col2new("Lakers");
+    ConstantExpression val2(col2new);
+    uProp2.set_value(Expression::encode(val2));
+    props.emplace_back(uProp2);
+
+    // int: 101.startYear = 2016
+    cpp2::UpdatedProp uProp3;
+    uProp3.set_name("startYear");
+    ConstantExpression val3(2016L);
+    uProp3.set_value(Expression::encode(val3));
+    props.emplace_back(uProp3);
+
+    // int: 101.teamCareer = 1
+    cpp2::UpdatedProp uProp4;
+    uProp4.set_name("teamCareer");
+    ConstantExpression val4(1L);
+    uProp4.set_value(Expression::encode(val4));
+    props.emplace_back(uProp4);
+    req.set_updated_props(std::move(props));
+
+    LOG(INFO) << "Build yield...";
+    // Return serve props: playerName, teamName, teamCareer, type
+    decltype(req.return_props) tmpProps;
+    auto* yEdge1 = new std::string("101");
+    auto* yProp1 = new std::string("playerName");
+    EdgePropertyExpression edgePropExp1(yEdge1, yProp1);
+    tmpProps.emplace_back(Expression::encode(edgePropExp1));
+
+    auto* yEdge2 = new std::string("101");
+    auto* yProp2 = new std::string("teamName");
+    EdgePropertyExpression edgePropExp2(yEdge2, yProp2);
+    tmpProps.emplace_back(Expression::encode(edgePropExp2));
+
+    auto* yEdge3 = new std::string("101");
+    auto* yProp3 = new std::string("teamCareer");
+    EdgePropertyExpression edgePropExp3(yEdge3, yProp3);
+    tmpProps.emplace_back(Expression::encode(edgePropExp3));
+
+    auto* yEdge4 = new std::string("101");
+    auto* yProp4 = new std::string("type");
+    EdgePropertyExpression edgePropExp4(yEdge4, yProp4);
+    tmpProps.emplace_back(Expression::encode(edgePropExp4));
+
+    req.set_return_props(std::move(tmpProps));
+    req.set_insertable(true);
+
+    LOG(INFO) << "Test UpdateEdgeRequest...";
+    auto* processor = UpdateEdgeProcessor::instance(env, nullptr);
+    auto f = processor->getFuture();
+    processor->process(req);
+    auto resp = std::move(f).get();
+
+    LOG(INFO) << "Check the results...";
+    EXPECT_EQ(0, resp.result.failed_parts.size());
+
+    // Here only add forward edge for upsert
+    // The number of edges is 335, only serves_ count
+    // The index data of the count of serves_
+    // Normal index data count: 168 (equal to forward edge data count)
+    // Vertex index data count: 168 (equal to forward edge data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 335, 342);
 }
 
 }  // namespace storage

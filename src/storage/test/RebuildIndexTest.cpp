@@ -60,6 +60,7 @@ std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 
 // Check data after rebuild index, then delete data
 TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
+    GraphSpaceID spaceId = 1;
     // Add Vertices
     {
         auto* processor = AddVerticesProcessor::instance(RebuildIndexTest::env_, nullptr);
@@ -71,7 +72,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
     }
 
     cpp2::TaskPara parameter;
-    parameter.set_space_id(1);
+    parameter.set_space_id(spaceId);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
 
@@ -94,43 +95,17 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
 
     // Check the data count
     LOG(INFO) << "Check rebuild tag index...";
-    auto vidSizeRet = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(1);
-    auto vidSize = vidSizeRet.value();
-    EXPECT_LT(0, vidSize);
-    int dataNum = 0;
-    for (auto part : parts) {
-        auto prefix = NebulaKeyUtils::partPrefix(part);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = RebuildIndexTest::env_->kvstore_->prefix(1, part, prefix, &iter);
-        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-        while (iter && iter->valid()) {
-            if (NebulaKeyUtils::isVertex(vidSize, iter->key())) {
-                dataNum++;
-            }
-            iter->next();
-        }
-    }
+    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
     // The number of vertices is 81, the count of players_ and teams_
-    EXPECT_EQ(81, dataNum);
-
-    // Check the index data count
-    int indexDataNum = 0;
-    for (auto part : parts) {
-        auto prefix = IndexKeyUtils::indexPrefix(part);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = RebuildIndexTest::env_->kvstore_->prefix(1, part, prefix, &iter);
-        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-        while (iter && iter->valid()) {
-            indexDataNum++;
-            iter->next();
-        }
-    }
-
     // The index data of the count of players_ and teams_
     // Normal index data count: 81 (equal to data count)
     // Vertex index data count: 81 (equal to data count)
     // Vertex_count index data count: 6 (equal to part count of current space)
-    EXPECT_EQ(168, indexDataNum);
+    checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts.size(),
+                                  RebuildIndexTest::env_, 81, 168);
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     sleep(1);
@@ -152,6 +127,7 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
 
 // Check data after rebuild index, then delete data
 TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
+    GraphSpaceID spaceId = 1;
     // Add Edges
     {
         auto* processor = AddEdgesProcessor::instance(RebuildIndexTest::env_, nullptr);
@@ -163,7 +139,7 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
     }
 
     cpp2::TaskPara parameter;
-    parameter.set_space_id(1);
+    parameter.set_space_id(spaceId);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
 
@@ -185,42 +161,17 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
 
     // Check the data count
     LOG(INFO) << "Check rebuild edge index...";
-    auto vidSizeRet = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(1);
-    auto vidSize = vidSizeRet.value();
-    EXPECT_LT(0, vidSize);
-    int dataNum = 0;
-    for (auto part : parts) {
-        auto prefix = NebulaKeyUtils::partPrefix(part);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = RebuildIndexTest::env_->kvstore_->prefix(1, part, prefix, &iter);
-        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-        while (iter && iter->valid()) {
-            if (NebulaKeyUtils::isEdge(vidSize, iter->key())) {
-                dataNum++;
-            }
-            iter->next();
-        }
-    }
-    // The number of edges is 334, only serves_ count
-    EXPECT_EQ(334, dataNum);
+    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(1);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
 
-    // Check the index data count
-    int indexDataNum = 0;
-    for (auto part : parts) {
-        auto prefix = IndexKeyUtils::indexPrefix(part);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = RebuildIndexTest::env_->kvstore_->prefix(1, part, prefix, &iter);
-        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-        while (iter && iter->valid()) {
-            indexDataNum++;
-            iter->next();
-        }
-    }
+    // The number of edges is 334, only serves_ count
     // The index data of the count of serves_
     // Normal index data count: 167 (equal to data count)
     // Vertex index data count: 167 (equal to data count)
     // Vertex_count index data count: 6 (equal to part count of current space)
-    EXPECT_EQ(340, indexDataNum);
+    checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts.size(),
+                               RebuildIndexTest::env_, 334, 340);
 
     RebuildIndexTest::env_->rebuildIndexGuard_->clear();
     sleep(1);

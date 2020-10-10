@@ -98,6 +98,38 @@ TEST(AddVerticesTest, MultiVersionTest) {
     FLAGS_enable_multi_versions = false;
 }
 
+// Check data count and index data count after add vertice
+TEST(AddVerticesTest, CheckData) {
+    fs::TempDir rootPath("/tmp/AddVerticesTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    auto* processor = AddVerticesProcessor::instance(env, nullptr);
+
+    LOG(INFO) << "Build AddVerticesRequest...";
+    cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
+
+    LOG(INFO) << "Test AddVerticesProcessor...";
+    auto fut = processor->getFuture();
+    processor->process(req);
+    auto resp = std::move(fut).get();
+    EXPECT_EQ(0, resp.result.failed_parts.size());
+
+    // The number of vertices is 81, the count of players_ and teams_
+    // The index data of the count of players_ and teams_
+    // Normal index data count: 81 (equal to data count)
+    // Vertex index data count: 81 (equal to data count)
+    // Vertex_count index data count: 6 (equal to part count of current space)
+    checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts, env, 81, 168);
+}
+
 }  // namespace storage
 }  // namespace nebula
 
