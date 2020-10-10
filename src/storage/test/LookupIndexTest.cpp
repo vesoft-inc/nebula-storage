@@ -395,13 +395,13 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         row1.emplace_back(Value(srcId));
         row1.emplace_back(Value(2002L));
         row1.emplace_back(Value(dstId));
-        row1.emplace_back(Value("Spurs"));
+        row1.emplace_back(IndexKeyUtils::encodeValue(Value("Spurs"), 20));
         expectRows.emplace_back(Row(row1));
         Row row2;
         row2.emplace_back(Value(dstId));
         row2.emplace_back(Value(2002L));
         row2.emplace_back(Value(srcId));
-        row2.emplace_back(Value("Spurs"));
+        row2.emplace_back(IndexKeyUtils::encodeValue(Value("Spurs"), 20));
         expectRows.emplace_back(Row(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
@@ -486,25 +486,25 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         row1.emplace_back(Value(vId1));
         row1.emplace_back(Value(2002L));
         row1.emplace_back(Value(vId2));
-        row1.emplace_back(Value("Spurs"));
+        row1.emplace_back(IndexKeyUtils::encodeValue(Value("Spurs"), 20));
         expectRows.emplace_back(Row(row1));
         Row row2;
         row2.emplace_back(Value(vId2));
         row2.emplace_back(Value(2002L));
         row2.emplace_back(Value(vId1));
-        row2.emplace_back(Value("Spurs"));
+        row2.emplace_back(IndexKeyUtils::encodeValue(Value("Spurs"), 20));
         expectRows.emplace_back(Row(row2));
         Row row3;
         row3.emplace_back(Value(vId3));
         row3.emplace_back(Value(2004L));
         row3.emplace_back(Value(vId4));
-        row3.emplace_back(Value("Rockets"));
+        row3.emplace_back(IndexKeyUtils::encodeValue(Value("Rockets"), 20));
         expectRows.emplace_back(Row(row3));
         Row row4;
         row4.emplace_back(Value(vId4));
         row4.emplace_back(Value(2004L));
         row4.emplace_back(Value(vId3));
-        row4.emplace_back(Value("Rockets"));
+        row4.emplace_back(IndexKeyUtils::encodeValue(Value("Rockets"), 20));
         expectRows.emplace_back(Row(row4));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
@@ -709,8 +709,8 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             parts.emplace_back(p);
         }
         req.set_parts(std::move(parts));
-        std::string tony = "Tony Parker";
-        std::string manu = "Manu Ginobili";
+        std::string tony = IndexKeyUtils::encodeValue(Value("Tony Parker"), 20);
+        std::string manu = IndexKeyUtils::encodeValue(Value("Manu Ginobili"), 20);
         decltype(req.return_columns) returnCols;
         returnCols.emplace_back("teamName");
         req.set_return_columns(std::move(returnCols));
@@ -727,7 +727,7 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             new EdgePropertyExpression(
                 new std::string(folly::to<std::string>("Teammate")),
                 new std::string("teamName")),
-            new ConstantExpression(Value("Spurs")));
+            new ConstantExpression(Value(IndexKeyUtils::encodeValue(Value("Spurs"), 20))));
         context1.set_filter("");
         context1.set_index_id(102);
         decltype(indices.contexts) contexts;
@@ -747,13 +747,13 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         row1.emplace_back(Value(srcId));
         row1.emplace_back(Value(2002L));
         row1.emplace_back(Value(dstId));
-        row1.emplace_back(Value("Spurs"));
+        row1.emplace_back(Value(IndexKeyUtils::encodeValue(Value("Spurs"), 20)));
         expectRows.emplace_back(Row(row1));
         Row row2;
         row2.emplace_back(Value(dstId));
         row2.emplace_back(Value(2002L));
         row2.emplace_back(Value(srcId));
-        row2.emplace_back(Value("Spurs"));
+        row2.emplace_back(Value(IndexKeyUtils::encodeValue(Value("Spurs"), 20)));
         expectRows.emplace_back(Row(row2));
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
@@ -812,7 +812,7 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             new EdgePropertyExpression(
                 new std::string(folly::to<std::string>("Teammate")),
                 new std::string("teamName")),
-            new ConstantExpression(Value("Spurs")));
+            new ConstantExpression(Value(IndexKeyUtils::encodeValue(Value("Spurs"), 20))));
         context1.set_filter(expr.encode());
         context1.set_index_id(102);
         decltype(indices.contexts) contexts;
