@@ -13,6 +13,7 @@
 #include "kvstore/PartManager.h"
 #include "kvstore/NebulaStore.h"
 #include "utils/NebulaKeyUtils.h"
+#include "utils/IndexKeyUtils.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "storage/CommonUtils.h"
 
@@ -160,12 +161,53 @@ void checkVerticesData(int32_t spaceVidLen,
                       env->kvstore_->prefix(spaceId, partId, prefix, &iter));
 
             while (iter && iter->valid()) {
-                totalCount++;
+                if (NebulaKeyUtils::isVertex(spaceVidLen, iter->key())) {
+                    totalCount++;
+                }
                 iter->next();
             }
         }
     }
     EXPECT_EQ(expectNum, totalCount);
+}
+
+void checkVerticesDataAndIndexData(int32_t spaceVidLen,
+                                   GraphSpaceID spaceId,
+                                   int32_t parts,
+                                   StorageEnv* env,
+                                   int expectDataNum,
+                                   int expectIndexDataNum) {
+    // Check the data count
+    int dataNum = 0;
+    for (int part = 1; part <= parts; part++) {
+        auto prefix = NebulaKeyUtils::partPrefix(part);
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto ret = env->kvstore_->prefix(spaceId, part, prefix, &iter);
+        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+        while (iter && iter->valid()) {
+            if (NebulaKeyUtils::isVertex(spaceVidLen, iter->key())) {
+                dataNum++;
+            }
+            iter->next();
+        }
+    }
+    // The number of vertices is 81, the count of players_ and teams_
+    EXPECT_EQ(expectDataNum, dataNum);
+
+    // Check the index data count
+    int indexDataNum = 0;
+    for (int part = 1; part <= parts; part++) {
+        auto prefix = IndexKeyUtils::indexPrefix(part);
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto ret = env->kvstore_->prefix(spaceId, part, prefix, &iter);
+        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+        while (iter && iter->valid()) {
+            indexDataNum++;
+            iter->next();
+        }
+    }
+
+    EXPECT_EQ(expectIndexDataNum, indexDataNum);
 }
 
 void checkAddEdgesData(cpp2::AddEdgesRequest req,
@@ -259,11 +301,11 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
 }
 
 void checkEdgesData(int32_t spaceVidLen,
-                     GraphSpaceID spaceId,
-                     std::unordered_map<PartitionID,
-                                        std::vector<nebula::storage::cpp2::EdgeKey>> parts,
-                     StorageEnv* env,
-                     int expectNum) {
+                    GraphSpaceID spaceId,
+                    std::unordered_map<PartitionID,
+                                       std::vector<nebula::storage::cpp2::EdgeKey>> parts,
+                    StorageEnv* env,
+                    int expectNum) {
     int totalCount = 0;
     for (auto& part : parts) {
         auto partId = part.first;
@@ -280,12 +322,51 @@ void checkEdgesData(int32_t spaceVidLen,
                       env->kvstore_->prefix(spaceId, partId, prefix, &iter));
 
             while (iter && iter->valid()) {
-                totalCount++;
+                if (NebulaKeyUtils::isEdge(spaceVidLen, iter->key())) {
+                    totalCount++;
+                }
                 iter->next();
             }
         }
     }
     EXPECT_EQ(expectNum, totalCount);
+}
+
+void checkEdgesDataAndIndexData(int32_t spaceVidLen,
+                                GraphSpaceID spaceId,
+                                int32_t parts,
+                                StorageEnv* env,
+                                int expectDataNum,
+                                int expectIndexDataNum) {
+    // Check the data count
+    int dataNum = 0;
+    for (int part = 1; part <= parts; part++) {
+        auto prefix = NebulaKeyUtils::partPrefix(part);
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto ret = env->kvstore_->prefix(spaceId, part, prefix, &iter);
+        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+        while (iter && iter->valid()) {
+            if (NebulaKeyUtils::isEdge(spaceVidLen, iter->key())) {
+                dataNum++;
+            }
+            iter->next();
+        }
+    }
+    EXPECT_EQ(expectDataNum, dataNum);
+
+    // Check the index data count
+    int indexDataNum = 0;
+    for (int part = 1; part <= parts; part++) {
+        auto prefix = IndexKeyUtils::indexPrefix(part);
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto ret = env->kvstore_->prefix(spaceId, part, prefix, &iter);
+        EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+        while (iter && iter->valid()) {
+            indexDataNum++;
+            iter->next();
+        }
+    }
+    EXPECT_EQ(expectIndexDataNum, indexDataNum);
 }
 
 }  // namespace storage

@@ -126,6 +126,62 @@ TEST(DeleteEdgesTest, MultiVersionTest) {
     FLAGS_enable_multi_versions = false;
 }
 
+// Check data and index data after delete edge data
+TEST(DeleteEdgesTest, CheckData) {
+    fs::TempDir rootPath("/tmp/DeleteEdgesTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto parts = cluster.getTotalParts();
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
+    // Add edges
+    {
+        auto* processor = AddEdgesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build AddEdgesRequest...";
+        cpp2::AddEdgesRequest req = mock::MockData::mockAddEdgesReq();
+
+        LOG(INFO) << "Test AddEdgesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of edges is 334, only serves_ count
+        // The index data of the count of serves_
+        // Normal index data count: 167 (equal to forward edge data count)
+        // Vertex index data count: 167 (equal to forward edge data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 334, 340);
+    }
+
+    // Delete edges
+    {
+        auto* processor = DeleteEdgesProcessor::instance(env, nullptr);
+
+        LOG(INFO) << "Build DeleteEdgesRequest...";
+        cpp2::DeleteEdgesRequest req = mock::MockData::mockDeleteEdgesReq();
+
+        LOG(INFO) << "Test DeleteEdgesProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        // The number of edges is 0, only serves_ count
+        // The index data of the count of serves_
+        // Normal index data count: 0 (equal to forward edge data count)
+        // Vertex index data count: 0 (equal to forward edge data count)
+        // Vertex_count index data count: 0 (equal to part count of current space)
+        checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts, env, 0, 0);
+    }
+}
+
 }  // namespace storage
 }  // namespace nebula
 
