@@ -233,6 +233,7 @@ nebula_add_test(
         gtest
 )
 
+
 nebula_add_executable(
     NAME
         get_neighbors_bm
@@ -329,6 +330,23 @@ nebula_add_test(
         wangle
         gtest
 )
+
+
+nebula_add_executable(
+    NAME
+        prefix_bloom_filter_bm
+    SOURCES
+        PrefixBloomFilterBenchmark.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        follybenchmark
+        wangle
+        boost_regex
+)
+
 
 #nebula_add_test(
 #    NAME
