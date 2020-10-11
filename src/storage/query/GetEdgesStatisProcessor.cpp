@@ -35,7 +35,7 @@ void GetEdgesStatisProcessor::process(const cpp2::GetEdgesStatisRequest& req) {
             if (ret != kvstore::ResultCode::SUCCEEDED) {
                 if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
                     LOG(ERROR) << "Get edge count index Id:" << indexId << " error";
-                    pushResultCode(to(ret), partId);
+                    handleErrorCode(ret, spaceId_, partId);
                     onFinished();
                     return;
                 }
@@ -52,12 +52,10 @@ void GetEdgesStatisProcessor::process(const cpp2::GetEdgesStatisRequest& req) {
             std::unique_ptr<kvstore::KVIterator> iter;
             auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
             if (ret != kvstore::ResultCode::SUCCEEDED) {
-                if (ret != kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-                    LOG(ERROR) << "Get edge index Id:" << indexId << " error";
-                    pushResultCode(to(ret), partId);
-                    onFinished();
-                    return;
-                }
+                LOG(ERROR) << "Get edge index Id:" << indexId << " error";
+                handleErrorCode(ret, spaceId_, partId);
+                onFinished();
+                return;
             } else {
                 while (iter && iter->valid()) {
                     retCount_++;

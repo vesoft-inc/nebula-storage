@@ -12,10 +12,9 @@
 namespace nebula {
 namespace storage {
 
-// TODO(pandasheep)
 StatusOr<IndexItems>
 RebuildEdgeIndexTask::getIndexes(GraphSpaceID space) {
-    return env_->indexMan_->getEdgeIndexes(space, nebula::meta::cpp2::IndexType::NORMAL);
+    return env_->indexMan_->getEdgeIndexes(space, nebula::meta::cpp2::IndexType::ALL);
 }
 
 kvstore::ResultCode
@@ -47,7 +46,11 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
     EdgeRanking currentRanking = 0;
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
+    int64_t edgeCountOfPart = 0;
     RowReaderWrapper reader;
+    auto indexType = item->get_index_type();
+    auto indexId = item->get_index_id();
+
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Edge Index is Canceled";
@@ -76,15 +79,18 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
-        // Check whether this record contains the index of indexId
-        if (item->get_schema_id().get_edge_type() != edgeType) {
-            VLOG(3) << "This record is not built index.";
-            iter->next();
-            continue;
+        if (indexType == nebula::meta::cpp2::IndexType::NORMAL ||
+            indexType == nebula::meta::cpp2::IndexType::EDGE) {
+            // Check whether this record contains the index of indexId
+            if (item->get_schema_id().get_edge_type() != edgeType) {
+                VLOG(3) << "This record is not built index.";
+                iter->next();
+                continue;
+            }
         }
 
-        auto source = NebulaKeyUtils::getSrcId(vidSize, key);
-        auto destination = NebulaKeyUtils::getDstId(vidSize, key);
+        auto source = NebulaKeyUtils::getSrcId(vidSize, key).str();
+        auto destination = NebulaKeyUtils::getDstId(vidSize, key).str();
         auto ranking = NebulaKeyUtils::getRank(vidSize, key);
         VLOG(3) << "Source " << source << " Destination " << destination
                 << " Ranking " << ranking << " Edge Type " << edgeType;
@@ -106,20 +112,50 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
-        std::vector<Value::Type> colsType;
-        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
-                                                           item->get_fields(),
-                                                           colsType);
-        auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
-                                                    part,
-                                                    item->get_index_id(),
-                                                    source.data(),
-                                                    ranking,
-                                                    destination.data(),
-                                                    valuesRet.value(),
-                                                    std::move(colsType));
-        data.emplace_back(std::move(indexKey), "");
+
+        // Distinguish different index
+        if (indexType == nebula::meta::cpp2::IndexType::NORMAL) {
+            std::vector<Value::Type> colsType;
+            auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                               item->get_fields(),
+                                                               colsType);
+            auto indexKey = IndexKeyUtils::edgeIndexKey(vidSize,
+                                                        part,
+                                                        indexId,
+                                                        source,
+                                                        ranking,
+                                                        destination,
+                                                        valuesRet.value(),
+                                                        std::move(colsType));
+            data.emplace_back(std::move(indexKey), "");
+        } else if (indexType == nebula::meta::cpp2::IndexType::EDGE) {
+            auto edgeIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(vidSize,
+                                                                      part,
+                                                                      indexId,
+                                                                      source,
+                                                                      edgeType,
+                                                                      ranking,
+                                                                      destination);
+            data.emplace_back(std::move(edgeIndexKey), "");
+        } else if (indexType == nebula::meta::cpp2::IndexType::EDGE_COUNT) {
+            edgeCountOfPart++;
+        } else {
+            LOG(ERROR) << "Wrong index type " << static_cast<int32_t>(indexType)
+                       << " indexId " << indexId;
+            return kvstore::ResultCode::ERR_BUILD_INDEX_FAILED;
+        }
+
         iter->next();
+    }
+
+    // Statistic all edge index data,
+    // Index data cannot be deleted during the rebuild index process,
+    // when the number of edge is 0, overwrite edge count index data
+    if (indexType == nebula::meta::cpp2::IndexType::EDGE_COUNT) {
+        auto eCountIndexKey = StatisticsIndexKeyUtils::countIndexKey(part, indexId);
+        auto newCount = std::string(reinterpret_cast<const char*>(&edgeCountOfPart),
+                                    sizeof(int64_t));
+        data.emplace_back(std::move(eCountIndexKey), std::move(newCount));
     }
 
     auto result = writeData(space, part, std::move(data));

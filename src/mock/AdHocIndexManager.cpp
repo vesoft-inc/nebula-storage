@@ -103,11 +103,18 @@ AdHocIndexManager::getTagIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexTy
         auto tagIndexes = iter->second;
         std::vector<std::shared_ptr<IndexItem>> items;
         auto tagIter = tagIndexes.begin();
-        while (tagIter != tagIndexes.end()) {
-            if ((*tagIter)->index_type == indexType) {
+        if (indexType == nebula::meta::cpp2::IndexType::ALL) {
+            while (tagIter != tagIndexes.end()) {
                 items.emplace_back(*tagIter);
+                tagIter++;
             }
-            tagIter++;
+        } else {
+            while (tagIter != tagIndexes.end()) {
+                if ((*tagIter)->index_type == indexType) {
+                    items.emplace_back(*tagIter);
+                }
+                tagIter++;
+            }
         }
         return items;
     }
@@ -123,11 +130,18 @@ AdHocIndexManager::getEdgeIndexes(GraphSpaceID space, nebula::meta::cpp2::IndexT
         auto edgeIndexes = iter->second;
         std::vector<std::shared_ptr<IndexItem>> items;
         auto edgeIter = edgeIndexes.begin();
-        while (edgeIter != edgeIndexes.end()) {
-            if ((*edgeIter)->index_type == indexType) {
+        if (indexType == nebula::meta::cpp2::IndexType::ALL) {
+            while (edgeIter != edgeIndexes.end()) {
                 items.emplace_back(*edgeIter);
+                edgeIter++;
             }
-            edgeIter++;
+        } else {
+            while (edgeIter != edgeIndexes.end()) {
+                if ((*edgeIter)->index_type == indexType) {
+                    items.emplace_back(*edgeIter);
+                }
+                edgeIter++;
+            }
         }
         return items;
     }

@@ -248,7 +248,8 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                     LOG(ERROR) << "Get statistics index error";
                     return folly::none;
                 } else {
-                    VLOG(3) << "Statistic all vertex index data not exist, partID " << partId;
+                    VLOG(3) << "Statistic all vertex index data not exist, partID " << partId
+                            << ", please rebuild index";
                 }
             } else {
                 countVal = *reinterpret_cast<const int64_t*>(val.c_str()) - countVal;

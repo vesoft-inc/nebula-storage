@@ -16,6 +16,8 @@
 #include "storage/mutate/DeleteEdgesProcessor.h"
 #include "storage/query/GetEdgesStatisProcessor.h"
 #include "storage/test/TestUtils.h"
+#include "storage/admin/AdminTaskManager.h"
+#include "storage/admin/RebuildEdgeIndexTask.h"
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
 #include "common/expression/ConstantExpression.h"
@@ -66,6 +68,8 @@ TEST(GetEdgesStatisTest, SimpleTest) {
     auto* env = cluster.storageEnv_.get();
     auto parts = cluster.getTotalParts();
     GraphSpaceID spaceId = 1;
+    AdminTaskManager* manager = AdminTaskManager::instance();
+    manager->init();
 
     // Empty edge data
     {
@@ -325,6 +329,71 @@ TEST(GetEdgesStatisTest, SimpleTest) {
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(186, resp.count);
     }
+    // rebuild index
+    {
+        cpp2::TaskPara parameter;
+        parameter.set_space_id(1);
+        std::vector<PartitionID> partitions = {1, 2, 3, 4, 5, 6};
+        parameter.set_parts(std::move(partitions));
+
+        cpp2::AddAdminTaskRequest request;
+        request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
+        request.set_job_id(8);
+        request.set_task_id(18);
+        request.set_para(std::move(parameter));
+
+        auto callback = [](cpp2::ErrorCode) {};
+        TaskContext context(request, callback);
+        auto task = std::make_shared<RebuildEdgeIndexTask>(env, std::move(context));
+        manager->addAsyncTask(task);
+
+        // Wait for the task finished
+        do {
+            usleep(50);
+        } while (!manager->isFinished(context.jobId_, context.taskId_));
+
+        env->rebuildIndexGuard_->clear();
+        sleep(1);
+    }
+    {
+        // Get all edge count in edge 101
+        auto* processor = GetEdgesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetEdgesStatisRequest...";
+        cpp2::GetEdgesStatisRequest req = buildGetEdgesStatisRequest(parts, 104);
+
+        LOG(INFO) << "Test GetEdgesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(168, resp.count);
+    }
+    {
+        // Get all edge count in edge 102
+        auto* processor = GetEdgesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetEdgesStatisRequest...";
+        cpp2::GetEdgesStatisRequest req = buildGetEdgesStatisRequest(parts, 105);
+
+        LOG(INFO) << "Test GetEdgesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(18, resp.count);
+    }
+    {
+        // Get all edge count in space
+        auto* processor = GetEdgesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetEdgesStatisRequest...";
+        cpp2::GetEdgesStatisRequest req = buildGetEdgesStatisRequest(parts, 103);
+
+        LOG(INFO) << "Test GetEdgesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(186, resp.count);
+    }
     // Delete serves_ edge data
     {
         auto* processor = DeleteEdgesProcessor::instance(env, nullptr);
@@ -378,6 +447,7 @@ TEST(GetEdgesStatisTest, SimpleTest) {
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(19, resp.count);
     }
+    manager->shutdown();
 }
 
 }  // namespace storage
