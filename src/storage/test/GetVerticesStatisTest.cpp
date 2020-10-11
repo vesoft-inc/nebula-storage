@@ -16,6 +16,8 @@
 #include "storage/mutate/DeleteVerticesProcessor.h"
 #include "storage/query/GetVerticesStatisProcessor.h"
 #include "storage/test/TestUtils.h"
+#include "storage/admin/AdminTaskManager.h"
+#include "storage/admin/RebuildTagIndexTask.h"
 #include "mock/MockCluster.h"
 #include "mock/MockData.h"
 #include "common/expression/ConstantExpression.h"
@@ -40,6 +42,8 @@ TEST(GetVerticesStatisTest, SimpleTest) {
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto parts = cluster.getTotalParts();
+    AdminTaskManager* manager = AdminTaskManager::instance();
+    manager->init();
 
     // Empty data test
     {
@@ -273,6 +277,72 @@ TEST(GetVerticesStatisTest, SimpleTest) {
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(82, resp.count);
     }
+    // rebuild index
+    {
+        cpp2::TaskPara parameter;
+        parameter.set_space_id(1);
+        std::vector<PartitionID> partitions = {1, 2, 3, 4, 5, 6};
+        parameter.set_parts(std::move(partitions));
+
+        cpp2::AddAdminTaskRequest request;
+        request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
+        request.set_job_id(5);
+        request.set_task_id(15);
+        request.set_para(std::move(parameter));
+
+        auto callback = [](cpp2::ErrorCode) {};
+        TaskContext context(request, callback);
+
+        auto task = std::make_shared<RebuildTagIndexTask>(env, std::move(context));
+        manager->addAsyncTask(task);
+
+        // Wait for the task finished
+        do {
+            usleep(50);
+        } while (!manager->isFinished(context.jobId_, context.taskId_));
+
+        env->rebuildIndexGuard_->clear();
+        sleep(1);
+    }
+    {
+        // Get all vertex count in tag 1
+        auto* processor = GetVerticesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetVerticesStatisRequest...";
+        cpp2::GetVerticesStatisRequest req = buildGetVerticesStatisRequest(parts, 5);
+
+        LOG(INFO) << "Test GetVerticesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(52, resp.count);
+    }
+    {
+        // Get all vertex count in tag 2
+        auto* processor = GetVerticesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetVerticesStatisRequest...";
+        cpp2::GetVerticesStatisRequest req = buildGetVerticesStatisRequest(parts, 6);
+
+        LOG(INFO) << "Test GetVerticesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(30, resp.count);
+    }
+    {
+        // Get all vertex count in space
+        auto* processor = GetVerticesStatisProcessor::instance(env, nullptr);
+        LOG(INFO) << "Build GetVerticesStatisRequest...";
+        cpp2::GetVerticesStatisRequest req = buildGetVerticesStatisRequest(parts, 4);
+
+        LOG(INFO) << "Test GetVerticesStatisProcessor...";
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
+        EXPECT_EQ(82, resp.count);
+    }
     {
         // Delete vertex data
         auto* processor = DeleteVerticesProcessor::instance(env, nullptr);
@@ -334,6 +404,7 @@ TEST(GetVerticesStatisTest, SimpleTest) {
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(1, resp.count);
     }
+    manager->shutdown();
 }
 
 }  // namespace storage

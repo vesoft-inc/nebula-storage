@@ -12,10 +12,9 @@
 namespace nebula {
 namespace storage {
 
-// TODO(pandasheep)
 StatusOr<IndexItems>
 RebuildTagIndexTask::getIndexes(GraphSpaceID space) {
-    return env_->indexMan_->getTagIndexes(space, nebula::meta::cpp2::IndexType::NORMAL);
+    return env_->indexMan_->getTagIndexes(space, nebula::meta::cpp2::IndexType::ALL);
 }
 
 
@@ -46,7 +45,11 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     VertexID currentVertex = "";
     std::vector<kvstore::KV> data;
     data.reserve(FLAGS_rebuild_index_batch_num);
+    int64_t vertexCountOfPart = 0;
     RowReaderWrapper reader;
+    auto indexType = item->get_index_type();
+    auto indexId = item->get_index_id();
+
     while (iter && iter->valid()) {
         if (canceled_) {
             LOG(ERROR) << "Rebuild Tag Index is Canceled";
@@ -71,41 +74,68 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
         }
 
         auto tagID = NebulaKeyUtils::getTagId(vidSize, key);
-
-        // Check whether this record contains the index of indexId
-        if (item->get_schema_id().get_tag_id() != tagID) {
-            VLOG(3) << "This record is not built index.";
-            iter->next();
-            continue;
+        if (indexType == nebula::meta::cpp2::IndexType::NORMAL ||
+            indexType == nebula::meta::cpp2::IndexType::VERTEX) {
+            // Check whether this record contains the index of indexId
+            if (item->get_schema_id().get_tag_id() != tagID) {
+                VLOG(3) << "This record is not built index.";
+                iter->next();
+                continue;
+            }
         }
 
-        auto vertex = NebulaKeyUtils::getVertexId(vidSize, key);
+        auto vertex = NebulaKeyUtils::getVertexId(vidSize, key).str();
         VLOG(3) << "Tag ID " << tagID << " Vertex ID " << vertex;
         if (currentVertex == vertex) {
             iter->next();
             continue;
         } else {
-            currentVertex = vertex.data();
+            currentVertex = vertex;
         }
-
         reader = RowReaderWrapper::getTagPropReader(env_->schemaMan_, space, tagID, val);
         if (reader == nullptr) {
             iter->next();
             continue;
         }
 
-        std::vector<Value::Type> colsType;
-        auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
-                                                           item->get_fields(),
-                                                           colsType);
-        auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
-                                                      part,
-                                                      item->get_index_id(),
-                                                      vertex.data(),
-                                                      valuesRet.value(),
-                                                      std::move(colsType));
-        data.emplace_back(std::move(indexKey), "");
+        // Distinguish different index
+        if (indexType == nebula::meta::cpp2::IndexType::NORMAL) {
+            std::vector<Value::Type> colsType;
+            auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
+                                                               item->get_fields(),
+                                                               colsType);
+            auto indexKey = IndexKeyUtils::vertexIndexKey(vidSize,
+                                                         part,
+                                                         indexId,
+                                                         vertex,
+                                                         valuesRet.value(),
+                                                         std::move(colsType));
+            data.emplace_back(std::move(indexKey), "");
+        } else if (indexType == nebula::meta::cpp2::IndexType::VERTEX) {
+            auto vertexIndexKey = StatisticsIndexKeyUtils::vertexIndexKey(vidSize,
+                                                                          part,
+                                                                          indexId,
+                                                                          vertex);
+            data.emplace_back(std::move(vertexIndexKey), "");
+        } else if (indexType == nebula::meta::cpp2::IndexType::VERTEX_COUNT) {
+            vertexCountOfPart++;
+        } else {
+            LOG(ERROR) << "Wrong index type " << static_cast<int32_t>(indexType)
+                       << " indexId " << indexId;
+            return kvstore::ResultCode::ERR_BUILD_INDEX_FAILED;
+        }
+
         iter->next();
+    }
+
+    // Statistic all vertex index data,
+    // Index data cannot be deleted during the rebuild index process,
+    // when the number of vertex is 0, overwrite vertex count index data
+    if (indexType == nebula::meta::cpp2::IndexType::VERTEX_COUNT) {
+        auto vCountIndexKey = StatisticsIndexKeyUtils::countIndexKey(part, indexId);
+        auto newCount = std::string(reinterpret_cast<const char*>(&vertexCountOfPart),
+                                    sizeof(int64_t));
+        data.emplace_back(std::move(vCountIndexKey), std::move(newCount));
     }
 
     auto result = writeData(space, part, std::move(data));

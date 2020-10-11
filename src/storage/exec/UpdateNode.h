@@ -865,7 +865,6 @@ public:
                                                                        partId,
                                                                        eIndexId,
                                                                        edgeKey.get_src().getStr(),
-                                                                       edgeType_,
                                                                        edgeKey.get_ranking(),
                                                                        edgeKey.get_dst().getStr());
                 if (!eIndexKey.empty()) {

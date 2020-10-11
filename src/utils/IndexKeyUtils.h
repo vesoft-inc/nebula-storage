@@ -492,37 +492,36 @@ public:
     ~StatisticsIndexKeyUtils() = default;
 
     /*
-     * vertex index key
+     * Vertex index key
      */
     static std::string vertexIndexKey(size_t vIdLen,
                                       PartitionID partId,
                                       IndexID indexId,
                                       VertexID vId);
     /*
-     * vertex index key preifx
+     * Vertex index key preifx
      */
     static std::string vertexIndexPrefix(PartitionID partId,
                                          IndexID indexId);
 
     /*
-     * edge index key
+     * Edge index key
      */
     static std::string edgeIndexKey(size_t vIdLen,
                                     PartitionID partId,
                                     IndexID indexId,
                                     VertexID srcId,
-                                    EdgeType type,
                                     EdgeRanking rank,
                                     VertexID dstId);
 
     /*
-     * edge index key prefix
+     * Edge index key prefix
      */
     static std::string edgeIndexPrefix(PartitionID partId,
                                        IndexID indexId);
 
     /*
-     * all vertex/edge count index key
+     * All vertex/edge count index key
      */
     static std::string countIndexKey(PartitionID partId,
                                      IndexID indexId);

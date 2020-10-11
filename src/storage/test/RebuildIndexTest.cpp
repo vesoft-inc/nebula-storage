@@ -61,6 +61,10 @@ std::unique_ptr<nebula::mock::MockCluster> RebuildIndexTest::cluster_{nullptr};
 // Check data after rebuild index, then delete data
 TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
     GraphSpaceID spaceId = 1;
+    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+    std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     // Add Vertices
     {
         auto* processor = AddVerticesProcessor::instance(RebuildIndexTest::env_, nullptr);
@@ -69,17 +73,25 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
         processor->process(req);
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check data and index data...";
+        // The number of vertices is 81, the count of players_ and teams_
+        // The index data of the count of players_ and teams_
+        // Normal index data count: 81 (equal to data count)
+        // Vertex index data count: 81 (equal to data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkVerticesDataAndIndexData(spaceVidLen, spaceId, parts.size(),
+                                      RebuildIndexTest::env_, 81, 168);
     }
 
     cpp2::TaskPara parameter;
     parameter.set_space_id(spaceId);
-    std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
-    request.set_job_id(3);
-    request.set_task_id(13);
+    request.set_job_id(1);
+    request.set_task_id(11);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -95,10 +107,6 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
 
     // Check the data count
     LOG(INFO) << "Check rebuild tag index...";
-    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(spaceId);
-    ASSERT_TRUE(status.ok());
-    auto spaceVidLen = status.value();
-
     // The number of vertices is 81, the count of players_ and teams_
     // The index data of the count of players_ and teams_
     // Normal index data count: 81 (equal to data count)
@@ -128,6 +136,11 @@ TEST_F(RebuildIndexTest, RebuildTagIndexCheckALLData) {
 // Check data after rebuild index, then delete data
 TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
     GraphSpaceID spaceId = 1;
+    std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
+    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(1);
+    ASSERT_TRUE(status.ok());
+    auto spaceVidLen = status.value();
+
     // Add Edges
     {
         auto* processor = AddEdgesProcessor::instance(RebuildIndexTest::env_, nullptr);
@@ -136,17 +149,25 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
         processor->process(req);
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
+
+        LOG(INFO) << "Check data and index data...";
+        // The number of edges is 334, only serves_ count
+        // The index data of the count of serves_
+        // Normal index data count: 167 (equal to data count)
+        // Vertex index data count: 167 (equal to data count)
+        // Vertex_count index data count: 6 (equal to part count of current space)
+        checkEdgesDataAndIndexData(spaceVidLen, spaceId, parts.size(),
+                                   RebuildIndexTest::env_, 334, 340);
     }
 
     cpp2::TaskPara parameter;
     parameter.set_space_id(spaceId);
-    std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
-    request.set_job_id(6);
-    request.set_task_id(16);
+    request.set_job_id(2);
+    request.set_task_id(12);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -161,10 +182,6 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexCheckALLData) {
 
     // Check the data count
     LOG(INFO) << "Check rebuild edge index...";
-    auto status = RebuildIndexTest::env_->schemaMan_->getSpaceVidLen(1);
-    ASSERT_TRUE(status.ok());
-    auto spaceVidLen = status.value();
-
     // The number of edges is 334, only serves_ count
     // The index data of the count of serves_
     // Normal index data count: 167 (equal to data count)
@@ -219,8 +236,8 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
-    request.set_job_id(1);
-    request.set_task_id(11);
+    request.set_job_id(3);
+    request.set_task_id(13);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -261,7 +278,8 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
         cpp2::AddVerticesRequest req = mock::MockData::mockAddVerticesReq();
         auto fut = processor->getFuture();
         processor->process(req);
-        std::move(fut).get();
+        auto resp = std::move(fut).get();
+        EXPECT_EQ(0, resp.result.failed_parts.size());
     };
 
     // Add Vertices
@@ -279,16 +297,16 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
-    request.set_job_id(2);
-    request.set_task_id(12);
+    request.set_job_id(4);
+    request.set_task_id(14);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
     TaskContext context(request, callback);
 
+    writer->addTask(appendVertices).get();
     auto task = std::make_shared<RebuildTagIndexTask>(RebuildIndexTest::env_, std::move(context));
     manager_->addAsyncTask(task);
-    writer->addTask(appendVertices).get();
 
     // Wait for the task finished
     do {
@@ -323,8 +341,8 @@ TEST_F(RebuildIndexTest, RebuildTagIndex) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
-    request.set_job_id(3);
-    request.set_task_id(13);
+    request.set_job_id(5);
+    request.set_task_id(15);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -378,8 +396,8 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
-    request.set_job_id(4);
-    request.set_task_id(14);
+    request.set_job_id(6);
+    request.set_task_id(16);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -440,8 +458,8 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
-    request.set_job_id(5);
-    request.set_task_id(15);
+    request.set_job_id(7);
+    request.set_task_id(17);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
@@ -483,8 +501,8 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndex) {
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
-    request.set_job_id(6);
-    request.set_task_id(16);
+    request.set_job_id(8);
+    request.set_task_id(18);
     request.set_para(std::move(parameter));
 
     auto callback = [](cpp2::ErrorCode) {};
