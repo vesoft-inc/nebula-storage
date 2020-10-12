@@ -60,6 +60,8 @@ cpp2::ErrorCode BaseProcessor<RESP>::to(kvstore::ResultCode code) {
 template <typename RESP>
 cpp2::ErrorCode BaseProcessor<RESP>::writeResultTo(WriteResult code, bool isEdge) {
     switch (code) {
+    case WriteResult::SUCCEEDED:
+        return cpp2::ErrorCode::SUCCEEDED;
     case WriteResult::UNKNOWN_FIELD:
         if (isEdge) {
             return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
@@ -76,7 +78,7 @@ cpp2::ErrorCode BaseProcessor<RESP>::writeResultTo(WriteResult code, bool isEdge
     case WriteResult::INCORRECT_VALUE:
         return cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
     default:
-        return cpp2::ErrorCode::SUCCEEDED;
+        return cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
