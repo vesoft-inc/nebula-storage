@@ -38,9 +38,9 @@ void GetEdgetypeEdgesProcessor::process(const cpp2::GetEdgetypeEdgesRequest& req
     }
 
     CHECK_NOTNULL(env_->kvstore_);
-    edges_.colNames.emplace_back("srcId");
-    edges_.colNames.emplace_back("rank");
-    edges_.colNames.emplace_back("dstId");
+    edges_.colNames.emplace_back(kSrc);
+    edges_.colNames.emplace_back(kRank);
+    edges_.colNames.emplace_back(kDst);
 
     // Get all edges in one edgetype
     for (auto& partId : parts) {

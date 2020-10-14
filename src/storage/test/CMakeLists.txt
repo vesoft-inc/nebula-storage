@@ -337,6 +337,34 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        get_tag_vertices_test
+    SOURCES
+        GetTagVerticesTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        get_edgetype_edges_test
+    SOURCES
+        GetEdgetypeEdgesTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
 #nebula_add_test(
 #    NAME
 #        vertex_props_test
