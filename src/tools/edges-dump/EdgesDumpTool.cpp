@@ -86,7 +86,8 @@ public:
         rocksdb::ReadOptions roptions;
         rocksdb::Iterator* iter = db->NewIterator(roptions);
         if (!iter) {
-            LOG(FATAL) << "Null iterator!";
+            LOG(ERROR) << "Null iterator!";
+            return;
         }
         if (!FLAGS_vertex_id.empty()) {
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, FLAGS_vertex_id)) {
@@ -137,7 +138,7 @@ int main(int argc, char *argv[]) {
               << "space name: " << FLAGS_space_name
               << ", vertex_id: " << FLAGS_vertex_id;
     if (FLAGS_path.empty() || FLAGS_space_name.empty()) {
-        LOG(INFO) << "Specify the path, space name!";
+        LOG(ERROR) << "Specify the path, space name!";
         return -1;
     }
     nebula::storage::DumpEdges dumper;

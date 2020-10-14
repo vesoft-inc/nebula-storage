@@ -93,7 +93,6 @@ TEST(MetaServiceUtilsTest, storeStrIpCodecTest) {
 }
 
 std::string hostKeyV1(uint32_t ip, Port port) {
-    const std::string kHostsTable = "__hosts__";
     std::string key;
     key.reserve(kHostsTable.size() + sizeof(ip) + sizeof(Port));
     key.append(kHostsTable.data(), kHostsTable.size())
@@ -103,7 +102,6 @@ std::string hostKeyV1(uint32_t ip, Port port) {
 }
 
 std::string leaderKeyV1(uint32_t ip, Port port) {
-    const std::string kLeadersTable = "__leaders__";
     std::string key;
     key.reserve(kLeadersTable.size() + sizeof(ip) + sizeof(Port));
     key.append(kLeadersTable.data(), kLeadersTable.size())

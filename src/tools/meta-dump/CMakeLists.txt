@@ -1,9 +1,8 @@
 nebula_add_executable(
     NAME
-        db_dump
+        meta_dump
     SOURCES
-        DbDumpTool.cpp
-        DbDumper.cpp
+        MetaDumpTool.cpp
     OBJECTS
         ${tools_test_deps}
     LIBRARIES
@@ -14,7 +13,7 @@ nebula_add_executable(
 
 install(
     TARGETS
-        db_dump
+        meta_dump
     DESTINATION
         bin
     COMPONENT

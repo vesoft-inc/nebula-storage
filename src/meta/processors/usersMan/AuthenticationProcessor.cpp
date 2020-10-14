@@ -182,8 +182,8 @@ void ChangePasswordProcessor::process(const cpp2::ChangePasswordReq& req) {
 void ListUsersProcessor::process(const cpp2::ListUsersReq& req) {
     UNUSED(req);
     folly::SharedMutex::ReadHolder rHolder(LockUtils::userLock());
+    auto prefix = MetaServiceUtils::usersPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
-    std::string prefix = "__users__";
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Can't find any users.";

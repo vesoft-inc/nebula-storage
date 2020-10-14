@@ -16,6 +16,24 @@
 namespace nebula {
 namespace meta {
 
+extern const std::string kSpacesTable;
+extern const std::string kPartsTable;
+extern const std::string kHostsTable;
+extern const std::string kTagsTable;
+extern const std::string kEdgesTable;
+extern const std::string kIndexesTable;
+extern const std::string kIndexTable;
+extern const std::string kIndexStatusTable;
+extern const std::string kUsersTable;
+extern const std::string kRolesTable;
+extern const std::string kConfigsTable;
+extern const std::string kDefaultTable;
+extern const std::string kSnapshotsTable;
+extern const std::string kLastUpdateTimeTable;
+extern const std::string kLeadersTable;
+extern const std::string kGroupsTable;
+extern const std::string kZonesTable;
+
 enum class EntryType : int8_t {
     SPACE       = 0x01,
     TAG         = 0x02,
@@ -127,6 +145,8 @@ public:
 
     static cpp2::Schema parseSchema(folly::StringPiece rawData);
 
+    static std::string parseSchemaName(folly::StringPiece rawData);
+
     static std::string indexKey(GraphSpaceID spaceId, IndexID indexID);
 
     static std::string indexVal(const cpp2::IndexItem& item);
@@ -150,6 +170,8 @@ public:
     static std::string rebuildEdgeIndexStatusPrefix(GraphSpaceID spaceId) {
         return rebuildIndexStatusPrefix(spaceId, 'E');
     }
+
+    static std::string metaIndexPrefix();
 
     static std::string indexSpaceKey(const std::string& name);
 
@@ -178,6 +200,8 @@ public:
     static std::string userKey(const std::string& account);
 
     static std::string userVal(const std::string& val);
+
+    static std::string usersPrefix();
 
     static std::string parseUser(folly::StringPiece key);
 

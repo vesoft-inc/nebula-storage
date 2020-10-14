@@ -386,6 +386,11 @@ cpp2::Schema MetaServiceUtils::parseSchema(folly::StringPiece rawData) {
     return schema;
 }
 
+std::string MetaServiceUtils::parseSchemaName(folly::StringPiece rawData) {
+    auto len = *reinterpret_cast<const int32_t *>(rawData.begin());
+    return rawData.subpiece(sizeof(int32_t), len).str();
+}
+
 std::string MetaServiceUtils::indexKey(GraphSpaceID spaceID, IndexID indexID) {
     std::string key;
     key.reserve(kIndexesTable.size() + sizeof(GraphSpaceID) + sizeof(IndexID));
@@ -444,6 +449,10 @@ std::string MetaServiceUtils::rebuildIndexStatusPrefix() {
     key.reserve(kIndexStatusTable.size());
     key.append(kIndexStatusTable.data(), kIndexStatusTable.size());
     return key;
+}
+
+std::string MetaServiceUtils::metaIndexPrefix() {
+    return kIndexTable;
 }
 
 std::string MetaServiceUtils::indexSpaceKey(const std::string& name) {
@@ -639,6 +648,10 @@ std::string MetaServiceUtils::userVal(const std::string& val) {
     key.append(reinterpret_cast<const char*>(&pwdLen), sizeof(size_t))
        .append(val);
     return key;
+}
+
+std::string MetaServiceUtils::usersPrefix() {
+    return kUsersTable;
 }
 
 std::string MetaServiceUtils::parseUser(folly::StringPiece key) {

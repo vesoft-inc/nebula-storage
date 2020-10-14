@@ -56,4 +56,3 @@ void GetEdgeProcessor::process(const cpp2::GetEdgeReq& req) {
 }
 }  // namespace meta
 }  // namespace nebula
-
