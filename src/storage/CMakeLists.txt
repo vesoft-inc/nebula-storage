@@ -36,6 +36,8 @@ nebula_add_library(
     query/GetPropProcessor.cpp
     query/GetVerticesStatisProcessor.cpp
     query/GetEdgesStatisProcessor.cpp
+    query/GetTagVerticesProcessor.cpp
+    query/GetEdgetypeEdgesProcessor.cpp
     index/LookupProcessor.cpp
 )
 

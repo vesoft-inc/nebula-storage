@@ -492,17 +492,26 @@ public:
     ~StatisticsIndexKeyUtils() = default;
 
     /*
-     * vertex index key
+     * Vertex index key
      */
     static std::string vertexIndexKey(size_t vIdLen,
                                       PartitionID partId,
                                       IndexID indexId,
                                       VertexID vId);
     /*
-     * vertex index key preifx
+     * Vertex index key preifx
      */
     static std::string vertexIndexPrefix(PartitionID partId,
                                          IndexID indexId);
+
+    /*
+     * Get vertexId from vertex index key
+     */
+    static VertexIDSlice getIndexVertexID(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_EQ(rawKey.size(), kVertexIndexLen + vIdLen);
+        auto offset = rawKey.size() - vIdLen;
+        return rawKey.subpiece(offset, vIdLen);
+    }
 
     /*
      * edge index key
@@ -520,6 +529,24 @@ public:
      */
     static std::string edgeIndexPrefix(PartitionID partId,
                                        IndexID indexId);
+
+    static VertexIDSlice getIndexSrcId(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_EQ(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - (vIdLen << 1) - sizeof(EdgeRanking);
+        return rawKey.subpiece(offset, vIdLen);
+    }
+
+    static VertexIDSlice getIndexDstId(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_EQ(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - vIdLen;
+        return rawKey.subpiece(offset, vIdLen);
+    }
+
+    static EdgeRanking getIndexRank(size_t vIdLen, const folly::StringPiece& rawKey) {
+        CHECK_EQ(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
+        auto offset = rawKey.size() - vIdLen - sizeof(EdgeRanking);
+        return readInt<EdgeRanking>(rawKey.data() + offset, sizeof(EdgeRanking));
+    }
 
     /*
      * all vertex/edge count index key
