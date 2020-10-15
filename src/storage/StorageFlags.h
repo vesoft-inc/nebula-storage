@@ -33,8 +33,6 @@ DECLARE_int32(reader_handlers);
 
 DECLARE_bool(enable_multi_versions);
 
-DECLARE_bool(enable_multi_versions);
-
 DECLARE_string(reader_handlers_type);
 
 #endif  // STORAGE_STORAGEFLAGS_H_

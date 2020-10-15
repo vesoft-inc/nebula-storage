@@ -168,7 +168,7 @@ bool StorageServer::start() {
 
             ServiceStatus expected = STATUS_UNINITIALIZED;
             if (!storageSvcStatus_.compare_exchange_strong(expected, STATUS_RUNNING)) {
-                LOG(ERROR) << "Impossible! How could it happens!";
+                LOG(ERROR) << "Impossible! How could it happen!";
                 return;
             }
             LOG(INFO) << "The storage service start on " << localHost_;
@@ -195,7 +195,7 @@ bool StorageServer::start() {
 
             ServiceStatus expected = STATUS_UNINITIALIZED;
             if (!adminSvcStatus_.compare_exchange_strong(expected, STATUS_RUNNING)) {
-                LOG(ERROR) << "Impossible! How could it happens!";
+                LOG(ERROR) << "Impossible! How could it happen!";
                 return;
             }
             LOG(INFO) << "The admin service start on " << adminAddr;
