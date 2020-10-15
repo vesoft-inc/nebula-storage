@@ -222,20 +222,17 @@ std::string StatisticsIndexKeyUtils::edgeIndexKey(size_t vIdLen,
                                                   PartitionID partId,
                                                   IndexID indexId,
                                                   VertexID srcId,
-                                                  EdgeType type,
                                                   EdgeRanking rank,
                                                   VertexID dstId) {
     CHECK_GE(vIdLen, srcId.size());
     CHECK_GE(vIdLen, dstId.size());
     int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kIndex);
     std::string key;
-    key.reserve(sizeof(PartitionID) + sizeof(IndexID) + (vIdLen << 1) +
-                sizeof(EdgeType) + sizeof(EdgeRanking));
+    key.reserve(sizeof(PartitionID) + sizeof(IndexID) + (vIdLen << 1) + sizeof(EdgeRanking));
     key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
        .append(reinterpret_cast<const char*>(&indexId), sizeof(IndexID))
        .append(srcId.data(), srcId.size())
        .append(vIdLen - srcId.size(), '\0')
-       .append(reinterpret_cast<const char*>(&type), sizeof(EdgeType))
        .append(reinterpret_cast<const char*>(&rank), sizeof(EdgeRanking))
        .append(dstId.data(), dstId.size())
        .append(vIdLen - dstId.size(), '\0');

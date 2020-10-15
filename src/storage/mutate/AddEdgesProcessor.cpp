@@ -227,18 +227,17 @@ AddEdgesProcessor::addEdges(PartitionID partId,
         auto eIndexIt = edgeTypeToIndexId_.find(edgeType);
         if (eIndexIt != edgeTypeToIndexId_.end()) {
             auto indexId = eIndexIt->second;
-            auto edgeIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(spaceVidLen_,
-                                                                      partId,
-                                                                      indexId,
-                                                                      srcId,
-                                                                      edgeType,
-                                                                      rank,
-                                                                      dstId);
-            if (!edgeIndexKey.empty()) {
+            auto eIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(spaceVidLen_,
+                                                                   partId,
+                                                                   indexId,
+                                                                   srcId,
+                                                                   rank,
+                                                                   dstId);
+            if (!eIndexKey.empty()) {
                 auto retRebuild = rebuildingModifyOp(spaceId_,
                                                      partId,
                                                      indexId,
-                                                     edgeIndexKey,
+                                                     eIndexKey,
                                                      batchHolder.get());
                 if (retRebuild == folly::none) {
                     return folly::none;

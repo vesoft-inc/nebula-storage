@@ -173,22 +173,21 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
             auto eIndexIt = edgeTypeToIndexId_.find(type);
             if (eIndexIt != edgeTypeToIndexId_.end()) {
                 auto eIndexId = eIndexIt->second;
-                auto edgeIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(spaceVidLen_,
-                                                                          partId,
-                                                                          eIndexId,
-                                                                          srcId,
-                                                                          type,
-                                                                          rank,
-                                                                          dstId);
-                if (!edgeIndexKey.empty()) {
+                auto eIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(spaceVidLen_,
+                                                                       partId,
+                                                                       eIndexId,
+                                                                       srcId,
+                                                                       rank,
+                                                                       dstId);
+                if (!eIndexKey.empty()) {
                     if (env_->checkRebuilding(spaceId_, partId, eIndexId)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                        batchHolder->put(std::move(deleteOpKey), std::move(edgeIndexKey));
+                        batchHolder->put(std::move(deleteOpKey), std::move(eIndexKey));
                     } else if (env_->checkIndexLocked(spaceId_, partId, eIndexId)) {
                         LOG(ERROR) << "The index has been locked, index id " << eIndexId;
                         return folly::none;
                     } else {
-                        batchHolder->remove(std::move(edgeIndexKey));
+                        batchHolder->remove(std::move(eIndexKey));
                     }
                 }
             }

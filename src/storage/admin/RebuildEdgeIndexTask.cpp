@@ -129,14 +129,13 @@ RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                         std::move(colsType));
             data.emplace_back(std::move(indexKey), "");
         } else if (indexType == nebula::meta::cpp2::IndexType::EDGE) {
-            auto edgeIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(vidSize,
-                                                                      part,
-                                                                      indexId,
-                                                                      source,
-                                                                      edgeType,
-                                                                      ranking,
-                                                                      destination);
-            data.emplace_back(std::move(edgeIndexKey), "");
+            auto eIndexKey = StatisticsIndexKeyUtils::edgeIndexKey(vidSize,
+                                                                   part,
+                                                                   indexId,
+                                                                   source,
+                                                                   ranking,
+                                                                   destination);
+            data.emplace_back(std::move(eIndexKey), "");
         } else if (indexType == nebula::meta::cpp2::IndexType::EDGE_COUNT) {
             edgeCountOfPart++;
         } else {

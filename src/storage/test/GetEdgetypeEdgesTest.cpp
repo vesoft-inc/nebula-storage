@@ -84,7 +84,6 @@ TEST(GetEdgetypeEdgesTest, SimpleTest) {
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(0, resp.edges.rowSize());
-        EXPECT_EQ(0, resp.edges.rows[0].size());
     }
     {
         // Get all edge in edge 102
@@ -98,7 +97,6 @@ TEST(GetEdgetypeEdgesTest, SimpleTest) {
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
         EXPECT_EQ(0, resp.edges.rowSize());
-        EXPECT_EQ(0, resp.edges.rows[0].size());
     }
     // Add edge data
     {
