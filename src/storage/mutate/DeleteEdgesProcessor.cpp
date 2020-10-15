@@ -154,11 +154,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 dstId,
                                                                 valuesRet.value(),
                                                                 colsType);
-
-                    if (env_->checkRebuilding(spaceId_, partId, indexId)) {
+                    auto indexState = env_->getIndexState(spaceId_, partId, indexId);
+                    if (env_->checkRebuilding(indexState)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
-                    } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                    } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                         return folly::none;
                     } else {
@@ -180,10 +180,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                        rank,
                                                                        dstId);
                 if (!eIndexKey.empty()) {
-                    if (env_->checkRebuilding(spaceId_, partId, eIndexId)) {
+                    auto indexState = env_->getIndexState(spaceId_, partId, eIndexId);
+                    if (env_->checkRebuilding(indexState)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(eIndexKey));
-                    } else if (env_->checkIndexLocked(spaceId_, partId, eIndexId)) {
+                    } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked, index id " << eIndexId;
                         return folly::none;
                     } else {
@@ -229,7 +230,9 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                     return folly::none;
                 } else {
                     // key does not exist
-                    VLOG(3) << "Statistic all edge index data not exist, partID " << partId;
+                    LOG(ERROR) << "Statistic all edge index data not exist, partID " << partId
+                               << ", please rebuild index";
+                    return folly::none;
                 }
             } else {
                 countVal = *reinterpret_cast<const int64_t*>(val.c_str()) - countVal;
@@ -250,12 +253,14 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                     if (countVal < 0) {
                         LOG(ERROR) << "statistics all edge index value is illegal, "
                                    << "please rebuild index";
+                        return folly::none;
                     }
                     // Remove statistic all edge index data
-                    if (env_->checkRebuilding(spaceId_, partId, edgeCountIndexId)) {
+                    auto indexState = env_->getIndexState(spaceId_, partId, edgeCountIndexId);
+                    if (env_->checkRebuilding(indexState)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(eCountIndexKey));
-                    } else if (env_->checkIndexLocked(spaceId_, partId, edgeCountIndexId)) {
+                    } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked, index id " << edgeCountIndexId;
                         return folly::none;
                     } else {

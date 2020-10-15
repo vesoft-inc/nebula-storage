@@ -178,10 +178,11 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                                                       colsType);
 
                         // Check the index is building for the specified partition or not
-                        if (env_->checkRebuilding(spaceId_, partId, indexId)) {
+                        auto indexState = env_->getIndexState(spaceId_, partId, indexId);
+                        if (env_->checkRebuilding(indexState)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
-                        } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                        } else if (env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                             return folly::none;
                         } else {
@@ -202,10 +203,11 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                                                                              vertex.getStr());
                     if (!vIndexKey.empty()) {
                         // Check the index is building for the specified partition or not
-                        if (env_->checkRebuilding(spaceId_, partId, vIndexId)) {
+                        auto indexState = env_->getIndexState(spaceId_, partId, vIndexId);
+                        if (env_->checkRebuilding(indexState)) {
                             auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                             batchHolder->put(std::move(deleteOpKey), std::move(vIndexKey));
-                        } else if (env_->checkIndexLocked(spaceId_, partId, vIndexId)) {
+                        } else if (env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked, index id " << vIndexId;
                             return folly::none;
                         } else {
@@ -248,8 +250,9 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                     LOG(ERROR) << "Get statistics index error";
                     return folly::none;
                 } else {
-                    VLOG(3) << "Statistic all vertex index data not exist, partID " << partId
-                            << ", please rebuild index";
+                    LOG(ERROR) << "Statistic all vertex index data not exist, partID " << partId
+                               << ", please rebuild index";
+                    return folly::none;
                 }
             } else {
                 countVal = *reinterpret_cast<const int64_t*>(val.c_str()) - countVal;
@@ -270,12 +273,14 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
                     if (countVal < 0) {
                         LOG(ERROR) << "statistics all vertex index value is illegal, "
                                    << "please rebuild index";
+                        return folly::none;
                     }
                     // Remove statistic all vertex index data
-                    if (env_->checkRebuilding(spaceId_, partId, vCountIndexId)) {
+                    auto indexState = env_->getIndexState(spaceId_, partId, vCountIndexId);
+                    if (env_->checkRebuilding(indexState)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(vCountIndexKey));
-                    } else if (env_->checkIndexLocked(spaceId_, partId, vCountIndexId)) {
+                    } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked, index id " << vCountIndexId;
                         return folly::none;
                     } else {

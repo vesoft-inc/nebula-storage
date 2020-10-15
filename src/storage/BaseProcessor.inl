@@ -248,10 +248,11 @@ BaseProcessor<RESP>::rebuildingModifyOp(GraphSpaceID spaceId,
                                         kvstore::BatchHolder* batchHolder,
                                         std::string val) {
     // Check the index is building for the specified partition or not.
-    if (env_->checkRebuilding(spaceId, partId, indexId)) {
+    auto indexState = env_->getIndexState(spaceId, partId, indexId);
+    if (env_->checkRebuilding(indexState)) {
         auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, key);
         batchHolder->put(std::move(modifyOpKey), std::move(val));
-    } else if (env_->checkIndexLocked(spaceId, partId, indexId)) {
+    } else if (env_->checkIndexLocked(indexState)) {
         LOG(ERROR) << "The index has been locked, index id:" << indexId;
         return folly::none;
     } else {

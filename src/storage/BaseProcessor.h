@@ -53,7 +53,7 @@ protected:
     }
 
     cpp2::ErrorCode getSpaceVidLen(GraphSpaceID spaceId) {
-        auto len = this->env_->schemaMan_->getSpaceVidLen(spaceId);
+        auto len = env_->schemaMan_->getSpaceVidLen(spaceId);
         if (!len.ok()) {
             return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
         }
