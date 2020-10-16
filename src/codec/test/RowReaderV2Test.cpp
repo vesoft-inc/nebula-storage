@@ -311,7 +311,7 @@ TEST(RowReaderV2, encodedData) {
     EXPECT_EQ(Value::Type::TIME, val.type());
     EXPECT_EQ(t, val.getTime());
 
-    // Col 12 -- non-existing column
+    // Col 13 -- non-existing column
     val = reader->getValueByIndex(13);
     EXPECT_EQ(Value::Type::NULLVALUE, val.type());
 }
