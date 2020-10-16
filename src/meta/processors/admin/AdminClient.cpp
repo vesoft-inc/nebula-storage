@@ -9,6 +9,7 @@
 #include "meta/processors/Common.h"
 #include "meta/ActiveHostsMan.h"
 #include "kvstore/Part.h"
+#include "utils/Utils.h"
 
 DEFINE_int32(max_retry_times_admin_op, 30, "max retry times for admin request!");
 
@@ -74,6 +75,17 @@ folly::Future<Status> AdminClient::addPart(GraphSpaceID spaceId,
     req.set_space_id(spaceId);
     req.set_part_id(partId);
     req.set_as_learner(asLearner);
+    auto ret = getPeers(spaceId, partId);
+    if (!ret.ok()) {
+        return ret.status();
+    }
+    auto peers = std::move(ret).value();
+    std::vector<HostAddr> thriftPeers;
+    thriftPeers.resize(peers.size());
+    std::transform(peers.begin(), peers.end(), thriftPeers.begin(), [this](const auto& h) {
+        return toThriftHost(h);
+    });
+    req.set_peers(std::move(thriftPeers));
     return getResponse(host, std::move(req), [] (auto client, auto request) {
                return client->future_addPart(request);
            }, [] (auto&& resp) -> Status {
@@ -267,13 +279,17 @@ folly::Future<Status> AdminClient::checkPeers(GraphSpaceID spaceId, PartitionID 
     auto fut = pro.getFuture();
     std::vector<folly::Future<Status>> futures;
     for (auto& p : peers) {
+        if (!ActiveHostsMan::isLived(kv_, p)) {
+            LOG(INFO) << "[" << spaceId << ":" << partId << "], Skip the dead host " << p;
+            continue;
+        }
         auto f = getResponse(p, req, [] (auto client, auto request) {
                     return client->future_checkPeers(request);
                  }, [] (auto&& resp) -> Status {
                     if (resp.get_code() == storage::cpp2::ErrorCode::SUCCEEDED) {
                         return Status::OK();
                     } else {
-                        return Status::Error("Add part failed! code=%d",
+                        return Status::Error("Check peers failed! code=%d",
                                              static_cast<int32_t>(resp.get_code()));
                     }
                  });
@@ -316,12 +332,14 @@ folly::Future<Status> AdminClient::getResponse(
                      this] () mutable {
         auto client = clientsMan_->client(host, evb);
         remoteFunc(client, std::move(req)).via(evb)
-            .then([p = std::move(pro), partId, respGen = std::move(respGen)](
+            .then([p = std::move(pro), partId, respGen = std::move(respGen), host](
                            folly::Try<storage::cpp2::AdminExecResp>&& t) mutable {
                 // exception occurred during RPC
                 if (t.hasException()) {
-                    p.setValue(Status::Error(folly::stringPrintf("RPC failure in AdminClient: %s",
-                                                                 t.exception().what().c_str())));
+                    p.setValue(Status::Error(folly::stringPrintf(
+                                                    "[%s] RPC failure in AdminClient: %s",
+                                                     host.toString().c_str(),
+                                                     t.exception().what().c_str())));
                     return;
                 }
                 auto&& result = std::move(t).value().get_result();
@@ -364,7 +382,8 @@ void AdminClient::getResponse(
                 if (retry < retryLimit) {
                     LOG(INFO) << "Rpc failure to " << hosts[index]
                               << ", retry " << retry
-                              << ", limit " << retryLimit;
+                              << ", limit " << retryLimit
+                              << ", error: " << t.exception();
                     index = (index + 1) % hosts.size();
                     getResponse(std::move(hosts),
                                 index,
@@ -534,7 +553,7 @@ folly::Future<Status> AdminClient::getLeaderDist(HostLeaderMap* result) {
     for (const auto& h : allHosts) {
         folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>> pro;
         auto fut = pro.getFuture();
-        getLeaderDist(h, std::move(pro), 0, 3);
+        getLeaderDist(Utils::getAdminAddrFromStoreAddr(h), std::move(pro), 0, 3);
         hostFutures.emplace_back(std::move(fut));
     }
 
@@ -564,12 +583,13 @@ folly::Future<Status> AdminClient::getLeaderDist(HostLeaderMap* result) {
     return future;
 }
 
-folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId, const std::string& name) {
+folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId,
+                                                  const std::string& name,
+                                                  const HostAddr& host) {
     if (injector_) {
         return injector_->createSnapshot();
     }
 
-    auto allHosts = ActiveHostsMan::getActiveHosts(kv_);
     storage::cpp2::CreateCPRequest req;
     req.set_space_id(spaceId);
     req.set_name(name);
@@ -581,7 +601,7 @@ folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId, const st
      * Don't need retry.
      * Because existing checkpoint directories leads to fail again.
      **/
-    getResponse(std::move(allHosts), 0, std::move(req), [] (auto client, auto request) {
+    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
         return client->future_createCheckpoint(request);
     }, 0, std::move(pro), 0);
     return f;
@@ -589,7 +609,7 @@ folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId, const st
 
 folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
                                                 const std::string& name,
-                                                const std::vector<HostAddr>& hosts) {
+                                                const HostAddr& host) {
     if (injector_) {
         return injector_->dropSnapshot();
     }
@@ -600,21 +620,22 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
 
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse(std::move(hosts), 0, std::move(req), [] (auto client, auto request) {
+    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
         return client->future_dropCheckpoint(request);
     }, 0, std::move(pro), 1 /*The snapshot operation only needs to be retried twice*/);
     return f;
 }
 
 folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
-                                                  storage::cpp2::EngineSignType sign) {
+                                                  storage::cpp2::EngineSignType sign,
+                                                  const HostAddr& host) {
     auto allHosts = ActiveHostsMan::getActiveHosts(kv_);
     storage::cpp2::BlockingSignRequest req;
     req.set_space_id(spaceId);
     req.set_sign(sign);
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse(std::move(allHosts), 0, std::move(req), [] (auto client, auto request) {
+    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
         return client->future_blockingWrites(request);
     }, 0, std::move(pro), 1 /*The blocking needs to be retried twice*/);
     return f;
@@ -671,7 +692,7 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
                     const std::vector<std::string>& taskSpecficParas,
                     std::vector<PartitionID> parts,
                     int concurrency) {
-    auto hosts = targetHost.empty() ? ActiveHostsMan::getActiveHosts(kv_) : targetHost;
+    auto hosts = targetHost.empty() ? ActiveHostsMan::getActiveAdminHosts(kv_) : targetHost;
     storage::cpp2::AddAdminTaskRequest req;
     req.set_cmd(cmd);
     req.set_job_id(jobId);
@@ -700,7 +721,7 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
                       int32_t jobId,
                       int32_t taskId) {
     LOG(INFO) << "AdminClient::stopTask()";
-    auto hosts = target.empty() ? ActiveHostsMan::getActiveHosts(kv_) : target;
+    auto hosts = target.empty() ? ActiveHostsMan::getActiveAdminHosts(kv_) : target;
     storage::cpp2::StopAdminTaskRequest req;
     req.set_job_id(jobId);
     req.set_task_id(taskId);

@@ -88,17 +88,18 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                     propNames = iter->second;
                 }
 
-                auto retEnc = encodeRowVal(schema.get(), propNames, props);
+                WriteResult wRet;
+                auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
                 if (!retEnc.ok()) {
                     LOG(ERROR) << retEnc.status();
-                    pushResultCode(cpp2::ErrorCode::E_DATA_TYPE_MISMATCH, partId);
+                    pushResultCode(writeResultTo(wRet, false), partId);
                     onFinished();
                     return;
                 }
                 data.emplace_back(std::move(key), std::move(retEnc.value()));
 
                 if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                    vertexCache_->evict(std::make_pair(vid.getStr(), tagId), partId);
+                    vertexCache_->evict(std::make_pair(vid.getStr(), tagId));
                     VLOG(3) << "Evict cache for vId " << vid
                             << ", tagId " << tagId;
                 }

@@ -163,7 +163,6 @@ cpp2::ErrorCode UpdateVertexProcessor::buildTagSchema() {
 cpp2::ErrorCode
 UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     // Build context of the update vertex tag props
-    auto partId = req.get_part_id();
     auto vId = req.get_vertex_id();
     auto tagNameRet = env_->schemaMan_->toTagName(spaceId_, tagId_);
     if (!tagNameRet.ok()) {
@@ -175,7 +174,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     // update, evict the old elements
     if (FLAGS_enable_vertex_cache && tagContext_.vertexCache_ != nullptr) {
         VLOG(1) << "Evict cache for vId " << vId << ", tagId " << tagId_;
-        tagContext_.vertexCache_->evict(std::make_pair(vId.getStr(), tagId_), partId);
+        tagContext_.vertexCache_->evict(std::make_pair(vId.getStr(), tagId_));
     }
 
     for (auto& prop : updatedProps_) {
@@ -253,7 +252,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
         auto schema = schemas.back().get();
         if (!schema) {
             VLOG(1) << "Fail to get schema in TagId " << tagId_;
-            return cpp2::ErrorCode::E_UNKNOWN;
+            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
         planContext_->tagSchema_ = schema;
     } else {
