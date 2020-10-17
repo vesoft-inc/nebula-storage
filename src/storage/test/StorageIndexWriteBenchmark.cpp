@@ -20,8 +20,8 @@
 
 
 DEFINE_int32(bulk_insert_size, 1000, "The number of vertices by bulk insert");
-DEFINE_int32(total_vertices_size, 1000, "The number of vertices");
-DEFINE_string(root_data_path, "/home/bright2star/IndexWritePref", "Engine data path");
+DEFINE_int32(total_vertices_size, 1000000, "The number of vertices");
+DEFINE_string(root_data_path, "/tmp/IndexWritePref", "Engine data path");
 
 namespace nebula {
 namespace storage {
