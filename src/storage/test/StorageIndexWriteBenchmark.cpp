@@ -63,7 +63,7 @@ std::vector<nebula::meta::cpp2::ColumnDef> mockTagIndexColumns() {
     for (int32_t i = 0; i < 3; i++) {
         nebula::meta::cpp2::ColumnDef col;
         col.name = folly::stringPrintf("col_%d", i);
-        col.type = meta::cpp2::PropertyType::INT64;
+        col.type.type = meta::cpp2::PropertyType::INT64;
         cols.emplace_back(std::move(col));
     }
     return cols;
@@ -74,8 +74,8 @@ std::shared_ptr<meta::NebulaSchemaProvider> mockTagSchema() {
     for (int32_t i = 0; i < 3; i++) {
         nebula::meta::cpp2::ColumnDef col;
         col.name = folly::stringPrintf("col_%d", i);
-        col.type = meta::cpp2::PropertyType::INT64;
-        schema->addField(col.name, col.type);
+        col.type.type = meta::cpp2::PropertyType::INT64;
+        schema->addField(col.name, col.type.type);
     }
     return schema;
 }
@@ -173,6 +173,7 @@ void initEnv(IndexENV type,
     env->schemaMan_ = std::move(sm).get();
     env->indexMan_ = std::move(im).get();
     env->kvstore_ = std::move(kv).get();
+    env->rebuildIndexGuard_ = std::make_unique<IndexGuard>();
 }
 
 void insertVertices(bool withoutIndex) {
@@ -347,7 +348,7 @@ void insertDupVertices() {
         std::string dataPath = folly::stringPrintf("%s/%s",
                                                    FLAGS_root_data_path.c_str(),
                                                    "duplicateIndex");
-        initEnv(IndexENV::ONE_INDEX, dataPath, env, kv, sm, im);
+        initEnv(IndexENV::MULITPLE_INDEX, dataPath, env, kv, sm, im);
     };
 
     while (vId < FLAGS_total_vertices_size) {
@@ -379,7 +380,7 @@ void insertDupVertices() {
                 cnt++;
                 iter->next();
             }
-            if (cnt != FLAGS_total_vertices_size * 2) {
+            if (cnt != FLAGS_total_vertices_size) {
                 LOG(ERROR) << "Vertices insert error , expected : "
                            << FLAGS_total_vertices_size
                            << "actual : " << cnt;
