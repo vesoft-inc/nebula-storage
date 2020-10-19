@@ -814,6 +814,16 @@ std::vector<VertexID> MockData::mockVerticeIds() {
     return ret;
 }
 
+std::vector<VertexID> MockData::mockPlayerVerticeIds() {
+    std::vector<VertexID> ret;
+    for (auto& player : players_) {
+        VertexID data;
+        data = player.name_;
+        ret.push_back(data);
+    }
+    return ret;
+}
+
 std::vector<EdgeData> MockData::mockEdges(bool upper) {
     std::vector<EdgeData> ret;
     // Use serve data, positive edgeType is 101, reverse edgeType is -101

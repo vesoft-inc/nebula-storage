@@ -438,7 +438,7 @@ bool BaseProcessor<RESP>::checkIndexExist(const std::vector<std::string>& fields
         }
 
         if (i == fields.size() - 1) {
-            LOG(ERROR) << "Index " << item.get_index_name() << " have existed";
+            LOG(ERROR) << "Index " << item.get_index_name() << " has existed";
             return true;
         }
     }

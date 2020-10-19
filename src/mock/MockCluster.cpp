@@ -207,8 +207,12 @@ MockCluster::memIndexMan(GraphSpaceID spaceId) {
     indexMan->addTagIndex(spaceId, 1, 1, MockData::mockPlayerTagIndexColumns());
     indexMan->addTagIndex(spaceId, 2, 2, MockData::mockTeamTagIndexColumns());
     indexMan->addTagIndex(spaceId, 3, 3, MockData::mockGeneralTagIndexColumns());
+    indexMan->addTagIndex(spaceId, 1, 4, {});
+    indexMan->addTagIndex(spaceId, 2, 5, {});
     indexMan->addEdgeIndex(spaceId, 101, 101, MockData::mockServeEdgeIndexColumns());
     indexMan->addEdgeIndex(spaceId, 102, 102, MockData::mockTeammateEdgeIndexColumns());
+    indexMan->addEdgeIndex(spaceId, 101, 103, {});
+    indexMan->addEdgeIndex(spaceId, 102, 104, {});
     return indexMan;
 }
 

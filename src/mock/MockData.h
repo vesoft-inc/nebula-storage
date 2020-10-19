@@ -119,6 +119,8 @@ public:
 
     static std::vector<VertexID> mockVerticeIds();
 
+    static std::vector<VertexID> mockPlayerVerticeIds();
+
     // generate serve edge with different rank
     static std::unordered_map<VertexID, std::vector<EdgeData>> mockmMultiRankServes(
             EdgeRanking rankCount = 1);

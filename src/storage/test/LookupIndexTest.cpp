@@ -11,6 +11,7 @@
 #include "utils/NebulaKeyUtils.h"
 #include "utils/IndexKeyUtils.h"
 #include "mock/MockCluster.h"
+#include "mock/MockData.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "common/interface/gen-cpp2/common_types.h"
 #include "storage/index/LookupProcessor.h"
@@ -993,6 +994,148 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         row2.emplace_back(Value(srcId));
         row2.emplace_back(Value(2002L));
         expectRows.emplace_back(Row(row2));
+        QueryTestUtils::checkResponse(resp, expectCols, expectRows);
+    }
+}
+
+TEST(LookupIndexTest, TagStatisVerticesIndexTest) {
+    fs::TempDir rootPath("/tmp/TagStatisVerticesIndexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    GraphSpaceID spaceId = 1;
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(vIdLen.ok());
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_TRUE(QueryTestUtils::mockVertexData(env, totalParts, true, false));
+
+    /**
+     * one IndexQueryContext, only has index_id, filter and column_hints are empty
+     * lookup plan should be :
+     *              +--------+---------+
+     *              |       Plan       |
+     *              +--------+---------+
+     *                       |
+     *              +--------+---------+
+     *              |  AggregateNode   |
+     *              +--------+---------+
+     *                       |
+     *            +----------+-----------+
+     *            +   IndexOutputNode    +
+     *            +----------+-----------+
+     *                       |
+     *            +----------+-----------+
+     *            +    IndexScanNode     +
+     *            +----------+-----------+
+    **/
+    {
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
+        cpp2::LookupIndexRequest req;
+        decltype(req.indices) indices;
+        req.set_space_id(spaceId);
+        indices.set_tag_or_edge_id(1);
+        indices.set_is_edge(false);
+        decltype(req.parts) parts;
+        for (int32_t p = 1; p <= totalParts; p++) {
+            parts.emplace_back(p);
+        }
+        req.set_parts(std::move(parts));
+        cpp2::IndexQueryContext context1;
+        context1.set_filter("");
+        context1.set_index_id(4);
+        decltype(indices.contexts) contexts;
+        contexts.emplace_back(std::move(context1));
+        indices.set_contexts(std::move(contexts));
+        req.set_indices(std::move(indices));
+
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        std::vector<std::string> expectCols = {"_vid"};
+        decltype(resp.get_data()->rows) expectRows;
+
+        auto playerVerticeId = mock::MockData::mockPlayerVerticeIds();
+        for (auto& vId : playerVerticeId) {
+            Row row1;
+            row1.emplace_back(Value(vId));
+            expectRows.emplace_back(Row(row1));
+        }
+
+        QueryTestUtils::checkResponse(resp, expectCols, expectRows);
+    }
+}
+
+TEST(LookupIndexTest, EdgeStatisVerticesIndexTest) {
+    fs::TempDir rootPath("/tmp/EdgeStatisVerticesIndexTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    GraphSpaceID spaceId = 1;
+    auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId);
+    ASSERT_TRUE(vIdLen.ok());
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_TRUE(QueryTestUtils::mockVertexData(env, totalParts));
+    ASSERT_TRUE(QueryTestUtils::mockEdgeData(env, totalParts, 1, true, false));
+
+    /**
+     * one IndexQueryContext, only has index_id, filter and column_hints are empty
+     * lookup plan should be :
+     *              +--------+---------+
+     *              |       Plan       |
+     *              +--------+---------+
+     *                       |
+     *              +--------+---------+
+     *              |  AggregateNode   |
+     *              +--------+---------+
+     *                       |
+     *            +----------+-----------+
+     *            +   IndexOutputNode    +
+     *            +----------+-----------+
+     *                       |
+     *            +----------+-----------+
+     *            +    IndexScanNode     +
+     *            +----------+-----------+
+    **/
+    {
+        auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
+        cpp2::LookupIndexRequest req;
+        decltype(req.indices) indices;
+        req.set_space_id(spaceId);
+        indices.set_tag_or_edge_id(102);
+        indices.set_is_edge(true);
+        decltype(req.parts) parts;
+        for (int32_t p = 1; p <= totalParts; p++) {
+            parts.emplace_back(p);
+        }
+        req.set_parts(std::move(parts));
+        cpp2::IndexQueryContext context1;
+        context1.set_filter("");
+        context1.set_index_id(103);
+        decltype(indices.contexts) contexts;
+        contexts.emplace_back(std::move(context1));
+        indices.set_contexts(std::move(contexts));
+        req.set_indices(std::move(indices));
+
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+        std::vector<std::string> expectCols = {"_src", "_ranking", "_dst"};
+        decltype(resp.get_data()->rows) expectRows;
+
+        auto serveEdgeKey = mock::MockData::mockEdgeKeys();
+
+        // Only positive edgeTypes are counted
+        for (auto & edgekey : serveEdgeKey) {
+            if (edgekey.type_ < 0) {
+                continue;
+            }
+            Row row1;
+            row1.emplace_back(Value(edgekey.srcId_));
+            row1.emplace_back(Value(edgekey.rank_));
+            row1.emplace_back(Value(edgekey.dstId_));
+            expectRows.emplace_back(Row(row1));
+        }
+
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
