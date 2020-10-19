@@ -6,7 +6,7 @@
 
 #include "common/fs/FileUtils.h"
 #include "common/time/Duration.h"
-#include "tools/dbDump/DbDumper.h"
+#include "tools/db-dump/DbDumper.h"
 #include "utils/NebulaKeyUtils.h"
 
 DEFINE_string(space_name, "", "The space name.");
@@ -529,6 +529,9 @@ inline void DbDumper::printEdgeKey(const folly::StringPiece& key) {
 }
 
 void DbDumper::printValue(const RowReader* reader) {
+    if (reader == nullptr) {
+        return;
+    }
     std::cout << " value: ";
     auto schema = reader->getSchema();
     if (schema == nullptr) {

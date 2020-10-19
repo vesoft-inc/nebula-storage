@@ -6,6 +6,7 @@
 #include "common/base/Base.h"
 #include <gtest/gtest.h>
 #include "common/fs/TempDir.h"
+#include "kvstore/RocksEngineConfig.h"
 #include "storage/query/GetPropProcessor.h"
 #include "storage/test/QueryTestUtils.h"
 
@@ -331,10 +332,29 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
         ASSERT_EQ(0, resp.result.failed_parts.size());
         {
             std::vector<nebula::Row> expected;
+            ASSERT_TRUE(resp.__isset.props);
+            verifyResult(expected, resp.props);
+        }
+    }
+    {
+        // Not exists and exists
+        LOG(INFO) << "GetNotExisted";
+        std::vector<VertexID> vertices = {"Not existed", "Tim Duncan"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
             nebula::Row row;
-            std::vector<Value> values;
-            values.emplace_back("Not existed");
-            for (size_t i = 0; i < 1 + 11 + 11; i++) {
+            std::vector<Value> values {  // player
+                "Tim Duncan", "Tim Duncan", 44, false, 19, 1997, 2016, 1392, 19.0, 1, "America", 5};
+            for (size_t i = 0; i < 1 + 11; i++) {  // team and tag3
                 values.emplace_back(Value());
             }
             row.values = std::move(values);
@@ -343,6 +363,37 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             verifyResult(expected, resp.props);
         }
     }
+}
+
+TEST(QueryVertexPropsTest, PrefixBloomFilterTest) {
+    FLAGS_enable_rocksdb_statistics = true;
+    FLAGS_enable_rocksdb_prefix_filtering = true;
+
+    fs::TempDir rootPath("/tmp/GetPropTest.XXXXXX");
+    mock::MockCluster cluster;
+    cluster.initStorageKV(rootPath.path());
+    auto* env = cluster.storageEnv_.get();
+    auto totalParts = cluster.getTotalParts();
+    ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
+
+    GraphSpaceID spaceId = 1;
+    auto status = env->schemaMan_->getSpaceVidLen(spaceId);
+    auto vIdLen = status.value();
+    std::vector<VertexID> vertices = {"Tim Duncan", "Not Existed"};
+    std::hash<std::string> hash;
+    for (const auto& vId : vertices) {
+        PartitionID partId = (hash(vId) % totalParts) + 1;
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId, vId);
+        auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
+        CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+    }
+
+    std::shared_ptr<rocksdb::Statistics> statistics = kvstore::getDBStatistics();
+    ASSERT_GT(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_PREFIX_CHECKED), 0);
+    ASSERT_GT(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_PREFIX_USEFUL), 0);
+    FLAGS_enable_rocksdb_statistics = false;
+    FLAGS_enable_rocksdb_prefix_filtering = false;
 }
 
 }  // namespace storage
