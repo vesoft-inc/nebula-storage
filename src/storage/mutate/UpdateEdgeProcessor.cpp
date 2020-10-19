@@ -264,6 +264,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
 
     if (expCtx_ == nullptr) {
         expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_,
+                                                             isIntId_,
                                                              planContext_->edgeName_,
                                                              planContext_->edgeSchema_,
                                                              true);

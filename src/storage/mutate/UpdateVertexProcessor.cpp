@@ -262,6 +262,7 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
 
     if (expCtx_ == nullptr) {
         expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_,
+                                                             isIntId_,
                                                              planContext_->tagName_,
                                                              planContext_->tagSchema_,
                                                              false);
