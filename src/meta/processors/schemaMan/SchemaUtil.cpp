@@ -109,10 +109,10 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
                     }
                     auto& colType = column.get_type();
                     size_t typeLen = colType.__isset.type_length ? *colType.get_type_length() : 0;
-                    if (value->getStr().size() > typeLen) {
-                        const auto trimStr = value->getStr().substr(0, typeLen);
-                        value->setStr(trimStr);
-                        ConstantExpression fixedVale(*value);
+                    if (value.getStr().size() > typeLen) {
+                        const auto trimStr = value.getStr().substr(0, typeLen);
+                        value.setStr(trimStr);
+                        ConstantExpression fixedVale(value);
                         column.set_default_value(Expression::encode(fixedVale));
                     }
                     break;

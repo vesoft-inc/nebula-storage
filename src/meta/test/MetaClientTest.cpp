@@ -401,7 +401,7 @@ TEST(MetaClientTest, TagTest) {
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
-        doubleColumn.type.set_type(PropertyType::DOUBLE);
+        doubleColumn.type.set_type(PropertyType::STRING);
         ConstantExpression floatValue(Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));

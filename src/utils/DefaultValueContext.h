@@ -56,6 +56,16 @@ public:
 
     void setVar(const std::string&, Value) override {
     }
+
+    Value getVertex() const override {
+        LOG(FATAL) << "Not allowed to call";
+        return Value::kEmpty;
+    }
+
+    Value getEdge() const override {
+        LOG(FATAL) << "Not allowed to call";
+        return Value::kEmpty;
+    }
 };
 }  // namespace nebula
 

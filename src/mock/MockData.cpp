@@ -403,7 +403,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeEdgeSchema(Schema
     schema->addField("teamCareer",
                      meta::cpp2::PropertyType::INT64,
                      0,
-                     false)
+                     false);
     schema->addField("teamGames",
                      meta::cpp2::PropertyType::INT64,
                      0,
