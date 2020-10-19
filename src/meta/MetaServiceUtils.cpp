@@ -35,6 +35,10 @@ const std::string kListenerTable       = "__listener__";         // NOLINT
 // The number of edges of each edgetype in the space
 const std::string kStatisTable         = "__statis__";           // NOLINT
 
+const std::string kFTIndexTable        = "__ft_index__";         // NOLINT
+const std::string kFTServiceTable      = "__ft_service__";       // NOLINT
+>>>>>>> full text service for meta
+
 const std::string kHostOnline  = "Online";       // NOLINT
 const std::string kHostOffline = "Offline";      // NOLINT
 
@@ -1082,6 +1086,62 @@ cpp2::StatisItem MetaServiceUtils::parseStatisVal(folly::StringPiece rawData) {
 
 const std::string& MetaServiceUtils::statisKeyPrefix() {
     return kStatisTable;
+}
+
+std::string MetaServiceUtils::fulltextIndexKey(GraphSpaceID spaceId,
+                                               const cpp2::FTIndexType& type) {
+    // Only two full-text indexes in a space. tag index or edge index
+    std::string key;
+    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
+    key.append(kFTIndexTable.data(), kFTIndexTable.size())
+        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
+        .append((type == cpp2::FTIndexType::EDGE) ? "_e" : "_t");
+    return key;
+}
+
+std::string MetaServiceUtils::fulltextIndexVal(const cpp2::FTIndexItem& index) {
+    std::string val;
+    apache::thrift::CompactSerializer::serialize(index, &val);
+    return val;
+}
+
+cpp2::FTIndexItem MetaServiceUtils::parseFTindex(folly::StringPiece rawData) {
+    cpp2::FTIndexItem index;
+    apache::thrift::CompactSerializer::deserialize(rawData, index);
+    return index;
+}
+
+std::string MetaServiceUtils::fulltextIndexPrefix(GraphSpaceID spaceId) {
+    std::string key;
+    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
+    key.append(kFTIndexTable.data(), kFTIndexTable.size())
+        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
+    return key;
+}
+
+std::string MetaServiceUtils::fulltextServiceKey() {
+    std::string key;
+    key.reserve(kFTServiceTable.size());
+    key.append(kFTIndexTable.data(), kFTIndexTable.size());
+    return key;
+}
+
+std::string MetaServiceUtils::fulltextServiceVal(cpp2::FTServiceType type,
+                                                 const std::vector<cpp2::FTClient>& clients) {
+    std::string val, cval;
+    apache::thrift::CompactSerializer::serialize(clients, &cval);
+    val.reserve(sizeof(cpp2::FTServiceType) + cval.size());
+    val.append(reinterpret_cast<const char*>(&type), sizeof(cpp2::FTServiceType))
+        .append(cval);
+    return val;
+}
+
+std::vector<cpp2::FTClient> MetaServiceUtils::parseFTClients(folly::StringPiece rawData) {
+    std::vector<cpp2::FTClient> clients;
+    int32_t offset = sizeof(cpp2::FTServiceType);
+    auto clientsRaw = rawData.subpiece(offset, rawData.size() - offset);
+    apache::thrift::CompactSerializer::deserialize(clientsRaw, clients);
+    return clients;
 }
 
 }  // namespace meta

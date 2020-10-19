@@ -1317,6 +1317,140 @@ TEST(MetaClientTest, GroupAndZoneTest) {
     }
 }
 
+TEST(MetaClientTest, FTIndexTest) {
+    FLAGS_heartbeat_interval_secs = 1;
+    fs::TempDir rootPath("/tmp/FTIndexTest.XXXXXX");
+
+    mock::MockCluster cluster;
+    cluster.startMeta(0, rootPath.path());
+    uint32_t localMetaPort = cluster.metaServer_->port_;
+    auto* kv = cluster.metaKV_.get();
+    auto localIp = cluster.localIP();
+
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
+    auto localhosts = std::vector<HostAddr>{HostAddr(localIp, localMetaPort)};
+    auto client = std::make_shared<MetaClient>(threadPool, localhosts);
+    client->waitForMetadReady();
+
+    std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}};
+    TestUtils::registerHB(kv, hosts);
+    meta::cpp2::SpaceDesc spaceDesc;
+    spaceDesc.set_space_name("default");
+    spaceDesc.set_partition_num(9);
+    spaceDesc.set_replica_factor(3);
+    auto ret = client->createSpace(spaceDesc).get();
+    ASSERT_TRUE(ret.ok()) << ret.status();
+    GraphSpaceID spaceId = ret.value();
+    {
+        cpp2::FTIndexItem index;
+        index.set_index_name("nebula_1_e");
+        index.set_index_type(cpp2::FTIndexType::EDGE);
+        auto result = client->createFTIndex(spaceId, index).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        cpp2::FTIndexItem index;
+        index.set_index_name("nebula_1_e");
+        index.set_index_type(cpp2::FTIndexType::EDGE);
+        auto result = client->createFTIndex(spaceId, index).get();
+        ASSERT_FALSE(result.ok());
+        ASSERT_EQ(Status::Error("existed!"), result.status());
+    }
+    {
+        cpp2::FTIndexItem index;
+        index.set_index_name("nebula_1_t");
+        index.set_index_type(cpp2::FTIndexType::TAG);
+        auto result = client->createFTIndex(spaceId, index).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        auto result = client->listFTIndices(spaceId).get();
+        ASSERT_TRUE(result.ok());
+        const auto& indices = result.value();
+        ASSERT_EQ(2, indices.size());
+        std::vector<cpp2::FTIndexItem> expected;
+        cpp2::FTIndexItem edgeIndex, tagIndex;
+        edgeIndex.set_index_name("nebula_1_e");
+        edgeIndex.set_index_type(cpp2::FTIndexType::EDGE);
+        expected.emplace_back(std::move(edgeIndex));
+        tagIndex.set_index_name("nebula_1_t");
+        tagIndex.set_index_type(cpp2::FTIndexType::TAG);
+        expected.emplace_back(std::move(tagIndex));
+        ASSERT_EQ(expected, indices);
+    }
+    {
+        cpp2::FTIndexItem index;
+        auto result = client->dropFTIndex(spaceId, cpp2::FTIndexType::TAG).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        cpp2::FTIndexItem index;
+        auto result = client->dropFTIndex(spaceId, cpp2::FTIndexType::TAG).get();
+        ASSERT_FALSE(result.ok());
+        ASSERT_EQ(Status::Error("not existed!"), result.status());
+    }
+    {
+        auto result = client->listFTIndices(spaceId).get();
+        ASSERT_TRUE(result.ok());
+        const auto& indices = result.value();
+        ASSERT_EQ(1, indices.size());
+        std::vector<cpp2::FTIndexItem> expected;
+        cpp2::FTIndexItem edgeIndex;
+        edgeIndex.set_index_name("nebula_1_e");
+        edgeIndex.set_index_type(cpp2::FTIndexType::EDGE);
+        expected.emplace_back(std::move(edgeIndex));
+        ASSERT_EQ(expected, indices);
+    }
+}
+
+TEST(MetaClientTest, FTServiceTest) {
+    FLAGS_heartbeat_interval_secs = 1;
+    fs::TempDir rootPath("/tmp/FTServiceTest.XXXXXX");
+
+    mock::MockCluster cluster;
+    cluster.startMeta(0, rootPath.path());
+    uint32_t localMetaPort = cluster.metaServer_->port_;
+    auto* kv = cluster.metaKV_.get();
+    auto localIp = cluster.localIP();
+
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
+    auto localhosts = std::vector<HostAddr>{HostAddr(localIp, localMetaPort)};
+    auto client = std::make_shared<MetaClient>(threadPool, localhosts);
+    client->waitForMetadReady();
+
+    std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}};
+    TestUtils::registerHB(kv, hosts);
+
+    std::vector<cpp2::FTClient> clients;
+    cpp2::FTClient c1, c2;
+    c1.set_host({"0", 0});
+    c1.set_user("u1");
+    c1.set_pwd("pwd");
+    clients.emplace_back(c1);
+    c2.set_host({"1", 1});
+    c2.set_user("u2");
+    clients.emplace_back(c2);
+    {
+        cpp2::FTServiceType type = cpp2::FTServiceType::ELASTICSEARCH;
+        auto result = client->signInFTService(type, clients).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        auto result = client->listFTClients().get();
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(clients, result.value());
+    }
+    {
+        auto result = client->signOutFTService().get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        auto result = client->listFTClients().get();
+        ASSERT_TRUE(result.ok());
+        ASSERT_TRUE(result.value().empty());
+    }
+}
+
 class TestListener : public MetaChangedListener {
 public:
     virtual ~TestListener() = default;
