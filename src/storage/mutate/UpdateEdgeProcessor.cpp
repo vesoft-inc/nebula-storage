@@ -41,7 +41,7 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
         return;
     }
 
-    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_);
+    planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_, isIntId_);
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {

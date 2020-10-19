@@ -16,7 +16,8 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         return retCode;
     }
 
-    planContext_ = std::make_unique<PlanContext>(this->env_, spaceId_, this->spaceVidLen_);
+    planContext_ = std::make_unique<PlanContext>(
+        this->env_, spaceId_, this->spaceVidLen_, this->isIntId_);
     const auto& indices = req.get_indices();
     planContext_->isEdge_ = indices.get_is_edge();
     if (planContext_->isEdge_) {
