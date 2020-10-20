@@ -71,13 +71,17 @@ public:
     /*
      * Mock schema
      */
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockPlayerTagSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider>
+    mockPlayerTagSchema(SchemaVer ver = 0, bool hasProp = true);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeamTagSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider>
+    mockTeamTagSchema(SchemaVer ver = 0, bool hasProp = true);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockServeEdgeSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider>
+    mockServeEdgeSchema(SchemaVer ver = 0, bool hasProp = true);
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTeammateEdgeSchema(SchemaVer ver = 0);
+    static std::shared_ptr<meta::NebulaSchemaProvider>
+    mockTeammateEdgeSchema(SchemaVer ver = 0, bool hasProp = true);
 
     static std::vector<nebula::meta::cpp2::ColumnDef> mockGeneralTagIndexColumns();
 

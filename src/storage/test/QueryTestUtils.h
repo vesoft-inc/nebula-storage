@@ -28,7 +28,8 @@ public:
     static bool mockVertexData(storage::StorageEnv* env,
                                int32_t totalParts,
                                bool enableIndex = false,
-                               bool indexWithProp = true) {
+                               bool indexWithProp = true,
+                               bool schemaWithProp = true) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
         if (!status.ok()) {
@@ -51,19 +52,29 @@ public:
                 LOG(ERROR) << "Invalid tagId " << tagId;
                 return false;
             }
-            EXPECT_TRUE(encode(schema.get(), key, vertex.props_, data));
+
+            std::vector<Value> values;
+            if (schemaWithProp) {
+                values = vertex.props_;
+            } else {
+                EXPECT_FALSE(indexWithProp);
+            }
+            EXPECT_TRUE(encode(schema.get(), key, values, data));
+
             if (enableIndex) {
                 if (tagId == 1 || tagId == 2) {
                     std::vector<Value::Type> colsType({});
-                    std::vector<Value> values;
                     int32_t colNum = 0;
                     IndexID indexID = 0;
 
+                    // When schemaWithProp is true, indexWithProp can be true or false.
+                    // When schemaWithProp is false, indexWithProp must be false.
                     if (indexWithProp) {
-                        values = vertex.props_;
+                        EXPECT_TRUE(schemaWithProp);
                         colNum = tagId == 1 ? 3 : 1;
                         indexID = tagId;
                     } else {
+                        values.clear();
                         indexID = tagId == 1 ? 4 : 5;
                     }
 
@@ -98,7 +109,8 @@ public:
                              int32_t totalParts,
                              EdgeVersion maxVersions = 1,
                              bool enableIndex = false,
-                             bool indexWithProp = true) {
+                             bool indexWithProp = true,
+                             bool schemaWithProp = true) {
         GraphSpaceID spaceId = 1;
         auto status = env->schemaMan_->getSpaceVidLen(spaceId);
         if (!status.ok()) {
@@ -121,22 +133,32 @@ public:
                     LOG(ERROR) << "Invalid edge " << edge.type_;
                     return false;
                 }
-                EXPECT_TRUE(encode(schema.get(), key, edge.props_, data));
+
+                std::vector<Value> values;
+                if (schemaWithProp) {
+                    values = edge.props_;
+                }  else {
+                    EXPECT_FALSE(indexWithProp);
+                }
+                EXPECT_TRUE(encode(schema.get(), key, values, data));
+
                 if (enableIndex) {
                     if (edge.type_ == 102 || edge.type_ == 101) {
                         std::vector<Value::Type> colsType({});
-                        std::vector<Value> values;
                         int32_t colNum = 0;
                         IndexID indexID = 0;
 
+                        // When schemaWithProp is true, indexWithProp can be true or false.
+                        // When schemaWithProp is false, indexWithProp must be false.
                         if (indexWithProp) {
-                            values = edge.props_;
+                            EXPECT_TRUE(schemaWithProp);
                             colNum = 3;
                             indexID = edge.type_;
                         } else {
+                            values.clear();
                             indexID = edge.type_ == 101 ? 103 : 104;
                         }
-                        
+
                         encodeEdgeIndex(spaceVidLen,
                                         partId,
                                         edge.srcId_,

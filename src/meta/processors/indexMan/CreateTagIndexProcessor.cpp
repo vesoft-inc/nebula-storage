@@ -85,7 +85,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
                 return;
             }
         }
-                
+
         if (checkIndexExist(fieldNames, item)) {
             resp_.set_code(cpp2::ErrorCode::E_EXISTED);
             onFinished();
