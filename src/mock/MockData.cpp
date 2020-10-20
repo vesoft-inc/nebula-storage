@@ -366,7 +366,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockPlayerTagSchema(Schema
     schema->addField("champions",
                      meta::cpp2::PropertyType::INT64,
                      0,
-                     new ConstantExpression(true));
+                     true);
 
     return schema;
 }
@@ -438,7 +438,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockServeEdgeSchema(Schema
     schema->addField("champions",
                      meta::cpp2::PropertyType::INT64,
                      0,
-                     new ConstantExpression(true));
+                     true);
 
     return schema;
 }
@@ -584,7 +584,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_bool_null",
                      meta::cpp2::PropertyType::BOOL,
                      0,
-                     new ConstantExpression(true));
+                     true);
     schema->addField("col_bool_default",
                      meta::cpp2::PropertyType::BOOL,
                      0,
@@ -594,7 +594,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_int_null",
                      meta::cpp2::PropertyType::INT64,
                      0,
-                     new ConstantExpression(true));
+                     true);
     schema->addField("col_int_default",
                      meta::cpp2::PropertyType::INT64,
                      0,
@@ -604,7 +604,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_float_null",
                      meta::cpp2::PropertyType::FLOAT,
                      0,
-                     new ConstantExpression(true));
+                     true);
     schema->addField("col_float_default",
                      meta::cpp2::PropertyType::FLOAT,
                      0,
@@ -614,7 +614,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_str_null",
                      meta::cpp2::PropertyType::STRING,
                      0,
-                     new ConstantExpression(true));
+                     true);
     schema->addField("col_str_default",
                      meta::cpp2::PropertyType::STRING,
                      0,
@@ -624,7 +624,7 @@ std::shared_ptr<meta::NebulaSchemaProvider> MockData::mockTypicaSchemaV2() {
     schema->addField("col_date_null",
                      meta::cpp2::PropertyType::DATE,
                      0,
-                     new ConstantExpression(true));
+                     true);
 
     const Date date = {2020, 2, 20};
     schema->addField("col_date_default",
