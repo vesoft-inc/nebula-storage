@@ -61,7 +61,7 @@ protected:
         if (!vIdType.ok()) {
             return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
         }
-        isIntId_ = vIdType.value() == meta::cpp2::PropertyType::INT64 ? true : false;
+        isIntId_ = (vIdType.value() == meta::cpp2::PropertyType::INT64);
 
         return cpp2::ErrorCode::SUCCEEDED;
     }
