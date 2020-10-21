@@ -522,7 +522,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
     ASSERT_TRUE(QueryTestUtils::mockVertexData(env, totalParts, true));
 
     /**
-     * one IndexQueryContext, where player.name == "Rudy Gay" AND player.name == 34
+     * one IndexQueryContext, where player.name == "Rudy Gay" AND player.age == 34
      * lookup plan should be :
      *              +--------+---------+
      *              |       Plan       |

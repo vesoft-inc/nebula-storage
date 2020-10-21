@@ -63,11 +63,11 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
 
     // setup result set columns.
     if (planContext_->isEdge_) {
-        resultDataSet_.colNames.emplace_back("_src");
+        resultDataSet_.colNames.emplace_back(kSrc);
         resultDataSet_.colNames.emplace_back("_ranking");
-        resultDataSet_.colNames.emplace_back("_dst");
+        resultDataSet_.colNames.emplace_back(kDst);
     } else {
-        resultDataSet_.colNames.emplace_back("_vid");
+        resultDataSet_.colNames.emplace_back(kVid);
     }
 
     for (const auto& col : yieldCols_) {
@@ -117,11 +117,11 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
         case Expression::Kind::kTagProperty:
         case Expression::Kind::kEdgeProperty: {
             auto* sExpr = static_cast<PropertyExpression*>(filter);
-            const auto* prop = sExpr->prop();
-            auto it = std::find_if(fields.begin(), fields.end(), [&prop] (const auto& f) {
-                return f.get_name() == prop;
+            auto propName = *(sExpr->prop());
+            auto it = std::find_if(fields.begin(), fields.end(), [&propName] (const auto& f) {
+                return f.get_name() == propName;
             });
-            return it != fields.end();
+            return it == fields.end();
         }
         default: {
             return false;

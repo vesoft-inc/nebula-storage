@@ -35,7 +35,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::edgeIndexLock());
     auto ret = getIndexID(space, indexName);
     if (ret.ok()) {
-        LOG(ERROR) << "Create Edge Index Failed: " << indexName << " have existed";
+        LOG(ERROR) << "Create Edge Index Failed: " << indexName << " has existed";
         if (req.get_if_not_exists()) {
             resp_.set_id(to(ret.value(), EntryType::INDEX));
             handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
