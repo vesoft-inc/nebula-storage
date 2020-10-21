@@ -184,7 +184,6 @@ private:
     std::vector<std::pair<std::string, Value::Type>>  indexCols_{};
 };
 
-
 }  // namespace storage
 }  // namespace nebula
 #endif  // STORAGE_CONTEXT_STORAGEEXPRESSIONCONTEXT_H_
