@@ -131,7 +131,8 @@ public:
                                   const std::vector<HostAddr>& specificHosts,
                                   const std::vector<std::string>& taskSpecficParas,
                                   std::vector<PartitionID> parts,
-                                  int concurrency);
+                                  int concurrency,
+                                  cpp2::StatisItem* statisResult = nullptr);
 
     folly::Future<Status>
     stopTask(const std::vector<HostAddr>& target, int32_t jobId, int32_t taskId);
@@ -156,7 +157,8 @@ private:
                      RemoteFunc remoteFunc,
                      int32_t retry,
                      folly::Promise<Status> pro,
-                     int32_t retryLimit);
+                     int32_t retryLimit,
+                     cpp2::StatisItem* statisResult = nullptr);
 
     void getLeaderDist(const HostAddr& host,
                        folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>>&& pro,

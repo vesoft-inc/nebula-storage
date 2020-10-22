@@ -45,7 +45,7 @@ enum class TaskPriority : int8_t {
 };
 
 struct TaskContext {
-    using CallBack = std::function<void(cpp2::ErrorCode)>;
+    using CallBack = std::function<void(cpp2::ErrorCode, nebula::meta::cpp2::StatisItem)>;
 
     TaskContext() = default;
     TaskContext(const cpp2::AddAdminTaskRequest& req,
@@ -66,7 +66,8 @@ struct TaskContext {
 };
 
 class AdminTask {
-    using TCallBack = std::function<void(cpp2::ErrorCode)>;
+    using TCallBack = std::function<void(cpp2::ErrorCode,
+                                         nebula::meta::cpp2::StatisItem)>;
     using SubTaskQueue = folly::UnboundedBlockingQueue<AdminSubTask>;
 
 public:
@@ -93,7 +94,8 @@ public:
     virtual void finish(cpp2::ErrorCode rc) {
         FLOG_INFO("task(%d, %d) finished, rc=[%d]", ctx_.jobId_, ctx_.taskId_,
                   static_cast<int>(rc));
-        ctx_.onFinish_(rc);
+        nebula::meta::cpp2::StatisItem statisItem;
+        ctx_.onFinish_(rc, statisItem);
     }
 
     virtual int getJobId() {

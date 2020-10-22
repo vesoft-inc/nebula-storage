@@ -15,6 +15,7 @@
 
 namespace nebula {
 namespace storage {
+
 class AdminTaskProcessor : public BaseProcessor<cpp2::AdminExecResp> {
 public:
     static AdminTaskProcessor* instance(StorageEnv* env) {
@@ -26,7 +27,10 @@ public:
 private:
     explicit AdminTaskProcessor(StorageEnv* env)
             : BaseProcessor<cpp2::AdminExecResp>(env) {}
+
+    void onProcessFinished(nebula::meta::cpp2::StatisItem result);
 };
+
 }  // namespace storage
 }  // namespace nebula
 #endif  // STORAGE_ADMIN_ADMINTASKPROCESSOR_H_
