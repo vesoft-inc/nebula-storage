@@ -144,15 +144,6 @@ public:
     folly::Future<cpp2::ListFTClientsResp>
     future_listFTClients(const cpp2::ListFTClientsReq& req) override;
 
-    folly::Future<cpp2::ExecResp>
-    future_createFTIndex(const cpp2::CreateFTIndexReq& req) override;
-
-    folly::Future<cpp2::ExecResp>
-    future_dropFTIndex(const cpp2::DropFTIndexReq& req) override;
-
-    folly::Future<cpp2::ListFTIndicesResp>
-    future_listFTIndices(const cpp2::ListFTIndicesReq& req) override;
-
     /**
      * User manager
      **/

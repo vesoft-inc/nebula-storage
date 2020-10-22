@@ -3,8 +3,8 @@
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
-#ifndef META_FTINDEXSERVICEPROCESSOR_H_
-#define META_FTINDEXSERVICEPROCESSOR_H_
+#ifndef META_FTISERVICEPROCESSOR_H_
+#define META_FTISERVICEPROCESSOR_H_
 
 #include "meta/processors/BaseProcessor.h"
 
@@ -52,4 +52,4 @@ private:
 }  // namespace meta
 }  // namespace nebula
 
-#endif   // META_FTINDEXSERVICEPROCESSOR_H_
+#endif   // META_FTISERVICEPROCESSOR_H_
