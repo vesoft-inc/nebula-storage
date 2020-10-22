@@ -1121,7 +1121,7 @@ std::string MetaServiceUtils::fulltextIndexPrefix(GraphSpaceID spaceId) {
 std::string MetaServiceUtils::fulltextServiceKey() {
     std::string key;
     key.reserve(kFTServiceTable.size());
-    key.append(kFTIndexTable.data(), kFTIndexTable.size());
+    key.append(kFTServiceTable.data(), kFTServiceTable.size());
     return key;
 }
 

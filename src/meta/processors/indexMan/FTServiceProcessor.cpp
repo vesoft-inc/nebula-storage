@@ -4,7 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "meta/processors/indexMan/FTIndexServiceProcessor.h"
+#include "meta/processors/indexMan/FTServiceProcessor.h"
 
 namespace nebula {
 namespace meta {
@@ -40,12 +40,12 @@ void SignOutFTServiceProcessor::process(const cpp2::SignOutFTServiceReq&) {
 }
 
 void ListFTClientsProcessor::process(const cpp2::ListFTClientsReq&) {
-    folly::SharedMutex::WriteHolder rHolder(LockUtils::fulltextIndexLock());
+    folly::SharedMutex::WriteHolder rHolder(LockUtils::fulltextServicesLock());
     auto prefix = MetaServiceUtils::fulltextServiceKey();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Can't find any full text index.";
+        LOG(ERROR) << "Can't find any full text service.";
         handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
         onFinished();
         return;
