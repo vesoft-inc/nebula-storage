@@ -5,6 +5,8 @@
 */
 
 #include "tools/meta-data-upgrade/oldThrift/MetaServiceUtilsV1.h"
+#include "meta/processors/jobMan/JobUtils.h"
+
 #include <thrift/lib/cpp2/protocol/Serializer.h>
 #include <thrift/lib/cpp2/protocol/CompactProtocol.h>
 
@@ -94,6 +96,37 @@ cpp2::ConfigItem MetaServiceUtilsV1::parseConfigValue(folly::StringPiece rawData
     item.set_mode(mode);
     item.set_value(value.str());
     return item;
+}
+
+int32_t MetaServiceUtilsV1::parseJobId(const folly::StringPiece& rawKey) {
+    auto offset = nebula::meta::JobUtil::jobPrefix().size();
+    return *reinterpret_cast<const int32_t*>(rawKey.begin() + offset);
+}
+
+std::tuple<std::string,
+           std::vector<std::string>,
+           nebula::meta::cpp2::JobStatus,
+           int64_t,
+           int64_t>
+MetaServiceUtilsV1::parseJobDesc(const folly::StringPiece& rawVal) {
+    LOG(INFO) << "parseJobDesc: " << rawVal;
+    size_t offset = 0;
+
+    std::string cmd = nebula::meta::JobUtil::parseString(rawVal, offset);
+    offset += sizeof(size_t) + cmd.length();
+
+    std::vector<std::string> paras = nebula::meta::JobUtil::parseStrVector(rawVal, &offset);
+
+    auto status = nebula::meta::JobUtil::parseFixedVal<
+            nebula::meta::cpp2::JobStatus>(rawVal, offset);
+    offset += sizeof(nebula::meta::cpp2::JobStatus);
+
+    auto tStart = nebula::meta::JobUtil::parseFixedVal<int64_t>(rawVal, offset);
+    offset += sizeof(int64_t);
+
+    auto tStop = nebula::meta::JobUtil::parseFixedVal<int64_t>(rawVal, offset);
+
+    return std::make_tuple(cmd, paras, status, tStart, tStop);
 }
 }  // namespace oldmeta
 }  // namespace nebula

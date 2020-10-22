@@ -40,7 +40,9 @@ public:
 
     Status rewriteConfigs(const folly::StringPiece &key, const folly::StringPiece &val);
 
-    Status deleteDefault(const folly::StringPiece &key);
+    Status rewriteJobDesc(const folly::StringPiece &key, const folly::StringPiece &val);
+
+    Status deleteKeyVal(const folly::StringPiece &key);
 
     void printHost(const folly::StringPiece &key, const folly::StringPiece &val);
 
@@ -55,6 +57,8 @@ public:
     void printIndexes(const folly::StringPiece &val);
 
     void printConfigs(const folly::StringPiece &key, const folly::StringPiece &val);
+
+    void printJobDesc(const folly::StringPiece &key, const folly::StringPiece &val);
 
 private:
     Status put(const folly::StringPiece &key, const folly::StringPiece &val) {

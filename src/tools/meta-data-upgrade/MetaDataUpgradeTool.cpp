@@ -8,6 +8,7 @@
 #include "common/fs/FileUtils.h"
 #include "tools/meta-data-upgrade/MetaDataUpgrade.h"
 #include "tools/meta-data-upgrade/oldThrift/MetaServiceUtilsV1.h"
+#include "meta/processors/jobMan/JobDescription.h"
 
 DEFINE_string(meta_data_path, "", "meta data path");
 DEFINE_bool(null_type, true, "set schema to support null type");
@@ -93,8 +94,14 @@ int main(int argc, char *argv[]) {
         } else if (key.startsWith(nebula::oldmeta::kConfigsTable)) {
             if (FLAGS_print_info) { upgrader.printConfigs(key, val); }
             status = upgrader.rewriteConfigs(key, val);
-        } else if (key.startsWith(nebula::oldmeta::kDefaultTable)) {
-            status = upgrader.deleteDefault(key);
+        } else if (nebula::meta::JobDescription::isJobKey(key)) {
+            if (FLAGS_print_info) { upgrader.printJobDesc(key, val); }
+            status = upgrader.rewriteJobDesc(key, val);
+        } else if (key.startsWith(nebula::oldmeta::kDefaultTable) ||
+                   key.startsWith(nebula::oldmeta::kCurrJob) ||
+                   key.startsWith(nebula::oldmeta::kJobArchive) ||
+                   key.startsWith(nebula::oldmeta::kJob)) {
+            status = upgrader.deleteKeyVal(key);
         }
         if (!status.ok()) {
             LOG(ERROR) << status;

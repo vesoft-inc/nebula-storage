@@ -10,6 +10,8 @@
 #include "common/base/Base.h"
 #include "common/base/Status.h"
 #include "common/thrift/ThriftTypes.h"
+#include "common/interface/gen-cpp2/meta_types.h"
+
 #include "tools/meta-data-upgrade/oldThrift/gen-cpp2/old_meta_types.h"
 #include "kvstore/Common.h"
 
@@ -32,6 +34,9 @@ const std::string kDefaultTable        = "__default__";        // NOLINT
 const std::string kSnapshotsTable      = "__snapshots__";      // NOLINT
 const std::string kLastUpdateTimeTable = "__last_update_time__"; // NOLINT
 const std::string kLeadersTable        = "__leaders__";          // NOLINT
+const std::string kCurrJob             = "__job_mgr____id"; // NOLINT
+const std::string kJob                 = "__job_mgr_";         // NOLINT
+const std::string kJobArchive          = "__job_mgr_archive_"; // NOLINT
 
 using ConfigName = std::pair<cpp2::ConfigModule, std::string>;
 
@@ -60,6 +65,15 @@ public:
     static ConfigName parseConfigKey(folly::StringPiece rawData);
 
     static cpp2::ConfigItem parseConfigValue(folly::StringPiece rawData);
+
+    static int32_t parseJobId(const folly::StringPiece& rawKey);
+
+    static std::tuple<std::string,
+                      std::vector<std::string>,
+                      nebula::meta::cpp2::JobStatus,
+                      int64_t,
+                      int64_t>
+    parseJobDesc(const folly::StringPiece& rawVal);
 };
 
 }  // namespace oldmeta
