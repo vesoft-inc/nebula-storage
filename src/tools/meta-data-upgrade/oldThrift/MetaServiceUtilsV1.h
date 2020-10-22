@@ -10,7 +10,7 @@
 #include "common/base/Base.h"
 #include "common/base/Status.h"
 #include "common/thrift/ThriftTypes.h"
-#include "tools/metaDataUpdate/oldThrift/gen-cpp2/old_meta_types.h"
+#include "tools/meta-data-upgrade/oldThrift/gen-cpp2/old_meta_types.h"
 #include "kvstore/Common.h"
 
 

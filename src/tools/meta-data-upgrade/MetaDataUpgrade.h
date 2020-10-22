@@ -4,20 +4,20 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef TOOLS_METADATAUPDATETOOL_METADATAUPDATE_H_
-#define TOOLS_METADATAUPDATETOOL_METADATAUPDATE_H_
+#ifndef TOOLS_METADATAUPGRADETOOL_METADATAUPGRADE_H_
+#define TOOLS_METADATAUPGRADETOOL_METADATAUPGRADE_H_
 
 #include <rocksdb/db.h>
 #include "common/base/Base.h"
 #include "common/base/Status.h"
 #include "common/interface/gen-cpp2/meta_types.h"
-#include "tools/metaDataUpdate/oldThrift/gen-cpp2/old_meta_types.h"
+#include "tools/meta-data-upgrade/oldThrift/gen-cpp2/old_meta_types.h"
 
 
 namespace nebula {
 namespace meta {
 
-class MetaDataUpdate {
+class MetaDataUpgrade {
 public:
     Status initDB(const std::string &dataPath);
 
@@ -42,7 +42,7 @@ public:
 
     Status deleteDefault(const folly::StringPiece &key);
 
-    void printHosts(const folly::StringPiece &key, const folly::StringPiece &val);
+    void printHost(const folly::StringPiece &key, const folly::StringPiece &val);
 
     void printSpaces(const folly::StringPiece &val);
 
@@ -98,4 +98,4 @@ private:
 
 }  // namespace meta
 }  // namespace nebula
-#endif  // TOOLS_METADATAUPDATETOOL_METADATAUPDATE_H_
+#endif  // TOOLS_METADATAUPGRADETOOL_METADATAUPGRADE_H_

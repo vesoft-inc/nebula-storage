@@ -6,15 +6,22 @@
 
 #include "common/base/Base.h"
 #include "common/fs/FileUtils.h"
-#include "tools/metaDataUpdate/MetaDataUpdate.h"
-#include "tools/metaDataUpdate/oldThrift/MetaServiceUtilsV1.h"
+#include "tools/meta-data-upgrade/MetaDataUpgrade.h"
+#include "tools/meta-data-upgrade/oldThrift/MetaServiceUtilsV1.h"
 
 DEFINE_string(meta_data_path, "", "meta data path");
+DEFINE_bool(null_type, true, "set schema to support null type");
 DEFINE_bool(print_info, false, "enable to print the rewrite data");
 
 int main(int argc, char *argv[]) {
     folly::init(&argc, &argv, true);
     google::SetStderrLogging(google::INFO);
+
+    LOG(INFO) << "Input meta data path: " << FLAGS_meta_data_path;
+    if (FLAGS_meta_data_path.empty()) {
+        LOG(INFO) << "Please input meta data path: --meta_data_path=<meta data path>";
+        return 1;
+    }
 
     if (!nebula::fs::FileUtils::exist(FLAGS_meta_data_path)) {
         LOG(ERROR) << FLAGS_meta_data_path << " is not exist.";
@@ -22,31 +29,38 @@ int main(int argc, char *argv[]) {
     }
 
     auto newDataPath = nebula::fs::FileUtils::dirname(FLAGS_meta_data_path.c_str()) + "/v2.0_data";
-    if (!nebula::fs::FileUtils::exist(newDataPath)) {
-        LOG(WARNING) << newDataPath << " is not exist, remove it.";
+    LOG(INFO) << "2.0 meta data path: " << newDataPath;
+    if (nebula::fs::FileUtils::exist(newDataPath)) {
+        LOG(WARNING) << newDataPath << " is existed, remove it.";
         if (!nebula::fs::FileUtils::remove(newDataPath.c_str(), true)) {
             LOG(ERROR) << "Delete " << newDataPath << " failed.";
             return 1;
         }
     }
 
+    if (!nebula::fs::FileUtils::makeDir(newDataPath)) {
+        LOG(ERROR) << "makeDir " << newDataPath << " failed";
+        return 0;
+    }
+
     // copy the data path to rewrite
     auto copyCmd = folly::stringPrintf("cp -r %s/* %s",
                                        FLAGS_meta_data_path.c_str(),
                                        newDataPath.c_str());
+    LOG(INFO) << "Copy cmd: " << copyCmd;
     std::system(copyCmd.c_str());
 
     auto dataPath = folly::stringPrintf("%s/nebula/0/data", newDataPath.c_str());
     LOG(INFO) << "The new data path is " << dataPath;
 
     rocksdb::WriteOptions options;
-    nebula::meta::MetaDataUpdate updater;
-    auto status = updater.initDB(dataPath);
+    nebula::meta::MetaDataUpgrade upgrader;
+    auto status = upgrader.initDB(dataPath);
     if (!status.ok()) {
         LOG(ERROR) << "InitDB from `" << FLAGS_meta_data_path << "' failed: " << status;
         return 1;
     }
-    auto iter = updater.getDbIter();
+    auto iter = upgrader.getDbIter();
     if (!iter) {
         LOG(ERROR) << "Get nullptr iter from rocksdb.";
         return 1;
@@ -58,29 +72,29 @@ int main(int argc, char *argv[]) {
         auto val = folly::StringPiece(iter->value().data(), iter->value().size());
 
         if (key.startsWith(nebula::oldmeta::kSpacesTable)) {
-            if (FLAGS_print_info) { updater.printSpaces(val); }
-            status = updater.rewriteSpaces(key, val);
+            if (FLAGS_print_info) { upgrader.printSpaces(val); }
+            status = upgrader.rewriteSpaces(key, val);
         } else if (key.startsWith(nebula::oldmeta::kPartsTable)) {
-            if (FLAGS_print_info) { updater.printParts(key, val); }
-            status = updater.rewriteParts(key, val);
+            if (FLAGS_print_info) { upgrader.printParts(key, val); }
+            status = upgrader.rewriteParts(key, val);
         } else if (key.startsWith(nebula::oldmeta::kHostsTable)) {
-            if (FLAGS_print_info) { updater.printHosts(key, val); }
-            status = updater.rewriteHosts(key, val);
+            if (FLAGS_print_info) { upgrader.printHost(key, val); }
+            status = upgrader.rewriteHosts(key, val);
         } else if (key.startsWith(nebula::oldmeta::kLeadersTable)) {
-            if (FLAGS_print_info) { updater.printLeaders(key); }
-            status = updater.rewriteLeaders(key, val);
+            if (FLAGS_print_info) { upgrader.printLeaders(key); }
+            status = upgrader.rewriteLeaders(key, val);
         } else if (key.startsWith(nebula::oldmeta::kTagsTable)
                    || key.startsWith(nebula::oldmeta::kEdgesTable)) {
-            if (FLAGS_print_info) { updater.printSchemas(val); }
-            status = updater.rewriteSchemas(key, val);
+            if (FLAGS_print_info) { upgrader.printSchemas(val); }
+            status = upgrader.rewriteSchemas(key, val);
         } else if (key.startsWith(nebula::oldmeta::kIndexesTable)) {
-            if (FLAGS_print_info) { updater.printIndexes(val); }
-            status = updater.rewriteIndexes(key, val);
+            if (FLAGS_print_info) { upgrader.printIndexes(val); }
+            status = upgrader.rewriteIndexes(key, val);
         } else if (key.startsWith(nebula::oldmeta::kConfigsTable)) {
-            if (FLAGS_print_info) { updater.printConfigs(key, val); }
-            status = updater.rewriteConfigs(key, val);
+            if (FLAGS_print_info) { upgrader.printConfigs(key, val); }
+            status = upgrader.rewriteConfigs(key, val);
         } else if (key.startsWith(nebula::oldmeta::kDefaultTable)) {
-            status = updater.deleteDefault(key);
+            status = upgrader.deleteDefault(key);
         }
         if (!status.ok()) {
             LOG(ERROR) << status;

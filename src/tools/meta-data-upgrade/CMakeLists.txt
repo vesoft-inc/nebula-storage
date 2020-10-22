@@ -1,9 +1,9 @@
 nebula_add_executable(
     NAME
-        meta_data_update
+        meta_data_upgrade
     SOURCES
-        MetaDataUpdate.cpp
-        MetaDataUpdateTool.cpp
+        MetaDataUpgrade.cpp
+        MetaDataUpgradeTool.cpp
     OBJECTS
         $<TARGET_OBJECTS:old_meta_obj>
         $<TARGET_OBJECTS:old_meta_thrift_obj>
@@ -48,7 +48,7 @@ nebula_add_executable(
 
 install(
     TARGETS
-        meta_data_update
+        meta_data_upgrade
     DESTINATION
         bin
     COMPONENT

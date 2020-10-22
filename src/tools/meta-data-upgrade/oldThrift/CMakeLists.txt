@@ -3,7 +3,7 @@ set(THRIFT_TEMPLATES ${Fbthrift_INCLUDE_DIR}/thrift/templates)
 include(ThriftGenerate)
 
 # Target object name : old_thrift_obj
-thrift_generate("old_meta" "" ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} "tools/metaDataUpdate/oldThrift")
+thrift_generate("old_meta" "" ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} "tools/meta-data-upgrade/oldThrift")
 
 add_library(
     old_meta_obj OBJECT
