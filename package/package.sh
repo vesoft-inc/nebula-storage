@@ -13,7 +13,7 @@
 #   -n: Package to one or multi packages, `ON` means one package, `OFF` means multi packages, default value is `ON`
 #   -s: Whether to strip the package, default value is `FALSE`
 #
-# usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE>
+# usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE> -b <BRANCH>
 #
 
 set -e
@@ -21,10 +21,11 @@ set -e
 version=""
 package_one=ON
 strip_enable="FALSE"
-usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE>"
+usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE> -b <BRANCH>"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)/.."
 enablesanitizer="OFF"
 build_type="Release"
+branch="master"
 
 while getopts v:n:s:d opt;
 do
@@ -37,6 +38,9 @@ do
             ;;
         s)
             strip_enable=$OPTARG
+            ;;
+        b)
+            branch=$OPTARG
             ;;
         d)
             enablesanitizer="ON"
@@ -85,6 +89,7 @@ function build {
     cmake \
         -DCMAKE_BUILD_TYPE=${build_type} \
         -DNEBULA_BUILD_VERSION=${version} \
+        -DNEBULA_COMMON_REPO_TAG=${branch} \
         -DENABLE_ASAN=${san} \
         -DENABLE_UBSAN=${san} \
         -DCMAKE_INSTALL_PREFIX=/usr/local/nebula \
