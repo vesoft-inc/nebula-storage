@@ -35,13 +35,13 @@ public:
                      std::function<bool(LogID, TermID)> updateCommitFunc);
 
     // Initialize listener, all Listener must call this method
-    void start(std::vector<HostAddr>&& peers, bool) override;
+    void start(std::vector<HostAddr>&& peers, bool asLearner = true) override;
 
     // Stop listener
     void stop() override;
 
     // Clean the wal and other data of listener
-    void cleanup() override;
+    virtual void cleanup() override = 0;
 
     int64_t logGap() {
         return wal_->lastLogId() - lastCommittedLogId().first;
@@ -49,7 +49,7 @@ public:
 
 protected:
     // Last commit id and term, need to be persisted
-    // virtual std::pair<LogID, TermID> lastCommittedLogId() override = 0;
+    virtual std::pair<LogID, TermID> lastCommittedLogId() override = 0;
 
     void onLostLeadership(TermID) override {
         LOG(FATAL) << "Should not reach here";
@@ -77,16 +77,15 @@ protected:
     // If the listener falls behind way to much than leader, the leader will send all its data
     // in snapshot by batch, listener need to implement it if it need handle this case. The return
     // value is a pair of <logs count, logs size> of this batch.
-    /*
     virtual std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
                                                        LogID committedLogId,
                                                        TermID committedLogTerm,
                                                        bool finished) override = 0;
-    */
 
 private:
     std::function<bool(LogID, folly::StringPiece)> commitLog_;
     std::function<bool(LogID, TermID)> updateCommit_;
+    std::vector<HostAddr> peers_;
 };
 
 }  // namespace kvstore

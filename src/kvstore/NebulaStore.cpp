@@ -206,31 +206,16 @@ void NebulaStore::loadPartFromPartManager() {
 
 void NebulaStore::loadListenerFromPartManager() {
     LOG(INFO) << "Init listener from partManager for " << storeSvcAddr_;
-    /*
     auto listenersMap = options_.partMan_->listeners(storeSvcAddr_);
-    for (auto& entry : listenersMap) {
-        auto spaceId = entry.first;
-
-        do {
-            folly::RWSpinLock::WriteHolder wh(&lock_);
-            if (this->spaces_.find(spaceId) != this->spaces_.end()) {
-                LOG(INFO) << "Space " << spaceId << " has existed!";
-                break;
-            }
-            LOG(INFO) << "Create space " << spaceId;
-            this->spaces_[spaceId] = std::make_shared<SpacePartInfo>();
-        } while(0);
-
-        std::vector<PartitionID> partIds;
-        for (auto it = entry.second.begin(); it != entry.second.end(); it++) {
-            partIds.emplace_back(it->first);
-        }
-        std::sort(partIds.begin(), partIds.end());
-        for (auto& partId : partIds) {
-            addListener(spaceId, partId, false);
+    for (auto& spaceEntry : listenersMap) {
+        auto spaceId = spaceEntry.first;
+        for (auto& partEntry : spaceEntry.second) {
+            auto partId = partEntry.first;
+            auto peers = partEntry.second.hosts_;
+            CHECK(!peers.empty());
+            addListener(spaceId, partId, std::move(peers));
         }
     }
-    */
 }
 
 void NebulaStore::stop() {
@@ -409,52 +394,43 @@ void NebulaStore::removePart(GraphSpaceID spaceId, PartitionID partId) {
 
 void NebulaStore::addListener(GraphSpaceID spaceId,
                               PartitionID partId,
-                              std::shared_ptr<Listener> listener) {
+                              std::vector<HostAddr> peers) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    auto spaceIt = this->spaces_.find(spaceId);
-    CHECK(spaceIt != this->spaces_.end()) << "Space should exist!";
+    auto spaceIt = spaces_.find(spaceId);
+    if (spaceIt == spaces_.end()) {
+        spaceIt = spaces_.emplace(spaceId, std::make_shared<SpacePartInfo>()).first;
+    }
     auto partIt = spaceIt->second->listeners_.find(partId);
     if (partIt != spaceIt->second->listeners_.end()) {
         LOG(INFO) << "Listener of [Space: " << spaceId << ", Part: " << partId << "] has existed!";
         return;
     }
-    spaceIt->second->listeners_.emplace(partId, listener);
+    spaceIt->second->listeners_.emplace(partId, newListener(spaceId, partId, std::move(peers)));
     LOG(INFO) << "Listener of space " << spaceId << ", part " << partId << " has been added";
     return;
 }
 
-/*
 std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
                                                    PartitionID partId,
-                                                   const std::vector<HostAddr>& peers) {
-    auto hosts = peers;
-    if (hosts.empty()) {
-        auto metaStatus = options_.partMan_->partMeta(spaceId, partId);
-        if (!metaStatus.ok()) {
-            LOG(ERROR) << "options_.partMan_->partMeta(spaceId, partId); error: "
-                       << metaStatus.status().toString()
-                       << " spaceId: " << spaceId << ", partId: " << partId;
-            return nullptr;
-        }
-        auto partMeta = metaStatus.value();
-        hosts = partMeta.hosts_;
-    }
-    auto walPath = folly::stringPrintf("%s/%d/%d/wal", options_.listenerPath_.c_str(), spaceId, partId);
-    auto listener = std::make_shared<Listener>(spaceId,
-                                               partId,
-                                               raftAddr_,
-                                               walPath,
-                                               ioPool_,
-                                               bgWorkers_,
-                                               workers_,
-                                               nullptr,
-                                               nullptr);
+                                                   std::vector<HostAddr> peers) {
+    auto walPath = folly::stringPrintf("%s/%d/%d/wal", options_.listenerPath_.c_str(),
+                                       spaceId, partId);
+    // doodle: 0 is a enum
+    auto listener = ListenerFactory::createListener(0,
+                                                    spaceId,
+                                                    partId,
+                                                    raftAddr_,
+                                                    walPath,
+                                                    ioPool_,
+                                                    bgWorkers_,
+                                                    workers_,
+                                                    nullptr,
+                                                    nullptr);
     raftService_->addPartition(listener);
     // add raft group as learner
-    listener->start(std::move(hosts));
+    listener->start(std::move(peers));
     return listener;
 }
-*/
 
 void NebulaStore::removeListener(GraphSpaceID spaceId, PartitionID partId) {
     folly::RWSpinLock::WriteHolder wh(&lock_);

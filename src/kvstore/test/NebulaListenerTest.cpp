@@ -16,6 +16,7 @@
 
 DECLARE_uint32(raft_heartbeat_interval_secs);
 using nebula::meta::PartHosts;
+using nebula::meta::ListenerHosts;
 
 namespace nebula {
 namespace kvstore {
@@ -78,17 +79,27 @@ TEST(NebulaStoreTest, SimpleTest) {
     // 1 space, 1 part, 1 replica, 1 listener
     auto initNebulaStore = [](const std::vector<HostAddr>& peers,
                               int32_t index,
-                              const std::string& path) -> std::unique_ptr<NebulaStore> {
+                              const std::string& path,
+                              bool asListener = false)
+        -> std::unique_ptr<NebulaStore> {
         auto partMan = std::make_unique<MemPartManager>();
         auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
 
         GraphSpaceID spaceId = 1;
         PartitionID partId = 1;
-        PartHosts ph;
-        ph.spaceId_ = 0;
-        ph.partId_ = partId;
-        ph.hosts_ = peers;
-        partMan->partsMap_[spaceId][partId] = std::move(ph);
+        if (!asListener) {
+            PartHosts ph;
+            ph.spaceId_ = spaceId;
+            ph.partId_ = partId;
+            ph.hosts_ = peers;
+            partMan->partsMap_[spaceId][partId] = std::move(ph);
+        } else {
+            ListenerHosts lh;
+            lh.spaceId_ = spaceId;
+            lh.partId_ = partId;
+            lh.hosts_ = peers;
+            partMan->listenersMap_[spaceId][partId] = std::move(lh);
+        }
 
         fs::TempDir rootPath("/tmp/nebula_listener_test.XXXXXX");
         std::vector<std::string> paths;
@@ -96,6 +107,7 @@ TEST(NebulaStoreTest, SimpleTest) {
 
         KVOptions options;
         options.dataPaths_ = std::move(paths);
+        options.listenerPath_ = folly::stringPrintf("%s/listener%d", path.c_str(), index);
         options.partMan_ = std::move(partMan);
         HostAddr local = peers[index];
         return std::make_unique<NebulaStore>(std::move(options),
@@ -111,11 +123,19 @@ TEST(NebulaStoreTest, SimpleTest) {
     for (int32_t i = 0; i < replicas; i++) {
         peers.emplace_back(ip, network::NetworkUtils::getAvailablePort());
     }
+
+    // init data replica
     std::vector<std::unique_ptr<NebulaStore>> stores;
     for (int32_t i = 0; i < replicas; i++) {
         stores.emplace_back(initNebulaStore(peers, i, rootPath.path()));
         stores.back()->init();
     }
+
+    // init listener replica
+    auto listener = initNebulaStore(peers, replicas, rootPath.path(), true);
+    listener->init();
+
+    sleep(5);
 }
 
 }  // namespace kvstore

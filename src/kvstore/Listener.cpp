@@ -6,7 +6,6 @@
 
 #include "kvstore/Listener.h"
 
-
 namespace nebula {
 namespace kvstore {
 
@@ -19,16 +18,8 @@ Listener::Listener(GraphSpaceID spaceId,
                    std::shared_ptr<folly::Executor> handlers,
                    std::shared_ptr<raftex::SnapshotManager> snapshotMan,
                    std::shared_ptr<RaftClient> clientMan)
-    : RaftPart(FLAGS_cluster_id,
-               spaceId,
-               partId,
-               localAddr,
-               walPath,
-               ioPool,
-               workers,
-               handlers,
-               snapshotMan,
-               clientMan) {
+    : RaftPart(FLAGS_cluster_id, spaceId, partId, localAddr, walPath,
+               ioPool, workers, handlers, snapshotMan, clientMan) {
 }
 
 void Listener::setCallback(std::function<bool(LogID, folly::StringPiece)> commitLogFunc,
@@ -69,11 +60,9 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
                         << ", term " << term_;
 
     // Start all peer hosts
-    for (auto& addr : peers) {
-        LOG(INFO) << idStr_ << "Add peer " << addr;
-        auto hostPtr = std::make_shared<raftex::Host>(addr, shared_from_this());
-        hosts_.emplace_back(hostPtr);
-    }
+    // todo(doodle): as for listener, we don't need Host in most case. However, listener need to be
+    // aware of membership change. We just save peers for now.
+    peers_ = std::move(peers);
 
     status_ = Status::RUNNING;
     role_ = Role::LEARNER;
@@ -82,31 +71,17 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
 
 void Listener::stop() {
     LOG(INFO) << "Stop listener [" << spaceId_ << ", " << partId_;
-
-    decltype(hosts_) hosts;
     {
         std::unique_lock<std::mutex> lck(raftLock_);
         status_ = Status::STOPPED;
         leader_ = {"", 0};
-        hosts = std::move(hosts_);
     }
-
-    for (auto& h : hosts) {
-        h->stop();
-        h->waitForStop();
-    }
-    hosts.clear();
-}
-
-void Listener::cleanup() {
-    LOG(INFO) << idStr_ << "Clean up all wals, "
-                << "the commit id and term need to be cleaned up by manual";
-    wal()->reset();
 }
 
 bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
     LogID lastId = -1, prevId = -1;
     TermID lastTerm = -1, prevTerm = -1;
+    // todo(doodle): as for listener, we could commit in batch
     while (iter->valid()) {
         if (lastId != -1) {
             prevId = lastId;

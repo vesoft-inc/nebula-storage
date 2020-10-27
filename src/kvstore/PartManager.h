@@ -69,7 +69,7 @@ public:
     virtual Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) = 0;
 
     // doodle
-    // virtual meta::ListenersMap listeners(const HostAddr& host) = 0;
+    virtual meta::ListenersMap listeners(const HostAddr& host) = 0;
 
     /**
      * Register Handler
@@ -101,6 +101,8 @@ public:
     ~MemPartManager() = default;
 
     meta::PartsMap parts(const HostAddr& host) override;
+
+    meta::ListenersMap listeners(const HostAddr& host) override;
 
     StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
 
@@ -151,58 +153,64 @@ public:
 
 private:
     meta::PartsMap partsMap_;
+    meta::ListenersMap listenersMap_;
 };
 
 
 class MetaServerBasedPartManager : public PartManager, public meta::MetaChangedListener {
 public:
-     explicit MetaServerBasedPartManager(HostAddr host, meta::MetaClient *client = nullptr);
+    explicit MetaServerBasedPartManager(HostAddr host, meta::MetaClient *client = nullptr);
 
-     ~MetaServerBasedPartManager();
+    ~MetaServerBasedPartManager();
 
-     meta::PartsMap parts(const HostAddr& host) override;
+    meta::PartsMap parts(const HostAddr& host) override;
 
-     StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
+    StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
 
-     Status partExist(const HostAddr& host, GraphSpaceID spaceId, PartitionID partId) override;
+    Status partExist(const HostAddr& host, GraphSpaceID spaceId, PartitionID partId) override;
 
-     Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) override;
+    Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) override;
 
-     /**
-      * Implement the interfaces in MetaChangedListener
-      * */
-     void onSpaceAdded(GraphSpaceID spaceId) override;
+    /**
+     * Implement the interfaces in MetaChangedListener
+     * */
+    void onSpaceAdded(GraphSpaceID spaceId) override;
 
-     void onSpaceRemoved(GraphSpaceID spaceId) override;
+    void onSpaceRemoved(GraphSpaceID spaceId) override;
 
-     void onSpaceOptionUpdated(GraphSpaceID spaceId,
-                               const std::unordered_map<std::string, std::string>& options)
-                               override;
+    void onSpaceOptionUpdated(GraphSpaceID spaceId,
+                              const std::unordered_map<std::string, std::string>& options)
+                              override;
 
-     void onPartAdded(const meta::PartHosts& partMeta) override;
+    void onPartAdded(const meta::PartHosts& partMeta) override;
 
-     void onPartRemoved(GraphSpaceID spaceId, PartitionID partId) override;
+    void onPartRemoved(GraphSpaceID spaceId, PartitionID partId) override;
 
-     void onPartUpdated(const meta::PartHosts& partMeta) override;
+    void onPartUpdated(const meta::PartHosts& partMeta) override;
 
-     void fetchLeaderInfo(std::unordered_map<GraphSpaceID,
-                                             std::vector<PartitionID>>& leaderParts) override;
+    void fetchLeaderInfo(std::unordered_map<GraphSpaceID,
+                                            std::vector<PartitionID>>& leaderParts) override;
 
-     HostAddr getLocalHost() {
-        return localHost_;
-     }
+    // doodle
+    meta::ListenersMap listeners(const HostAddr&) override {
+        return meta::ListenersMap();
+    }
 
-     /**
-      * for UTs, because the port is chosen by system,
-      * we should update port after thrift setup
-      * */
-     void setLocalHost(HostAddr localHost) {
-        localHost_ = std::move(localHost);
-     }
+    HostAddr getLocalHost() {
+       return localHost_;
+    }
+
+    /**
+     * for UTs, because the port is chosen by system,
+     * we should update port after thrift setup
+     * */
+    void setLocalHost(HostAddr localHost) {
+       localHost_ = std::move(localHost);
+    }
 
 private:
-     meta::MetaClient *client_{nullptr};
-     HostAddr localHost_;
+    meta::MetaClient *client_{nullptr};
+    HostAddr localHost_;
 };
 
 }  // namespace kvstore

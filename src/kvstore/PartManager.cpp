@@ -8,9 +8,12 @@
 namespace nebula {
 namespace kvstore {
 
-meta::PartsMap MemPartManager::parts(const HostAddr& hostAddr) {
-    UNUSED(hostAddr);
+meta::PartsMap MemPartManager::parts(const HostAddr&) {
     return partsMap_;
+}
+
+meta::ListenersMap MemPartManager::listeners(const HostAddr&) {
+    return listenersMap_;
 }
 
 StatusOr<meta::PartHosts> MemPartManager::partMeta(GraphSpaceID spaceId, PartitionID partId) {

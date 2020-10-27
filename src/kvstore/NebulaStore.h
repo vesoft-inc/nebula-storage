@@ -16,6 +16,7 @@
 #include "kvstore/PartManager.h"
 #include "kvstore/Part.h"
 #include "kvstore/Listener.h"
+#include "kvstore/ListenerFactory.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/raftex/SnapshotManager.h"
 
@@ -42,6 +43,7 @@ class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, TransLeaderTest);
     FRIEND_TEST(NebulaStoreTest, CheckpointTest);
     FRIEND_TEST(NebulaStoreTest, ThreeCopiesCheckpointTest);
+    FRIEND_TEST(NebulaStoreTest, SimpleTest);
 
 public:
     NebulaStore(KVOptions options,
@@ -240,7 +242,7 @@ public:
 
     void addListener(GraphSpaceID spaceId,
                      PartitionID partId,
-                     std::shared_ptr<Listener> listener);
+                     std::vector<HostAddr> peers);
 
     void removeListener(GraphSpaceID spaceId, PartitionID partId);
 
@@ -266,11 +268,9 @@ private:
                                   bool asLearner,
                                   const std::vector<HostAddr>& defaultPeers);
 
-    /*
     std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
                                           PartitionID partId,
-                                          const std::vector<HostAddr>& peers);
-    */
+                                          std::vector<HostAddr> peers);
 
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);
 
