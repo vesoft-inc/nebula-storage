@@ -20,18 +20,25 @@ public:
 
     void process(const cpp2::CreateSpaceReq& req);
 
-protected:
+private:
+    explicit CreateSpaceProcessor(kvstore::KVStore* kvstore)
+            : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+
     std::vector<HostAddr> pickHosts(PartitionID partId,
                                     const std::vector<HostAddr>& hosts,
                                     int32_t replicaFactor);
 
-    std::vector<HostAddr> pickHostsWithZone(PartitionID partId,
-                                            const std::vector<std::string>& zones,
-                                            int32_t replicaFactor);
+    StatusOr<std::vector<HostAddr>>
+    pickHostsWithZone(const std::vector<std::string>& zones,
+                      std::unordered_map<HostAddr, int32_t>& loading);
 
-private:
-    explicit CreateSpaceProcessor(kvstore::KVStore* kvstore)
-            : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+    // Get all host's part loading
+    StatusOr<std::unordered_map<HostAddr, int32_t>> getHostLoading();
+
+    StatusOr<std::vector<std::string>>
+    pickLightLoadZones(const std::vector<std::string>& zones,
+                       int32_t replicaFactor,
+                       std::unordered_map<HostAddr, int32_t>& loading);
 };
 
 }  // namespace meta

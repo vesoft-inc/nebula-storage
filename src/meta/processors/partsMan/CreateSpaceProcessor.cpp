@@ -126,8 +126,34 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
             return;
         }
 
+        auto hostLoadingRet = getHostLoading();
+        if (!hostLoadingRet.ok()) {
+            LOG(ERROR) << "Get host loading failed";
+            handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+            onFinished();
+            return;
+        }
+
+        auto hostLoading = hostLoadingRet.value();
         for (auto partId = 1; partId <= partitionNum; partId++) {
-            auto partHosts = pickHostsWithZone(partId, zones, replicaFactor);
+            auto pickedZonesRet = pickLightLoadZones(zones, replicaFactor, hostLoading);
+            if (!pickedZonesRet.ok()) {
+                LOG(ERROR) << "Pick zone failed";
+                handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+                onFinished();
+                return;
+            }
+
+            auto pickedZones = std::move(pickedZonesRet).value();
+            auto partHostsRet = pickHostsWithZone(pickedZones, hostLoading);
+            if (!partHostsRet.ok()) {
+                LOG(ERROR) << "Pick hosts with zone failed";
+                handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+                onFinished();
+                return;
+            }
+
+            auto partHosts = partHostsRet.value();
             data.emplace_back(MetaServiceUtils::partKey(spaceId, partId),
                               MetaServiceUtils::partVal(partHosts));
         }
@@ -174,34 +200,97 @@ CreateSpaceProcessor::pickHosts(PartitionID partId,
     return pickedHosts;
 }
 
-std::vector<HostAddr>
-CreateSpaceProcessor::pickHostsWithZone(PartitionID partId,
-                                        const std::vector<std::string>& zones,
-                                        int32_t replicaFactor) {
-    auto startIndex = partId;
-    std::vector<HostAddr> pickedHosts;
-    for (int32_t i = 0; i < replicaFactor; i++) {
-        auto zoneName = zones[startIndex++ % zones.size()];
-        auto zoneIdRet = getZoneId(zoneName);
-        if (!zoneIdRet.ok()) {
-            LOG(ERROR) << "Zone " << zoneName << " not found";
-            handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
-            onFinished();
-            return pickedHosts;
-        }
+StatusOr<std::unordered_map<HostAddr, int32_t>>
+CreateSpaceProcessor::getHostLoading() {
+    std::unique_ptr<kvstore::KVIterator> iter;
+    const auto& prefix = MetaServiceUtils::partPrefix();
+    auto code = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    if (code != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "List Parts Failed";
+        return Status::Error("List Parts Failed");
+    }
 
+    std::unordered_map<HostAddr, int32_t> result;
+    while (iter->valid()) {
+        auto hosts = MetaServiceUtils::parsePartVal(iter->val());
+        for (auto& host : hosts) {
+            result[host]++;
+        }
+        iter->next();
+    }
+    return result;
+}
+
+StatusOr<std::vector<HostAddr>>
+CreateSpaceProcessor::pickHostsWithZone(const std::vector<std::string>& zones,
+                                        std::unordered_map<HostAddr, int32_t>& loading) {
+    std::vector<HostAddr> pickedHosts;
+    for (auto& zoneName : zones) {
         auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
         auto zoneValueRet = doGet(std::move(zoneKey));
-        if (!zoneValueRet.ok()) {
-            LOG(ERROR) << "Get zone " << zoneName << " failed";
-            handleErrorCode(cpp2::ErrorCode::E_STORE_FAILURE);
-            onFinished();
-            return pickedHosts;
-        }
         auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValueRet).value());
-        pickedHosts.emplace_back(toThriftHost(hosts[startIndex++ % hosts.size()]));
+
+        HostAddr picked;
+        int32_t size = INT_MAX;
+        for (auto& host : hosts) {
+            auto hostIter = loading.find(host);
+            if (hostIter == loading.end()) {
+                LOG(ERROR) << "Host " << host << " not found";
+                handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+                onFinished();
+                return Status::Error("Host not found");
+            }
+
+            if (size > hostIter->second) {
+                picked = host;
+                size = hostIter->second;
+            }
+        }
+
+        loading[picked] += 1;
+        pickedHosts.emplace_back(toThriftHost(std::move(picked)));
     }
     return pickedHosts;
 }
+
+StatusOr<std::vector<std::string>>
+CreateSpaceProcessor::pickLightLoadZones(const std::vector<std::string>& zones,
+                                         int32_t replicaFactor,
+                                         std::unordered_map<HostAddr, int32_t>& loading) {
+    std::unordered_map<std::string, int32_t> zoneLoading;
+    for (auto& zone : zones) {
+        auto zoneKey = MetaServiceUtils::zoneKey(zone);
+        auto zoneValueRet = doGet(std::move(zoneKey));
+        if (!zoneValueRet.ok()) {
+            LOG(ERROR) << "Get zone " << zone << " failed";
+            return Status::Error("Get Zone Failed");
+        }
+
+        auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValueRet).value());
+        for (auto& host : hosts) {
+            auto hostIter = loading.find(host);
+            if (hostIter == loading.end()) {
+                LOG(ERROR) << "Host " << host << " not found";
+                return Status::Error("Host not found");
+            }
+            zoneLoading[zone] += hostIter->second;
+        }
+    }
+
+    std::multimap<int32_t, std::string> sortedMap;
+    for (const auto &pair : zoneLoading) {
+        sortedMap.insert(std::make_pair(pair.second, pair.first));
+    }
+    std::vector<std::string> pickedZones;
+    for (const auto &pair : sortedMap) {
+        pickedZones.emplace_back(pair.second);
+        int32_t size = pickedZones.size();
+        if (size == replicaFactor) {
+            break;
+        }
+    }
+    return pickedZones;
+}
+
 }  // namespace meta
 }  // namespace nebula
