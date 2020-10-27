@@ -68,6 +68,9 @@ public:
      * */
     virtual Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) = 0;
 
+    // doodle
+    // virtual meta::ListenersMap listeners(const HostAddr& host) = 0;
+
     /**
      * Register Handler
      * */
@@ -116,7 +119,7 @@ public:
         if (noPart && handler_) {
             handler_->addPart(spaceId, partId, false, {});
         }
-     }
+    }
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) {
         auto it = partsMap_.find(spaceId);

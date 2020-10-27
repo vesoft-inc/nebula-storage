@@ -515,6 +515,42 @@ void RaftPart::removePeer(const HostAddr& peer) {
     }
 }
 
+void RaftPart::addListener(const HostAddr& listener) {
+    std::lock_guard<std::mutex> guard(raftLock_);
+    if (listener == addr_) {
+        LOG(INFO) << idStr_ << "I am already in the raft group";
+        return;
+    }
+    auto it = std::find_if(hosts_.begin(), hosts_.end(), [&listener] (const auto& h) {
+        return h->address() == listener;
+    });
+    if (it == hosts_.end()) {
+        LOG(INFO) << idStr_ << "Add listener " << listener;
+        // Add listener as a raft learner
+        hosts_.emplace_back(std::make_shared<Host>(listener, shared_from_this(), true));
+    } else {
+        LOG(INFO) << idStr_ << "The host " << listener << " has joined raft group before";
+    }
+}
+
+void RaftPart::removeListener(const HostAddr& listener) {
+    std::lock_guard<std::mutex> guard(raftLock_);
+    if (listener == addr_) {
+        LOG(INFO) << idStr_ << "Remove myself from the raft group";
+        return;
+    }
+    auto it = std::find_if(hosts_.begin(), hosts_.end(), [&listener] (const auto& h) {
+        return h->address() == listener;
+    });
+    if (it == hosts_.end()) {
+        LOG(INFO) << idStr_ << "The host " << listener << " has joined raft group before";
+    } else {
+        LOG(INFO) << idStr_ << "Add listener " << listener;
+        // Add listener as a raft learner
+        hosts_.emplace_back(std::make_shared<Host>(listener, shared_from_this(), true));
+    }
+}
+
 void RaftPart::preProcessRemovePeer(const HostAddr& peer) {
     CHECK(!raftLock_.try_lock());
     if (role_ == Role::LEADER) {

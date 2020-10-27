@@ -228,6 +228,21 @@ protected:
          std::shared_ptr<SnapshotManager> snapshotMan,
          std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>> clientMan);
 
+    enum class Status {
+        STARTING = 0,   // The part is starting, not ready for service
+        RUNNING,        // The part is running
+        STOPPED,        // The part has been stopped
+        WAITING_SNAPSHOT  // Waiting for the snapshot.
+    };
+
+    enum class Role {
+        LEADER = 1,     // the leader
+        FOLLOWER,       // following a leader
+        CANDIDATE,      // Has sent AskForVote request
+        LEARNER         // It is the same with FOLLOWER,
+                        // except it does not participate in leader election
+    };
+
     const char* idStr() const {
         return idStr_.c_str();
     }
@@ -274,22 +289,11 @@ protected:
 
     void removePeer(const HostAddr& peer);
 
+    void addListener(const HostAddr& peer);
+
+    void removeListener(const HostAddr& peer);
+
 private:
-    enum class Status {
-        STARTING = 0,   // The part is starting, not ready for service
-        RUNNING,        // The part is running
-        STOPPED,        // The part has been stopped
-        WAITING_SNAPSHOT  // Waiting for the snapshot.
-    };
-
-    enum class Role {
-        LEADER = 1,     // the leader
-        FOLLOWER,       // following a leader
-        CANDIDATE,      // Has sent AskForVote request
-        LEARNER         // It is the same with FOLLOWER,
-                        // except it does not participate in leader election
-    };
-
     // A list of <idx, resp>
     // idx  -- the index of the peer
     // resp -- AskForVoteResponse

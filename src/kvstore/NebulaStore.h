@@ -15,6 +15,7 @@
 #include "kvstore/KVStore.h"
 #include "kvstore/PartManager.h"
 #include "kvstore/Part.h"
+#include "kvstore/Listener.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/raftex/SnapshotManager.h"
 
@@ -30,6 +31,8 @@ struct SpacePartInfo {
 
     std::unordered_map<PartitionID, std::shared_ptr<Part>> parts_;
     std::vector<std::unique_ptr<KVEngine>> engines_;
+
+    std::unordered_map<PartitionID, std::shared_ptr<Listener>> listeners_;
 };
 
 class NebulaStore : public KVStore, public Handler {
@@ -90,8 +93,12 @@ public:
         return ioPool_;
     }
 
-    std::shared_ptr<thread::GenericThreadPool> getWorkers() const {
+    std::shared_ptr<thread::GenericThreadPool> getBgWorkers() const {
         return bgWorkers_;
+    }
+
+    std::shared_ptr<folly::Executor> getExecutors() const {
+        return workers_;
     }
 
     // Return the current leader
@@ -231,10 +238,22 @@ public:
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
+    void addListener(GraphSpaceID spaceId,
+                     PartitionID partId,
+                     std::shared_ptr<Listener> listener);
+
+    void removeListener(GraphSpaceID spaceId, PartitionID partId);
+
     int32_t allLeader(std::unordered_map<GraphSpaceID,
                                          std::vector<PartitionID>>& leaderIds) override;
 
 private:
+    void loadPartFromDataPath();
+
+    void loadPartFromPartManager();
+
+    void loadListenerFromPartManager();
+
     void updateSpaceOption(GraphSpaceID spaceId,
                            const std::unordered_map<std::string, std::string>& options,
                            bool isDbOption) override;
@@ -246,6 +265,12 @@ private:
                                   KVEngine* engine,
                                   bool asLearner,
                                   const std::vector<HostAddr>& defaultPeers);
+
+    /*
+    std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
+                                          PartitionID partId,
+                                          const std::vector<HostAddr>& peers);
+    */
 
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);
 

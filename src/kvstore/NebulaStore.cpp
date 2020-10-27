@@ -52,132 +52,142 @@ bool NebulaStore::init() {
         LOG(ERROR) << "Start the raft service failed";
         return false;
     }
+    loadPartFromDataPath();
+    loadPartFromPartManager();
+    loadListenerFromPartManager();
 
+    bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+    LOG(INFO) << "Register handler...";
+    options_.partMan_->registerHandler(this);
+    return true;
+}
+
+void NebulaStore::loadPartFromDataPath() {
     CHECK(!!options_.partMan_);
     LOG(INFO) << "Scan the local path, and init the spaces_";
-    {
-        std::unordered_set<std::pair<GraphSpaceID, PartitionID>> spacePartIdSet;
-        for (auto& path : options_.dataPaths_) {
-            auto rootPath = folly::stringPrintf("%s/nebula", path.c_str());
-            auto dirs = fs::FileUtils::listAllDirsInDir(rootPath.c_str());
-            for (auto& dir : dirs) {
-                LOG(INFO) << "Scan path \"" << path << "/" << dir << "\"";
+    std::unordered_set<std::pair<GraphSpaceID, PartitionID>> spacePartIdSet;
+    for (auto& path : options_.dataPaths_) {
+        auto rootPath = folly::stringPrintf("%s/nebula", path.c_str());
+        auto dirs = fs::FileUtils::listAllDirsInDir(rootPath.c_str());
+        for (auto& dir : dirs) {
+            LOG(INFO) << "Scan path \"" << path << "/" << dir << "\"";
+            try {
+                GraphSpaceID spaceId;
                 try {
-                    GraphSpaceID spaceId;
-                    try {
-                        spaceId = folly::to<GraphSpaceID>(dir);
-                    } catch (const std::exception& ex) {
-                        LOG(ERROR) << "Data path invalid: " << ex.what();
-                        return false;
-                    }
-
-                    if (!options_.partMan_->spaceExist(storeSvcAddr_, spaceId).ok()) {
-                        // TODO We might want to have a second thought here.
-                        // Removing the data directly feels a little strong
-                        LOG(INFO) << "Space " << spaceId
-                                  << " does not exist any more, remove the data!";
-                        auto dataPath = folly::stringPrintf("%s/%s",
-                                                            rootPath.c_str(),
-                                                            dir.c_str());
-                        CHECK(fs::FileUtils::remove(dataPath.c_str(), true));
-                        continue;
-                    }
-
-                    KVEngine* enginePtr = nullptr;
-                    {
-                        folly::RWSpinLock::WriteHolder wh(&lock_);
-                        auto engine = newEngine(spaceId, path);
-                        auto spaceIt = this->spaces_.find(spaceId);
-                        if (spaceIt == this->spaces_.end()) {
-                            LOG(INFO) << "Load space " << spaceId << " from disk";
-                            spaceIt = this->spaces_.emplace(
-                                spaceId,
-                                std::make_unique<SpacePartInfo>()).first;
-                        }
-                        spaceIt->second->engines_.emplace_back(std::move(engine));
-                        enginePtr = spaceIt->second->engines_.back().get();
-                    }
-
-                    // partIds is the partition in this host waiting to open
-                    std::vector<PartitionID> partIds;
-                    for (auto& partId : enginePtr->allParts()) {
-                        if (!options_.partMan_->partExist(storeSvcAddr_, spaceId, partId).ok()) {
-                            LOG(INFO) << "Part " << partId
-                                      << " does not exist any more, remove it!";
-                            enginePtr->removePart(partId);
-                            continue;
-                        } else {
-                            auto spacePart = std::make_pair(spaceId, partId);
-                            if (spacePartIdSet.find(spacePart) != spacePartIdSet.end()) {
-                                LOG(INFO) << "Part " << partId
-                                          << " has been loaded, skip current one, remove it!";
-                                enginePtr->removePart(partId);
-                             } else {
-                                spacePartIdSet.emplace(spacePart);
-                                partIds.emplace_back(partId);
-                             }
-                        }
-                    }
-                    if (partIds.empty()) {
-                        continue;
-                    }
-
-                    std::atomic<size_t> counter(partIds.size());
-                    folly::Baton<true, std::atomic> baton;
-                    LOG(INFO) << "Need to open " << partIds.size() << " parts of space " << spaceId;
-                    for (auto& partId : partIds) {
-                        bgWorkers_->addTask([
-                                spaceId, partId, enginePtr, &counter, &baton, this] () mutable {
-                            auto part = std::make_shared<Part>(spaceId,
-                                                               partId,
-                                                               raftAddr_,
-                                                               folly::stringPrintf("%s/wal/%d",
-                                                                       enginePtr->getDataRoot(),
-                                                                       partId),
-                                                               enginePtr,
-                                                               ioPool_,
-                                                               bgWorkers_,
-                                                               workers_,
-                                                               snapshot_,
-                                                               clientMan_);
-                            auto status = options_.partMan_->partMeta(spaceId, partId);
-                            if (!status.ok()) {
-                                LOG(WARNING) << status.status().toString();
-                                return;
-                            }
-                            auto partMeta = status.value();
-                            std::vector<HostAddr> peers;
-                            for (auto& h : partMeta.hosts_) {
-                                if (h != storeSvcAddr_) {
-                                    peers.emplace_back(getRaftAddr(h));
-                                    VLOG(1) << "Add peer " << peers.back();
-                                }
-                            }
-                            raftService_->addPartition(part);
-                            part->start(std::move(peers), false);
-                            LOG(INFO) << "Load part " << spaceId << ", " << partId << " from disk";
-
-                            {
-                                folly::RWSpinLock::WriteHolder holder(&lock_);
-                                auto iter = spaces_.find(spaceId);
-                                CHECK(iter != spaces_.end());
-                                iter->second->parts_.emplace(partId, part);
-                            }
-                            counter.fetch_sub(1);
-                            if (counter.load() == 0) {
-                                baton.post();
-                            }
-                        });
-                    }
-                    baton.wait();
-                    LOG(INFO) << "Load space " << spaceId << " complete";
-                } catch (std::exception& e) {
-                    LOG(FATAL) << "Invalid data directory \"" << dir << "\"";
+                    spaceId = folly::to<GraphSpaceID>(dir);
+                } catch (const std::exception& ex) {
+                    LOG(ERROR) << "Data path invalid: " << ex.what();
+                    continue;
                 }
+
+                if (!options_.partMan_->spaceExist(storeSvcAddr_, spaceId).ok()) {
+                    // TODO We might want to have a second thought here.
+                    // Removing the data directly feels a little strong
+                    LOG(INFO) << "Space " << spaceId
+                                << " does not exist any more, remove the data!";
+                    auto dataPath = folly::stringPrintf("%s/%s",
+                                                        rootPath.c_str(),
+                                                        dir.c_str());
+                    CHECK(fs::FileUtils::remove(dataPath.c_str(), true));
+                    continue;
+                }
+
+                KVEngine* enginePtr = nullptr;
+                {
+                    folly::RWSpinLock::WriteHolder wh(&lock_);
+                    auto engine = newEngine(spaceId, path);
+                    auto spaceIt = this->spaces_.find(spaceId);
+                    if (spaceIt == this->spaces_.end()) {
+                        LOG(INFO) << "Load space " << spaceId << " from disk";
+                        spaceIt = this->spaces_.emplace(
+                            spaceId,
+                            std::make_unique<SpacePartInfo>()).first;
+                    }
+                    spaceIt->second->engines_.emplace_back(std::move(engine));
+                    enginePtr = spaceIt->second->engines_.back().get();
+                }
+
+                // partIds is the partition in this host waiting to open
+                std::vector<PartitionID> partIds;
+                for (auto& partId : enginePtr->allParts()) {
+                    if (!options_.partMan_->partExist(storeSvcAddr_, spaceId, partId).ok()) {
+                        LOG(INFO) << "Part " << partId
+                                    << " does not exist any more, remove it!";
+                        enginePtr->removePart(partId);
+                        continue;
+                    } else {
+                        auto spacePart = std::make_pair(spaceId, partId);
+                        if (spacePartIdSet.find(spacePart) != spacePartIdSet.end()) {
+                            LOG(INFO) << "Part " << partId
+                                        << " has been loaded, skip current one, remove it!";
+                            enginePtr->removePart(partId);
+                            } else {
+                            spacePartIdSet.emplace(spacePart);
+                            partIds.emplace_back(partId);
+                            }
+                    }
+                }
+                if (partIds.empty()) {
+                    continue;
+                }
+
+                std::atomic<size_t> counter(partIds.size());
+                folly::Baton<true, std::atomic> baton;
+                LOG(INFO) << "Need to open " << partIds.size() << " parts of space " << spaceId;
+                for (auto& partId : partIds) {
+                    bgWorkers_->addTask([
+                            spaceId, partId, enginePtr, &counter, &baton, this] () mutable {
+                        auto part = std::make_shared<Part>(spaceId,
+                                                            partId,
+                                                            raftAddr_,
+                                                            folly::stringPrintf("%s/wal/%d",
+                                                                    enginePtr->getDataRoot(),
+                                                                    partId),
+                                                            enginePtr,
+                                                            ioPool_,
+                                                            bgWorkers_,
+                                                            workers_,
+                                                            snapshot_,
+                                                            clientMan_);
+                        auto status = options_.partMan_->partMeta(spaceId, partId);
+                        if (!status.ok()) {
+                            LOG(WARNING) << status.status().toString();
+                            return;
+                        }
+                        auto partMeta = status.value();
+                        std::vector<HostAddr> peers;
+                        for (auto& h : partMeta.hosts_) {
+                            if (h != storeSvcAddr_) {
+                                peers.emplace_back(getRaftAddr(h));
+                                VLOG(1) << "Add peer " << peers.back();
+                            }
+                        }
+                        raftService_->addPartition(part);
+                        part->start(std::move(peers), false);
+                        LOG(INFO) << "Load part " << spaceId << ", " << partId << " from disk";
+
+                        {
+                            folly::RWSpinLock::WriteHolder holder(&lock_);
+                            auto iter = spaces_.find(spaceId);
+                            CHECK(iter != spaces_.end());
+                            iter->second->parts_.emplace(partId, part);
+                        }
+                        counter.fetch_sub(1);
+                        if (counter.load() == 0) {
+                            baton.post();
+                        }
+                    });
+                }
+                baton.wait();
+                LOG(INFO) << "Load space " << spaceId << " complete";
+            } catch (std::exception& e) {
+                LOG(FATAL) << "Invalid data directory \"" << dir << "\"";
             }
         }
     }
+}
 
+void NebulaStore::loadPartFromPartManager() {
     LOG(INFO) << "Init data from partManager for " << storeSvcAddr_;
     auto partsMap = options_.partMan_->parts(storeSvcAddr_);
     for (auto& entry : partsMap) {
@@ -192,12 +202,35 @@ bool NebulaStore::init() {
             addPart(spaceId, partId, false);
         }
     }
+}
 
-    bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+void NebulaStore::loadListenerFromPartManager() {
+    LOG(INFO) << "Init listener from partManager for " << storeSvcAddr_;
+    /*
+    auto listenersMap = options_.partMan_->listeners(storeSvcAddr_);
+    for (auto& entry : listenersMap) {
+        auto spaceId = entry.first;
 
-    LOG(INFO) << "Register handler...";
-    options_.partMan_->registerHandler(this);
-    return true;
+        do {
+            folly::RWSpinLock::WriteHolder wh(&lock_);
+            if (this->spaces_.find(spaceId) != this->spaces_.end()) {
+                LOG(INFO) << "Space " << spaceId << " has existed!";
+                break;
+            }
+            LOG(INFO) << "Create space " << spaceId;
+            this->spaces_[spaceId] = std::make_shared<SpacePartInfo>();
+        } while(0);
+
+        std::vector<PartitionID> partIds;
+        for (auto it = entry.second.begin(); it != entry.second.end(); it++) {
+            partIds.emplace_back(it->first);
+        }
+        std::sort(partIds.begin(), partIds.end());
+        for (auto& partId : partIds) {
+            addListener(spaceId, partId, false);
+        }
+    }
+    */
 }
 
 void NebulaStore::stop() {
@@ -372,6 +405,70 @@ void NebulaStore::removePart(GraphSpaceID spaceId, PartitionID partId) {
         }
     }
     LOG(INFO) << "Space " << spaceId << ", part " << partId << " has been removed!";
+}
+
+void NebulaStore::addListener(GraphSpaceID spaceId,
+                              PartitionID partId,
+                              std::shared_ptr<Listener> listener) {
+    folly::RWSpinLock::WriteHolder wh(&lock_);
+    auto spaceIt = this->spaces_.find(spaceId);
+    CHECK(spaceIt != this->spaces_.end()) << "Space should exist!";
+    auto partIt = spaceIt->second->listeners_.find(partId);
+    if (partIt != spaceIt->second->listeners_.end()) {
+        LOG(INFO) << "Listener of [Space: " << spaceId << ", Part: " << partId << "] has existed!";
+        return;
+    }
+    spaceIt->second->listeners_.emplace(partId, listener);
+    LOG(INFO) << "Listener of space " << spaceId << ", part " << partId << " has been added";
+    return;
+}
+
+/*
+std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
+                                                   PartitionID partId,
+                                                   const std::vector<HostAddr>& peers) {
+    auto hosts = peers;
+    if (hosts.empty()) {
+        auto metaStatus = options_.partMan_->partMeta(spaceId, partId);
+        if (!metaStatus.ok()) {
+            LOG(ERROR) << "options_.partMan_->partMeta(spaceId, partId); error: "
+                       << metaStatus.status().toString()
+                       << " spaceId: " << spaceId << ", partId: " << partId;
+            return nullptr;
+        }
+        auto partMeta = metaStatus.value();
+        hosts = partMeta.hosts_;
+    }
+    auto walPath = folly::stringPrintf("%s/%d/%d/wal", options_.listenerPath_.c_str(), spaceId, partId);
+    auto listener = std::make_shared<Listener>(spaceId,
+                                               partId,
+                                               raftAddr_,
+                                               walPath,
+                                               ioPool_,
+                                               bgWorkers_,
+                                               workers_,
+                                               nullptr,
+                                               nullptr);
+    raftService_->addPartition(listener);
+    // add raft group as learner
+    listener->start(std::move(hosts));
+    return listener;
+}
+*/
+
+void NebulaStore::removeListener(GraphSpaceID spaceId, PartitionID partId) {
+    folly::RWSpinLock::WriteHolder wh(&lock_);
+    auto spaceIt = this->spaces_.find(spaceId);
+    if (spaceIt != this->spaces_.end()) {
+        auto partIt = spaceIt->second->listeners_.find(partId);
+        if (partIt != spaceIt->second->listeners_.end()) {
+            raftService_->removePartition(partIt->second);
+            partIt->second->cleanup();
+            spaceIt->second->listeners_.erase(partId);
+        }
+    }
+    LOG(INFO) << "Listener of space " << spaceId << ", part " << partId << " has been removed!";
+    return;
 }
 
 void NebulaStore::updateSpaceOption(GraphSpaceID spaceId,

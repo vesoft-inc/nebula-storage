@@ -34,6 +34,8 @@ struct KVOptions {
     // otherwise it would mix up the data on disk.
     std::vector<std::string> dataPaths_;
 
+    std::string listenerPath_;
+
     //  PartManager instance for kvstore.
     std::unique_ptr<PartManager> partMan_{nullptr};
 
