@@ -27,7 +27,7 @@ enablesanitizer="OFF"
 build_type="Release"
 branch="master"
 
-while getopts v:n:s:d opt;
+while getopts v:n:s:b:d opt;
 do
     case $opt in
         v)
@@ -77,6 +77,7 @@ function build {
     version=$1
     san=$2
     build_type=$3
+    branch=$4
     build_dir=$PROJECT_DIR/build
     if [[ -d $build_dir ]]; then
         rm -rf ${build_dir}/*
@@ -151,5 +152,5 @@ function package {
 
 
 # The main
-build $version $enablesanitizer $build_type
+build $version $enablesanitizer $build_type $branch
 package $strip_enable
