@@ -7,6 +7,7 @@
 #include "storage/context/StorageExpressionContext.h"
 #include <utils/IndexKeyUtils.h>
 #include "utils/NebulaKeyUtils.h"
+#include "utils/DefaultValueContext.h"
 
 namespace nebula {
 namespace storage {
@@ -24,7 +25,8 @@ Value StorageExpressionContext::readValue(const std::string& propName) const {
         // read null value
         auto nullType = value.getNull();
         if (nullType == NullType::UNKNOWN_PROP && field->hasDefault()) {
-            return field->defaultValue();
+            DefaultValueContext expCtx;
+            return Value(Expression::eval(field->defaultValue(), expCtx));
         }
         return Value::kNullValue;
     }
@@ -42,7 +44,8 @@ Value StorageExpressionContext::getTagProp(const std::string& tagName,
             return Value::kNullValue;
         }
         if (prop == kVid) {
-            return NebulaKeyUtils::getVertexId(vIdLen_, key_);
+            auto vId = NebulaKeyUtils::getVertexId(vIdLen_, key_);
+            return isIntId_ ? vId : vId.subpiece(0, vId.find_first_of('\0'));
         } else {
             return readValue(prop);
         }
@@ -65,9 +68,11 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
             return Value::kNullValue;
         }
         if (prop == kSrc) {
-            return NebulaKeyUtils::getSrcId(vIdLen_, key_);
+            auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key_);
+            return isIntId_ ? srcId : srcId.subpiece(0, srcId.find_first_of('\0'));
         } else if (prop == kDst) {
-            return NebulaKeyUtils::getDstId(vIdLen_, key_);
+            auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key_);
+            return isIntId_ ? dstId : dstId.subpiece(0, dstId.find_first_of('\0'));
         } else if (prop == kRank) {
             return NebulaKeyUtils::getRank(vIdLen_, key_);
         } else if (prop == kType) {

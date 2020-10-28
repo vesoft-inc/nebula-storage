@@ -32,6 +32,8 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
     $<TARGET_OBJECTS:common_time_function_obj>
+    $<TARGET_OBJECTS:common_expression_obj>
+    $<TARGET_OBJECTS:common_time_utils_obj>
 )
 
 nebula_add_test(
@@ -272,3 +274,18 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        group_zone_test
+    SOURCES
+        GroupZoneTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        proxygenhttpserver
+        proxygenlib
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)

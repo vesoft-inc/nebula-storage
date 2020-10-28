@@ -18,6 +18,9 @@ set(KVSTORE_TEST_LIBS
     $<TARGET_OBJECTS:common_thrift_obj>
     $<TARGET_OBJECTS:common_time_obj>
     $<TARGET_OBJECTS:common_stats_obj>
+    $<TARGET_OBJECTS:common_expression_obj>
+    $<TARGET_OBJECTS:common_function_manager_obj>
+    $<TARGET_OBJECTS:common_time_utils_obj>
 )
 
 nebula_add_test(

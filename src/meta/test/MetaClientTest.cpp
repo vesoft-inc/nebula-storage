@@ -121,9 +121,8 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "tagItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                nebula::Value defaultValue;
-                defaultValue.setStr(std::to_string(i));
-                column.default_value = defaultValue;
+                ConstantExpression defaultValue(std::to_string(i));
+                column.default_value = Expression::encode(defaultValue);
                 schema.columns.emplace_back(std::move(column));
             }
             auto ret = client->createTagSchema(spaceId, "tagWithDefault", schema).get();
@@ -150,9 +149,8 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "edgeItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                nebula::Value defaultValue;
-                defaultValue.setStr(std::to_string(i));
-                column.default_value = defaultValue;
+                ConstantExpression defaultValue(std::to_string(i));
+                column.default_value = Expression::encode(defaultValue);
                 schema.columns.emplace_back(std::move(column));
             }
             auto ret = client->createEdgeSchema(spaceId, "edgeWithDefault", schema).get();
@@ -345,14 +343,9 @@ TEST(MetaClientTest, TagTest) {
 
     mock::MockCluster cluster;
     cluster.startMeta(0, rootPath.path());
-    uint32_t localMetaPort = cluster.metaServer_->port_;
+    cluster.initMetaClient();
     auto* kv = cluster.metaKV_.get();
-    auto localIp = cluster.localIP();
-
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
-    auto localhosts = std::vector<HostAddr>{HostAddr(localIp, localMetaPort)};
-    auto client = std::make_shared<MetaClient>(threadPool, localhosts);
-    client->waitForMetadReady();
+    auto* client = cluster.metaClient_.get();
 
     std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}};
     TestUtils::registerHB(kv, hosts);
@@ -368,22 +361,21 @@ TEST(MetaClientTest, TagTest) {
 
     {
         std::vector<cpp2::ColumnDef> columns;
-        Value defaultValue;
-        defaultValue.setInt(0);
         columns.emplace_back();
         columns.back().set_name("column_i");
-        columns.back().set_default_value(defaultValue);
+        ConstantExpression intValue(Value(0L));
+        columns.back().set_default_value(Expression::encode(intValue));
         columns.back().type.set_type(PropertyType::INT64);
 
-        defaultValue.setFloat(3.14);
         columns.emplace_back();
-        columns.back().set_default_value(defaultValue);
+        ConstantExpression floatValue(Value(3.14));
+        columns.back().set_default_value(Expression::encode(floatValue));
         columns.back().set_name("column_d");
         columns.back().type.set_type(PropertyType::DOUBLE);
 
-        defaultValue.setStr("test");
         columns.emplace_back();
-        columns.back().set_default_value(defaultValue);
+        ConstantExpression strValue("test");
+        columns.back().set_default_value(Expression::encode(strValue));
         columns.back().set_name("column_s");
         columns.back().type.set_type(PropertyType::STRING);
 
@@ -398,17 +390,15 @@ TEST(MetaClientTest, TagTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        nebula::Value intValue;
-        intValue.setInt(0);
-        intColumn.set_default_value(intValue);
+        ConstantExpression intValue(Value(0L));
+        intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        nebula::Value doubleValue;
-        doubleValue.setFloat(3.14);
-        doubleColumn.set_default_value(doubleValue);
+        ConstantExpression floatValue(Value(3.14));
+        doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
         cpp2::Schema schema;
@@ -481,25 +471,22 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        nebula::Value intValue;
-        intValue.setInt(0);
-        intColumn.set_default_value(intValue);
+        ConstantExpression intValue(Value(0L));
+        intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::DOUBLE);
-        nebula::Value doubleValue;
-        doubleValue.setFloat(3.14);
-        doubleColumn.set_default_value(doubleValue);
+        ConstantExpression floatValue(Value(3.14));
+        doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
         cpp2::ColumnDef stringColumn;
         stringColumn.set_name("column_s");
         stringColumn.type.set_type(PropertyType::STRING);
-        nebula::Value stringValue;
-        stringValue.setStr("test");
-        stringColumn.set_default_value(stringValue);
+        ConstantExpression strValue("test");
+        stringColumn.set_default_value(Expression::encode(strValue));
         columns.emplace_back(std::move(stringColumn));
         expectedColumns = columns;
 
@@ -513,17 +500,15 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        nebula::Value intValue;
-        intValue.setInt(0);
-        intColumn.set_default_value(intValue);
+        ConstantExpression intValue(Value(0L));
+        intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        nebula::Value doubleValue;
-        doubleValue.setFloat(3.14);
-        doubleColumn.set_default_value(doubleValue);
+        ConstantExpression floatValue(Value(3.14));
+        doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
         cpp2::Schema schema;
         schema.set_columns(columns);
@@ -894,6 +879,201 @@ TEST(MetaClientTest, EdgeIndexTest) {
     }
 }
 
+TEST(MetaClientTest, GroupAndZoneTest) {
+    FLAGS_heartbeat_interval_secs = 1;
+    fs::TempDir rootPath("/tmp/GroupAndZoneTest.XXXXXX");
+
+    mock::MockCluster cluster;
+    cluster.startMeta(0, rootPath.path());
+    cluster.initMetaClient();
+    auto* kv = cluster.metaKV_.get();
+    auto* client = cluster.metaClient_.get();
+    std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}};
+    TestUtils::registerHB(kv, hosts);
+
+    // Add Zone
+    {
+        std::vector<HostAddr> nodes = {{"0", 0}, {"1", 1}, {"2", 2}};
+        auto result = client->addZone("zone_0", nodes).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        std::vector<HostAddr> nodes = {{"3", 3}, {"4", 4}, {"5", 5}};
+        auto result = client->addZone("zone_1", nodes).get();
+        ASSERT_TRUE(result.ok());
+    }
+    {
+        std::vector<HostAddr> nodes = {{"6", 6}, {"7", 7}, {"8", 8}};
+        auto result = client->addZone("zone_2", nodes).get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Host have overlap
+    {
+        std::vector<HostAddr> nodes = {{"8", 8}, {"9", 9}, {"10", 10}};
+        auto result = client->addZone("zone_3", nodes).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Zone with empty node list
+    {
+        std::vector<HostAddr> nodes;
+        auto result = client->addZone("zone_0", nodes).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Zone with duplicate node
+    {
+        std::vector<HostAddr> nodes = {{"0", 0}, {"0", 0}};
+        auto result = client->addZone("zone_0", nodes).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Zone already existed
+    {
+        std::vector<HostAddr> nodes = {{"0", 0}, {"1", 1}, {"2", 2}};
+        auto result = client->addZone("zone_0", nodes).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Get Zone
+    {
+        auto result = client->getZone("zone_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Get Zone which is not exist
+    {
+        auto result = client->getZone("zone_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // List Zones
+    {
+        auto result = client->listZones().get();
+        ASSERT_TRUE(result.ok());
+        ASSERT_EQ(3, result.value().size());
+    }
+    // Add host into zone
+    {
+        HostAddr node("3", 3);
+        auto result = client->addHostIntoZone(node, "zone_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Add host into zone which zone is not exist
+    {
+        HostAddr node("4", 4);
+        auto result = client->addHostIntoZone(node, "zone_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add host into zone which the node have existed
+    {
+        HostAddr node("3", 3);
+        auto result = client->addHostIntoZone(node, "zone_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop host from zone
+    {
+        HostAddr node("3", 3);
+        auto result = client->dropHostFromZone(node, "zone_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Drop host from zone which zone is not exist
+    {
+        HostAddr node("4", 4);
+        auto result = client->dropHostFromZone(node, "zone_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop host from zone which the node not exist
+    {
+        HostAddr node("4", 4);
+        auto result = client->dropHostFromZone(node, "zone_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Group
+    {
+        std::vector<std::string> zones = {"zone_0", "zone_1", "zone_2"};
+        auto result = client->addGroup("group_0", std::move(zones)).get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Add Group with empty zone name list
+    {
+        std::vector<std::string> zones = {};
+        auto result = client->addGroup("group_0", std::move(zones)).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Group with duplicate zone name
+    {
+        std::vector<std::string> zones = {"zone_0", "zone_0", "zone_2"};
+        auto result = client->addGroup("group_0", std::move(zones)).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add Group already existed
+    {
+        std::vector<std::string> zones = {"zone_0", "zone_1", "zone_2"};
+        auto result = client->addGroup("group_0", std::move(zones)).get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Get Group
+    {
+        auto result = client->getGroup("group_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Get Group which is not exist
+    {
+        auto result = client->getGroup("group_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // List Groups
+    {
+        auto result = client->listGroups().get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Add zone into group
+    {
+        auto result = client->addZoneIntoGroup("zone_3", "group_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Add zone into group which group not exist
+    {
+        auto result = client->addZoneIntoGroup("zone_0", "group_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Add zone into group which zone already exist
+    {
+        auto result = client->addZoneIntoGroup("zone_0", "group_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop zone from group
+    {
+        auto result = client->dropZoneFromGroup("zone_3", "group_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Drop zone from group which group not exist
+    {
+        auto result = client->dropZoneFromGroup("zone_0", "group_not_exist").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop zone from group which zone not exist
+    {
+        auto result = client->dropZoneFromGroup("zone_not_exist", "group_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop Group
+    {
+        auto result = client->dropGroup("group_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Drop Group which is not exist
+    {
+        auto result = client->dropGroup("group_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+    // Drop Zone
+    {
+        auto result = client->dropZone("zone_0").get();
+        ASSERT_TRUE(result.ok());
+    }
+    // Drop Zone which is not exist
+    {
+        auto result = client->dropZone("zone_0").get();
+        ASSERT_FALSE(result.ok());
+    }
+}
+
 class TestListener : public MetaChangedListener {
 public:
     virtual ~TestListener() = default;
@@ -1089,7 +1269,6 @@ private:
 TEST(MetaClientTest, SimpleTest) {
     FLAGS_heartbeat_interval_secs = 3600;
     auto localIp = network::NetworkUtils::getHostname();
-
 
     auto mockMetad = std::make_unique<mock::RpcServer>();
     auto handler = std::make_shared<TestMetaService>();
@@ -1405,6 +1584,7 @@ TEST(MetaClientTest, RocksdbOptionsTest) {
         ASSERT_EQ(listener->options["level0_file_num_compaction_trigger"], "4");
     }
 }
+
 }  // namespace meta
 }  // namespace nebula
 

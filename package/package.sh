@@ -13,7 +13,7 @@
 #   -n: Package to one or multi packages, `ON` means one package, `OFF` means multi packages, default value is `ON`
 #   -s: Whether to strip the package, default value is `FALSE`
 #
-# usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE>
+# usage: ./package.sh -v <version> -n <ON/OFF> -s <TRUE/FALSE> -b <BRANCH>
 #
 
 set -e
@@ -21,12 +21,13 @@ set -e
 version=""
 package_one=ON
 strip_enable="FALSE"
-usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE>"
+usage="Usage: ${0} -v <version> -n <ON/OFF> -s <TRUE/FALSE> -b <BRANCH>"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)/.."
 enablesanitizer="OFF"
 build_type="Release"
+branch="master"
 
-while getopts v:n:s:d opt;
+while getopts v:n:s:b:d opt;
 do
     case $opt in
         v)
@@ -37,6 +38,9 @@ do
             ;;
         s)
             strip_enable=$OPTARG
+            ;;
+        b)
+            branch=$OPTARG
             ;;
         d)
             enablesanitizer="ON"
@@ -73,6 +77,7 @@ function build {
     version=$1
     san=$2
     build_type=$3
+    branch=$4
     build_dir=$PROJECT_DIR/build
     if [[ -d $build_dir ]]; then
         rm -rf ${build_dir}/*
@@ -85,6 +90,7 @@ function build {
     cmake \
         -DCMAKE_BUILD_TYPE=${build_type} \
         -DNEBULA_BUILD_VERSION=${version} \
+        -DNEBULA_COMMON_REPO_TAG=${branch} \
         -DENABLE_ASAN=${san} \
         -DENABLE_UBSAN=${san} \
         -DCMAKE_INSTALL_PREFIX=/usr/local/nebula \
@@ -146,5 +152,5 @@ function package {
 
 
 # The main
-build $version $enablesanitizer $build_type
+build $version $enablesanitizer $build_type $branch
 package $strip_enable

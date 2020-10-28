@@ -303,8 +303,11 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kRelGT:
         case Expression::Kind::kRelGE:
         case Expression::Kind::kContains:
+        case Expression::Kind::kNotContains:
         case Expression::Kind::kStartsWith:
+        case Expression::Kind::kNotStartsWith:
         case Expression::Kind::kEndsWith:
+        case Expression::Kind::kNotEndsWith:
         case Expression::Kind::kRelNotIn:
         case Expression::Kind::kRelIn: {
             auto* relExp = static_cast<const RelationalExpression*>(exp);
@@ -317,7 +320,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kList: {
             auto* listExp = static_cast<const ListExpression*>(exp);
             for (auto& item : listExp->items()) {
-                auto ret = checkExp(item, returned, filtered, updated);
+                auto ret = checkExp(item.get(), returned, filtered, updated);
                 if (ret != cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -327,7 +330,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kSet: {
             auto* setExp = static_cast<const SetExpression*>(exp);
             for (auto& item : setExp->items()) {
-                auto ret = checkExp(item, returned, filtered, updated);
+                auto ret = checkExp(item.get(), returned, filtered, updated);
                 if (ret != cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -337,7 +340,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kMap: {
             auto* mapExp = static_cast<const MapExpression*>(exp);
             for (auto& item : mapExp->items()) {
-                auto ret = checkExp(item.second, returned, filtered, updated);
+                auto ret = checkExp(item.second.get(), returned, filtered, updated);
                 if (ret != cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -484,7 +487,8 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kDstProperty:
         case Expression::Kind::kUUID:
         case Expression::Kind::kVar:
-        case Expression::Kind::kVersionedVar: {
+        case Expression::Kind::kVersionedVar:
+        default: {
             LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
             return cpp2::ErrorCode::E_INVALID_FILTER;
         }
