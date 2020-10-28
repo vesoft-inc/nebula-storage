@@ -79,26 +79,19 @@ TEST(NebulaStoreTest, SimpleTest) {
     // 1 space, 1 part, 1 replica, 1 listener
     auto initNebulaStore = [](const std::vector<HostAddr>& peers,
                               int32_t index,
-                              const std::string& path,
-                              bool asListener = false)
+                              const std::string& path)
         -> std::unique_ptr<NebulaStore> {
         auto partMan = std::make_unique<MemPartManager>();
         auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
 
         GraphSpaceID spaceId = 1;
         PartitionID partId = 1;
-        if (!asListener) {
+        {
             PartHosts ph;
             ph.spaceId_ = spaceId;
             ph.partId_ = partId;
             ph.hosts_ = peers;
             partMan->partsMap_[spaceId][partId] = std::move(ph);
-        } else {
-            ListenerHosts lh;
-            lh.spaceId_ = spaceId;
-            lh.partId_ = partId;
-            lh.hosts_ = peers;
-            partMan->listenersMap_[spaceId][partId] = std::move(lh);
         }
 
         fs::TempDir rootPath("/tmp/nebula_listener_test.XXXXXX");
@@ -131,9 +124,11 @@ TEST(NebulaStoreTest, SimpleTest) {
         stores.back()->init();
     }
 
+    /*
     // init listener replica
     auto listener = initNebulaStore(peers, replicas, rootPath.path(), true);
     listener->init();
+    */
 
     sleep(5);
 }

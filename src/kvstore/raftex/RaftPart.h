@@ -142,6 +142,10 @@ public:
 
     void commitRemovePeer(const HostAddr& peer);
 
+    void addListener(const HostAddr& peer);
+
+    void removeListener(const HostAddr& peer);
+
     // Change the partition status to RUNNING. This is called
     // by the inherited class, when it's ready to serve
     virtual void start(std::vector<HostAddr>&& peers, bool asLearner = false);
@@ -288,10 +292,6 @@ protected:
     void addPeer(const HostAddr& peer);
 
     void removePeer(const HostAddr& peer);
-
-    void addListener(const HostAddr& peer);
-
-    void removeListener(const HostAddr& peer);
 
 private:
     // A list of <idx, resp>

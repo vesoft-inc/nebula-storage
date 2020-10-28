@@ -16,6 +16,15 @@ meta::ListenersMap MemPartManager::listeners(const HostAddr&) {
     return listenersMap_;
 }
 
+StatusOr<std::vector<meta::RemoteListnerInfo>>
+MemPartManager::listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) {
+    auto listeners = remoteListeners_[spaceId][partId];
+    if (listeners.empty()) {
+        return Status::ListenerNotFound();
+    }
+    return listeners;
+}
+
 StatusOr<meta::PartHosts> MemPartManager::partMeta(GraphSpaceID spaceId, PartitionID partId) {
     auto it = partsMap_.find(spaceId);
     if (it == partsMap_.end()) {
@@ -189,6 +198,19 @@ void MetaServerBasedPartManager::fetchLeaderInfo(
     } else {
         VLOG(1) << "handler_ is nullptr!";
     }
+}
+
+meta::ListenersMap MetaServerBasedPartManager::listeners(const HostAddr& host) {
+    auto ret = client_->getListenersByHostFromCache(host);
+    if (ret.ok()) {
+        return ret.value();
+    }
+    return meta::ListenersMap();
+}
+
+StatusOr<std::vector<meta::RemoteListnerInfo>>
+MetaServerBasedPartManager::listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) {
+    return client_->getListenerHostTypeBySpacePartType(spaceId, partId);
 }
 
 }  // namespace kvstore

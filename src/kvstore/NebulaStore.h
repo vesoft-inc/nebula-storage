@@ -242,6 +242,7 @@ public:
 
     void addListener(GraphSpaceID spaceId,
                      PartitionID partId,
+                     meta::cpp2::ListenerType type,
                      std::vector<HostAddr> peers);
 
     void removeListener(GraphSpaceID spaceId, PartitionID partId);
@@ -254,7 +255,9 @@ private:
 
     void loadPartFromPartManager();
 
-    void loadListenerFromPartManager();
+    void loadLocalListenerFromPartManager();
+
+    void loadRemoteListenerFromPartManager();
 
     void updateSpaceOption(GraphSpaceID spaceId,
                            const std::unordered_map<std::string, std::string>& options,
@@ -270,6 +273,7 @@ private:
 
     std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
                                           PartitionID partId,
+                                          meta::cpp2::ListenerType type,
                                           std::vector<HostAddr> peers);
 
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);

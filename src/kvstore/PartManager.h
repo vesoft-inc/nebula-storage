@@ -68,8 +68,10 @@ public:
      * */
     virtual Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) = 0;
 
-    // doodle
     virtual meta::ListenersMap listeners(const HostAddr& host) = 0;
+
+    virtual StatusOr<std::vector<meta::RemoteListnerInfo>>
+    listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     /**
      * Register Handler
@@ -101,8 +103,6 @@ public:
     ~MemPartManager() = default;
 
     meta::PartsMap parts(const HostAddr& host) override;
-
-    meta::ListenersMap listeners(const HostAddr& host) override;
 
     StatusOr<meta::PartHosts> partMeta(GraphSpaceID spaceId, PartitionID partId) override;
 
@@ -151,9 +151,15 @@ public:
         return partsMap_;
     }
 
+    meta::ListenersMap listeners(const HostAddr& host) override;
+
+    StatusOr<std::vector<meta::RemoteListnerInfo>>
+    listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) override;
+
 private:
     meta::PartsMap partsMap_;
     meta::ListenersMap listenersMap_;
+    meta::RemoteListeners remoteListeners_;
 };
 
 
@@ -170,6 +176,11 @@ public:
     Status partExist(const HostAddr& host, GraphSpaceID spaceId, PartitionID partId) override;
 
     Status spaceExist(const HostAddr& host, GraphSpaceID spaceId) override;
+
+    meta::ListenersMap listeners(const HostAddr& host) override;
+
+    StatusOr<std::vector<meta::RemoteListnerInfo>>
+    listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) override;
 
     /**
      * Implement the interfaces in MetaChangedListener
@@ -190,11 +201,6 @@ public:
 
     void fetchLeaderInfo(std::unordered_map<GraphSpaceID,
                                             std::vector<PartitionID>>& leaderParts) override;
-
-    // doodle
-    meta::ListenersMap listeners(const HostAddr&) override {
-        return meta::ListenersMap();
-    }
 
     HostAddr getLocalHost() {
        return localHost_;
