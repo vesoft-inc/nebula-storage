@@ -23,6 +23,8 @@
 namespace nebula {
 namespace kvstore {
 
+using ListenerMap = std::unordered_map<meta::cpp2::ListenerType, std::shared_ptr<Listener>>;
+
 struct SpacePartInfo {
     ~SpacePartInfo() {
         parts_.clear();
@@ -33,7 +35,7 @@ struct SpacePartInfo {
     std::unordered_map<PartitionID, std::shared_ptr<Part>> parts_;
     std::vector<std::unique_ptr<KVEngine>> engines_;
 
-    std::unordered_map<PartitionID, std::shared_ptr<Listener>> listeners_;
+    std::unordered_map<PartitionID, ListenerMap> listeners_;
 };
 
 class NebulaStore : public KVStore, public Handler {
@@ -243,9 +245,9 @@ public:
     void addListener(GraphSpaceID spaceId,
                      PartitionID partId,
                      meta::cpp2::ListenerType type,
-                     std::vector<HostAddr> peers);
+                     const std::vector<HostAddr>& peers);
 
-    void removeListener(GraphSpaceID spaceId, PartitionID partId);
+    void removeListener(GraphSpaceID spaceId, PartitionID partId, meta::cpp2::ListenerType type);
 
     int32_t allLeader(std::unordered_map<GraphSpaceID,
                                          std::vector<PartitionID>>& leaderIds) override;
@@ -274,7 +276,7 @@ private:
     std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
                                           PartitionID partId,
                                           meta::cpp2::ListenerType type,
-                                          std::vector<HostAddr> peers);
+                                          const std::vector<HostAddr>& peers);
 
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);
 

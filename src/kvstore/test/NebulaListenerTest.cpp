@@ -33,9 +33,10 @@ public:
                   const std::string& walPath,
                   std::shared_ptr<folly::IOThreadPoolExecutor> ioPool,
                   std::shared_ptr<thread::GenericThreadPool> workers,
-                  std::shared_ptr<folly::Executor> handlers)
+                  std::shared_ptr<folly::Executor> handlers,
+                  meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, localAddr, walPath,
-                   ioPool, workers, handlers, nullptr, nullptr) {
+                   ioPool, workers, handlers, nullptr, nullptr, schemaMan) {
         setCallback(std::bind(&DummyListener::commitLog, this,
                               std::placeholders::_1, std::placeholders::_2),
                     std::bind(&DummyListener::updateCommit, this,
@@ -48,8 +49,10 @@ public:
 
 protected:
     bool commitLog(LogID, folly::StringPiece log) {
+        // decode a wal
         auto kvs = decodeMultiValues(log);
         CHECK_EQ((kvs.size() + 1) / 2, kvs.size() / 2);
+        // mock persist log
         for (size_t i = 0; i < kvs.size(); i += 2) {
             data_.emplace_back(kvs[i], kvs[i + 1]);
         }
@@ -93,11 +96,10 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     int32_t replicas = std::get<1>(param);
     int32_t listenerCount = std::get<2>(param);
 
-    auto initStore = [] (const std::vector<HostAddr>& peers,
-                         int32_t index,
-                         const std::string& path,
-                         int32_t partCount,
-                         const std::vector<HostAddr>& listeners = {}) {
+    auto initStore = [partCount] (const std::vector<HostAddr>& peers,
+                                  int32_t index,
+                                  const std::string& path,
+                                  const std::vector<HostAddr>& listeners = {}) {
         auto partMan = std::make_unique<MemPartManager>();
         auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
 
@@ -158,7 +160,7 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     LOG(INFO) << "Init data replica";
     std::vector<std::unique_ptr<NebulaStore>> stores;
     for (int32_t i = 0; i < replicas; i++) {
-        stores.emplace_back(initStore(peers, i, rootPath.path(), partCount, listenerHosts));
+        stores.emplace_back(initStore(peers, i, rootPath.path(), listenerHosts));
         stores.back()->init();
     }
 
@@ -183,7 +185,8 @@ TEST_P(ListenerBasicTest, SimpleTest) {
                                                      walPath,
                                                      listeners[index]->ioPool_,
                                                      listeners[index]->bgWorkers_,
-                                                     listeners[index]->workers_);
+                                                     listeners[index]->workers_,
+                                                     nullptr);
         listeners[index]->raftService_->addPartition(dummy);
         std::vector<HostAddr> raftPeers;
         std::transform(peers.begin(), peers.end(), std::back_inserter(raftPeers),
@@ -191,11 +194,12 @@ TEST_P(ListenerBasicTest, SimpleTest) {
             return NebulaStore::getRaftAddr(host);
         });
         dummy->start(std::move(raftPeers));
-        listeners[index]->spaces_[spaceId]->listeners_.emplace(partId, dummy);
+        listeners[index]->spaces_[spaceId]->listeners_[partId].emplace(
+            meta::cpp2::ListenerType::UNKNOWN, dummy);
         dummys.emplace(partId, dummy);
     }
 
-    auto waitLeader = [replicas, partCount] (std::vector<std::unique_ptr<NebulaStore>>& stores) {
+    auto waitLeader = [replicas, partCount, &stores] () {
         while (true) {
             int32_t leaderCount = 0;
             for (int i = 0; i < replicas; i++) {
@@ -209,7 +213,7 @@ TEST_P(ListenerBasicTest, SimpleTest) {
         }
     };
 
-    auto findStoreIndex = [&] (const HostAddr& addr) {
+    auto findStoreIndex = [&peers] (const HostAddr& addr) {
         for (size_t i = 0; i < peers.size(); i++) {
             if (peers[i] == addr) {
                 return i;
@@ -219,8 +223,9 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     };
 
     LOG(INFO) << "Waiting for all leaders elected!";
-    waitLeader(stores);
+    waitLeader();
 
+    LOG(INFO) << "Insert some data";
     for (int32_t partId = 1; partId <= partCount; partId++) {
         std::vector<KV> data;
         for (int32_t i = 0; i < 100; i++) {
@@ -237,8 +242,10 @@ TEST_P(ListenerBasicTest, SimpleTest) {
         baton.wait();
     }
 
+    // wait listener commit
     sleep(FLAGS_raft_heartbeat_interval_secs);
 
+    LOG(INFO) << "Check listener's data";
     for (int32_t partId = 1; partId <= partCount; partId++) {
         auto dummy = dummys[partId];
         const auto& data = dummy->data();
@@ -263,7 +270,8 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple(1, 1, 2),
         std::make_tuple(3, 1, 3),
         std::make_tuple(3, 3, 3),
-        std::make_tuple(10, 3, 3)));
+        std::make_tuple(10, 3, 3),
+        std::make_tuple(10, 3, 10)));
 
 }  // namespace kvstore
 }  // namespace nebula

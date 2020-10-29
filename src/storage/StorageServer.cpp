@@ -51,6 +51,7 @@ std::unique_ptr<kvstore::KVStore> StorageServer::getStoreInstance() {
                                                 metaClient_.get());
     options.cffBuilder_ = std::make_unique<StorageCompactionFilterFactoryBuilder>(schemaMan_.get(),
                                                                                   indexMan_.get());
+    options.schemaMan_ = schemaMan_.get();
     if (FLAGS_store_type == "nebula") {
         auto nbStore = std::make_unique<kvstore::NebulaStore>(std::move(options),
                                                               ioThreadPool_,

@@ -36,6 +36,15 @@ public:
 
     virtual int32_t allLeader(std::unordered_map<GraphSpaceID,
                                                  std::vector<PartitionID>>& leaderIds) = 0;
+
+    /*
+    virtual void addListener(GraphSpaceID spaceId,
+                             PartitionID partId,
+                             meta::cpp2::ListenerType type,
+                             const std::vector<HostAddr>& peers);
+
+    void removeListener(GraphSpaceID spaceId, PartitionID partId);
+    */
 };
 
 
@@ -70,7 +79,7 @@ public:
 
     virtual meta::ListenersMap listeners(const HostAddr& host) = 0;
 
-    virtual StatusOr<std::vector<meta::RemoteListnerInfo>>
+    virtual StatusOr<std::vector<meta::RemoteListenerInfo>>
     listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     /**
@@ -154,7 +163,7 @@ public:
 
     meta::ListenersMap listeners(const HostAddr& host) override;
 
-    StatusOr<std::vector<meta::RemoteListnerInfo>>
+    StatusOr<std::vector<meta::RemoteListenerInfo>>
     listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) override;
 
 private:
@@ -180,7 +189,7 @@ public:
 
     meta::ListenersMap listeners(const HostAddr& host) override;
 
-    StatusOr<std::vector<meta::RemoteListnerInfo>>
+    StatusOr<std::vector<meta::RemoteListenerInfo>>
     listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) override;
 
     /**

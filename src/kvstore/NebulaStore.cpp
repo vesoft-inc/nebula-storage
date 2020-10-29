@@ -415,29 +415,35 @@ void NebulaStore::removePart(GraphSpaceID spaceId, PartitionID partId) {
 void NebulaStore::addListener(GraphSpaceID spaceId,
                               PartitionID partId,
                               meta::cpp2::ListenerType type,
-                              std::vector<HostAddr> peers) {
+                              const std::vector<HostAddr>& peers) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
     auto spaceIt = spaces_.find(spaceId);
     if (spaceIt == spaces_.end()) {
         spaceIt = spaces_.emplace(spaceId, std::make_shared<SpacePartInfo>()).first;
     }
     auto partIt = spaceIt->second->listeners_.find(partId);
-    if (partIt != spaceIt->second->listeners_.end()) {
-        LOG(INFO) << "Listener of [Space: " << spaceId << ", Part: " << partId << "] has existed!";
+    if (partIt == spaceIt->second->listeners_.end()) {
+        partIt = spaceIt->second->listeners_.emplace(partId, ListenerMap()).first;
+    }
+    auto listener = partIt->second.find(type);
+    if (listener != partIt->second.end()) {
+        LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+                  << " of [Space: " << spaceId << ", Part: " << partId << "] has existed!";
         return;
     }
-    spaceIt->second->listeners_.emplace(
-        partId, newListener(spaceId, partId, std::move(type), std::move(peers)));
-    LOG(INFO) << "Listener of space " << spaceId << ", part " << partId << " has been added";
+    partIt->second.emplace(type, newListener(spaceId, partId, std::move(type), peers));
+    LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+              << " of [Space: " << spaceId << ", Part: " << partId << "] is added";
     return;
 }
 
 std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
                                                    PartitionID partId,
                                                    meta::cpp2::ListenerType type,
-                                                   std::vector<HostAddr> peers) {
+                                                   const std::vector<HostAddr>& peers) {
     auto walPath = folly::stringPrintf("%s/%d/%d/wal", options_.listenerPath_.c_str(),
                                        spaceId, partId);
+    // snapshot manager and client manager is set to nullptr, listener should never use them
     auto listener = ListenerFactory::createListener(type,
                                                     spaceId,
                                                     partId,
@@ -447,29 +453,38 @@ std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
                                                     bgWorkers_,
                                                     workers_,
                                                     nullptr,
-                                                    nullptr);
+                                                    nullptr,
+                                                    options_.schemaMan_);
     raftService_->addPartition(listener);
     // add raft group as learner
-    std::transform(peers.begin(), peers.end(), peers.begin(), [this] (auto&& host) {
+    std::vector<HostAddr> raftPeers;
+    std::transform(peers.begin(), peers.end(), std::back_inserter(raftPeers), [this] (auto&& host) {
         CHECK_NE(host, storeSvcAddr_) << "Should not start part and listener on same host";
         return getRaftAddr(host);
     });
-    listener->start(std::move(peers));
+    listener->start(std::move(raftPeers));
     return listener;
 }
 
-void NebulaStore::removeListener(GraphSpaceID spaceId, PartitionID partId) {
+void NebulaStore::removeListener(GraphSpaceID spaceId,
+                                 PartitionID partId,
+                                 meta::cpp2::ListenerType type) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
     auto spaceIt = this->spaces_.find(spaceId);
     if (spaceIt != this->spaces_.end()) {
         auto partIt = spaceIt->second->listeners_.find(partId);
         if (partIt != spaceIt->second->listeners_.end()) {
-            raftService_->removePartition(partIt->second);
-            partIt->second->cleanup();
-            spaceIt->second->listeners_.erase(partId);
+            auto listener = partIt->second.find(type);
+            if (listener != partIt->second.end()) {
+                raftService_->removePartition(listener->second);
+                listener->second->cleanup();
+                partIt->second.erase(type);
+                LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+                          << " of [Space: " << spaceId << ", Part: " << partId << "] is removed";
+                return;
+            }
         }
     }
-    LOG(INFO) << "Listener of space " << spaceId << ", part " << partId << " has been removed!";
     return;
 }
 

@@ -18,7 +18,7 @@ public:
     template <typename... Args>
     static std::shared_ptr<Listener> createListener(meta::cpp2::ListenerType type, Args&&... args) {
         if (type == meta::cpp2::ListenerType::ELASTICSEARCH) {
-            return std::make_shared<ESListner>(std::forward<Args>(args)...);
+            return std::make_shared<ESListener>(std::forward<Args>(args)...);
         }
         LOG(FATAL) << "Should not reach here";
     }

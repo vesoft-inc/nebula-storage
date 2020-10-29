@@ -16,7 +16,7 @@ meta::ListenersMap MemPartManager::listeners(const HostAddr&) {
     return listenersMap_;
 }
 
-StatusOr<std::vector<meta::RemoteListnerInfo>>
+StatusOr<std::vector<meta::RemoteListenerInfo>>
 MemPartManager::listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) {
     auto listeners = remoteListeners_[spaceId][partId];
     if (listeners.empty()) {
@@ -208,7 +208,7 @@ meta::ListenersMap MetaServerBasedPartManager::listeners(const HostAddr& host) {
     return meta::ListenersMap();
 }
 
-StatusOr<std::vector<meta::RemoteListnerInfo>>
+StatusOr<std::vector<meta::RemoteListenerInfo>>
 MetaServerBasedPartManager::listenerPeerExist(GraphSpaceID spaceId, PartitionID partId) {
     return client_->getListenerHostTypeBySpacePartType(spaceId, partId);
 }

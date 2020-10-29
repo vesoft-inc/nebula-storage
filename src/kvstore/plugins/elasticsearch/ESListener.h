@@ -12,9 +12,9 @@
 namespace nebula {
 namespace kvstore {
 
-class ESListner : public Listener {
+class ESListener : public Listener {
 public:
-    ESListner(GraphSpaceID spaceId,
+    ESListener(GraphSpaceID spaceId,
               PartitionID partId,
               HostAddr localAddr,
               const std::string& walPath,
@@ -22,12 +22,13 @@ public:
               std::shared_ptr<thread::GenericThreadPool> workers,
               std::shared_ptr<folly::Executor> handlers,
               std::shared_ptr<raftex::SnapshotManager> snapshotMan,
-              std::shared_ptr<RaftClient> clientMan)
+              std::shared_ptr<RaftClient> clientMan,
+              meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, std::move(localAddr), walPath,
-                   ioPool, workers, handlers, snapshotMan, clientMan) {
-        setCallback(std::bind(&ESListner::commitLog, this,
+                   ioPool, workers, handlers, snapshotMan, clientMan, schemaMan) {
+        setCallback(std::bind(&ESListener::commitLog, this,
                               std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&ESListner::updateCommit, this,
+                    std::bind(&ESListener::updateCommit, this,
                               std::placeholders::_1, std::placeholders::_2));
     }
 

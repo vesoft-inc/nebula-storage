@@ -8,6 +8,7 @@
 #define KVSTORE_LISTENER_H_
 
 #include "common/base/Base.h"
+#include "common/meta/SchemaManager.h"
 #include "kvstore/raftex/RaftPart.h"
 #include "kvstore/raftex/Host.h"
 #include "kvstore/wal/FileBasedWal.h"
@@ -29,7 +30,8 @@ public:
              std::shared_ptr<thread::GenericThreadPool> workers,
              std::shared_ptr<folly::Executor> handlers,
              std::shared_ptr<raftex::SnapshotManager> snapshotMan,
-             std::shared_ptr<RaftClient> clientMan);
+             std::shared_ptr<RaftClient> clientMan,
+             meta::SchemaManager* schemaMan);
 
     void setCallback(std::function<bool(LogID, folly::StringPiece)> commitLogFunc,
                      std::function<bool(LogID, TermID)> updateCommitFunc);
@@ -82,9 +84,10 @@ protected:
                                                        TermID committedLogTerm,
                                                        bool finished) override = 0;
 
-private:
+protected:
     std::function<bool(LogID, folly::StringPiece)> commitLog_;
     std::function<bool(LogID, TermID)> updateCommit_;
+    meta::SchemaManager* schemaMan_{nullptr};
 };
 
 }  // namespace kvstore
