@@ -49,28 +49,26 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
         wal_->reset();
     }
 
-    LOG(INFO) << idStr_ << "There are "
-                        << peers.size()
-                        << " peer hosts, and total "
-                        << peers.size() + 1
-                        << " copies. The quorum is " << quorum_ + 1
+    LOG(INFO) << idStr_ << "Listener start"
+                        << ", there are " << peers.size() << " peer hosts"
                         << ", lastLogId " << lastLogId_
                         << ", lastLogTerm " << lastLogTerm_
                         << ", committedLogId " << committedLogId_
                         << ", term " << term_;
 
-    // Start all peer hosts
-    // todo(doodle): as for listener, we don't need Host in most case. However, listener need to be
-    // aware of membership change. We just save peers for now.
-    peers_ = std::move(peers);
+    // As for listener, we don't need Host actually. However, listener need to be aware of
+    // membership change, it can be handled in preProcessLog.
+    for (auto& addr : peers) {
+        auto hostPtr = std::make_shared<raftex::Host>(addr, shared_from_this());
+        hosts_.emplace_back(hostPtr);
+    }
 
     status_ = Status::RUNNING;
     role_ = Role::LEARNER;
-    LOG(INFO) << "Start listener [" << spaceId_ << ", " << partId_;
 }
 
 void Listener::stop() {
-    LOG(INFO) << "Stop listener [" << spaceId_ << ", " << partId_;
+    LOG(INFO) << "Stop listener [" << spaceId_ << ", " << partId_ << "] on " << addr_;
     {
         std::unique_lock<std::mutex> lck(raftLock_);
         status_ = Status::STOPPED;

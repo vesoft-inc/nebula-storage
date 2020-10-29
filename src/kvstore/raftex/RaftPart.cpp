@@ -525,7 +525,6 @@ void RaftPart::addListener(const HostAddr& listener) {
         return h->address() == listener;
     });
     if (it == hosts_.end()) {
-        LOG(INFO) << idStr_ << "Add listener " << listener;
         // Add listener as a raft learner
         hosts_.emplace_back(std::make_shared<Host>(listener, shared_from_this(), true));
     } else {
@@ -1082,7 +1081,7 @@ bool RaftPart::prepareElectionRequest(
     req.set_last_log_id(lastLogId_);
     req.set_last_log_term(lastLogTerm_);
 
-    hosts = followers();
+    hosts = peers();
 
     return true;
 }
@@ -1436,7 +1435,7 @@ void RaftPart::processAskForVoteRequest(
         return;
     }
 
-    auto hosts = followers();
+    auto hosts = peers();
     auto it = std::find_if(hosts.begin(), hosts.end(), [&candidate] (const auto& h){
                 return h->address() == candidate;
             });
@@ -1677,10 +1676,10 @@ cpp2::ErrorCode RaftPart::verifyLeader(
         const cpp2::AppendLogRequest& req) {
     CHECK(!raftLock_.try_lock());
     auto candidate = HostAddr(req.get_leader_addr(), req.get_leader_port());
-    auto hosts = followers();
-    auto it = std::find_if(hosts.begin(), hosts.end(), [&candidate] (const auto& h){
-                return h->address() == candidate;
-            });
+    auto hosts = peers();
+    auto it = std::find_if(hosts.begin(), hosts.end(), [&candidate](const auto& h) {
+        return h->address() == candidate;
+    });
     if (it == hosts.end()) {
         LOG(INFO) << idStr_ << "The candidate leader " << candidate << " is not my peers";
         return cpp2::ErrorCode::E_WRONG_LEADER;
@@ -1838,7 +1837,7 @@ folly::Future<AppendLogResult> RaftPart::sendHeartbeat() {
     return appendLogAsync(clusterId_, LogType::NORMAL, std::move(log));
 }
 
-std::vector<std::shared_ptr<Host>> RaftPart::followers() const {
+std::vector<std::shared_ptr<Host>> RaftPart::peers() const {
     CHECK(!raftLock_.try_lock());
     decltype(hosts_) hosts;
     for (auto& h : hosts_) {

@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 #include "kvstore/NebulaStore.h"
 #include "kvstore/PartManager.h"
+#include "kvstore/LogEncoder.h"
 
 DECLARE_uint32(raft_heartbeat_interval_secs);
 using nebula::meta::PartHosts;
@@ -20,6 +21,9 @@ using nebula::meta::ListenerHosts;
 
 namespace nebula {
 namespace kvstore {
+
+class ListenerBasicTest : public ::testing::TestWithParam<std::tuple<int32_t, int32_t, int32_t>> {
+};
 
 class DummyListener : public Listener {
 public:
@@ -38,9 +42,17 @@ public:
                               std::placeholders::_1, std::placeholders::_2));
     }
 
+    std::vector<KV> data() {
+        return data_;
+    }
+
 protected:
-    bool commitLog(LogID logId, folly::StringPiece logMsg) {
-        data_.emplace_back(logId, logMsg);
+    bool commitLog(LogID, folly::StringPiece log) {
+        auto kvs = decodeMultiValues(log);
+        CHECK_EQ((kvs.size() + 1) / 2, kvs.size() / 2);
+        for (size_t i = 0; i < kvs.size(); i += 2) {
+            data_.emplace_back(kvs[i], kvs[i + 1]);
+        }
         return true;
     }
 
@@ -64,7 +76,7 @@ protected:
     }
 
 private:
-    std::vector<std::pair<LogID, std::string>> data_;
+    std::vector<KV> data_;
 };
 
 std::shared_ptr<apache::thrift::concurrency::PriorityThreadManager> getWorkers() {
@@ -75,32 +87,39 @@ std::shared_ptr<apache::thrift::concurrency::PriorityThreadManager> getWorkers()
     return worker;
 }
 
-TEST(NebulaStoreTest, SimpleTest) {
-    // 1 space, 1 part, 1 replica, 1 listener
-    auto initNebulaStore = [](const std::vector<HostAddr>& peers,
-                              int32_t index,
-                              const std::string& path)
-        -> std::unique_ptr<NebulaStore> {
+TEST_P(ListenerBasicTest, SimpleTest) {
+    auto param = GetParam();
+    int32_t partCount = std::get<0>(param);
+    int32_t replicas = std::get<1>(param);
+    int32_t listenerCount = std::get<2>(param);
+
+    auto initStore = [] (const std::vector<HostAddr>& peers,
+                         int32_t index,
+                         const std::string& path,
+                         int32_t partCount,
+                         const std::vector<HostAddr>& listeners = {}) {
         auto partMan = std::make_unique<MemPartManager>();
         auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
 
         GraphSpaceID spaceId = 1;
-        PartitionID partId = 1;
-        {
+        for (int32_t partId = 1; partId <= partCount; partId++) {
             PartHosts ph;
             ph.spaceId_ = spaceId;
             ph.partId_ = partId;
             ph.hosts_ = peers;
             partMan->partsMap_[spaceId][partId] = std::move(ph);
+            // add remote listeners
+            if (!listeners.empty()) {
+                partMan->remoteListeners_[spaceId][partId].emplace_back(
+                    listeners[partId % listeners.size()], meta::cpp2::ListenerType::UNKNOWN);
+            }
         }
 
-        fs::TempDir rootPath("/tmp/nebula_listener_test.XXXXXX");
         std::vector<std::string> paths;
         paths.emplace_back(folly::stringPrintf("%s/disk%d", path.c_str(), index));
 
         KVOptions options;
         options.dataPaths_ = std::move(paths);
-        options.listenerPath_ = folly::stringPrintf("%s/listener%d", path.c_str(), index);
         options.partMan_ = std::move(partMan);
         HostAddr local = peers[index];
         return std::make_unique<NebulaStore>(std::move(options),
@@ -109,29 +128,142 @@ TEST(NebulaStoreTest, SimpleTest) {
                                              getWorkers());
     };
 
+    auto initListener = [] (const std::vector<HostAddr>& listeners,
+                            int32_t index,
+                            const std::string& path) {
+        auto partMan = std::make_unique<MemPartManager>();
+        auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+
+        KVOptions options;
+        options.listenerPath_ = folly::stringPrintf("%s/listener%d", path.c_str(), index);
+        options.partMan_ = std::move(partMan);
+        HostAddr local = listeners[index];
+        return std::make_unique<NebulaStore>(std::move(options),
+                                             ioThreadPool,
+                                             local,
+                                             getWorkers());
+    };
+
     fs::TempDir rootPath("/tmp/nebula_store_test.XXXXXX");
-    int32_t replicas = 1;
+    GraphSpaceID spaceId = 1;
     std::string ip("127.0.0.1");
-    std::vector<HostAddr> peers;
+    std::vector<HostAddr> peers, listenerHosts;
     for (int32_t i = 0; i < replicas; i++) {
         peers.emplace_back(ip, network::NetworkUtils::getAvailablePort());
     }
+    for (int32_t i = 0; i < listenerCount; i++) {
+        listenerHosts.emplace_back(ip, network::NetworkUtils::getAvailablePort());
+    }
 
-    // init data replica
+    LOG(INFO) << "Init data replica";
     std::vector<std::unique_ptr<NebulaStore>> stores;
     for (int32_t i = 0; i < replicas; i++) {
-        stores.emplace_back(initNebulaStore(peers, i, rootPath.path()));
+        stores.emplace_back(initStore(peers, i, rootPath.path(), partCount, listenerHosts));
         stores.back()->init();
     }
 
-    /*
-    // init listener replica
-    auto listener = initNebulaStore(peers, replicas, rootPath.path(), true);
-    listener->init();
-    */
+    LOG(INFO) << "Init listener replica by manual";
+    std::vector<std::unique_ptr<NebulaStore>> listeners;
+    for (int32_t i = 0; i < listenerCount; i++) {
+        listeners.emplace_back(initListener(listenerHosts, i, rootPath.path()));
+        listeners.back()->init();
+        listeners.back()->spaces_.emplace(spaceId, std::make_shared<SpacePartInfo>());
+    }
+    std::unordered_map<PartitionID, std::shared_ptr<DummyListener>> dummys;
+    // start dummy listener on listener hosts
+    for (int32_t partId = 1; partId <= partCount; partId++) {
+        // count which listener holds this part
+        auto index = partId % listenerHosts.size();
+        auto walPath = folly::stringPrintf(
+            "%s/listener%lu/%d/%d/wal", rootPath.path(), index, spaceId, partId);
+        auto local = NebulaStore::getRaftAddr(listenerHosts[index]);
+        auto dummy = std::make_shared<DummyListener>(spaceId,
+                                                     partId,
+                                                     local,
+                                                     walPath,
+                                                     listeners[index]->ioPool_,
+                                                     listeners[index]->bgWorkers_,
+                                                     listeners[index]->workers_);
+        listeners[index]->raftService_->addPartition(dummy);
+        std::vector<HostAddr> raftPeers;
+        std::transform(peers.begin(), peers.end(), std::back_inserter(raftPeers),
+                       [] (const auto& host) {
+            return NebulaStore::getRaftAddr(host);
+        });
+        dummy->start(std::move(raftPeers));
+        listeners[index]->spaces_[spaceId]->listeners_.emplace(partId, dummy);
+        dummys.emplace(partId, dummy);
+    }
 
-    sleep(5);
+    auto waitLeader = [replicas, partCount] (std::vector<std::unique_ptr<NebulaStore>>& stores) {
+        while (true) {
+            int32_t leaderCount = 0;
+            for (int i = 0; i < replicas; i++) {
+                std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
+                leaderCount += stores[i]->allLeader(leaderIds);
+            }
+            if (leaderCount == partCount) {
+                break;
+            }
+            usleep(100000);
+        }
+    };
+
+    auto findStoreIndex = [&] (const HostAddr& addr) {
+        for (size_t i = 0; i < peers.size(); i++) {
+            if (peers[i] == addr) {
+                return i;
+            }
+        }
+        LOG(FATAL) << "Should not reach here!";
+    };
+
+    LOG(INFO) << "Waiting for all leaders elected!";
+    waitLeader(stores);
+
+    for (int32_t partId = 1; partId <= partCount; partId++) {
+        std::vector<KV> data;
+        for (int32_t i = 0; i < 100; i++) {
+            data.emplace_back(folly::stringPrintf("key_%d_%d", partId, i),
+                              folly::stringPrintf("val_%d_%d", partId, i));
+        }
+        auto leader = value(stores[0]->partLeader(spaceId, partId));
+        auto index = findStoreIndex(leader);
+        folly::Baton<true, std::atomic> baton;
+        stores[index]->asyncMultiPut(spaceId, partId, std::move(data), [&baton](ResultCode code) {
+            EXPECT_EQ(ResultCode::SUCCEEDED, code);
+            baton.post();
+        });
+        baton.wait();
+    }
+
+    sleep(FLAGS_raft_heartbeat_interval_secs);
+
+    for (int32_t partId = 1; partId <= partCount; partId++) {
+        auto dummy = dummys[partId];
+        const auto& data = dummy->data();
+        CHECK_EQ(100, data.size());
+        for (int32_t i = 0; i < static_cast<int32_t>(data.size()); i++) {
+            CHECK_EQ(folly::stringPrintf("key_%d_%d", partId, i), data[i].first);
+            CHECK_EQ(folly::stringPrintf("val_%d_%d", partId, i), data[i].second);
+        }
+    }
 }
+
+INSTANTIATE_TEST_CASE_P(
+    PartCount_Replicas_ListenerCount,
+    ListenerBasicTest,
+    ::testing::Values(
+        std::make_tuple(1, 1, 1),
+        std::make_tuple(3, 1, 1),
+        std::make_tuple(10, 1, 1),
+        std::make_tuple(1, 3, 1),
+        std::make_tuple(3, 3, 1),
+        std::make_tuple(10, 3, 1),
+        std::make_tuple(1, 1, 2),
+        std::make_tuple(3, 1, 3),
+        std::make_tuple(3, 3, 3),
+        std::make_tuple(10, 3, 3)));
 
 }  // namespace kvstore
 }  // namespace nebula

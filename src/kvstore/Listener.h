@@ -85,7 +85,6 @@ protected:
 private:
     std::function<bool(LogID, folly::StringPiece)> commitLog_;
     std::function<bool(LogID, TermID)> updateCommit_;
-    std::vector<HostAddr> peers_;
 };
 
 }  // namespace kvstore

@@ -221,6 +221,7 @@ void NebulaStore::loadLocalListenerFromPartManager() {
 }
 
 void NebulaStore::loadRemoteListenerFromPartManager() {
+    // Add remote listener host to raft group
     folly::RWSpinLock::ReadHolder rh(&lock_);
     for (auto& spaceEntry : spaces_) {
         auto spaceId = spaceEntry.first;
@@ -230,7 +231,7 @@ void NebulaStore::loadRemoteListenerFromPartManager() {
             if (listeners.ok()) {
                 folly::RWSpinLock::UpgradedHolder uh(&lock_);
                 for (const auto& info : listeners.value()) {
-                    partEntry.second->addListener(info.first);
+                    partEntry.second->addListener(getRaftAddr(info.first));
                 }
             }
         }
@@ -449,6 +450,10 @@ std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
                                                     nullptr);
     raftService_->addPartition(listener);
     // add raft group as learner
+    std::transform(peers.begin(), peers.end(), peers.begin(), [this] (auto&& host) {
+        CHECK_NE(host, storeSvcAddr_) << "Should not start part and listener on same host";
+        return getRaftAddr(host);
+    });
     listener->start(std::move(peers));
     return listener;
 }

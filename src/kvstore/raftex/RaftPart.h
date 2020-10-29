@@ -388,7 +388,8 @@ private:
         LogID prevLogId,
         std::vector<std::shared_ptr<Host>> hosts);
 
-    std::vector<std::shared_ptr<Host>> followers() const;
+    // peers return other peers which could vote, in other words, learner is not counted in
+    std::vector<std::shared_ptr<Host>> peers() const;
 
     bool checkAppendLogResult(AppendLogResult res);
 
