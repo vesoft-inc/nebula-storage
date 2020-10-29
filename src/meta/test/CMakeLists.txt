@@ -274,3 +274,16 @@ nebula_add_test(
         gtest
 )
 
+nebula_add_test(
+    NAME
+        create_backup_test
+    SOURCES
+        CreateBackupProcessorTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)

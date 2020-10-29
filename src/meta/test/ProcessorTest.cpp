@@ -39,6 +39,7 @@
 #include "meta/processors/customKV/RemoveProcessor.h"
 #include "meta/processors/customKV/RemoveRangeProcessor.h"
 #include "meta/processors/customKV/ScanProcessor.h"
+#include "meta/processors/admin/CreateBackupProcessor.h"
 
 DECLARE_int32(expired_threshold_sec);
 

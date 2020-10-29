@@ -7,17 +7,17 @@
 #ifndef KVSTORE_KVSTORE_H_
 #define KVSTORE_KVSTORE_H_
 
+#include <rocksdb/compaction_filter.h>
+#include <rocksdb/merge_operator.h>
 #include "common/base/Base.h"
 #include "common/base/ErrorOr.h"
 #include "common/base/Status.h"
 #include "common/meta/SchemaManager.h"
-#include <rocksdb/merge_operator.h>
-#include <rocksdb/compaction_filter.h>
-#include "kvstore/raftex/RaftPart.h"
 #include "kvstore/Common.h"
+#include "kvstore/CompactionFilter.h"
 #include "kvstore/KVIterator.h"
 #include "kvstore/PartManager.h"
-#include "kvstore/CompactionFilter.h"
+#include "kvstore/raftex/RaftPart.h"
 
 namespace nebula {
 namespace kvstore {
@@ -44,7 +44,6 @@ struct KVOptions {
      * */
     std::unique_ptr<CompactionFilterFactoryBuilder> cffBuilder_{nullptr};
 };
-
 
 struct StoreCapability {
     static const uint32_t SC_FILTERING = 1;
@@ -76,7 +75,7 @@ public:
 
     // Read a single key
     virtual ResultCode get(GraphSpaceID spaceId,
-                           PartitionID  partId,
+                           PartitionID partId,
                            const std::string& key,
                            std::string* value) = 0;
 
@@ -90,7 +89,7 @@ public:
 
     // Get all results in range [start, end)
     virtual ResultCode range(GraphSpaceID spaceId,
-                             PartitionID  partId,
+                             PartitionID partId,
                              const std::string& start,
                              const std::string& end,
                              std::unique_ptr<KVIterator>* iter) = 0;
@@ -99,42 +98,41 @@ public:
     // thus the arguments must outlive `iter'.
     // Here we forbid one to invoke `range' with rvalues, which is the common mistake.
     virtual ResultCode range(GraphSpaceID spaceId,
-                             PartitionID  partId,
+                             PartitionID partId,
                              std::string&& start,
                              std::string&& end,
                              std::unique_ptr<KVIterator>* iter) = delete;
 
     // Get all results with prefix.
     virtual ResultCode prefix(GraphSpaceID spaceId,
-                              PartitionID  partId,
+                              PartitionID partId,
                               const std::string& prefix,
                               std::unique_ptr<KVIterator>* iter) = 0;
 
     // To forbid to pass rvalue via the `prefix' parameter.
     virtual ResultCode prefix(GraphSpaceID spaceId,
-                              PartitionID  partId,
+                              PartitionID partId,
                               std::string&& prefix,
                               std::unique_ptr<KVIterator>* iter) = delete;
 
     // Get all results with prefix starting from start
     virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
-                                       PartitionID  partId,
+                                       PartitionID partId,
                                        const std::string& start,
                                        const std::string& prefix,
                                        std::unique_ptr<KVIterator>* iter) = 0;
 
     // To forbid to pass rvalue via the `rangeWithPrefix' parameter.
     virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
-                                       PartitionID  partId,
+                                       PartitionID partId,
                                        std::string&& start,
                                        std::string&& prefix,
                                        std::unique_ptr<KVIterator>* iter) = delete;
 
-    virtual ResultCode sync(GraphSpaceID spaceId,
-                            PartitionID partId) = 0;
+    virtual ResultCode sync(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     virtual void asyncMultiPut(GraphSpaceID spaceId,
-                               PartitionID  partId,
+                               PartitionID partId,
                                std::vector<KV> keyValues,
                                KVCallback cb) = 0;
 
@@ -172,17 +170,23 @@ public:
 
     virtual ResultCode flush(GraphSpaceID spaceId) = 0;
 
-    virtual ResultCode createCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
+    virtual ErrorOr<ResultCode, std::string> createCheckpoint(GraphSpaceID spaceId,
+                                                              const std::string& name) = 0;
 
     virtual ResultCode dropCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
 
     virtual ResultCode setWriteBlocking(GraphSpaceID spaceId, bool sign) = 0;
 
+    virtual ErrorOr<ResultCode, std::vector<std::string>> backupTable(
+        GraphSpaceID spaceId,
+        const std::string& name,
+        const std::string& tablePrefix,
+        std::function<bool(const folly::StringPiece& key)> filter) = 0;
+
 protected:
     KVStore() = default;
 };
 
-}  // namespace kvstore
-}  // namespace nebula
-#endif  // KVSTORE_KVSTORE_H_
-
+}   // namespace kvstore
+}   // namespace nebula
+#endif   // KVSTORE_KVSTORE_H_

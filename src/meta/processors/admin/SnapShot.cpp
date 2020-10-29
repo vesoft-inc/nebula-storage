@@ -13,11 +13,13 @@
 
 namespace nebula {
 namespace meta {
-cpp2::ErrorCode Snapshot::createSnapshot(const std::string& name) {
+ErrorOr<cpp2::ErrorCode, std::unordered_map<GraphSpaceID, std::vector<cpp2::CheckpointInfo>>>
+Snapshot::createSnapshot(const std::string& name) {
     auto retSpacesHosts = getSpacesHosts();
     if (!retSpacesHosts.ok()) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
+    std::unordered_map<GraphSpaceID, std::vector<cpp2::CheckpointInfo>> info;
     auto spacesHosts = retSpacesHosts.value();
     for (const auto& spaceHosts : spacesHosts) {
         for (const auto& host : spaceHosts.second) {
@@ -25,9 +27,11 @@ cpp2::ErrorCode Snapshot::createSnapshot(const std::string& name) {
             if (!status.ok()) {
                 return cpp2::ErrorCode::E_RPC_FAILURE;
             }
+            info[spaceHosts.first].emplace_back(
+                apache::thrift::FRAGILE, host, status.value());
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return info;
 }
 
 cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
@@ -63,10 +67,10 @@ cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
     auto spacesHosts = retSpacesHosts.value();
     for (const auto& spaceHosts : spacesHosts) {
         for (const auto& host : spaceHosts.second) {
-        auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
-        if (!status.ok()) {
-            LOG(ERROR) << " Send blocking sign error on host : " << host;
-        }
+            auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
+            if (!status.ok()) {
+                LOG(ERROR) << " Send blocking sign error on host : " << host;
+            }
         }
     }
     return cpp2::ErrorCode::SUCCEEDED;
@@ -85,6 +89,11 @@ StatusOr<std::map<GraphSpaceID, std::set<HostAddr>>> Snapshot::getSpacesHosts() 
     while (iter->valid()) {
         auto partHosts = MetaServiceUtils::parsePartVal(iter->val());
         auto space = MetaServiceUtils::parsePartKeySpaceId(iter->key());
+        auto it = spaces_.find(space);
+        if (it == spaces_.end()) {
+            continue;
+        }
+
         for (auto& ph : partHosts) {
             hostsByspaces[space].emplace(std::move(ph));
         }

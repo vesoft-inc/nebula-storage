@@ -201,6 +201,9 @@ public:
     folly::Future<cpp2::AdminJobResp>
     future_runAdminJob(const cpp2::AdminJobReq& req) override;
 
+    folly::Future<cpp2::CreateBackupResp>
+    future_createBackup(const cpp2::CreateBackupReq& req) override;
+
 private:
     kvstore::KVStore* kvstore_ = nullptr;
     ClusterID clusterId_{0};

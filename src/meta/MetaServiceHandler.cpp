@@ -51,6 +51,7 @@
 #include "meta/processors/configMan/SetConfigProcessor.h"
 #include "meta/processors/configMan/ListConfigsProcessor.h"
 #include "meta/processors/jobMan/AdminJobProcessor.h"
+#include "meta/processors/admin/CreateBackupProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -375,6 +376,12 @@ MetaServiceHandler::future_dropSnapshot(const cpp2::DropSnapshotReq& req) {
 folly::Future<cpp2::ListSnapshotsResp>
 MetaServiceHandler::future_listSnapshots(const cpp2::ListSnapshotsReq& req) {
     auto* processor = ListSnapshotsProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::CreateBackupResp>
+MetaServiceHandler::future_createBackup(const cpp2::CreateBackupReq& req) {
+    auto* processor = CreateBackupProcessor::instance(kvstore_, adminClient_.get());
     RETURN_FUTURE(processor);
 }
 

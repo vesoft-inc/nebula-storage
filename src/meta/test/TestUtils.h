@@ -94,7 +94,7 @@ public:
     }
 
 
-    folly::Future<Status> createSnapshot() override {
+    folly::Future<StatusOr<std::string>> createSnapshot() override {
         return response(8);
     }
 
