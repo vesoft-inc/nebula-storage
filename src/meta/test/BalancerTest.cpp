@@ -10,7 +10,6 @@
 #include <folly/synchronization/Baton.h>
 #include "meta/processors/admin/Balancer.h"
 #include "meta/test/TestUtils.h"
-#include "meta/processors/partsMan/CreateSpaceProcessor.h"
 
 DECLARE_uint32(task_concurrency);
 DECLARE_int32(expired_threshold_sec);
@@ -1008,6 +1007,7 @@ void showHostLoading(kvstore::KVStore* kv) {
         iter->next();
     }
 
+<<<<<<< HEAD
     for (auto it = hostPart.begin(); it != hostPart.end(); it++) {
         std::stringstream ss;
         for (auto part : it->second) {
@@ -1040,6 +1040,13 @@ void verifyLeaderBalancePlan(HostLeaderMap& hostLeaderMap,
             EXPECT_GE(entry.second.size(), minLoad);
             EXPECT_LE(entry.second.size(), maxLoad);
         }
+=======
+void verifyLeaderBalancePlan(std::unordered_map<HostAddr, std::vector<PartitionID>> leaderCount,
+                             size_t minLoad, size_t maxLoad) {
+    for (const auto& hostEntry : leaderCount) {
+        EXPECT_GE(hostEntry.second.size(), minLoad);
+        EXPECT_LE(hostEntry.second.size(), maxLoad);
+>>>>>>> balance for zone
     }
 }
 
@@ -1061,6 +1068,7 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         auto tempMap = hostLeaderMap;
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
@@ -1072,6 +1080,16 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
                                                                         tempPlan, false);
         ASSERT_TRUE(tempLeaderBalanceResult);
         verifyLeaderBalancePlan(tempMap, tempPlan, 3, 3);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 3, 3);
+
+        // check two plan build are same
+        LeaderBalancePlan tempPlan;
+        auto tempLeaderParts = balancer->buildLeaderBalancePlan(&tempMap, 1, false,
+                                                                tempPlan, false);
+        verifyLeaderBalancePlan(tempLeaderParts, 3, 3);
+>>>>>>> balance for zone
         EXPECT_EQ(plan.size(), tempPlan.size());
         for (size_t i = 0; i < plan.size(); i++) {
             EXPECT_EQ(plan[i], tempPlan[i]);
@@ -1084,10 +1102,15 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {9};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 3, 3);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1096,10 +1119,15 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 3, 3);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1108,10 +1136,15 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {7, 8, 9};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 3, 3);
+>>>>>>> balance for zone
     }
 }
 
@@ -1136,10 +1169,15 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         showHostLoading(kv.get());
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 1, 2);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1151,10 +1189,15 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {3, 4};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 1, 2);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1166,10 +1209,15 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 1, 2);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1181,10 +1229,15 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 1, 2);
+>>>>>>> balance for zone
     }
     {
         HostLeaderMap hostLeaderMap;
@@ -1196,10 +1249,15 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {5};
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan, false);
+        verifyLeaderBalancePlan(leaderParts, 1, 2);
+>>>>>>> balance for zone
     }
 }
 
@@ -1240,10 +1298,15 @@ TEST(BalanceTest, ManyHostsLeaderBalancePlanTest) {
         }
 
         LeaderBalancePlan plan;
+<<<<<<< HEAD
         auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
                                                                     false, plan);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, minLoad, maxLoad);
+=======
+        auto leaderParts = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, false, plan);
+        verifyLeaderBalancePlan(leaderParts, minLoad, maxLoad);
+>>>>>>> balance for zone
     }
 }
 
@@ -1253,6 +1316,7 @@ TEST(BalanceTest, LeaderBalanceTest) {
     std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}};
     TestUtils::createSomeHosts(kv.get(), hosts);
     TestUtils::assembleSpace(kv.get(), 1, 9, 3, 3);
+<<<<<<< HEAD
 
     std::vector<Status> sts(9, Status::OK());
     std::unique_ptr<FaultInjector> injector(new TestFaultInjector(std::move(sts)));
@@ -1544,6 +1608,41 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 9);
     }
+=======
+
+    std::vector<Status> sts(9, Status::OK());
+    std::unique_ptr<FaultInjector> injector(new TestFaultInjector(std::move(sts)));
+    auto client = std::make_unique<AdminClient>(std::move(injector));
+    Balancer balancer(kv.get(), std::move(client));
+    auto ret = balancer.leaderBalance();
+    ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, ret);
+}
+
+TEST(BalanceTest, LeaderBalanceWithZoneTest) {
+    fs::TempDir rootPath("/tmp/LeaderBalanceWithZone.XXXXXX");
+    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
+    std::vector<HostAddr> hosts;
+    for (int i = 0; i < 9; i++) {
+        hosts.emplace_back(std::to_string(i), i);
+    }
+    TestUtils::createSomeHosts(kv.get(), hosts);
+    TestUtils::assembleSpace(kv.get(), 1, 9, 3, 9);
+
+    // create zone and group
+    ZoneInfo zoneInfo = {
+        {"zone_0", {HostAddr("0", 0), HostAddr("1", 1)}},
+        {"zone_1", {HostAddr("2", 2), HostAddr("3", 3)}},
+        {"zone_2", {HostAddr("4", 4), HostAddr("5", 5)}}
+    };
+
+    // TestUtils::assembleGroupAndZone();
+    std::vector<Status> sts(9, Status::OK());
+    std::unique_ptr<FaultInjector> injector(new TestFaultInjector(std::move(sts)));
+    auto client = std::make_unique<AdminClient>(std::move(injector));
+    Balancer balancer(kv.get(), std::move(client));
+    auto ret = balancer.leaderBalance();
+    ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, ret);
+>>>>>>> balance for zone
 }
 
 }  // namespace meta

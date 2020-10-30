@@ -378,6 +378,39 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
 
     auto properties = MetaServiceUtils::parseSpace(value);
     CHECK_EQ(totalParts, properties.get_partition_num());
+    if (dependentOnZone) {
+        auto groupName = *properties.get_group_name();
+        auto groupKey = MetaServiceUtils::groupKey(groupName);
+        std::string groupValue;
+        code = kv_->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
+        if (code != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Get group " << groupName << " failed";
+            return;
+        }
+
+        std::vector<HostAddr> totalHosts;
+        auto zoneNames = MetaServiceUtils::parseZoneNames(std::move(groupValue));
+        for (auto& zoneName : zoneNames) {
+            auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
+            std::string zoneValue;
+            code = kv_->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
+            if (code != kvstore::ResultCode::SUCCEEDED) {
+                LOG(ERROR) << "Get zone " << zoneName << " failed";
+                return;
+            }
+            auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValue));
+            totalHosts.insert(totalHosts.end(), hosts.begin(), hosts.end());
+        }
+
+        for (auto hostIter = hostParts.begin(); hostIter != hostParts.end();) {
+            auto found = std::find(totalHosts.begin(), totalHosts.end(), hostIter->first);
+            if (found == totalHosts.end()) {
+                delete &hostIter->second;
+                hostParts.erase(hostIter++);
+            }
+        }
+    }
+
     totalParts *= properties.get_replica_factor();
     return true;
 }
@@ -661,6 +694,7 @@ int32_t Balancer::acquireLeaders(HostParts& allHostParts,
             if (source == target || !activeHosts.count(source)) {
                 continue;
             }
+
             // if peer is the leader of partId and can transfer, then transfer it to host
             auto& sourceLeaders = leaderHostParts[source];
             VLOG(3) << "Check peer: " << source << " min load: " << minLoad
@@ -748,6 +782,10 @@ void Balancer::simplifyLeaderBalnacePlan(GraphSpaceID spaceId, LeaderBalancePlan
                           std::get<2>(partEntry.second.front()),
                           std::get<3>(partEntry.second.back()));
     }
+}
+
+bool Balancer::checkZoneConflict() {
+    return false;
 }
 
 }  // namespace meta

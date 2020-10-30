@@ -175,12 +175,12 @@ private:
 
     bool getAllSpaces(std::vector<std::tuple<GraphSpaceID, int32_t, bool>>& spaces);
 
-    bool buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
-                                GraphSpaceID spaceId,
-                                int32_t replicaFactor,
-                                bool dependentOnGroup,
-                                LeaderBalancePlan& plan,
-                                bool useDeviation = true);
+    std::unordered_map<HostAddr, std::vector<PartitionID>>
+    buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
+                           GraphSpaceID spaceId,
+                           bool dependentOnZone,
+                           LeaderBalancePlan& plan,
+                           bool useDeviation = true);
 
     void simplifyLeaderBalnacePlan(GraphSpaceID spaceId, LeaderBalancePlan& plan);
 
@@ -199,6 +199,8 @@ private:
                           LeaderBalancePlan& plan,
                           GraphSpaceID spaceId);
 
+    bool checkZoneConflict();
+
 private:
     std::atomic_bool running_{false};
     kvstore::KVStore* kv_{nullptr};
@@ -214,6 +216,8 @@ private:
     mutable std::mutex lock_;
 
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
+    std::unordered_map<HostAddr, std::string> hostZone_;
+    std::unordered_map<std::string, std::vector<PartitionID>> zoneParts_;
 };
 
 }  // namespace meta
