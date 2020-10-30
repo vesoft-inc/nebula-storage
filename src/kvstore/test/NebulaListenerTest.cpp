@@ -169,7 +169,7 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     for (int32_t i = 0; i < listenerCount; i++) {
         listeners.emplace_back(initListener(listenerHosts, i, rootPath.path()));
         listeners.back()->init();
-        listeners.back()->spaces_.emplace(spaceId, std::make_shared<SpacePartInfo>());
+        listeners.back()->spaceListeners_.emplace(spaceId, std::make_shared<SpaceListenerInfo>());
     }
     std::unordered_map<PartitionID, std::shared_ptr<DummyListener>> dummys;
     // start dummy listener on listener hosts
@@ -194,7 +194,7 @@ TEST_P(ListenerBasicTest, SimpleTest) {
             return NebulaStore::getRaftAddr(host);
         });
         dummy->start(std::move(raftPeers));
-        listeners[index]->spaces_[spaceId]->listeners_[partId].emplace(
+        listeners[index]->spaceListeners_[spaceId]->listeners_[partId].emplace(
             meta::cpp2::ListenerType::UNKNOWN, dummy);
         dummys.emplace(partId, dummy);
     }

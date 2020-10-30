@@ -277,16 +277,26 @@ ErrorOr<ResultCode, HostAddr> NebulaStore::partLeader(GraphSpaceID spaceId, Part
     return getStoreAddr(partIt->second->leader());
 }
 
-void NebulaStore::addSpace(GraphSpaceID spaceId) {
+void NebulaStore::addSpace(GraphSpaceID spaceId, bool isListener) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    if (this->spaces_.find(spaceId) != this->spaces_.end()) {
-        LOG(INFO) << "Space " << spaceId << " has existed!";
-        return;
-    }
-    LOG(INFO) << "Create space " << spaceId;
-    this->spaces_[spaceId] = std::make_unique<SpacePartInfo>();
-    for (auto& path : options_.dataPaths_) {
-        this->spaces_[spaceId]->engines_.emplace_back(newEngine(spaceId, path));
+    if (!isListener) {
+        if (this->spaces_.find(spaceId) != this->spaces_.end()) {
+            LOG(INFO) << "Data space " << spaceId << " has existed!";
+            return;
+        }
+        LOG(INFO) << "Create data space " << spaceId;
+        this->spaces_[spaceId] = std::make_unique<SpacePartInfo>();
+        for (auto& path : options_.dataPaths_) {
+            this->spaces_[spaceId]->engines_.emplace_back(newEngine(spaceId, path));
+        }
+    } else {
+        // listener don't need engine for now
+        if (this->spaceListeners_.find(spaceId) != this->spaceListeners_.end()) {
+            LOG(INFO) << "Listener space " << spaceId << " has existed!";
+            return;
+        }
+        LOG(INFO) << "Create listener space " << spaceId;
+        this->spaceListeners_[spaceId] = std::make_unique<SpaceListenerInfo>();
     }
 }
 
@@ -378,20 +388,31 @@ std::shared_ptr<Part> NebulaStore::newPart(GraphSpaceID spaceId,
     return part;
 }
 
-void NebulaStore::removeSpace(GraphSpaceID spaceId) {
+void NebulaStore::removeSpace(GraphSpaceID spaceId, bool isListener) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    auto spaceIt = this->spaces_.find(spaceId);
-    auto& engines = spaceIt->second->engines_;
-    for (auto& engine : engines) {
-        auto parts = engine->allParts();
-        for (auto& partId : parts) {
-            engine->removePart(partId);
+    if (!isListener) {
+        auto spaceIt = this->spaces_.find(spaceId);
+        if (spaceIt != this->spaces_.end()) {
+            auto& engines = spaceIt->second->engines_;
+            for (auto& engine : engines) {
+                auto parts = engine->allParts();
+                for (auto& partId : parts) {
+                    engine->removePart(partId);
+                }
+                CHECK_EQ(0, engine->totalPartsNum());
+            }
+            CHECK(spaceIt->second->parts_.empty());
+            this->spaces_.erase(spaceIt);
         }
-        CHECK_EQ(0, engine->totalPartsNum());
+        LOG(INFO) << "Data space " << spaceId << " has been removed!";
+    } else {
+        auto spaceIt = this->spaceListeners_.find(spaceId);
+        if (spaceIt != this->spaceListeners_.end()) {
+            CHECK(spaceIt->second->listeners_.empty());
+            this->spaceListeners_.erase(spaceIt);
+        }
+        LOG(INFO) << "Listener space " << spaceId << " has been removed!";
     }
-    this->spaces_.erase(spaceIt);
-    // TODO(dangleptr): Should we delete the data?
-    LOG(INFO) << "Space " << spaceId << " has been removed!";
 }
 
 
@@ -417,9 +438,9 @@ void NebulaStore::addListener(GraphSpaceID spaceId,
                               meta::cpp2::ListenerType type,
                               const std::vector<HostAddr>& peers) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    auto spaceIt = spaces_.find(spaceId);
-    if (spaceIt == spaces_.end()) {
-        spaceIt = spaces_.emplace(spaceId, std::make_shared<SpacePartInfo>()).first;
+    auto spaceIt = spaceListeners_.find(spaceId);
+    if (spaceIt == spaceListeners_.end()) {
+        spaceIt = spaceListeners_.emplace(spaceId, std::make_shared<SpaceListenerInfo>()).first;
     }
     auto partIt = spaceIt->second->listeners_.find(partId);
     if (partIt == spaceIt->second->listeners_.end()) {
@@ -470,8 +491,8 @@ void NebulaStore::removeListener(GraphSpaceID spaceId,
                                  PartitionID partId,
                                  meta::cpp2::ListenerType type) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    auto spaceIt = this->spaces_.find(spaceId);
-    if (spaceIt != this->spaces_.end()) {
+    auto spaceIt = this->spaceListeners_.find(spaceId);
+    if (spaceIt != this->spaceListeners_.end()) {
         auto partIt = spaceIt->second->listeners_.find(partId);
         if (partIt != spaceIt->second->listeners_.end()) {
             auto listener = partIt->second.find(type);

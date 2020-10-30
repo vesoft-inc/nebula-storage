@@ -19,7 +19,7 @@ class Handler {
 public:
     virtual ~Handler() = default;
 
-    virtual void addSpace(GraphSpaceID spaceId) = 0;
+    virtual void addSpace(GraphSpaceID spaceId, bool isListener = false) = 0;
 
     virtual void addPart(GraphSpaceID spaceId,
                          PartitionID partId,
@@ -30,21 +30,21 @@ public:
                                    const std::unordered_map<std::string, std::string>& options,
                                    bool isDbOption) = 0;
 
-    virtual void removeSpace(GraphSpaceID spaceId) = 0;
+    virtual void removeSpace(GraphSpaceID spaceId, bool isListener = false) = 0;
 
     virtual void removePart(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     virtual int32_t allLeader(std::unordered_map<GraphSpaceID,
                                                  std::vector<PartitionID>>& leaderIds) = 0;
 
-    /*
     virtual void addListener(GraphSpaceID spaceId,
                              PartitionID partId,
                              meta::cpp2::ListenerType type,
-                             const std::vector<HostAddr>& peers);
+                             const std::vector<HostAddr>& peers) = 0;
 
-    void removeListener(GraphSpaceID spaceId, PartitionID partId);
-    */
+    virtual void removeListener(GraphSpaceID spaceId,
+                                PartitionID partId,
+                                meta::cpp2::ListenerType type) = 0;
 };
 
 
@@ -195,9 +195,9 @@ public:
     /**
      * Implement the interfaces in MetaChangedListener
      * */
-    void onSpaceAdded(GraphSpaceID spaceId) override;
+    void onSpaceAdded(GraphSpaceID spaceId, bool isListener) override;
 
-    void onSpaceRemoved(GraphSpaceID spaceId) override;
+    void onSpaceRemoved(GraphSpaceID spaceId, bool isListener) override;
 
     void onSpaceOptionUpdated(GraphSpaceID spaceId,
                               const std::unordered_map<std::string, std::string>& options)
@@ -212,21 +212,12 @@ public:
     void fetchLeaderInfo(std::unordered_map<GraphSpaceID,
                                             std::vector<PartitionID>>& leaderParts) override;
 
-    HostAddr getLocalHost() {
-       return localHost_;
-    }
+    void onListenerAdded(GraphSpaceID, PartitionID, const meta::ListenerHosts&) override;
 
-    /**
-     * for UTs, because the port is chosen by system,
-     * we should update port after thrift setup
-     * */
-    void setLocalHost(HostAddr localHost) {
-       localHost_ = std::move(localHost);
-    }
+    void onListenerRemoved(GraphSpaceID, PartitionID, meta::cpp2::ListenerType) override;
 
 private:
     meta::MetaClient *client_{nullptr};
-    HostAddr localHost_;
 };
 
 }  // namespace kvstore

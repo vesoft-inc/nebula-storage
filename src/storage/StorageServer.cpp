@@ -112,6 +112,7 @@ bool StorageServer::start() {
     options.localHost_ = localHost_;
     options.serviceName_ = "";
     options.skipConfig_ = FLAGS_local_config;
+    // doodle: listener can't start with HostRole::STORAGE
     options.role_ = nebula::meta::cpp2::HostRole::STORAGE;
     options.gitInfoSHA_ = NEBULA_STRINGIFY(GIT_INFO_SHA);
 
