@@ -28,12 +28,13 @@ folly::Future<Status> AdminClient::transLeader(GraphSpaceID spaceId,
     req.set_part_id(partId);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
-    auto& peers = ret.value();
+    auto peers = std::move(ret).value();
     auto it = std::find(peers.begin(), peers.end(), leader);
     if (it == peers.end()) {
-        LOG(WARNING) << "Can't find part " << partId << " on " << leader;
+        LOG(ERROR) << "Can't find part " << partId << " on " << leader;
         return Status::PartNotFound();
     }
     auto target = dst;
@@ -45,9 +46,9 @@ folly::Future<Status> AdminClient::transLeader(GraphSpaceID spaceId,
             }
         }
     }
-    req.set_new_leader(target);
+    req.set_new_leader(std::move(target));
     return getResponse(Utils::getAdminAddrFromStoreAddr(leader), std::move(req),
-            [] (auto client, auto request) {
+           [] (auto client, auto request) {
                return client->future_transLeader(request);
            }, [] (auto&& resp) -> Status {
                switch (resp.get_code()) {
@@ -78,6 +79,7 @@ folly::Future<Status> AdminClient::addPart(GraphSpaceID spaceId,
     req.set_as_learner(asLearner);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
     req.set_peers(std::move(ret).value());
@@ -107,6 +109,7 @@ folly::Future<Status> AdminClient::addLearner(GraphSpaceID spaceId,
     req.set_learner(learner);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
     auto peers = std::move(ret).value();
@@ -132,6 +135,7 @@ folly::Future<Status> AdminClient::waitingForCatchUpData(GraphSpaceID spaceId,
     req.set_target(target);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
     auto peers = std::move(ret).value();
@@ -159,6 +163,7 @@ folly::Future<Status> AdminClient::memberChange(GraphSpaceID spaceId,
     req.set_peer(peer);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
     auto peers = std::move(ret).value();
@@ -182,6 +187,7 @@ folly::Future<Status> AdminClient::updateMeta(GraphSpaceID spaceId,
     CHECK_NOTNULL(kv_);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
     auto peers = std::move(ret).value();
@@ -268,10 +274,10 @@ folly::Future<Status> AdminClient::checkPeers(GraphSpaceID spaceId, PartitionID 
     req.set_part_id(partId);
     auto ret = getPeers(spaceId, partId);
     if (!ret.ok()) {
+        LOG(ERROR) << "Get peers failed: " << ret.status();
         return ret.status();
     }
-    auto peers = std::move(ret).value();
-    req.set_peers(std::move(peers));
+    req.set_peers(std::move(ret).value());
     folly::Promise<Status> pro;
     auto fut = pro.getFuture();
     std::vector<folly::Future<Status>> futures;
@@ -536,7 +542,7 @@ void AdminClient::getLeaderDist(const HostAddr& host,
         auto client = clientsMan_->client(host, evb);
         client->future_getLeaderParts(std::move(req)).via(evb)
             .then([pro = std::move(pro), host, retry, retryLimit, this]
-                       (folly::Try<storage::cpp2::GetLeaderPartsResp>&& t) mutable {
+                  (folly::Try<storage::cpp2::GetLeaderPartsResp>&& t) mutable {
             if (t.hasException()) {
                 LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
                                                   t.exception().what().c_str());
@@ -610,14 +616,12 @@ folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId,
     storage::cpp2::CreateCPRequest req;
     req.set_space_id(spaceId);
     req.set_name(name);
-
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
     getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_createCheckpoint(request);
-                },
-                0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
+                }, 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
 
@@ -631,14 +635,12 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
     storage::cpp2::DropCPRequest req;
     req.set_space_id(spaceId);
     req.set_name(name);
-
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
     getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_dropCheckpoint(request);
-                },
-                0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
+                }, 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
 
@@ -653,8 +655,7 @@ folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
     getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_blockingWrites(request);
-                },
-                0, std::move(pro), 32 /*The blocking need to retry 32 times*/);
+                }, 0, std::move(pro), 32 /*The blocking need to retry 32 times*/);
     return f;
 }
 
@@ -679,8 +680,7 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
     para.set_space_id(spaceId);
     para.set_parts(std::move(parts));
     para.set_task_specfic_paras(taskSpecficParas);
-
-    req.set_para(para);
+    req.set_para(std::move(para));
 
     folly::Promise<Status> pro;
     std::function<void(storage::cpp2::AdminExecResp && resp)> respGen =
@@ -691,13 +691,10 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
     };
 
     auto f = pro.getFuture();
-
     getResponse(hosts, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_addAdminTask(request);
-                },
-                0, std::move(pro), 0, std::move(respGen));
-
+                }, 0, std::move(pro), 0);
     return f;
 }
 
@@ -716,9 +713,7 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
     getResponse(hosts, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_stopAdminTask(request);
-                },
-                0, std::move(pro), 1);
-
+                }, 0, std::move(pro), 1);
     return f;
 }
 }  // namespace meta

@@ -54,6 +54,7 @@ class Balancer {
     FRIEND_TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest);
     FRIEND_TEST(BalanceTest, LeaderBalanceTest);
     FRIEND_TEST(BalanceTest, ManyHostsLeaderBalancePlanTest);
+    FRIEND_TEST(BalanceTest, LeaderBalanceWithZoneTest);
     FRIEND_TEST(BalanceIntegrationTest, LeaderBalanceTest);
     FRIEND_TEST(BalanceIntegrationTest, BalanceTest);
 
@@ -134,9 +135,13 @@ private:
     cpp2::ErrorCode buildBalancePlan(std::unordered_set<HostAddr> hostDel);
 
     ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
-    genTasks(GraphSpaceID spaceId, int32_t spaceReplica, std::unordered_set<HostAddr> hostDel);
+    genTasks(GraphSpaceID spaceId,
+             int32_t spaceReplica,
+             bool dependentOnZone,
+             std::unordered_set<HostAddr> hostDel);
 
     void getHostParts(GraphSpaceID spaceId,
+                      bool dependentOnZone,
                       std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
                       int32_t& totalParts);
 
@@ -164,12 +169,15 @@ private:
     std::vector<std::pair<HostAddr, int32_t>>
     sortedHostsByParts(const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts);
 
-    bool getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& spaces,
+    bool getAllSpaces(std::vector<std::tuple<GraphSpaceID, int32_t, bool>>& spaces,
                       kvstore::ResultCode& retCode);
 
     std::unordered_map<HostAddr, std::vector<PartitionID>>
-    buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap, GraphSpaceID spaceId,
-                           LeaderBalancePlan& plan, bool useDeviation = true);
+    buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
+                           GraphSpaceID spaceId,
+                           bool dependentOnZone,
+                           LeaderBalancePlan& plan,
+                           bool useDeviation = true);
 
     void simplifyLeaderBalnacePlan(GraphSpaceID spaceId, LeaderBalancePlan& plan);
 
@@ -190,16 +198,23 @@ private:
                           LeaderBalancePlan& plan,
                           GraphSpaceID spaceId);
 
+    bool checkZoneConflict();
+
 private:
     std::atomic_bool running_{false};
-    kvstore::KVStore* kv_ = nullptr;
+    kvstore::KVStore* kv_{nullptr};
     std::unique_ptr<AdminClient> client_{nullptr};
     // Current running plan.
     std::shared_ptr<BalancePlan> plan_{nullptr};
     std::unique_ptr<folly::Executor> executor_;
     std::atomic_bool inLeaderBalance_{false};
+
+    // Host => Graph => Partitions
     std::unique_ptr<HostLeaderMap> hostLeaderMap_;
     mutable std::mutex lock_;
+
+    std::unordered_map<HostAddr, std::string> hostZone_;
+    std::unordered_map<std::string, std::vector<PartitionID>> zoneParts_;
 };
 
 }  // namespace meta

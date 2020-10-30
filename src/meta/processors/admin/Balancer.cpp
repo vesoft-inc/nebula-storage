@@ -86,7 +86,7 @@ cpp2::ErrorCode Balancer::recovery() {
             // state of BalancePlan and BalanceTask, so we just reject request if not leader.
             return cpp2::ErrorCode::E_LEADER_CHANGED;
         }
-        const auto& prefix = BalancePlan::prefix();
+        const auto& prefix = MetaServiceUtils::balancePlanPrefix();
         std::unique_ptr<kvstore::KVIterator> iter;
         auto ret = kv_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
@@ -95,10 +95,10 @@ cpp2::ErrorCode Balancer::recovery() {
         }
         std::vector<int64_t> corruptedPlans;
         while (iter->valid()) {
-            auto balanceId = BalancePlan::id(iter->key());
-            auto status = BalancePlan::status(iter->val());
-            if (status == BalancePlan::Status::IN_PROGRESS
-                    || status == BalancePlan::Status::FAILED) {
+            auto status = MetaServiceUtils::parseBalanceStatus(iter->val());
+            if (status == BalanceStatus::IN_PROGRESS ||
+                status == BalanceStatus::FAILED) {
+                auto balanceId = MetaServiceUtils::parseBalanceID(iter->key());
                 corruptedPlans.emplace_back(balanceId);
             }
             iter->next();
@@ -129,7 +129,7 @@ cpp2::ErrorCode Balancer::recovery() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-bool Balancer::getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& spaces,
+bool Balancer::getAllSpaces(std::vector<std::tuple<GraphSpaceID, int32_t, bool>>& spaces,
                             kvstore::ResultCode& retCode) {
     // Get all spaces
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
@@ -137,13 +137,16 @@ bool Balancer::getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& space
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kv_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Get all spaces failed";
         retCode = ret;
         return false;
     }
     while (iter->valid()) {
         auto spaceId = MetaServiceUtils::spaceId(iter->key());
         auto properties = MetaServiceUtils::parseSpace(iter->val());
-        spaces.emplace_back(spaceId, properties.replica_factor);
+
+        bool zoned = properties.__isset.group_name ? true : false;
+        spaces.emplace_back(spaceId, properties.replica_factor, zoned);
         iter->next();
     }
     return true;
@@ -151,7 +154,7 @@ bool Balancer::getAllSpaces(std::vector<std::pair<GraphSpaceID, int32_t>>& space
 
 cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel) {
     CHECK(!plan_) << "plan should be nullptr now";
-    std::vector<std::pair<GraphSpaceID, int32_t>> spaces;
+    std::vector<std::tuple<GraphSpaceID, int32_t, bool>> spaces;
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't get all spaces";
@@ -159,9 +162,12 @@ cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel)
     }
     plan_ = std::make_unique<BalancePlan>(time::WallClock::fastNowInSec(), kv_, client_.get());
     for (auto spaceInfo : spaces) {
-        auto taskRet = genTasks(spaceInfo.first, spaceInfo.second, hostDel);
+        auto taskRet = genTasks(std::get<0>(spaceInfo),
+                                std::get<1>(spaceInfo),
+                                std::get<2>(spaceInfo),
+                                hostDel);
         if (!ok(taskRet)) {
-            LOG(ERROR) << "Generate tasks on space " << spaceInfo.first << " failed";
+            LOG(ERROR) << "Generate tasks on space " << std::get<0>(spaceInfo) << " failed";
             return error(taskRet);
         }
         auto tasks = std::move(value(taskRet));
@@ -189,16 +195,18 @@ cpp2::ErrorCode Balancer::buildBalancePlan(std::unordered_set<HostAddr> hostDel)
 ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
 Balancer::genTasks(GraphSpaceID spaceId,
                    int32_t spaceReplica,
+                   bool dependentOnZone,
                    std::unordered_set<HostAddr> hostDel) {
     CHECK(!!plan_) << "plan should not be nullptr";
     std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
     int32_t totalParts = 0;
     // hostParts is current part allocation map
-    getHostParts(spaceId, hostParts, totalParts);
+    getHostParts(spaceId, dependentOnZone, hostParts, totalParts);
     if (totalParts == 0 || hostParts.empty()) {
         LOG(ERROR) << "Invalid space " << spaceId;
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
+
     std::vector<HostAddr> newlyAdded;
     auto activeHosts = ActiveHostsMan::getActiveHosts(kv_);
     calDiff(hostParts, activeHosts, newlyAdded, hostDel);
@@ -226,13 +234,13 @@ Balancer::genTasks(GraphSpaceID spaceId,
             // check whether any peers which is alive
             auto alive = checkReplica(hostParts, activeHosts, spaceReplica, partId);
             if (!alive.ok()) {
-                LOG(ERROR) << "Error:" << alive;
+                LOG(ERROR) << "Error: " << alive;
                 return cpp2::ErrorCode::E_NO_VALID_HOST;
             }
             // find a host with minimum parts which doesn't have this part
             auto ret = hostWithMinimalParts(newHostParts, partId);
             if (!ret.ok()) {
-                LOG(ERROR) << "Error:" << ret.status();
+                LOG(ERROR) << "Error: " << ret.status();
                 return cpp2::ErrorCode::E_NO_VALID_HOST;
             }
             auto& luckyHost = ret.value();
@@ -260,7 +268,7 @@ void Balancer::balanceParts(BalanceID balanceId,
                             std::unordered_map<HostAddr, std::vector<PartitionID>>& newHostParts,
                             int32_t totalParts,
                             std::vector<BalanceTask>& tasks) {
-    float avgLoad = static_cast<float>(totalParts) / newHostParts.size();
+    auto avgLoad = static_cast<float>(totalParts) / newHostParts.size();
     LOG(INFO) << "The expect avg load is " << avgLoad;
     int32_t minLoad = std::floor(avgLoad);
     int32_t maxLoad = std::ceil(avgLoad);
@@ -310,6 +318,7 @@ void Balancer::balanceParts(BalanceID balanceId,
             noAction = false;
         }
         if (noAction) {
+            LOG(INFO) << "Here is no action";
             break;
         }
         lastDelta = maxPartsHost.second - minPartsHost.second;
@@ -327,6 +336,7 @@ void Balancer::balanceParts(BalanceID balanceId,
 }
 
 void Balancer::getHostParts(GraphSpaceID spaceId,
+                            bool dependentOnZone,
                             std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
                             int32_t& totalParts) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
@@ -337,6 +347,7 @@ void Balancer::getHostParts(GraphSpaceID spaceId,
         LOG(ERROR) << "Access kvstore failed, spaceId " << spaceId;
         return;
     }
+
     while (iter->valid()) {
         auto key = iter->key();
         PartitionID partId;
@@ -356,9 +367,43 @@ void Balancer::getHostParts(GraphSpaceID spaceId,
         LOG(ERROR) << "Access kvstore failed, spaceId " << spaceId;
         return;
     }
+
     auto properties = MetaServiceUtils::parseSpace(value);
     CHECK_EQ(totalParts, properties.get_partition_num());
-    totalParts *= properties.get_replica_factor();
+    if (dependentOnZone) {
+        auto groupName = *properties.get_group_name();
+        auto groupKey = MetaServiceUtils::groupKey(groupName);
+        std::string groupValue;
+        code = kv_->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
+        if (code != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Get group " << groupName << " failed";
+            return;
+        }
+
+        std::vector<HostAddr> totalHosts;
+        auto zoneNames = MetaServiceUtils::parseZoneNames(std::move(groupValue));
+        for (auto& zoneName : zoneNames) {
+            auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
+            std::string zoneValue;
+            code = kv_->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
+            if (code != kvstore::ResultCode::SUCCEEDED) {
+                LOG(ERROR) << "Get zone " << zoneName << " failed";
+                return;
+            }
+            auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValue));
+            totalHosts.insert(totalHosts.end(), hosts.begin(), hosts.end());
+        }
+
+        for (auto hostIter = hostParts.begin(); hostIter != hostParts.end();) {
+            auto found = std::find(totalHosts.begin(), totalHosts.end(), hostIter->first);
+            if (found == totalHosts.end()) {
+                delete &hostIter->second;
+                hostParts.erase(hostIter++);
+            }
+        }
+    } else {
+        totalParts *= properties.get_replica_factor();
+    }
 }
 
 void Balancer::calDiff(const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
@@ -428,12 +473,15 @@ StatusOr<HostAddr> Balancer::hostWithMinimalParts(
 
 cpp2::ErrorCode Balancer::leaderBalance() {
     if (running_) {
+        LOG(INFO) << "Balance process still running";
         return cpp2::ErrorCode::E_BALANCER_RUNNING;
     }
 
     folly::Promise<Status> promise;
     auto future = promise.getFuture();
-    std::vector<std::pair<GraphSpaceID, int32_t>> spaces;
+
+    // Space ID => Replica Factor
+    std::vector<std::tuple<GraphSpaceID, int32_t, bool>> spaces;
     kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
     if (!getAllSpaces(spaces, ret)) {
         LOG(ERROR) << "Can't access kvstore, ret = " << static_cast<int32_t>(ret);
@@ -444,17 +492,27 @@ cpp2::ErrorCode Balancer::leaderBalance() {
     if (inLeaderBalance_.compare_exchange_strong(expected, true)) {
         hostLeaderMap_.reset(new HostLeaderMap);
         auto status = client_->getLeaderDist(hostLeaderMap_.get()).get();
-
         if (!status.ok() || hostLeaderMap_->empty()) {
+            LOG(ERROR) << "Get leader distribution failed";
             inLeaderBalance_ = false;
             return cpp2::ErrorCode::E_RPC_FAILURE;
         }
 
         std::vector<folly::SemiFuture<Status>> futures;
         for (const auto& spaceInfo : spaces) {
+            auto spaceId = std::get<0>(spaceInfo);
+            auto dependentOnZone = std::get<2>(spaceInfo);
             LeaderBalancePlan plan;
-            buildLeaderBalancePlan(hostLeaderMap_.get(), spaceInfo.first, plan);
-            simplifyLeaderBalnacePlan(spaceInfo.first, plan);
+            auto hostParts = buildLeaderBalancePlan(hostLeaderMap_.get(),
+                                                    spaceId,
+                                                    dependentOnZone,
+                                                    plan);
+            if (hostParts.empty()) {
+                LOG(ERROR) << "Building leader balance plan failed "
+                           << "Space: " << spaceId;;
+                continue;
+            }
+            simplifyLeaderBalnacePlan(spaceId, plan);
             for (const auto& task : plan) {
                 futures.emplace_back(client_->transLeader(std::get<0>(task), std::get<1>(task),
                                                           std::move(std::get<2>(task)),
@@ -471,16 +529,25 @@ cpp2::ErrorCode Balancer::leaderBalance() {
                 }
             }
         }).wait();
-        LOG(INFO) << failed << " partiton failed to transfer leader";
+
         inLeaderBalance_ = false;
-        return cpp2::ErrorCode::SUCCEEDED;
+        if (failed != 0) {
+            LOG(ERROR) << failed << " partiton failed to transfer leader";
+            return cpp2::ErrorCode::E_BALANCER_FAILURE;
+        } else {
+            LOG(INFO) << "transfer leader successful";
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
     }
     return cpp2::ErrorCode::E_BALANCER_RUNNING;
 }
 
 std::unordered_map<HostAddr, std::vector<PartitionID>>
-Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap, GraphSpaceID spaceId,
-                                 LeaderBalancePlan& plan, bool useDeviation) {
+Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
+                                 GraphSpaceID spaceId,
+                                 bool dependentOnZone,
+                                 LeaderBalancePlan& plan,
+                                 bool useDeviation) {
     std::unordered_map<PartitionID, std::vector<HostAddr>> peersMap;
     std::unordered_map<HostAddr, std::vector<PartitionID>> leaderHostParts;
     size_t leaderParts = 0;
@@ -507,7 +574,11 @@ Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap, GraphSpaceID spac
 
     int32_t totalParts = 0;
     std::unordered_map<HostAddr, std::vector<PartitionID>> allHostParts;
-    getHostParts(spaceId, allHostParts, totalParts);
+    getHostParts(spaceId, dependentOnZone, allHostParts, totalParts);
+    if (totalParts == 0 || allHostParts.empty()) {
+        LOG(ERROR) << "Invalid space " << spaceId;
+        return leaderHostParts;
+    }
 
     std::unordered_set<HostAddr> activeHosts;
     for (const auto& host : *hostLeaderMap) {
@@ -541,6 +612,8 @@ Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap, GraphSpaceID spac
 
         for (auto& hostEntry : leaderHostParts) {
             if (minLoad <= hostEntry.second.size() && hostEntry.second.size() <= maxLoad) {
+                VLOG(3) << hostEntry.second.size() << " is between min load "
+                        << minLoad << " and max load " << maxLoad;
                 continue;
             }
             hasUnbalancedHost = true;
@@ -557,6 +630,7 @@ Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap, GraphSpaceID spac
 
         // If every host is balanced or no more task during this loop, then the plan is done
         if (!hasUnbalancedHost || taskCount == 0) {
+            LOG(INFO) << "Not need balance";
             break;
         }
     }
@@ -587,21 +661,19 @@ int32_t Balancer::acquireLeaders(
                 continue;
             }
             // if peer is the leader of partId and can transfer, then transfer it to host
+            // if the space specified with zone, we should check for conflict.
             auto& peerLeaders = leaderHostParts[peer];
             auto it = std::find(peerLeaders.begin(), peerLeaders.end(), partId);
-            if (it != peerLeaders.end()) {
-                if (minLoad < peerLeaders.size()) {
-                    peerLeaders.erase(it);
-                    hostLeaders.emplace_back(partId);
-                    plan.emplace_back(spaceId, partId, peer, host);
-                    LOG(INFO) << "plan trans leader: " << spaceId << " " << partId << " from "
-                              << peer.host
-                              << peer.port << " to "
-                              << host.host
-                              << ":" << host.port;
-                    ++taskCount;
-                    break;
-                }
+            if (it != peerLeaders.end() &&
+                minLoad < peerLeaders.size()) {
+                peerLeaders.erase(it);
+                hostLeaders.emplace_back(partId);
+                plan.emplace_back(spaceId, partId, peer, host);
+                LOG(INFO) << "plan trans leader: " << spaceId << " " << partId
+                          << " from " << peer.host << ":" << peer.port
+                          << " to " << host.host << ":" << host.port;
+                ++taskCount;
+                break;
             }
         }
         // if host has enough leader, just return
@@ -633,16 +705,15 @@ int32_t Balancer::giveupLeaders(
                 continue;
             }
             // If peer can accept this partition leader, than host will transfer to the peer
+            // if the space specified with zone, we should check for conflict.
             auto& peerLeaders = leaderHostParts[peer];
             if (peerLeaders.size() < maxLoad) {
                 it = hostLeaders.erase(it);
                 peerLeaders.emplace_back(partId);
                 plan.emplace_back(spaceId, partId, host, peer);
-                LOG(INFO) << "plan trans leader: " << spaceId << " " << partId << " host "
-                          << host.host << ":"
-                          << host.port << " peer "
-                          << peer.host
-                          << ":" << peer.port;
+                LOG(INFO) << "plan trans leader: " << spaceId << " " << partId
+                          << " from " << host.host << ":" << host.port
+                          << " to " << peer.host << ":" << peer.port;
                 ++taskCount;
                 transfered = true;
                 break;
@@ -673,6 +744,10 @@ void Balancer::simplifyLeaderBalnacePlan(GraphSpaceID spaceId, LeaderBalancePlan
                           std::get<2>(partEntry.second.front()),
                           std::get<3>(partEntry.second.back()));
     }
+}
+
+bool Balancer::checkZoneConflict() {
+    return false;
 }
 
 }  // namespace meta
