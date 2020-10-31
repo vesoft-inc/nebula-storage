@@ -9,6 +9,7 @@
 
 #include "common/base/Base.h"
 #include "common/meta/SchemaManager.h"
+#include "kvstore/Common.h"
 #include "kvstore/raftex/RaftPart.h"
 #include "kvstore/raftex/Host.h"
 #include "kvstore/wal/FileBasedWal.h"
@@ -33,9 +34,6 @@ public:
              std::shared_ptr<RaftClient> clientMan,
              meta::SchemaManager* schemaMan);
 
-    void setCallback(std::function<bool(LogID, folly::StringPiece)> commitLogFunc,
-                     std::function<bool(LogID, TermID)> updateCommitFunc);
-
     // Initialize listener, all Listener must call this method
     void start(std::vector<HostAddr>&& peers, bool asLearner = true) override;
 
@@ -46,12 +44,19 @@ public:
     virtual void cleanup() override = 0;
 
     int64_t logGap() {
-        return wal_->lastLogId() - lastCommittedLogId().first;
+        return wal_->lastLogId() - lastApplyLogId_;
     }
 
 protected:
     // Last commit id and term, need to be persisted
     virtual std::pair<LogID, TermID> lastCommittedLogId() override = 0;
+
+    // Last apply id, need to be persisted
+    virtual LogID lastApplyLogId() = 0;
+
+    virtual bool apply(const std::vector<KV>& data) = 0;
+
+    virtual bool persist(LogID, TermID, LogID) = 0;
 
     void onLostLeadership(TermID) override {
         LOG(FATAL) << "Should not reach here";
@@ -65,16 +70,18 @@ protected:
         LOG(INFO) << idStr_ << "Find the new leader " << nLeader;
     }
 
-    // Commit the logs which are accepted by quorum, for example, sync to remote cluster
-    // The empty log in iterator could be skipped, which is the raft heartbeat.
-    // TODO(doodle): need to handle the case when updateCommit_
-    bool commitLogs(std::unique_ptr<LogIterator> iter) override;
-
-    // If some wal need to be pre-process, could do it here. For most of the listeners,
-    // just return true is enough.
-    bool preProcessLog(LogID, TermID, ClusterID, const std::string&) override {
+    // For listener, we just return true directly. Another background thread trigger the actual
+    // apply work, and do it in worker thread, and update lastApplyLogId_
+    bool commitLogs(std::unique_ptr<LogIterator>) override {
         return true;
     }
+
+    // For most of the listeners, just return true is enough. However, if listener need to be aware
+    // of membership change, some log type of wal need to be pre-processed, could do it here.
+    bool preProcessLog(LogID logId,
+                       TermID termId,
+                       ClusterID clusterId,
+                       const std::string& log) override;
 
     // If the listener falls behind way to much than leader, the leader will send all its data
     // in snapshot by batch, listener need to implement it if it need handle this case. The return
@@ -84,9 +91,10 @@ protected:
                                                        TermID committedLogTerm,
                                                        bool finished) override = 0;
 
+    void doApply();
+
 protected:
-    std::function<bool(LogID, folly::StringPiece)> commitLog_;
-    std::function<bool(LogID, TermID)> updateCommit_;
+    LogID lastApplyLogId_ = 0;
     meta::SchemaManager* schemaMan_{nullptr};
 };
 

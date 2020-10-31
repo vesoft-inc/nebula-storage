@@ -26,23 +26,23 @@ public:
               meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, std::move(localAddr), walPath,
                    ioPool, workers, handlers, snapshotMan, clientMan, schemaMan) {
-        setCallback(std::bind(&ESListener::commitLog, this,
-                              std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&ESListener::updateCommit, this,
-                              std::placeholders::_1, std::placeholders::_2));
     }
 
 protected:
-    bool commitLog(LogID, folly::StringPiece) {
+    bool apply(const std::vector<KV>&) override {
         return true;
     }
 
-    bool updateCommit(LogID, TermID) {
+    bool persist(LogID, TermID, LogID) override {
         return true;
     }
 
     std::pair<LogID, TermID> lastCommittedLogId() override {
         return {0, 0};
+    }
+
+    LogID lastApplyLogId() override {
+        return 0;
     }
 
     std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>&,

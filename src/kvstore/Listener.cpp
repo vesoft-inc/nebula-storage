@@ -5,7 +5,11 @@
  */
 
 #include "kvstore/Listener.h"
+#include "kvstore/LogEncoder.h"
 #include "codec/RowReaderWrapper.h"
+
+DEFINE_int32(listener_commit_interval_secs, 1, "Listener commit interval");
+DEFINE_int32(listener_commit_batch_size, 1000, "Max batch size when listener commit");
 
 namespace nebula {
 namespace kvstore {
@@ -23,12 +27,6 @@ Listener::Listener(GraphSpaceID spaceId,
     : RaftPart(FLAGS_cluster_id, spaceId, partId, localAddr, walPath,
                ioPool, workers, handlers, snapshotMan, clientMan)
     , schemaMan_(schemaMan) {
-}
-
-void Listener::setCallback(std::function<bool(LogID, folly::StringPiece)> commitLogFunc,
-                           std::function<bool(LogID, TermID)> updateCommitFunc) {
-    commitLog_ = std::move(commitLogFunc);
-    updateCommit_ = std::move(updateCommitFunc);
 }
 
 void Listener::start(std::vector<HostAddr>&& peers, bool) {
@@ -52,11 +50,14 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
         wal_->reset();
     }
 
+    lastApplyLogId_ = lastApplyLogId();
+
     LOG(INFO) << idStr_ << "Listener start"
                         << ", there are " << peers.size() << " peer hosts"
                         << ", lastLogId " << lastLogId_
                         << ", lastLogTerm " << lastLogTerm_
                         << ", committedLogId " << committedLogId_
+                        << ", lastApplyLogId " << lastApplyLogId_
                         << ", term " << term_;
 
     // As for listener, we don't need Host actually. However, listener need to be aware of
@@ -68,6 +69,9 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
 
     status_ = Status::RUNNING;
     role_ = Role::LEARNER;
+
+    size_t delayMS = 100 + folly::Random::rand32(900);
+    bgWorkers_->addDelayTask(delayMS, &Listener::doApply, this);
 }
 
 void Listener::stop() {
@@ -79,41 +83,119 @@ void Listener::stop() {
     }
 }
 
-bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
-    LogID lastId = -1, prevId = -1;
-    TermID lastTerm = -1, prevTerm = -1;
-    // todo(doodle): as for listener, we could commit in batch
-    while (iter->valid()) {
-        if (lastId != -1) {
-            prevId = lastId;
-            prevTerm = lastTerm;
-        }
-        lastId = iter->logId();
-        lastTerm = iter->logTerm();
-
-        auto log = iter->logMsg();
-        if (log.empty()) {
-            // skip the heartbeat
-            ++(*iter);
-            continue;
-        }
-
-        // try to decode the log and replicate to external source
-        if (!commitLog_(iter->logId(), iter->logMsg())) {
-            // If commit failed, will try it to commit later, update the commited
-            // log id and term to (prevId, prevTerm)
-            if (prevId != -1) {
-                updateCommit_(prevId, prevTerm);
+bool Listener::preProcessLog(LogID logId,
+                             TermID termId,
+                             ClusterID clusterId,
+                             const std::string& log) {
+    UNUSED(logId); UNUSED(termId); UNUSED(clusterId);
+    if (!log.empty()) {
+        // todo(doodle): handle membership change
+        switch (log[sizeof(int64_t)]) {
+            case OP_ADD_LEARNER: {
+                break;
             }
-            return true;
+            case OP_ADD_PEER: {
+                break;
+            }
+            case OP_REMOVE_PEER: {
+                break;
+            }
+            default: {
+                break;
+            }
         }
-        ++(*iter);
-    }
-
-    if (lastId >= 0) {
-        updateCommit_(lastId, lastTerm);
     }
     return true;
+}
+
+void Listener::doApply() {
+    if (isStopped()) {
+        return;
+    }
+    // todo(doodle): only put is handled, all remove is ignored for now
+    folly::via(executor_.get(), [this] {
+        SCOPE_EXIT {
+            bgWorkers_->addDelayTask(FLAGS_listener_commit_interval_secs * 1000,
+                                     &Listener::doApply, this);
+        };
+
+        std::lock_guard<std::mutex> guard(raftLock_);
+        if (lastApplyLogId_ >= committedLogId_) {
+            return;
+        }
+
+        auto iter = wal_->iterator(lastApplyLogId_ + 1, committedLogId_);
+        LogID lastId = -1;
+        TermID lastTerm = -1;
+        // the kv pair which can sync to remote safely
+        std::vector<KV> data;
+        while (iter->valid()) {
+            lastId = iter->logId();
+            lastTerm = iter->logTerm();
+
+            auto log = iter->logMsg();
+            if (log.empty()) {
+                // skip the heartbeat
+                ++(*iter);
+                continue;
+            }
+
+            DCHECK_GE(log.size(), sizeof(int64_t) + 1 + sizeof(uint32_t));
+            switch (log[sizeof(int64_t)]) {
+                case OP_PUT: {
+                    auto pieces = decodeMultiValues(log);
+                    DCHECK_EQ(2, pieces.size());
+                    data.emplace_back(pieces[0], pieces[1]);
+                    break;
+                }
+                case OP_MULTI_PUT: {
+                    auto kvs = decodeMultiValues(log);
+                    DCHECK_EQ((kvs.size() + 1) / 2, kvs.size() / 2);
+                    for (size_t i = 0; i < kvs.size(); i += 2) {
+                        data.emplace_back(kvs[i], kvs[i + 1]);
+                    }
+                    break;
+                }
+                case OP_REMOVE:
+                case OP_REMOVE_RANGE:
+                case OP_MULTI_REMOVE: {
+                    break;
+                }
+                case OP_BATCH_WRITE: {
+                    auto batch = decodeBatchValue(log);
+                    for (auto& op : batch) {
+                        // OP_BATCH_PUT and OP_BATCH_REMOVE_RANGE is igored
+                        if (op.first == BatchLogType::OP_BATCH_PUT) {
+                            data.emplace_back(op.second.first, op.second.second);
+                        }
+                    }
+                    break;
+                }
+                case OP_TRANS_LEADER:
+                case OP_ADD_LEARNER:
+                case OP_ADD_PEER:
+                case OP_REMOVE_PEER: {
+                    break;
+                }
+                default: {
+                    LOG(WARNING) << idStr_ << "Unknown operation: " << static_cast<int32_t>(log[0]);
+                }
+            }
+
+            if (static_cast<int32_t>(data.size()) > FLAGS_listener_commit_batch_size) {
+                break;
+            }
+            ++(*iter);
+        }
+
+        if (!data.empty()) {
+            if (apply(data)) {
+                lastApplyLogId_ = lastId;
+                persist(lastId, lastTerm, lastApplyLogId_);
+                VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
+            }
+        }
+    });
 }
 
 }  // namespace kvstore

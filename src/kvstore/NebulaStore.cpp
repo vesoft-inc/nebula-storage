@@ -35,6 +35,7 @@ NebulaStore::~NebulaStore() {
     LOG(INFO) << "Waiting for the raft service stop...";
     raftService_->waitUntilStop();
     spaces_.clear();
+    spaceListeners_.clear();
     bgWorkers_->stop();
     bgWorkers_->wait();
     LOG(INFO) << "~NebulaStore()";
@@ -1008,6 +1009,7 @@ void NebulaStore::cleanWAL() {
             }
         }
     }
+    // todo(doodle): handle listener
 }
 
 }  // namespace kvstore

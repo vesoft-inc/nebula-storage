@@ -34,10 +34,6 @@ public:
                   meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, localAddr, walPath,
                    ioPool, workers, handlers, nullptr, nullptr, schemaMan) {
-        setCallback(std::bind(&DummyListener::commitLog, this,
-                              std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&DummyListener::updateCommit, this,
-                              std::placeholders::_1, std::placeholders::_2));
     }
 
     std::vector<KV> data() {
@@ -45,23 +41,23 @@ public:
     }
 
 protected:
-    bool commitLog(LogID, folly::StringPiece log) {
-        // decode a wal
-        auto kvs = decodeMultiValues(log);
-        CHECK_EQ((kvs.size() + 1) / 2, kvs.size() / 2);
-        // mock persist log
-        for (size_t i = 0; i < kvs.size(); i += 2) {
-            data_.emplace_back(kvs[i], kvs[i + 1]);
+    bool apply(const std::vector<KV>& kvs) override {
+        for (const auto& kv : kvs) {
+            data_.emplace_back(kv);
         }
         return true;
     }
 
-    bool updateCommit(LogID, TermID) {
+    bool persist(LogID, TermID, LogID) override {
         return true;
     }
 
     std::pair<LogID, TermID> lastCommittedLogId() override {
         return std::make_pair(committedLogId_, term_);
+    }
+
+    LogID lastApplyLogId() override {
+        return lastApplyLogId_;
     }
 
     std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>&,
@@ -225,6 +221,19 @@ protected:
         }
     }
 
+    HostAddr findLeader(PartitionID partId) {
+        while (true) {
+            auto leaderRet = stores_[0]->partLeader(spaceId_, partId);
+            CHECK(ok(leaderRet));
+            auto leader = value(std::move(leaderRet));
+            if (leader == HostAddr("", 0)) {
+                sleep(1);
+                continue;
+            }
+            return leader;
+        }
+    }
+
     size_t findStoreIndex(const HostAddr& addr) {
         for (size_t i = 0; i < peers_.size(); i++) {
             if (peers_[i] == addr) {
@@ -257,7 +266,7 @@ TEST_P(ListenerBasicTest, SimpleTest) {
             data.emplace_back(folly::stringPrintf("key_%d_%d", partId, i),
                               folly::stringPrintf("val_%d_%d", partId, i));
         }
-        auto leader = value(stores_[0]->partLeader(spaceId_, partId));
+        auto leader = findLeader(partId);
         auto index = findStoreIndex(leader);
         folly::Baton<true, std::atomic> baton;
         stores_[index]->asyncMultiPut(spaceId_, partId, std::move(data), [&baton](ResultCode code) {
@@ -282,18 +291,84 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     }
 }
 
+TEST_P(ListenerBasicTest, TransLeaderTest) {
+    LOG(INFO) << "Insert some data";
+    for (int32_t partId = 1; partId <= partCount_; partId++) {
+        std::vector<KV> data;
+        for (int32_t i = 0; i < 100; i++) {
+            data.emplace_back(folly::stringPrintf("key_%d_%d", partId, i),
+                              folly::stringPrintf("val_%d_%d", partId, i));
+        }
+        auto leader = findLeader(partId);
+        auto index = findStoreIndex(leader);
+        folly::Baton<true, std::atomic> baton;
+        stores_[index]->asyncMultiPut(spaceId_, partId, std::move(data), [&baton](ResultCode code) {
+            EXPECT_EQ(ResultCode::SUCCEEDED, code);
+            baton.post();
+        });
+        baton.wait();
+    }
+
+    LOG(INFO) << "Trasfer all part leader to first replica";
+    auto targetAddr = NebulaStore::getRaftAddr(peers_[0]);
+    for (int32_t partId = 1; partId <= partCount_; partId++) {
+        folly::Baton<true, std::atomic> baton;
+        auto leader = findLeader(partId);
+        auto index = findStoreIndex(leader);
+        auto partRet = stores_[index]->part(spaceId_, partId);
+        CHECK(ok(partRet));
+        auto part = value(partRet);
+        part->asyncTransferLeader(targetAddr, [&] (kvstore::ResultCode) {
+            baton.post();
+        });
+        baton.wait();
+    }
+    sleep(FLAGS_raft_heartbeat_interval_secs);
+    {
+        std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
+        ASSERT_EQ(partCount_, stores_[0]->allLeader(leaderIds));
+    }
+
+    LOG(INFO) << "Insert more data";
+    for (int32_t partId = 1; partId <= partCount_; partId++) {
+        std::vector<KV> data;
+        for (int32_t i = 100; i < 200; i++) {
+            data.emplace_back(folly::stringPrintf("key_%d_%d", partId, i),
+                              folly::stringPrintf("val_%d_%d", partId, i));
+        }
+        auto leader = findLeader(partId);
+        auto index = findStoreIndex(leader);
+        folly::Baton<true, std::atomic> baton;
+        stores_[index]->asyncMultiPut(spaceId_, partId, std::move(data), [&baton](ResultCode code) {
+            EXPECT_EQ(ResultCode::SUCCEEDED, code);
+            baton.post();
+        });
+        baton.wait();
+    }
+
+    // wait listener commit
+    sleep(FLAGS_raft_heartbeat_interval_secs);
+
+    LOG(INFO) << "Check listener's data";
+    for (int32_t partId = 1; partId <= partCount_; partId++) {
+        auto dummy = dummys_[partId];
+        const auto& data = dummy->data();
+        CHECK_EQ(200, data.size());
+        for (int32_t i = 0; i < static_cast<int32_t>(data.size()); i++) {
+            CHECK_EQ(folly::stringPrintf("key_%d_%d", partId, i), data[i].first);
+            CHECK_EQ(folly::stringPrintf("val_%d_%d", partId, i), data[i].second);
+        }
+    }
+}
+
 INSTANTIATE_TEST_CASE_P(
     PartCount_Replicas_ListenerCount,
     ListenerBasicTest,
     ::testing::Values(
         std::make_tuple(1, 1, 1),
-        std::make_tuple(3, 1, 1),
         std::make_tuple(10, 1, 1),
         std::make_tuple(1, 3, 1),
-        std::make_tuple(3, 3, 1),
         std::make_tuple(10, 3, 1),
-        std::make_tuple(1, 1, 2),
-        std::make_tuple(3, 1, 3),
         std::make_tuple(3, 3, 3),
         std::make_tuple(10, 3, 3),
         std::make_tuple(10, 3, 10)));
