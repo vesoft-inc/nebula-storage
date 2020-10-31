@@ -47,7 +47,7 @@ class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, TransLeaderTest);
     FRIEND_TEST(NebulaStoreTest, CheckpointTest);
     FRIEND_TEST(NebulaStoreTest, ThreeCopiesCheckpointTest);
-    FRIEND_TEST(ListenerBasicTest, SimpleTest);
+    friend class ListenerBasicTest;
 
 public:
     NebulaStore(KVOptions options,
