@@ -1068,7 +1068,7 @@ std::string MetaServiceUtils::statisKey(GraphSpaceID spaceId) {
     return key;
 }
 
-std::string MetaServiceUtils::statisVal(const cpp2::StatisItem &statisItem) {
+std::string MetaServiceUtils::statisVal(const cpp2::StatisItem& statisItem) {
     std::string val;
     apache::thrift::CompactSerializer::serialize(statisItem, &val);
     return val;

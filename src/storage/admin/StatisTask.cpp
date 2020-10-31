@@ -5,9 +5,8 @@
  */
 
 #include "kvstore/Common.h"
-#include "storage/StorageFlags.h"
 #include "storage/admin/StatisTask.h"
-#include "utils/OperationKeyUtils.h"
+#include "utils/NebulaKeyUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -56,7 +55,7 @@ StatisTask::genSubTasks() {
     return tasks;
 }
 
-// Only statis the specified tags and edges
+// Statis the specified tags and edges
 kvstore::ResultCode
 StatisTask::genSubTask(GraphSpaceID spaceId,
                        PartitionID part,
@@ -77,8 +76,6 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Statis task failed";
         return ret;
-    } else {
-        LOG(INFO) << "Statis task successful";
     }
 
     std::unordered_map<TagID, int64_t>    tagsVertices;
@@ -112,10 +109,10 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     // 2     3     1
     // 3     1     2
     while (iter && iter->valid()) {
-         auto key = iter->key();
-         if (NebulaKeyUtils::isVertex(vIdLen, key)) {
-             auto vId = NebulaKeyUtils::getVertexId(vIdLen, key).str();
-             auto tagId = NebulaKeyUtils::getTagId(vIdLen, key);
+        auto key = iter->key();
+        if (NebulaKeyUtils::isVertex(vIdLen, key)) {
+            auto vId = NebulaKeyUtils::getVertexId(vIdLen, key).str();
+            auto tagId = NebulaKeyUtils::getTagId(vIdLen, key);
 
             auto it = tagsVertices.find(tagId);
             if (it == tagsVertices.end()) {
@@ -171,7 +168,6 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
             }
         }
         iter->next();
-        continue;
     }
 
     nebula::meta::cpp2::StatisItem statisItem;
@@ -180,7 +176,7 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     statisItem.set_space_vertices(spaceVertices);
     statisItem.set_space_edges(spaceEdges);
 
-    statistics_.emplace_back(std::move(statisItem));
+    statistics_.insert(part, std::move(statisItem));
     LOG(INFO) << "Statis task finished";
     return kvstore::ResultCode::SUCCEEDED;
 }
@@ -190,12 +186,16 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
               static_cast<int>(rc));
     nebula::meta::cpp2::StatisItem  result;
     result.set_status(nebula::meta::cpp2::JobStatus::FAILED);
+
     if (rc == cpp2::ErrorCode::SUCCEEDED && statistics_.size() == subTaskSize_) {
-        result = statistics_[0];
-        for (size_t i = 1; i < statistics_.size(); i++) {
-            result.space_vertices += statistics_[i].space_vertices;
-            result.space_edges += statistics_[i].space_edges;
-            for (auto& tagElem : statistics_[i].tag_vertices) {
+        result.space_vertices = 0;
+        result.space_edges = 0;
+        for (auto& elem : statistics_) {
+            auto item = elem.second;
+            result.space_vertices += item.space_vertices;
+            result.space_edges += item.space_edges;
+
+            for (auto& tagElem : item.tag_vertices) {
                 auto tagId = tagElem.first;
                 auto iter = result.tag_vertices.find(tagId);
                 if (iter == result.tag_vertices.end()) {
@@ -205,7 +205,7 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
                 }
             }
 
-            for (auto& edgeElem : statistics_[i].edges) {
+            for (auto& edgeElem : item.edges) {
                 auto edgetype = edgeElem.first;
                 auto iter = result.edges.find(edgetype);
                 if (iter == result.edges.end()) {
@@ -224,7 +224,6 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
         ctx_.onFinish_(cpp2::ErrorCode::E_PART_NOT_FOUND, result);
     }
 }
-
 
 }  // namespace storage
 }  // namespace nebula

@@ -8,6 +8,7 @@
 #define STORAGE_ADMIN_STATISTASK_H_
 
 #include "common/thrift/ThriftTypes.h"
+#include "common/interface/gen-cpp2/meta_types.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/NebulaStore.h"
 #include "storage/admin/AdminTask.h"
@@ -17,6 +18,7 @@ namespace storage {
 
 class StatisTask : public AdminTask {
 public:
+    using AdminTask::finish;
     StatisTask(StorageEnv* env, TaskContext&& ctx)
         : AdminTask(env, std::move(ctx)) {}
 
@@ -44,9 +46,12 @@ private:
 protected:
     std::atomic<bool>                           canceled_{false};
     GraphSpaceID                                spaceId_;
+    // All tagIds of the spaceId_
     std::vector<TagID>                          tags_;
+    // All edgeTypes of the spaceId_
     std::vector<EdgeType>                       edges_;
-    std::vector<nebula::meta::cpp2::StatisItem> statistics_;
+    folly::ConcurrentHashMap<PartitionID, nebula::meta::cpp2::StatisItem> statistics_;
+    // The number of subtasks equals to the number of parts in request
     size_t                                      subTaskSize_{0};
 };
 

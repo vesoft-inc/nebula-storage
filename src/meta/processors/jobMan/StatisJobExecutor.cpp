@@ -27,6 +27,44 @@ cpp2::ErrorCode StatisJobExecutor::checkSpaceExist() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+kvstore::ResultCode StatisJobExecutor::save(const std::string& k, const std::string& v) {
+    std::vector<kvstore::KV> data{std::make_pair(k, v)};
+    folly::Baton<true, std::atomic> baton;
+    nebula::kvstore::ResultCode rc = nebula::kvstore::SUCCEEDED;
+    kvstore_->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
+                            [&] (nebula::kvstore::ResultCode code) {
+                                rc = code;
+                                baton.post();
+                            });
+    baton.wait();
+    return rc;
+}
+
+cpp2::ErrorCode StatisJobExecutor::prepare() {
+    space_ = folly::to<GraphSpaceID>(paras_[0]);
+    auto ret = checkSpaceExist();
+    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        return ret;
+    }
+
+    // Set the status of the statis job to running
+    cpp2::StatisItem statisItem;
+    statisItem.status = cpp2::JobStatus::RUNNING;
+    auto statisKey = MetaServiceUtils::statisKey(space_);
+    auto statisVal = MetaServiceUtils::statisVal(statisItem);
+    save(statisKey, statisVal);
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+folly::Future<Status>
+StatisJobExecutor::executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) {
+    cpp2::StatisItem item;
+    statisItem_.emplace(address, item);
+    return adminClient_->addTask(cpp2::AdminCmd::STATIS, jobId_, taskId_++,
+                                 space_, {std::move(address)}, {},
+                                 std::move(parts), concurrency_, &(statisItem_[address]));
+}
+
 void StatisJobExecutor::finish(bool ExeSuccessed) {
     auto statisKey = MetaServiceUtils::statisKey(space_);
     std::string val;
@@ -75,45 +113,7 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
     return;
 }
 
-kvstore::ResultCode StatisJobExecutor::save(const std::string& k, const std::string& v) {
-    std::vector<kvstore::KV> data{std::make_pair(k, v)};
-    folly::Baton<true, std::atomic> baton;
-    nebula::kvstore::ResultCode rc = nebula::kvstore::SUCCEEDED;
-    kvstore_->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
-                            [&] (nebula::kvstore::ResultCode code) {
-                                rc = code;
-                                baton.post();
-                            });
-    baton.wait();
-    return rc;
-}
-
-cpp2::ErrorCode StatisJobExecutor::prepare() {
-    space_ = folly::to<GraphSpaceID>(paras_[0]);
-    auto ret = checkSpaceExist();
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        return ret;
-    }
-
-    // Set the state of the statis job to running
-    cpp2::StatisItem statisItem;
-    statisItem.status = cpp2::JobStatus::RUNNING;
-    auto statisKey = MetaServiceUtils::statisKey(space_);
-    auto statisVal = MetaServiceUtils::statisVal(statisItem);
-    save(statisKey, statisVal);
-    return cpp2::ErrorCode::SUCCEEDED;
-}
-
-folly::Future<Status>
-StatisJobExecutor::executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) {
-    cpp2::StatisItem item;
-    statisItem_.emplace(address, item);
-    return adminClient_->addTask(cpp2::AdminCmd::STATIS, jobId_, taskId_++,
-                                 space_, {std::move(address)}, {},
-                                 std::move(parts), concurrency_, &(statisItem_[address]));
-}
-
-meta::cpp2::ErrorCode StatisJobExecutor::stop() {
+cpp2::ErrorCode StatisJobExecutor::stop() {
     auto errOrTargetHost = getTargetHost(space_);
     if (!nebula::ok(errOrTargetHost)) {
         LOG(ERROR) << "Get target host failed";
@@ -132,7 +132,7 @@ meta::cpp2::ErrorCode StatisJobExecutor::stop() {
         .thenValue([] (const auto& tries) mutable {
             for (const auto& t : tries) {
                 if (!t.value().ok()) {
-                    LOG(ERROR) << "Stop Build Index Failed";
+                    LOG(ERROR) << "Stop statis job Failed";
                     return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
                 }
             }

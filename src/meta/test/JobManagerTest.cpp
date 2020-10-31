@@ -95,7 +95,7 @@ TEST_F(JobManagerTest, StatisJob) {
     ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
     auto result = jobMgr->runJobInternal(job);
     ASSERT_TRUE(result);
-    // runJobInternal does not set the end state of the job
+    // Function runJobInternal does not set the finished status of the job
     job.setStatus(cpp2::JobStatus::FINISHED);
     jobMgr->save(job.jobKey(), job.jobVal());
 

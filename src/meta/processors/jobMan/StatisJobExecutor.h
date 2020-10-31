@@ -28,16 +28,18 @@ public:
 
     cpp2::ErrorCode prepare() override;
 
-    meta::cpp2::ErrorCode stop() override;
+    cpp2::ErrorCode stop() override;
 
     folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) override;
 
+    // Summarize the results of statisItem_
     void finish(bool ExeSuccessed) override;
 
 private:
     // Statis job writes an additional data.
-    // The additional data is only written when the statis job passes the check function
+    // The additional data is written when the statis job passes the check function.
+    // Update this additional data when job finishes.
     kvstore::ResultCode save(const std::string& k, const std::string& v);
 
     cpp2::ErrorCode checkSpaceExist();

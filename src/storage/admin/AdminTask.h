@@ -8,6 +8,7 @@
 #define STORAGE_ADMIN_ADMINTASK_H_
 
 #include "common/interface/gen-cpp2/storage_types.h"
+#include "common/interface/gen-cpp2/meta_types.h"
 #include "common/thrift/ThriftTypes.h"
 #include "kvstore/Common.h"
 #include "kvstore/NebulaStore.h"
@@ -45,7 +46,7 @@ enum class TaskPriority : int8_t {
 };
 
 struct TaskContext {
-    using CallBack = std::function<void(cpp2::ErrorCode, nebula::meta::cpp2::StatisItem)>;
+    using CallBack = std::function<void(cpp2::ErrorCode, nebula::meta::cpp2::StatisItem&)>;
 
     TaskContext() = default;
     TaskContext(const cpp2::AddAdminTaskRequest& req,
@@ -67,7 +68,7 @@ struct TaskContext {
 
 class AdminTask {
     using TCallBack = std::function<void(cpp2::ErrorCode,
-                                         nebula::meta::cpp2::StatisItem)>;
+                                         nebula::meta::cpp2::StatisItem&)>;
     using SubTaskQueue = folly::UnboundedBlockingQueue<AdminSubTask>;
 
 public:

@@ -12,6 +12,7 @@
 #include "kvstore/NebulaStore.h"
 #include "storage/BaseProcessor.h"
 #include "storage/StorageFlags.h"
+#include "common/interface/gen-cpp2/meta_types.h"
 
 namespace nebula {
 namespace storage {
@@ -28,7 +29,7 @@ private:
     explicit AdminTaskProcessor(StorageEnv* env)
             : BaseProcessor<cpp2::AdminExecResp>(env) {}
 
-    void onProcessFinished(nebula::meta::cpp2::StatisItem result);
+    void onProcessFinished(nebula::meta::cpp2::StatisItem& result);
 };
 
 }  // namespace storage

@@ -16,7 +16,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     auto rc = cpp2::ErrorCode::SUCCEEDED;
     auto taskManager = AdminTaskManager::instance();
 
-    auto cb = [&](cpp2::ErrorCode ret, nebula::meta::cpp2::StatisItem result) {
+    auto cb = [&](cpp2::ErrorCode ret, nebula::meta::cpp2::StatisItem& result) {
         if (ret != cpp2::ErrorCode::SUCCEEDED) {
             cpp2::PartitionResult thriftRet;
             thriftRet.set_code(ret);
@@ -48,7 +48,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     }
 }
 
-void AdminTaskProcessor::onProcessFinished(nebula::meta::cpp2::StatisItem result) {
+void AdminTaskProcessor::onProcessFinished(nebula::meta::cpp2::StatisItem& result) {
     resp_.set_statis(std::move(result));
 }
 

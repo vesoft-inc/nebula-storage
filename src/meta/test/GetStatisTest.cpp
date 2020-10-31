@@ -81,11 +81,13 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_NE(kvstore::ResultCode::SUCCEEDED, ret);
     }
 
-    // Run statis job
+    // Run statis job, job finished.
+    // Insert running status statis data in prepare function of runJobInternal.
+    // Update statis data to finished or failed status in finish function of runJobInternal.
     auto result = jobMgr->runJobInternal(statisJob);
     ASSERT_TRUE(result);
-    // RunJobInternal does not set the end status of the job.
-    // But set statis data in runJobInternal.
+    // JobManager does not set the job finished status in RunJobInternal function.
+    // But set statis data.
     statisJob.setStatus(cpp2::JobStatus::FINISHED);
     jobMgr->save(statisJob.jobKey(), statisJob.jobVal());
 
@@ -110,7 +112,7 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem.space_vertices);
         ASSERT_EQ(0, statisItem.space_edges);
 
-        // Directly find statis data in kvstore, statis data does not exist.
+        // Directly find statis data in kvstore, statis data exists.
         auto key = MetaServiceUtils::statisKey(spaceId);
         std::string val;
         auto ret = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &val);
@@ -124,7 +126,7 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem1.space_edges);
     }
 
-    // Execute statis job in same space
+    // Execute new statis job in same space.
     std::vector<std::string> paras1{"1"};
     JobDescription statisJob2(13, cpp2::AdminCmd::STATIS, paras1);
     auto rc1 = jobMgr->addJob(statisJob2, adminClient_.get());
@@ -132,7 +134,7 @@ TEST_F(GetStatisTest, StatisJob) {
 
     {
         // Job is not executed, job status is QUEUE.
-        // Statis data exists, but it is the result of the last execution.
+        // Statis data exists, but it is the result of the last statis job execution.
         auto job1 = JobDescription::loadJobDescription(statisJob2.id_, kv_.get());
         ASSERT_TRUE(job1);
         ASSERT_EQ(statisJob2.id_, job1.value().id_);
@@ -154,7 +156,7 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem.space_vertices);
         ASSERT_EQ(0, statisItem.space_edges);
 
-        // Directly find statis data in kvstore, statis data exists
+        // Directly find statis data in kvstore, statis data exists.
         auto key = MetaServiceUtils::statisKey(spaceId);
         std::string val;
         auto ret = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &val);
@@ -168,9 +170,7 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem1.space_edges);
     }
 
-    // Remove statis data
-    // Insert running status statis data in prepare function of runJobInternal
-    // Update finished or failed status statis data in finish function of runJobInternal
+    // Remove statis data.
     {
         auto key = MetaServiceUtils::statisKey(spaceId);
         folly::Baton<true, std::atomic> baton;
@@ -183,17 +183,27 @@ TEST_F(GetStatisTest, StatisJob) {
                          });
         baton.wait();
 
+        // Directly find statis data in kvstore, statis data does not exist.
         std::string val;
         auto ret = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &val);
         ASSERT_NE(kvstore::ResultCode::SUCCEEDED, ret);
+
+        cpp2::GetStatisReq req;
+        req.set_space_id(spaceId);
+        auto* processor = GetStatisProcessor::instance(kv_.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.code);
     }
 
     // Run statis job.
+    // Insert running status statis data in prepare function of runJobInternal.
+    // Update statis data to finished or failed status in finish function of runJobInternal.
     auto result2 = jobMgr->runJobInternal(statisJob2);
     ASSERT_TRUE(result2);
-
-    // RunJobInternal does not set the end status of the job.
-    // But set statis data in runJobInternal.
+    // JobManager does not set the job finished status in RunJobInternal function.
+    // But set statis data.
     statisJob2.setStatus(cpp2::JobStatus::FINISHED);
     jobMgr->save(statisJob2.jobKey(), statisJob2.jobVal());
 
@@ -218,7 +228,7 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem.space_vertices);
         ASSERT_EQ(0, statisItem.space_edges);
 
-        // Directly find statis data in kvstore, statis data does not exist.
+        // Directly find statis data in kvstore, statis data exists.
         auto key = MetaServiceUtils::statisKey(spaceId);
         std::string val;
         auto ret = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &val);

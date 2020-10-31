@@ -74,10 +74,10 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
         lstIter->next();
     }
 
-    // delete statis meta data if it exists
+    // Delete statis data if it exists
     auto statiskey = MetaServiceUtils::statisKey(spaceId);
     deleteKeys.emplace_back(statiskey);
-    
+
     doSyncMultiRemoveAndUpdate(std::move(deleteKeys));
     LOG(INFO) << "Drop space " << req.get_space_name() << ", id " << spaceId;
 }
