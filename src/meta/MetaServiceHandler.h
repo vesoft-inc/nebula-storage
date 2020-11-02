@@ -201,6 +201,55 @@ public:
     folly::Future<cpp2::AdminJobResp>
     future_runAdminJob(const cpp2::AdminJobReq& req) override;
 
+    /**
+     * Zone manager
+     **/
+    folly::Future<cpp2::ExecResp>
+    future_addZone(const cpp2::AddZoneReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_dropZone(const cpp2::DropZoneReq &req) override;
+
+    folly::Future<cpp2::GetZoneResp>
+    future_getZone(const cpp2::GetZoneReq &req) override;
+
+    folly::Future<cpp2::ListZonesResp>
+    future_listZones(const cpp2::ListZonesReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_addHostIntoZone(const cpp2::AddHostIntoZoneReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_dropHostFromZone(const cpp2::DropHostFromZoneReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_addGroup(const cpp2::AddGroupReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_dropGroup(const cpp2::DropGroupReq &req) override;
+
+    folly::Future<cpp2::GetGroupResp>
+    future_getGroup(const cpp2::GetGroupReq &req) override;
+
+    folly::Future<cpp2::ListGroupsResp>
+    future_listGroups(const cpp2::ListGroupsReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_addZoneIntoGroup(const cpp2::AddZoneIntoGroupReq &req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_dropZoneFromGroup(const cpp2::DropZoneFromGroupReq &req) override;
+
+    // listener
+    folly::Future<cpp2::ExecResp>
+    future_addListener(const cpp2::AddListenerReq& req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_removeListener(const cpp2::RemoveListenerReq& req) override;
+
+    folly::Future<cpp2::ListListenerResp>
+    future_listListener(const cpp2::ListListenerReq& req) override;
+
 private:
     kvstore::KVStore* kvstore_ = nullptr;
     ClusterID clusterId_{0};

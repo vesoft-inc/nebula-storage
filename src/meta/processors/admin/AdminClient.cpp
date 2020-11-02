@@ -358,14 +358,13 @@ folly::Future<Status> AdminClient::getResponse(
 }
 
 template<typename Request, typename RemoteFunc>
-void AdminClient::getResponse(
-                         std::vector<HostAddr> hosts,
-                         int32_t index,
-                         Request req,
-                         RemoteFunc remoteFunc,
-                         int32_t retry,
-                         folly::Promise<Status> pro,
-                         int32_t retryLimit) {
+void AdminClient::getResponse(std::vector<HostAddr> hosts,
+                              int32_t index,
+                              Request req,
+                              RemoteFunc remoteFunc,
+                              int32_t retry,
+                              folly::Promise<Status> pro,
+                              int32_t retryLimit) {
     auto* evb = ioThreadPool_->getEventBase();
     CHECK_GE(index, 0);
     CHECK_LT(index, hosts.size());
@@ -528,7 +527,10 @@ void AdminClient::getLeaderDist(const HostAddr& host,
                                                   t.exception().what().c_str());
                 if (retry < retryLimit) {
                     usleep(1000 * 50);
-                    getLeaderDist(host, std::move(pro), retry + 1, retryLimit);
+                    getLeaderDist(Utils::getAdminAddrFromStoreAddr(host),
+                                  std::move(pro),
+                                  retry + 1,
+                                  retryLimit);
                 } else {
                     pro.setValue(Status::Error("RPC failure in AdminClient"));
                 }
@@ -601,7 +603,8 @@ folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId,
      * Don't need retry.
      * Because existing checkpoint directories leads to fail again.
      **/
-    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
+    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
+            [] (auto client, auto request) {
         return client->future_createCheckpoint(request);
     }, 0, std::move(pro), 0);
     return f;
@@ -620,7 +623,8 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
 
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
+    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
+            [] (auto client, auto request) {
         return client->future_dropCheckpoint(request);
     }, 0, std::move(pro), 1 /*The snapshot operation only needs to be retried twice*/);
     return f;
@@ -629,13 +633,13 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
 folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
                                                   storage::cpp2::EngineSignType sign,
                                                   const HostAddr& host) {
-    auto allHosts = ActiveHostsMan::getActiveHosts(kv_);
     storage::cpp2::BlockingSignRequest req;
     req.set_space_id(spaceId);
     req.set_sign(sign);
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
+    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
+            [] (auto client, auto request) {
         return client->future_blockingWrites(request);
     }, 0, std::move(pro), 1 /*The blocking needs to be retried twice*/);
     return f;
@@ -736,3 +740,4 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
 }
 }  // namespace meta
 }  // namespace nebula
+
