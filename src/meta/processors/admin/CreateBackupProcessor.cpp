@@ -21,7 +21,7 @@ static const std::unordered_map<std::string,
                  {"tags", MetaServiceUtils::backupTagsTable},
                  {"edges", MetaServiceUtils::backupEdgesTable},
                  {"indexes", MetaServiceUtils::backupIndexesTable},
-                 {"index", MetaServiceUtils::backupIndexTable},
+//                 {"index", MetaServiceUtils::backupIndexTable},
                  {"index_status", MetaServiceUtils::backupIndexStatusTable},
                  {"users", MetaServiceUtils::backupUsersTable},
                  {"roles", MetaServiceUtils::backupRolesTable},
@@ -49,7 +49,8 @@ bool CreateBackupProcessor::backupTable(const std::unordered_set<GraphSpaceID>& 
 
 folly::Optional<std::vector<std::string>> CreateBackupProcessor::backupMeta(
     const std::unordered_set<GraphSpaceID>& spaces,
-    const std::string& backupName) {
+    const std::string& backupName,
+    const std::vector<std::string>* spaceNames) {
     std::vector<std::string> files;
     files.reserve(tableMaps.size());
 
@@ -59,6 +60,21 @@ folly::Optional<std::vector<std::string>> CreateBackupProcessor::backupMeta(
         }
         LOG(INFO) << table.first << " table backup successed";
     }
+
+    // The mapping of space name and space id needs to be handled separately.
+    auto ret = MetaServiceUtils::backupIndexTable(kvstore_, spaces, backupName, spaceNames);
+    if (!ok(ret)) {
+        auto result = error(ret);
+        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
+            return files;
+        }
+        return folly::none;
+    }
+
+    files.insert(files.end(),
+                 std::make_move_iterator(value(ret).begin()),
+                 std::make_move_iterator(value(ret).end()));
+
     return files;
 }
 
@@ -197,7 +213,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     // step 4 created backup for meta(export sst).
-    auto backupFiles = backupMeta(spaces, backupName);
+    auto backupFiles = backupMeta(spaces, backupName, backupSpaces);
     if (!backupFiles.hasValue()) {
         LOG(ERROR) << "Failed backup meta";
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);

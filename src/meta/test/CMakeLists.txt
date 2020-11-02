@@ -287,3 +287,17 @@ nebula_add_test(
         wangle
         gtest
 )
+
+nebula_add_test(
+    NAME
+        restore_test
+    SOURCES
+        RestoreProcessorTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)

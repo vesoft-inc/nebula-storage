@@ -224,7 +224,7 @@ TEST(RocksEngineTest, IngestTest) {
     EXPECT_EQ(ResultCode::ERR_KEY_NOT_FOUND, engine->get("key_not_exist", &result));
 }
 
-TEST(RocksEngineTest, BackupTable) {
+TEST(RocksEngineTest, BackupRestoreTable) {
     rocksdb::Options options;
     rocksdb::SstFileWriter writer(rocksdb::EnvOptions(), options);
     fs::TempDir rootPath("/tmp/rocksdb_engine_backuptable.XXXXXX");

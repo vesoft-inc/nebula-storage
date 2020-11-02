@@ -494,7 +494,8 @@ std::string MetaServiceUtils::indexIndexKey(GraphSpaceID spaceID, const std::str
 }
 
 GraphSpaceID MetaServiceUtils::parseIndexKeySpaceID(folly::StringPiece key) {
-    return *reinterpret_cast<const GraphSpaceID*>(key.data() + kIndexTable.size());
+    return *reinterpret_cast<const GraphSpaceID*>(key.data() + kIndexTable.size() +
+                                                  sizeof(EntryType));
 }
 
 std::string MetaServiceUtils::assembleSegmentKey(const std::string& segment,
@@ -958,10 +959,14 @@ folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvst
     return true;
 }
 
-std::function<bool(const folly::StringPiece& key)> MetaServiceUtils::spaceFilter(
-    const std::unordered_set <GraphSpaceID>& spaces,
-    std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace) {
+std::function<bool(const folly::StringPiece& key)>
+MetaServiceUtils::spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
+                              std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace) {
     auto sf = [spaces, parseSpace](const folly::StringPiece& key) -> bool {
+        if (spaces.empty()) {
+            return false;
+        }
+
         auto id = parseSpace(key);
         auto it = spaces.find(id);
         if (it == spaces.end()) {
@@ -973,6 +978,7 @@ std::function<bool(const folly::StringPiece& key)> MetaServiceUtils::spaceFilter
 
     return sf;
 }
+
 
 ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupSpaceTable(
     kvstore::KVStore* kvstore,
@@ -1016,10 +1022,45 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
 
 ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexTable(
     kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
+    const std::unordered_set<GraphSpaceID>& spaces,
+    const std::string& backupName,
+    const std::vector<std::string>* spaceName) {
     return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kIndexTable, spaceFilter(spaces, parseIndexKeySpaceID));
+        kDefaultSpaceId,
+        backupName,
+        kIndexTable,
+        [spaces, spaceName](const folly::StringPiece& key) -> bool {
+            if (spaces.empty() || spaceName == nullptr) {
+                return false;
+            }
+
+            auto type = *reinterpret_cast<const EntryType*>(key.data() + kIndexTable.size());
+            if (type == EntryType::SPACE) {
+                auto sn = key.subpiece(kIndexTable.size() + sizeof(EntryType),
+                                       key.size() - kIndexTable.size() - sizeof(EntryType))
+                              .str();
+                LOG(INFO) << "sn was " << sn;
+                auto it = std::find_if(spaceName->cbegin(), spaceName->cend(), [&sn](auto& name) {
+                    if (sn == name) {
+                        return true;
+                    }
+                    return false;
+                });
+
+                if (it == spaceName->cend()) {
+                    return true;
+                }
+                return false;
+            }
+
+            auto id = parseIndexKeySpaceID(key);
+            auto it = spaces.find(id);
+            if (it == spaces.end()) {
+                return true;
+            }
+
+            return false;
+        });
 }
 
 ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexStatusTable(
@@ -1056,6 +1097,66 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupC
     UNUSED(spaces);
 
     return kvstore->backupTable(kDefaultSpaceId, backupName, kConfigsTable, nullptr);
+}
+
+bool MetaServiceUtils::replaceHost(kvstore::KVStore* kvstore,
+                                   const HostAddr& ipv4From,
+                                   const HostAddr& ipv4To) {
+    folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
+    const auto& spacePrefix = MetaServiceUtils::spacePrefix();
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, spacePrefix, &iter);
+    if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << folly::stringPrintf("can't get space prefix=%s", spacePrefix.c_str());
+        return false;
+    }
+
+    std::vector<GraphSpaceID> allSpaceId;
+    while (iter->valid()) {
+        auto spaceId = MetaServiceUtils::spaceId(iter->key());
+        allSpaceId.emplace_back(spaceId);
+        iter->next();
+    }
+    LOG(INFO) << "allSpaceId.size()=" << allSpaceId.size();
+
+    std::vector<nebula::kvstore::KV> data;
+
+    for (const auto& spaceId : allSpaceId) {
+        const auto& partPrefix = MetaServiceUtils::partPrefix(spaceId);
+        kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
+        if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << folly::stringPrintf("can't get partPrefix=%s", partPrefix.c_str());
+            return false;
+        }
+
+        while (iter->valid()) {
+            bool needUpdate = false;
+            auto partHosts = MetaServiceUtils::parsePartVal(iter->val());
+            for (auto& host : partHosts) {
+                if (host == ipv4From) {
+                    needUpdate = true;
+                    host = ipv4To;
+                }
+            }
+            if (needUpdate) {
+                data.emplace_back(iter->key(), MetaServiceUtils::partVal(partHosts));
+            }
+            iter->next();
+        }
+    }
+
+    bool updateSucceed{false};
+    folly::Baton<true, std::atomic> baton;
+    kvstore->asyncMultiPut(
+        kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
+            updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
+            if (!updateSucceed) {
+                LOG(ERROR) << folly::stringPrintf("write to kvstore failed");
+            }
+            baton.post();
+        });
+    baton.wait();
+    return updateSucceed;
 }
 
 }   // namespace meta

@@ -265,7 +265,8 @@ public:
     static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
         kvstore::KVStore* kvstore,
         const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
+        const std::string& backupName,
+        const std::vector<std::string>* spaceName);
     static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexStatusTable(
         kvstore::KVStore* kvstore,
         const std::unordered_set <GraphSpaceID>& spaces,
@@ -282,6 +283,9 @@ public:
         kvstore::KVStore* kvstore,
         const std::unordered_set <GraphSpaceID>& spaces,
         const std::string& backupName);
+    static bool replaceHost(kvstore::KVStore* kvstore,
+                            const HostAddr& ipv4From,
+                            const HostAddr& ipv4To);
 };
 
 }   // namespace meta

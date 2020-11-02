@@ -26,7 +26,8 @@ private:
         : BaseProcessor<cpp2::CreateBackupResp>(kvstore), client_(client) {}
     folly::Optional<std::vector<std::string>> backupMeta(
         const std::unordered_set<GraphSpaceID>& spaces,
-        const std::string& name);
+        const std::string& name,
+        const std::vector<std::string>*);
     template <typename F>
     bool backupTable(const std::unordered_set<GraphSpaceID>& spaces,
                      const std::string& backupName,

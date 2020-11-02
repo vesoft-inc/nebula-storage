@@ -63,6 +63,7 @@ nebula_add_library(
     processors/admin/LeaderBalanceProcessor.cpp
     processors/admin/SnapShot.cpp
     processors/admin/CreateBackupProcessor.cpp
+    processors/admin/RestoreProcessor.cpp
     processors/configMan/RegConfigProcessor.cpp
     processors/configMan/GetConfigProcessor.cpp
     processors/configMan/ListConfigsProcessor.cpp

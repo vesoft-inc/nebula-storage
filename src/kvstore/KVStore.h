@@ -183,6 +183,9 @@ public:
         const std::string& tablePrefix,
         std::function<bool(const folly::StringPiece& key)> filter) = 0;
 
+    virtual ResultCode restoreFromFiles(GraphSpaceID spaceId,
+                                        const std::vector<std::string>& files) = 0;
+
 protected:
     KVStore() = default;
 };

@@ -89,9 +89,11 @@ StatusOr<std::map<GraphSpaceID, std::set<HostAddr>>> Snapshot::getSpacesHosts() 
     while (iter->valid()) {
         auto partHosts = MetaServiceUtils::parsePartVal(iter->val());
         auto space = MetaServiceUtils::parsePartKeySpaceId(iter->key());
-        auto it = spaces_.find(space);
-        if (it == spaces_.end()) {
-            continue;
+        if (!spaces_.empty()) {
+            auto it = spaces_.find(space);
+            if (it == spaces_.end()) {
+                continue;
+            }
         }
 
         for (auto& ph : partHosts) {

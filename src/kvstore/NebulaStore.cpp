@@ -910,6 +910,25 @@ ErrorOr<ResultCode, std::vector<std::string>> NebulaStore::backupTable(
     return backupPath;
 }
 
+ResultCode NebulaStore::restoreFromFiles(GraphSpaceID spaceId,
+                                         const std::vector<std::string>& files) {
+    auto spaceRet = space(spaceId);
+    if (!ok(spaceRet)) {
+        LOG(ERROR) << "Get Space " << spaceId << " Failed";
+        return error(spaceRet);
+    }
+    auto space = nebula::value(spaceRet);
+
+    for (auto& engine : space->engines_) {
+        auto ret = engine->ingest(files);
+        if (ret != ResultCode::SUCCEEDED) {
+            return ret;
+        }
+    }
+
+    return ResultCode::SUCCEEDED;
+}
+
 }  // namespace kvstore
 }  // namespace nebula
 

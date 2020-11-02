@@ -230,6 +230,9 @@ public:
         const std::string& tablePrefix,
         std::function<bool(const folly::StringPiece& key)> filter) override;
 
+    ResultCode restoreFromFiles(GraphSpaceID spaceId,
+                                const std::vector<std::string>& files) override;
+
 private:
     void updateSpaceOption(GraphSpaceID spaceId,
                            const std::unordered_map<std::string, std::string>& options,
