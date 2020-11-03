@@ -45,7 +45,7 @@ public:
         }
         auto scanRet = scanStr(partId);
         if (!scanRet.ok()) {
-            return kvstore::ResultCode::ERR_CONSENSUS_ERROR;
+            return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
         }
         scanPair_ = scanRet.value();
         std::unique_ptr<kvstore::KVIterator> iter;

@@ -15,12 +15,6 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     const auto &indexName = req.get_index_name();
     auto &edgeName = req.get_edge_name();
     const auto &fields = req.get_fields();
-    if (fields.empty()) {
-        LOG(ERROR) << "The index field of an edge type should not be empty.";
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
-        onFinished();
-        return;
-    }
 
     std::set<std::string> columnSet;
     for (const auto& field : fields) {

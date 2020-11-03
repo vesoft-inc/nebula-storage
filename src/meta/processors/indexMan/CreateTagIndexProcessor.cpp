@@ -15,12 +15,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     const auto &indexName = req.get_index_name();
     auto &tagName = req.get_tag_name();
     const auto &fields = req.get_fields();
-    if (fields.empty()) {
-        LOG(ERROR) << "The index field of an tag should not be empty.";
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
-        onFinished();
-        return;
-    }
+
     std::set<std::string> columnSet;
     for (const auto& field : fields) {
         columnSet.emplace(field.get_name());

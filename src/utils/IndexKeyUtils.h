@@ -98,12 +98,12 @@ public:
     static std::string encodeValue(const Value& v, int16_t len) {
         if (v.type() == Value::Type::STRING) {
             std::string fs = v.getStr();
-                if (static_cast<size_t>(len) > v.getStr().size()) {
-                    fs.append(len - v.getStr().size(), '\0');
-                } else {
-                    fs = fs.substr(0, len);
-                }
-                return fs;
+            if (static_cast<size_t>(len) > v.getStr().size()) {
+                fs.append(len - v.getStr().size(), '\0');
+            } else {
+                fs = fs.substr(0, len);
+            }
+            return fs;
         } else {
             return encodeValue(v);
         }
@@ -316,7 +316,7 @@ public:
                 break;
             }
             case Value::Type::STRING: {
-                v.setStr(raw.str());
+                v.setStr(raw.subpiece(0, raw.find_first_of('\0')));
                 break;
             }
             case Value::Type::TIME: {

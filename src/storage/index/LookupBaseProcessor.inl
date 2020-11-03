@@ -153,7 +153,7 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
     std::unique_ptr<IndexOutputNode<IndexID>> out;
 
     if (noProp_) {
-        out = buildPlanBasic(contexts_[0], plan, indexCols, indexCols.size(), false);
+        out = buildPlanBasic(contexts_[0], plan, false, {});
          if (out == nullptr) {
             return Status::Error("Index scan plan error");
         }
@@ -211,16 +211,15 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
             }
 
             if (!needData && !needFilter) {
-                out = buildPlanBasic(ctx, plan, indexCols, vColNum, hasNullableCol);
+                out = buildPlanBasic(ctx, plan, hasNullableCol, fields);
             } else if (needData && !needFilter) {
                 out = buildPlanWithData(ctx, plan);
             } else if (!needData && needFilter) {
                 auto expr = Expression::decode(ctx.get_filter());
                 auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
                                                                           planContext_->isIntId_,
-                                                                          vColNum,
                                                                           hasNullableCol,
-                                                                          indexCols);
+                                                                          fields);
                 filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
                 out = buildPlanWithFilter(ctx,
                                           plan,

@@ -2225,7 +2225,7 @@ TEST(ProcessorTest, TagIndexTest) {
         cpp2::CreateTagIndexReq req;
         req.set_space_id(1);
         req.set_tag_name("tag_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index");
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
@@ -2239,7 +2239,7 @@ TEST(ProcessorTest, TagIndexTest) {
         cpp2::CreateTagIndexReq req;
         req.set_space_id(1);
         req.set_tag_name("tag_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index_1");
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
@@ -2291,7 +2291,7 @@ TEST(ProcessorTest, TagIndexTest) {
         cpp2::CreateTagIndexReq req;
         req.set_space_id(1);
         req.set_tag_name("tag_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index");
         auto* processor = CreateTagIndexProcessor::instance(kv.get());
@@ -2600,7 +2600,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         cpp2::CreateEdgeIndexReq req;
         req.set_space_id(1);
         req.set_edge_name("edge_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index");
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
@@ -2614,7 +2614,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         cpp2::CreateEdgeIndexReq req;
         req.set_space_id(1);
         req.set_edge_name("edge_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index_1");
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
@@ -2666,7 +2666,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         cpp2::CreateEdgeIndexReq req;
         req.set_space_id(1);
         req.set_edge_name("edge_0");
-        std::vector<std::string> fields{};
+        std::vector<cpp2::IndexFieldDef> fields{};
         req.set_fields(std::move(fields));
         req.set_index_name("no_field_index");
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());

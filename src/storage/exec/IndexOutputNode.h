@@ -202,12 +202,7 @@ private:
                                                              fields_,
                                                              false,
                                                              hasNullableCol_);
-                if (v.isStr()) {
-                    auto strVal = v.getStr().substr(0, v.getStr().find_first_of('\0'));
-                    row.emplace_back(std::move(strVal));
-                } else {
-                    row.emplace_back(std::move(v));
-                }
+                row.emplace_back(std::move(v));
             }
             result_->rows.emplace_back(std::move(row));
         }
@@ -271,12 +266,7 @@ private:
                                                              fields_,
                                                              true,
                                                              hasNullableCol_);
-                if (v.isStr()) {
-                    auto strVal = v.getStr().substr(0, v.getStr().find_first_of('\0'));
-                    row.emplace_back(std::move(strVal));
-                } else {
-                    row.emplace_back(std::move(v));
-                }
+                row.emplace_back(std::move(v));
             }
             result_->rows.emplace_back(std::move(row));
         }
