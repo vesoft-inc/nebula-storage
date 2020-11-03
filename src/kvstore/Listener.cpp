@@ -119,12 +119,15 @@ void Listener::doApply() {
                                      &Listener::doApply, this);
         };
 
-        std::lock_guard<std::mutex> guard(raftLock_);
-        if (lastApplyLogId_ >= committedLogId_) {
-            return;
+        std::unique_ptr<LogIterator> iter;
+        {
+            std::lock_guard<std::mutex> guard(raftLock_);
+            if (lastApplyLogId_ >= committedLogId_) {
+                return;
+            }
+            iter = wal_->iterator(lastApplyLogId_ + 1, committedLogId_);
         }
 
-        auto iter = wal_->iterator(lastApplyLogId_ + 1, committedLogId_);
         LogID lastId = -1;
         TermID lastTerm = -1;
         // the kv pair which can sync to remote safely
@@ -189,8 +192,11 @@ void Listener::doApply() {
         }
 
         if (!data.empty()) {
+            // apply to state machine
             if (apply(data)) {
+                std::lock_guard<std::mutex> guard(raftLock_);
                 lastApplyLogId_ = lastId;
+                // persist lastId, lastTerm, lastApplyLogId
                 persist(lastId, lastTerm, lastApplyLogId_);
                 VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             }

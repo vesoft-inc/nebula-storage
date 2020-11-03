@@ -23,6 +23,7 @@ DEFINE_bool(check_leader, true, "Check leader or not");
 DEFINE_int32(clean_wal_interval_secs, 600, "inerval to trigger clean expired wal");
 
 DECLARE_bool(rocksdb_disable_wal);
+DECLARE_int32(wal_ttl);
 
 namespace nebula {
 namespace kvstore {
@@ -232,7 +233,7 @@ void NebulaStore::loadRemoteListenerFromPartManager() {
             if (listeners.ok()) {
                 folly::RWSpinLock::UpgradedHolder uh(&lock_);
                 for (const auto& info : listeners.value()) {
-                    partEntry.second->addListener(getRaftAddr(info.first));
+                    partEntry.second->addListenerPeer(getRaftAddr(info.first));
                 }
             }
         }
@@ -492,8 +493,8 @@ void NebulaStore::removeListener(GraphSpaceID spaceId,
                                  PartitionID partId,
                                  meta::cpp2::ListenerType type) {
     folly::RWSpinLock::WriteHolder wh(&lock_);
-    auto spaceIt = this->spaceListeners_.find(spaceId);
-    if (spaceIt != this->spaceListeners_.end()) {
+    auto spaceIt = spaceListeners_.find(spaceId);
+    if (spaceIt != spaceListeners_.end()) {
         auto partIt = spaceIt->second->listeners_.find(partId);
         if (partIt != spaceIt->second->listeners_.end()) {
             auto listener = partIt->second.find(type);
@@ -508,6 +509,24 @@ void NebulaStore::removeListener(GraphSpaceID spaceId,
         }
     }
     return;
+}
+
+void NebulaStore::checkRemoteListeners(GraphSpaceID spaceId,
+                                       PartitionID partId,
+                                       const std::vector<HostAddr>& remoteListeners) {
+    folly::RWSpinLock::ReadHolder rh(&lock_);
+    auto spaceIt = spaces_.find(spaceId);
+    if (spaceIt != spaces_.end()) {
+        auto partIt = spaceIt->second->parts_.find(partId);
+        if (partIt != spaceIt->second->parts_.end()) {
+            std::vector<HostAddr> raftHosts;
+            std::transform(remoteListeners.begin(),
+                           remoteListeners.end(),
+                           std::back_inserter(raftHosts),
+                           [&](const auto& host) { return getRaftAddr(host); });
+            partIt->second->checkRemoteListeners(raftHosts);
+        }
+    }
 }
 
 void NebulaStore::updateSpaceOption(GraphSpaceID spaceId,
@@ -1005,11 +1024,20 @@ void NebulaStore::cleanWAL() {
         for (const auto& partEntry : spaceEntry.second->parts_) {
             auto& part = partEntry.second;
             if (part->needToCleanWal()) {
-                part->wal()->cleanWAL();
+                // clean wal by expired time
+                part->wal()->cleanWAL(FLAGS_wal_ttl);
             }
         }
     }
-    // todo(doodle): handle listener
+    for (const auto& spaceEntry : spaceListeners_) {
+        for (const auto& partEntry : spaceEntry.second->listeners_) {
+            for (const auto& typeEntry : partEntry.second) {
+                const auto& listener = typeEntry.second;
+                // clean wal by log id
+                listener->wal()->cleanWAL(listener->getApplyId());
+            }
+        }
+    }
 }
 
 }  // namespace kvstore

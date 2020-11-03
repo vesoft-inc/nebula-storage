@@ -45,6 +45,10 @@ public:
     virtual void removeListener(GraphSpaceID spaceId,
                                 PartitionID partId,
                                 meta::cpp2::ListenerType type) = 0;
+
+    virtual void checkRemoteListeners(GraphSpaceID spaceId,
+                                      PartitionID partId,
+                                      const std::vector<HostAddr>& remoteListeners) = 0;
 };
 
 
@@ -212,9 +216,17 @@ public:
     void fetchLeaderInfo(std::unordered_map<GraphSpaceID,
                                             std::vector<PartitionID>>& leaderParts) override;
 
-    void onListenerAdded(GraphSpaceID, PartitionID, const meta::ListenerHosts&) override;
+    void onListenerAdded(GraphSpaceID spaceId,
+                         PartitionID partId,
+                         const meta::ListenerHosts& listenerHosts) override;
 
-    void onListenerRemoved(GraphSpaceID, PartitionID, meta::cpp2::ListenerType) override;
+    void onListenerRemoved(GraphSpaceID spaceId,
+                           PartitionID partId,
+                           meta::cpp2::ListenerType type) override;
+
+    void onCheckRemoteListeners(GraphSpaceID spaceId,
+                                PartitionID partId,
+                                const std::vector<HostAddr>& remoteListeners) override;
 
 private:
     meta::MetaClient *client_{nullptr};

@@ -36,8 +36,12 @@ namespace storage {
 
 StorageServer::StorageServer(HostAddr localHost,
                              std::vector<HostAddr> metaAddrs,
-                             std::vector<std::string> dataPaths)
-    : localHost_(localHost), metaAddrs_(std::move(metaAddrs)), dataPaths_(std::move(dataPaths)) {}
+                             std::vector<std::string> dataPaths,
+                             std::string listenerPath)
+    : localHost_(localHost)
+    , metaAddrs_(std::move(metaAddrs))
+    , dataPaths_(std::move(dataPaths))
+    , listenerPath_(std::move(listenerPath)) {}
 
 StorageServer::~StorageServer() {
     stop();
@@ -46,6 +50,7 @@ StorageServer::~StorageServer() {
 std::unique_ptr<kvstore::KVStore> StorageServer::getStoreInstance() {
     kvstore::KVOptions options;
     options.dataPaths_ = dataPaths_;
+    options.listenerPath_ = listenerPath_;
     options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                                 localHost_,
                                                 metaClient_.get());
@@ -112,8 +117,11 @@ bool StorageServer::start() {
     options.localHost_ = localHost_;
     options.serviceName_ = "";
     options.skipConfig_ = FLAGS_local_config;
-    // doodle: listener can't start with HostRole::STORAGE
     options.role_ = nebula::meta::cpp2::HostRole::STORAGE;
+    // If listener path is specified, it will start as a listener
+    if (!listenerPath_.empty()) {
+        options.role_ = nebula::meta::cpp2::HostRole::LISTENER;
+    }
     options.gitInfoSHA_ = NEBULA_STRINGIFY(GIT_INFO_SHA);
 
     metaClient_ = std::make_unique<meta::MetaClient>(ioThreadPool_,

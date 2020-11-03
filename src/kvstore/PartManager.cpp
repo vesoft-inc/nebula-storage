@@ -233,5 +233,16 @@ void MetaServerBasedPartManager::onListenerRemoved(GraphSpaceID spaceId,
     }
 }
 
+void MetaServerBasedPartManager::onCheckRemoteListeners(
+        GraphSpaceID spaceId,
+        PartitionID partId,
+        const std::vector<HostAddr>& remoteListeners) {
+    if (handler_ != nullptr) {
+        handler_->checkRemoteListeners(spaceId, partId, remoteListeners);
+    } else {
+        VLOG(1) << "handler_ is nullptr!";
+    }
+}
+
 }  // namespace kvstore
 }  // namespace nebula

@@ -142,9 +142,9 @@ public:
 
     void commitRemovePeer(const HostAddr& peer);
 
-    void addListener(const HostAddr& peer);
+    void addListenerPeer(const HostAddr& peer);
 
-    void removeListener(const HostAddr& peer);
+    void removeListenerPeer(const HostAddr& peer);
 
     // Change the partition status to RUNNING. This is called
     // by the inherited class, when it's ready to serve
@@ -193,6 +193,11 @@ public:
      * Reset my peers if not equals the argument
      */
     void checkAndResetPeers(const std::vector<HostAddr>& peers);
+
+    /**
+     * Add listener into peers or remove from peers
+     */
+    void checkRemoteListeners(const std::vector<HostAddr>& listeners);
 
     /*****************************************************
      *

@@ -244,6 +244,9 @@ public:
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
+    int32_t allLeader(std::unordered_map<GraphSpaceID,
+                                         std::vector<PartitionID>>& leaderIds) override;
+
     void addListener(GraphSpaceID spaceId,
                      PartitionID partId,
                      meta::cpp2::ListenerType type,
@@ -253,8 +256,9 @@ public:
                         PartitionID partId,
                         meta::cpp2::ListenerType type) override;
 
-    int32_t allLeader(std::unordered_map<GraphSpaceID,
-                                         std::vector<PartitionID>>& leaderIds) override;
+    void checkRemoteListeners(GraphSpaceID spaceId,
+                              PartitionID partId,
+                              const std::vector<HostAddr>& remoteListeners) override;
 
 private:
     void loadPartFromDataPath();

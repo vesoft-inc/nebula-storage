@@ -1380,6 +1380,12 @@ public:
         listenerPartNum--;
     }
 
+    void onCheckRemoteListeners(GraphSpaceID spaceId,
+                                PartitionID partId,
+                                const std::vector<HostAddr>& remoteListeners) override {
+        UNUSED(spaceId); UNUSED(partId); UNUSED(remoteListeners);
+    }
+
     int32_t spaceNum = 0;
     int32_t partNum = 0;
     int32_t partChanged = 0;
@@ -1459,6 +1465,8 @@ TEST(MetaClientTest, ListenerDiffTest) {
     cluster.initMetaClient(options);
     auto* kv = cluster.metaKV_.get();
     auto* console = cluster.metaClient_.get();
+    auto testListener = std::make_unique<TestListener>();
+    console->registerListener(testListener.get());
 
     // create another meta client for listener host
     HostAddr listenerHost("listener", 0);
@@ -1893,9 +1901,12 @@ TEST(MetaClientTest, ListenerTest) {
     auto ret = client->createSpace(spaceDesc).get();
     ASSERT_TRUE(ret.ok()) << ret.status();
     GraphSpaceID space = ret.value();
-    std::vector<HostAddr> hosts = {{"0", 0}, {"1", 1}, {"2", 2}, {"3", 3}};
+    std::vector<HostAddr> listenerHosts = {{"1", 0}, {"1", 1}, {"1", 2}, {"1", 3}};
     {
-        auto addRet = client->addListener(space, cpp2::ListenerType::ELASTICSEARCH, hosts).get();
+        TestUtils::setupHB(
+            kv, listenerHosts, cpp2::HostRole::LISTENER, NEBULA_STRINGIFY(GIT_INFO_SHA));
+        auto addRet =
+            client->addListener(space, cpp2::ListenerType::ELASTICSEARCH, listenerHosts).get();
         ASSERT_TRUE(addRet.ok()) << addRet.status();
     }
     {
@@ -1907,8 +1918,9 @@ TEST(MetaClientTest, ListenerTest) {
         for (size_t i = 0; i < 9; i++) {
             cpp2::ListenerInfo l;
             l.set_type(cpp2::ListenerType::ELASTICSEARCH);
-            l.set_host(hosts[i % 4]);
+            l.set_host(listenerHosts[i % 4]);
             l.set_part_id(i + 1);
+            l.set_status(cpp2::HostStatus::ONLINE);
             expected.emplace_back(std::move(l));
         }
         ASSERT_EQ(expected, listeners);

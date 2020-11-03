@@ -47,11 +47,15 @@ public:
         return wal_->lastLogId() - lastApplyLogId_;
     }
 
+    LogID getApplyId() {
+        return lastApplyLogId_;
+    }
+
 protected:
-    // Last commit id and term, need to be persisted
+    // Last commit id and term, need to be persisted, used in initialization
     virtual std::pair<LogID, TermID> lastCommittedLogId() override = 0;
 
-    // Last apply id, need to be persisted
+    // Last apply id, need to be persisted, used in initialization
     virtual LogID lastApplyLogId() = 0;
 
     virtual bool apply(const std::vector<KV>& data) = 0;
