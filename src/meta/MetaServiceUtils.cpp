@@ -30,6 +30,7 @@ const std::string kLeadersTable        = "__leaders__";          // NOLINT
 const std::string kGroupsTable         = "__groups__";           // NOLINT
 const std::string kZonesTable          = "__zones__";            // NOLINT
 const std::string kListenerTable       = "__listener__";         // NOLINT
+
 // Used to record the number of vertices and edges in the space
 // The number of vertices of each tag in the space
 // The number of edges of each edgetype in the space
@@ -37,7 +38,6 @@ const std::string kStatisTable         = "__statis__";           // NOLINT
 
 const std::string kFTIndexTable        = "__ft_index__";         // NOLINT
 const std::string kFTServiceTable      = "__ft_service__";       // NOLINT
->>>>>>> full text service for meta
 
 const std::string kHostOnline  = "Online";       // NOLINT
 const std::string kHostOffline = "Offline";      // NOLINT
