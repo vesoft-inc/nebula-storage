@@ -488,6 +488,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kUUID:
         case Expression::Kind::kVar:
         case Expression::Kind::kVersionedVar:
+        case Expression::Kind::kPathBuild:
         default: {
             LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
             return cpp2::ErrorCode::E_INVALID_FILTER;
