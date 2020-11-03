@@ -2275,6 +2275,30 @@ TEST(ProcessorTest, TagIndexTest) {
         ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
+        cpp2::DropTagIndexReq req;
+        req.set_space_id(1);
+        req.set_index_name("no_field_index");
+        auto* processor = DropTagIndexProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+    }
+    {
+        // Allow to create tag index on no fields
+        cpp2::CreateTagIndexReq req;
+        req.set_space_id(1);
+        req.set_tag_name("tag_0");
+        std::vector<std::string> fields{};
+        req.set_fields(std::move(fields));
+        req.set_index_name("no_field_index");
+        auto* processor = CreateTagIndexProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+    }
+    {
         cpp2::CreateTagIndexReq req;
         req.set_space_id(1);
         req.set_tag_name("tag_0");
@@ -2389,14 +2413,7 @@ TEST(ProcessorTest, TagIndexTest) {
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto items = resp.get_items();
 
-        ASSERT_EQ(4, items.size());
-        {
-            auto zeroItem = items[0];
-            ASSERT_EQ(1, zeroItem.get_index_id());
-            ASSERT_EQ("no_field_index", zeroItem.get_index_name());
-            auto zeroFieldResult = zeroItem.get_fields();
-            ASSERT_EQ(0, zeroFieldResult.size());
-        }
+        ASSERT_EQ(3, items.size());
         {
             cpp2::ColumnDef column;
             column.set_name("tag_0_col_0");
@@ -2404,7 +2421,7 @@ TEST(ProcessorTest, TagIndexTest) {
             std::vector<cpp2::ColumnDef> columns;
             columns.emplace_back(std::move(column));
 
-            auto singleItem = items[1];
+            auto singleItem = items[0];
             ASSERT_EQ(2, singleItem.get_index_id());
             ASSERT_EQ("single_field_index", singleItem.get_index_name());
             auto singleFieldResult = singleItem.get_fields();
@@ -2422,7 +2439,7 @@ TEST(ProcessorTest, TagIndexTest) {
             stringColumn.type.set_type(PropertyType::STRING);
             columns.emplace_back(std::move(stringColumn));
 
-            auto multiItem = items[2];
+            auto multiItem = items[1];
             ASSERT_EQ(3, multiItem.get_index_id());
             auto multiFieldResult = multiItem.get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, multiFieldResult));
@@ -2438,7 +2455,7 @@ TEST(ProcessorTest, TagIndexTest) {
             intColumn.type.set_type(PropertyType::INT64);
             columns.emplace_back(std::move(intColumn));
 
-            auto disorderItem = items[3];
+            auto disorderItem = items[2];
             ASSERT_EQ(4, disorderItem.get_index_id());
             auto disorderFieldResult = disorderItem.get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, disorderFieldResult));
@@ -2572,7 +2589,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         req.set_edge_name("edge_0");
         std::vector<std::string> fields{};
         req.set_fields(std::move(fields));
-        req.set_index_name("no_field_index");
+        req.set_index_name("no_field_index_1");
         auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -2604,6 +2621,30 @@ TEST(ProcessorTest, EdgeIndexTest) {
         processor->process(req);
         auto resp = std::move(f).get();
         ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+    }
+    {
+        cpp2::DropEdgeIndexReq req;
+        req.set_space_id(1);
+        req.set_index_name("no_field_index");
+        auto* processor = DropEdgeIndexProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+    }
+    {
+        // Allow to create edge index on no fields
+        cpp2::CreateEdgeIndexReq req;
+        req.set_space_id(1);
+        req.set_edge_name("edge_0");
+        std::vector<std::string> fields{};
+        req.set_fields(std::move(fields));
+        req.set_index_name("no_field_index");
+        auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -2718,14 +2759,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto resp = std::move(f).get();
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto items = resp.get_items();
-        ASSERT_EQ(4, items.size());
-
-        {
-            auto zeroItem = items[0];
-            ASSERT_EQ(1, zeroItem.get_index_id());
-            auto zeroFieldResult = zeroItem.get_fields();
-            ASSERT_EQ(0, zeroFieldResult.size());
-        }
+        ASSERT_EQ(3, items.size());
         {
             cpp2::ColumnDef column;
             column.set_name("edge_0_col_0");
@@ -2733,7 +2767,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
             std::vector<cpp2::ColumnDef> columns;
             columns.emplace_back(std::move(column));
 
-            auto singleItem = items[1];
+            auto singleItem = items[0];
             ASSERT_EQ(2, singleItem.get_index_id());
             auto singleFieldResult = singleItem.get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, singleFieldResult));
@@ -2750,7 +2784,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
             stringColumn.type.set_type(PropertyType::STRING);
             columns.emplace_back(std::move(stringColumn));
 
-            auto multiItem = items[2];
+            auto multiItem = items[1];
             ASSERT_EQ(3, multiItem.get_index_id());
             auto multiFieldResult = multiItem.get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, multiFieldResult));
@@ -2766,7 +2800,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
             intColumn.type.set_type(PropertyType::INT64);
             columns.emplace_back(std::move(intColumn));
 
-            auto disorderItem = items[3];
+            auto disorderItem = items[2];
             ASSERT_EQ(4, disorderItem.get_index_id());
             auto disorderFieldResult = disorderItem.get_fields();
             ASSERT_TRUE(TestUtils::verifyResult(columns, disorderFieldResult));
