@@ -74,17 +74,6 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
             continue;
         }
 
-        if (fieldNames.size() == 0) {
-            if (item.get_fields().size() != 0) {
-                checkIter->next();
-                continue;
-            } else {
-                LOG(ERROR) << "Index " << item.get_index_name() << " has existed";
-                resp_.set_code(cpp2::ErrorCode::E_EXISTED);
-                onFinished();
-                return;
-            }
-        }
         if (checkIndexExist(fieldNames, item)) {
             resp_.set_code(cpp2::ErrorCode::E_EXISTED);
             onFinished();
