@@ -17,11 +17,13 @@ namespace nebula {
 namespace meta {
 
 enum class EntryType : int8_t {
-    SPACE = 0x01,
-    TAG = 0x02,
-    EDGE = 0x03,
-    INDEX = 0x04,
-    CONFIG = 0x05,
+    SPACE       = 0x01,
+    TAG         = 0x02,
+    EDGE        = 0x03,
+    INDEX       = 0x04,
+    CONFIG      = 0x05,
+    GROUP       = 0x06,
+    ZONE        = 0x07,
 };
 
 using ConfigName = std::pair<cpp2::ConfigModule, std::string>;
@@ -157,6 +159,10 @@ public:
 
     static std::string indexIndexKey(GraphSpaceID spaceId, const std::string& name);
 
+    static std::string indexGroupKey(const std::string& name);
+
+    static std::string indexZoneKey(const std::string& name);
+
     static std::string assembleSegmentKey(const std::string& segment, const std::string& key);
 
     static cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
@@ -226,6 +232,43 @@ public:
     static std::string serializeHostAddr(const HostAddr& host);
 
     static HostAddr deserializeHostAddr(folly::StringPiece str);
+
+    static std::string groupKey(const std::string& group);
+
+    static std::string groupVal(const std::vector<std::string>& zones);
+
+    static const std::string& groupPrefix();
+
+    static std::string parseGroupName(folly::StringPiece rawData);
+
+    static std::vector<std::string> parseZoneNames(folly::StringPiece rawData);
+
+    static std::string zoneKey(const std::string& zone);
+
+    static std::string zoneVal(const std::vector<HostAddr>& hosts);
+
+    static const std::string& zonePrefix();
+
+    static std::string parseZoneName(folly::StringPiece rawData);
+
+    static std::vector<HostAddr> parseZoneHosts(folly::StringPiece rawData);
+
+    static bool zoneDefined();  //  check whether the zone have defined
+
+    static std::string listenerKey(GraphSpaceID spaceId,
+                                   PartitionID partId,
+                                   cpp2::ListenerType type);
+
+    static std::string listenerPrefix(GraphSpaceID spaceId);
+
+    static std::string listenerPrefix(GraphSpaceID spaceId,
+                                      cpp2::ListenerType type);
+
+    static cpp2::ListenerType parseListenerType(folly::StringPiece rawData);
+
+    static GraphSpaceID parseListenerSpace(folly::StringPiece rawData);
+
+    static PartitionID parseListenerPart(folly::StringPiece rawData);
 
     static std::string genTimestampStr();
 

@@ -9,6 +9,7 @@
 #include "common/fs/TempDir.h"
 #include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/test/TestUtils.h"
+#include "utils/Utils.h"
 
 namespace nebula {
 namespace meta {
@@ -77,6 +78,8 @@ TEST(ProcessorTest, CreateBackupTest) {
     ActiveHostsMan::updateHostInfo(
         kv.get(), host, HostInfo(now, meta::cpp2::HostRole::STORAGE, ""));
 
+    HostAddr storageHost = Utils::getStoreAddrFromAdminAddr(host);
+
     auto client = std::make_unique<AdminClient>(kv.get());
     std::vector<HostAddr> hosts;
     hosts.emplace_back(host);
@@ -96,7 +99,7 @@ TEST(ProcessorTest, CreateBackupTest) {
     data.emplace_back(MetaServiceUtils::spaceKey(id), MetaServiceUtils::spaceVal(properties));
 
     std::vector<HostAddr> allHosts;
-    allHosts.emplace_back(hosts[0]);
+    allHosts.emplace_back(storageHost);
 
     for (auto partId = 1; partId <= 1; partId++) {
         std::vector<HostAddr> hosts2;

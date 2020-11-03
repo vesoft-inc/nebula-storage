@@ -276,6 +276,22 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
+        group_zone_test
+    SOURCES
+        GroupZoneTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        proxygenhttpserver
+        proxygenlib
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
         create_backup_test
     SOURCES
         CreateBackupProcessorTest.cpp

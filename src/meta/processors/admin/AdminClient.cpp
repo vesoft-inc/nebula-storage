@@ -358,14 +358,13 @@ folly::Future<Status> AdminClient::getResponse(
 }
 
 template<typename Request, typename RemoteFunc>
-void AdminClient::getResponse(
-                         std::vector<HostAddr> hosts,
-                         int32_t index,
-                         Request req,
-                         RemoteFunc remoteFunc,
-                         int32_t retry,
-                         folly::Promise<Status> pro,
-                         int32_t retryLimit) {
+void AdminClient::getResponse(std::vector<HostAddr> hosts,
+                              int32_t index,
+                              Request req,
+                              RemoteFunc remoteFunc,
+                              int32_t retry,
+                              folly::Promise<Status> pro,
+                              int32_t retryLimit) {
     auto* evb = ioThreadPool_->getEventBase();
     CHECK_GE(index, 0);
     CHECK_LT(index, hosts.size());
@@ -528,7 +527,10 @@ void AdminClient::getLeaderDist(const HostAddr& host,
                                                   t.exception().what().c_str());
                 if (retry < retryLimit) {
                     usleep(1000 * 50);
-                    getLeaderDist(host, std::move(pro), retry + 1, retryLimit);
+                    getLeaderDist(Utils::getAdminAddrFromStoreAddr(host),
+                                  std::move(pro),
+                                  retry + 1,
+                                  retryLimit);
                 } else {
                     pro.setValue(Status::Error("RPC failure in AdminClient"));
                 }
@@ -594,14 +596,15 @@ folly::Future<StatusOr<std::string>> AdminClient::createSnapshot(GraphSpaceID sp
     auto f = pro.getFuture();
 
     auto* evb = ioThreadPool_->getEventBase();
-    folly::via(evb, [evb, host, pro = std::move(pro), spaceId, name, this]() mutable {
-        auto client = clientsMan_->client(host, evb);
+    auto storageHost = Utils::getAdminAddrFromStoreAddr(host);
+    folly::via(evb, [evb, storageHost, pro = std::move(pro), spaceId, name, this]() mutable {
+        auto client = clientsMan_->client(storageHost, evb);
         storage::cpp2::CreateCPRequest req;
         req.set_space_id(spaceId);
         req.set_name(name);
         client->future_createCheckpoint(std::move(req))
             .via(evb)
-            .then([p = std::move(pro), host, this](
+            .then([p = std::move(pro), storageHost, this](
                       folly::Try<storage::cpp2::CreateCPResp>&& t) mutable {
                 if (t.hasException()) {
                     LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
@@ -635,24 +638,25 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
 
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
+    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
+            [] (auto client, auto request) {
         return client->future_dropCheckpoint(request);
-    }, 0, std::move(pro), 1 /*The snapshot operation only needs to be retried twice*/);
+    }, 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
 
 folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
                                                   storage::cpp2::EngineSignType sign,
                                                   const HostAddr& host) {
-    auto allHosts = ActiveHostsMan::getActiveHosts(kv_);
     storage::cpp2::BlockingSignRequest req;
     req.set_space_id(spaceId);
     req.set_sign(sign);
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse({host}, 0, std::move(req), [] (auto client, auto request) {
+    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
+            [] (auto client, auto request) {
         return client->future_blockingWrites(request);
-    }, 0, std::move(pro), 1 /*The blocking needs to be retried twice*/);
+    }, 0, std::move(pro), 32 /*The blocking need to retry 32 times*/);
     return f;
 }
 
@@ -751,3 +755,4 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
 }
 }  // namespace meta
 }  // namespace nebula
+
