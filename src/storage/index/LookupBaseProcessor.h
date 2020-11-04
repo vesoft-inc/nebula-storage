@@ -48,9 +48,8 @@ protected:
     std::unique_ptr<IndexOutputNode<IndexID>>
     buildPlanBasic(const cpp2::IndexQueryContext& ctx,
                    StoragePlan<IndexID>& plan,
-                   std::vector<std::pair<std::string, Value::Type>>& cols,
-                   int32_t vColNum,
-                   bool hasNullableCol);
+                   bool hasNullableCol,
+                   const std::vector<meta::cpp2::ColumnDef>& fields);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
     buildPlanWithData(const cpp2::IndexQueryContext& ctx, StoragePlan<IndexID>& plan);
@@ -75,6 +74,8 @@ protected:
     std::vector<cpp2::IndexQueryContext>        contexts_{};
     std::vector<std::string>                    yieldCols_{};
     IndexFilterItem                             filterItems_;
+    // Used to identify no fields in the index
+    bool                                        noProp_{false};
 };
 }  // namespace storage
 }  // namespace nebula
