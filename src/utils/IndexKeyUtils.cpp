@@ -128,14 +128,7 @@ IndexKeyUtils::collectIndexValues(RowReader* reader,
                        << ". status : " << ret;
             return ret;
         }
-        if (isNullable && v.isNull()) {
-            values.emplace_back(Value(NullType::__NULL__));
-            continue;
-        } else if (!isNullable && v.isNull()) {
-            LOG(ERROR) << "Field cannot be NULL by : " << col.get_name();
-            return Status::NotSupported("Field cannot be NULL by : %s", col.get_name().c_str());
-        }
-        if (col.type.get_type() == meta::cpp2::PropertyType::FIXED_STRING) {
+        if (col.type.get_type() == meta::cpp2::PropertyType::FIXED_STRING && !v.isNull()) {
             std::string fs = v.getStr();
             auto len = static_cast<size_t>(*col.type.get_type_length());
             if (len > v.getStr().size()) {
