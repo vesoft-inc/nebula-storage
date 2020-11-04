@@ -72,7 +72,10 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     CHECK_NOTNULL(env_->kvstore_);
     auto prefix = NebulaKeyUtils::partPrefix(part);
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env_->kvstore_->prefix(spaceId, part, prefix, &iter);
+
+    // When the storage occurs leader change, continue to read data from the follower
+    // instead of reporting an error.
+    auto ret = env_->kvstore_->prefix(spaceId, part, prefix, &iter, true);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Statis task failed";
         return ret;

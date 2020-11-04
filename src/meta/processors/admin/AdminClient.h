@@ -150,15 +150,17 @@ private:
                                       RemoteFunc remoteFunc,
                                       RespGenerator respGen);
 
-    template<typename Request, typename RemoteFunc>
+    template<typename Request,
+             typename RemoteFunc,
+             class RespGenerator>
     void getResponse(std::vector<HostAddr> hosts,
                      int32_t index,
                      Request req,
                      RemoteFunc remoteFunc,
+                     RespGenerator respGen,
                      int32_t retry,
                      folly::Promise<Status> pro,
-                     int32_t retryLimit,
-                     cpp2::StatisItem* statisResult = nullptr);
+                     int32_t retryLimit);
 
     void getLeaderDist(const HostAddr& host,
                        folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>>&& pro,
