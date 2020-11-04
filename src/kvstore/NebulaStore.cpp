@@ -410,7 +410,9 @@ void NebulaStore::removeSpace(GraphSpaceID spaceId, bool isListener) {
     } else {
         auto spaceIt = this->spaceListeners_.find(spaceId);
         if (spaceIt != this->spaceListeners_.end()) {
-            CHECK(spaceIt->second->listeners_.empty());
+            for (const auto& partEntry : spaceIt->second->listeners_) {
+                CHECK(partEntry.second.empty());
+            }
             this->spaceListeners_.erase(spaceIt);
         }
         LOG(INFO) << "Listener space " << spaceId << " has been removed!";
@@ -500,7 +502,7 @@ void NebulaStore::removeListener(GraphSpaceID spaceId,
             auto listener = partIt->second.find(type);
             if (listener != partIt->second.end()) {
                 raftService_->removePartition(listener->second);
-                listener->second->cleanup();
+                listener->second->reset();
                 partIt->second.erase(type);
                 LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
                           << " of [Space: " << spaceId << ", Part: " << partId << "] is removed";
@@ -519,12 +521,14 @@ void NebulaStore::checkRemoteListeners(GraphSpaceID spaceId,
     if (spaceIt != spaces_.end()) {
         auto partIt = spaceIt->second->parts_.find(partId);
         if (partIt != spaceIt->second->parts_.end()) {
-            std::vector<HostAddr> raftHosts;
+            std::set<HostAddr> raftHosts;
             std::transform(remoteListeners.begin(),
                            remoteListeners.end(),
-                           std::back_inserter(raftHosts),
+                           std::inserter(raftHosts, raftHosts.end()),
                            [&](const auto& host) { return getRaftAddr(host); });
-            partIt->second->checkRemoteListeners(raftHosts);
+            if (raftHosts != partIt->second->listeners()) {
+                partIt->second->checkRemoteListeners(raftHosts);
+            }
         }
     }
 }

@@ -308,6 +308,7 @@ void RaftPart::start(std::vector<HostAddr>&& peers, bool asLearner) {
         LOG(INFO) << idStr_ << "Add peer " << addr;
         auto hostPtr = std::make_shared<Host>(addr, shared_from_this());
         hosts_.emplace_back(hostPtr);
+        peers_.emplace(addr);
     }
 
     // Change the status
@@ -378,10 +379,11 @@ void RaftPart::addLearner(const HostAddr& addr) {
         return;
     }
     auto it = std::find_if(hosts_.begin(), hosts_.end(), [&addr] (const auto& h) {
-                return h->address() == addr;
-            });
+        return h->address() == addr;
+    });
     if (it == hosts_.end()) {
         hosts_.emplace_back(std::make_shared<Host>(addr, shared_from_this(), true));
+        peers_.emplace(addr);
         LOG(INFO) << idStr_ << "Add learner " << addr;
     } else {
         LOG(INFO) << idStr_ << "The host " << addr << " has been existed as "
@@ -473,10 +475,11 @@ void RaftPart::addPeer(const HostAddr& peer) {
         return;
     }
     auto it = std::find_if(hosts_.begin(), hosts_.end(), [&peer] (const auto& h) {
-                return h->address() == peer;
-            });
+        return h->address() == peer;
+    });
     if (it == hosts_.end()) {
         hosts_.emplace_back(std::make_shared<Host>(peer, shared_from_this()));
+        peers_.emplace(peer);
         updateQuorum();
         LOG(INFO) << idStr_ << "Add peer " << peer;
     } else {
@@ -499,17 +502,19 @@ void RaftPart::removePeer(const HostAddr& peer) {
         return;
     }
     auto it = std::find_if(hosts_.begin(), hosts_.end(), [&peer] (const auto& h) {
-                  return h->address() == peer;
-              });
+        return h->address() == peer;
+    });
     if (it == hosts_.end()) {
         LOG(INFO) << idStr_ << "The peer " << peer << " not exist!";
     } else {
         if ((*it)->isLearner()) {
             LOG(INFO) << idStr_ << "The peer is learner, remove it directly!";
             hosts_.erase(it);
+            peers_.erase(peer);
             return;
         }
         hosts_.erase(it);
+        peers_.erase(peer);
         updateQuorum();
         LOG(INFO) << idStr_ << "Remove peer " << peer;
     }
@@ -527,6 +532,7 @@ void RaftPart::addListenerPeer(const HostAddr& listener) {
     if (it == hosts_.end()) {
         // Add listener as a raft learner
         hosts_.emplace_back(std::make_shared<Host>(listener, shared_from_this(), true));
+        listeners_.emplace(listener);
         LOG(INFO) << idStr_ << "Add listener " << listener;
     } else {
         LOG(INFO) << idStr_ << "The listener " << listener << " has joined raft group before";
@@ -546,6 +552,7 @@ void RaftPart::removeListenerPeer(const HostAddr& listener) {
         LOG(INFO) << idStr_ << "The listener " << listener << " not found";
     } else {
         hosts_.erase(it);
+        listeners_.erase(listener);
         LOG(INFO) << idStr_ << "Remove listener " << listener;
     }
 }
@@ -1081,7 +1088,7 @@ bool RaftPart::prepareElectionRequest(
     req.set_last_log_id(lastLogId_);
     req.set_last_log_term(lastLogTerm_);
 
-    hosts = peers();
+    hosts = followers();
 
     return true;
 }
@@ -1435,7 +1442,7 @@ void RaftPart::processAskForVoteRequest(
         return;
     }
 
-    auto hosts = peers();
+    auto hosts = followers();
     auto it = std::find_if(hosts.begin(), hosts.end(), [&candidate](const auto& h) {
         return h->address() == candidate;
     });
@@ -1676,7 +1683,7 @@ cpp2::ErrorCode RaftPart::verifyLeader(
         const cpp2::AppendLogRequest& req) {
     CHECK(!raftLock_.try_lock());
     auto candidate = HostAddr(req.get_leader_addr(), req.get_leader_port());
-    auto hosts = peers();
+    auto hosts = followers();
     auto it = std::find_if(hosts.begin(), hosts.end(), [&candidate](const auto& h) {
         return h->address() == candidate;
     });
@@ -1837,7 +1844,7 @@ folly::Future<AppendLogResult> RaftPart::sendHeartbeat() {
     return appendLogAsync(clusterId_, LogType::NORMAL, std::move(log));
 }
 
-std::vector<std::shared_ptr<Host>> RaftPart::peers() const {
+std::vector<std::shared_ptr<Host>> RaftPart::followers() const {
     CHECK(!raftLock_.try_lock());
     decltype(hosts_) hosts;
     for (auto& h : hosts_) {
@@ -1846,6 +1853,16 @@ std::vector<std::shared_ptr<Host>> RaftPart::peers() const {
         }
     }
     return hosts;
+}
+
+std::set<HostAddr> RaftPart::peers() const {
+    std::lock_guard<std::mutex> lck(raftLock_);
+    return peers_;
+}
+
+std::set<HostAddr> RaftPart::listeners() const {
+    std::lock_guard<std::mutex> lck(raftLock_);
+    return listeners_;
 }
 
 bool RaftPart::checkAppendLogResult(AppendLogResult res) {
@@ -1925,26 +1942,20 @@ void RaftPart::checkAndResetPeers(const std::vector<HostAddr>& peers) {
     }
 }
 
-void RaftPart::checkRemoteListeners(const std::vector<HostAddr>& listeners) {
-    decltype(hosts_) hosts;
-    {
-        std::lock_guard<std::mutex> lck(raftLock_);
-        hosts = hosts_;
-    }
-    for (const auto& h : hosts) {
-        auto it = std::find(listeners.begin(), listeners.end(), h->addr_);
-        if (it == listeners.end()) {
-            LOG(INFO) << idStr_ << "The listener " << h->addr_ << " should not exist in my peers";
-            removeListenerPeer(h->addr_);
+void RaftPart::checkRemoteListeners(const std::set<HostAddr>& expected) {
+    auto actual = listeners();
+    for (const auto& host : actual) {
+        auto it = std::find(expected.begin(), expected.end(), host);
+        if (it == expected.end()) {
+            LOG(INFO) << idStr_ << "The listener " << host << " should not exist in my peers";
+            removeListenerPeer(host);
         }
     }
-    for (auto& listener : listeners) {
-        auto it = std::find_if(hosts.begin(), hosts.end(), [&] (const auto& host) {
-            return host->addr_ == listener;
-        });
-        if (it == hosts.end()) {
-            LOG(INFO) << idStr_ << "Add listener " << listener << " to my peers";
-            addListenerPeer(listener);
+    for (const auto& host : expected) {
+        auto it = std::find(actual.begin(), actual.end(), host);
+        if (it == actual.end()) {
+            LOG(INFO) << idStr_ << "Add listener " << host << " to my peers";
+            addListenerPeer(host);
         }
     }
 }

@@ -197,7 +197,7 @@ public:
     /**
      * Add listener into peers or remove from peers
      */
-    void checkRemoteListeners(const std::vector<HostAddr>& listeners);
+    void checkRemoteListeners(const std::set<HostAddr>& listeners);
 
     /*****************************************************
      *
@@ -222,6 +222,10 @@ public:
     bool leaseValid();
 
     bool needToCleanWal();
+
+    std::set<HostAddr> peers() const;
+
+    std::set<HostAddr> listeners() const;
 
 protected:
     // Protected constructor to prevent from instantiating directly
@@ -393,8 +397,8 @@ private:
         LogID prevLogId,
         std::vector<std::shared_ptr<Host>> hosts);
 
-    // peers return other peers which could vote, in other words, learner is not counted in
-    std::vector<std::shared_ptr<Host>> peers() const;
+    // followers return Host of which could vote, in other words, learner is not counted in
+    std::vector<std::shared_ptr<Host>> followers() const;
 
     bool checkAppendLogResult(AppendLogResult res);
 
@@ -484,8 +488,14 @@ protected:
     const GraphSpaceID spaceId_;
     const PartitionID partId_;
     const HostAddr addr_;
+    // hosts_ contains all connection, hosts_ = peers_ + listeners_
     std::vector<std::shared_ptr<Host>> hosts_;
     size_t quorum_{0};
+
+    // peers_ contanis all peers which could vote and learner, peers_ = follower + learner
+    std::set<HostAddr> peers_;
+    // all listener's role is learner (cannot promote to follower), but they are not in peers_
+    std::set<HostAddr> listeners_;
 
     // The lock is used to protect logs_ and cachingPromise_
     mutable std::mutex logsLock_;

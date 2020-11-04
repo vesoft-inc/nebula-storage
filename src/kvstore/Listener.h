@@ -40,15 +40,17 @@ public:
     // Stop listener
     void stop() override;
 
-    // Clean the wal and other data of listener
-    virtual void cleanup() override = 0;
-
     int64_t logGap() {
         return wal_->lastLogId() - lastApplyLogId_;
     }
 
     LogID getApplyId() {
         return lastApplyLogId_;
+    }
+
+    void reset() {
+        LOG(INFO) << idStr_ << "Clean up all wals";
+        wal_->reset();
     }
 
 protected:
@@ -93,7 +95,7 @@ protected:
     virtual std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
                                                        LogID committedLogId,
                                                        TermID committedLogTerm,
-                                                       bool finished) override = 0;
+                                                       bool finished) override;
 
     void doApply();
 

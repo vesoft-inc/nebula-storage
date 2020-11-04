@@ -204,5 +204,21 @@ void Listener::doApply() {
     });
 }
 
+std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::string>& rows,
+                                                     LogID committedLogId,
+                                                     TermID committedLogTerm,
+                                                     bool finished) {
+    LOG(WARNING) << "Not implemented";
+    UNUSED(committedLogId); UNUSED(committedLogTerm); UNUSED(finished);
+    int64_t count = 0;
+    int64_t size = 0;
+    for (const auto& row : rows) {
+        count++;
+        size += row.size();
+        // todo(doodle): could decode and apply
+    }
+    return {count, size};
+}
+
 }  // namespace kvstore
 }  // namespace nebula
