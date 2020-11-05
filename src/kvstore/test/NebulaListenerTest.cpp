@@ -48,7 +48,11 @@ protected:
         return true;
     }
 
-    bool persist(LogID, TermID, LogID) override {
+    bool persistCommitLogId(LogID, TermID) override {
+        return true;
+    }
+
+    bool persistApplyId(LogID) override {
         return true;
     }
 
@@ -60,15 +64,7 @@ protected:
         return lastApplyLogId_;
     }
 
-    std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>&,
-                                               LogID,
-                                               TermID,
-                                               bool) override {
-        LOG(FATAL) << "Not implemented";
-    }
-
     void cleanup() override {
-        data_.clear();
     }
 
 private:

@@ -108,6 +108,20 @@ bool Listener::preProcessLog(LogID logId,
     return true;
 }
 
+bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
+    LogID lastId = -1;
+    TermID lastTerm = -1;
+    while (iter->valid()) {
+        lastId = iter->logId();
+        lastTerm = iter->logTerm();
+        ++(*iter);
+    }
+    if (lastId > 0) {
+        return persistCommitLogId(lastId, lastTerm);
+    }
+    return true;
+}
+
 void Listener::doApply() {
     if (isStopped()) {
         return;
@@ -196,8 +210,7 @@ void Listener::doApply() {
             if (apply(data)) {
                 std::lock_guard<std::mutex> guard(raftLock_);
                 lastApplyLogId_ = lastId;
-                // persist lastId, lastTerm, lastApplyLogId
-                persist(lastId, lastTerm, lastApplyLogId_);
+                persistApplyId(lastApplyLogId_);
                 VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             }
         }

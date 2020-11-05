@@ -21,6 +21,71 @@ namespace kvstore {
 
 using RaftClient = thrift::ThriftClientManager<raftex::cpp2::RaftexServiceAsyncClient>;
 
+/*
+Listener is a special RaftPart, it will join the raft group as learner. The key difference between
+learner (e.g. in balance data) and listener is that, listener won't be able to be promoted to
+follower or leader.
+
+Once it joins raft group, it can receive logs from leader and do whatever you like. When listener
+receives logs from leader, it will just write wal and update committedLogId_, none of the logs is
+applied to state machine, which is different from follower/learner. There will be another thread
+trigger the apply within a certain interval (listener_commit_interval_secs), it will get the logs
+in range of [lastApplyLogId_ + 1, committedLogId_], and decode these logs into kv, and apply them
+to state machine.
+
+If you want to add a new type of listener, just inherit from Listener. There are some interface you
+need to implement, some of them has been implemented in Listener. Others need to impelemented in
+derived class.
+
+* Implemented in Listener, could override if necessary
+    // Start listener as learner
+    void start(std::vector<HostAddr>&& peers, bool asLearner)
+
+    // Stop the listener
+    void stop()
+
+    void onLostLeadership(TermID term)
+
+    void onElected(TermID term)
+
+    void onDiscoverNewLeader(HostAddr nLeader)
+
+    // For listener, we just return true directly. Another background thread trigger the actual
+    // apply work, and do it in worker thread, and update lastApplyLogId_
+    bool commitLogs(std::unique_ptr<LogIterator> iter)
+
+    // For most of the listeners, just return true is enough. However, if listener need to be aware
+    // of membership change, some log type of wal need to be pre-processed, could do it here.
+    bool preProcessLog(LogID logId, TermID termId, ClusterID clusterId, const std::string& log)
+
+    // If listener falls far behind from leader, leader would send snapshot to listener. The
+    // snapshot is a vector of kv, listener could decode them and treat them as normal logs until
+    // all snapshot has been received. However, we did nothing with snapshot for now
+    std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
+                                               LogID committedLogId,
+                                               TermID committedLogTerm,
+                                               bool finished) override;
+
+* Must implement in derived class
+    // read last commit log id and term from external storage, used in initialization
+    std::pair<LogID, TermID> lastCommittedLogId()
+
+    // read last apply id from external storage, used in initialization
+    LogID lastApplyLogId()
+
+    // apply the kv to state machine
+    bool apply(const std::vector<KV>& data)
+
+    // persist last commit log id and term
+    bool persistCommitLogId(LogID, TermID)
+
+    // persist last apply id
+    bool persistApplyId(LogID)
+
+    // extra cleanup work, will be invoked when listener is about to be removed
+    virtual void cleanup() = 0
+*/
+
 class Listener : public raftex::RaftPart {
 public:
     Listener(GraphSpaceID spaceId,
@@ -54,15 +119,14 @@ public:
     }
 
 protected:
-    // Last commit id and term, need to be persisted, used in initialization
-    virtual std::pair<LogID, TermID> lastCommittedLogId() override = 0;
-
     // Last apply id, need to be persisted, used in initialization
     virtual LogID lastApplyLogId() = 0;
 
     virtual bool apply(const std::vector<KV>& data) = 0;
 
-    virtual bool persist(LogID, TermID, LogID) = 0;
+    virtual bool persistCommitLogId(LogID, TermID) = 0;
+
+    virtual bool persistApplyId(LogID) = 0;
 
     void onLostLeadership(TermID) override {
         LOG(FATAL) << "Should not reach here";
@@ -78,9 +142,7 @@ protected:
 
     // For listener, we just return true directly. Another background thread trigger the actual
     // apply work, and do it in worker thread, and update lastApplyLogId_
-    bool commitLogs(std::unique_ptr<LogIterator>) override {
-        return true;
-    }
+    bool commitLogs(std::unique_ptr<LogIterator>) override;
 
     // For most of the listeners, just return true is enough. However, if listener need to be aware
     // of membership change, some log type of wal need to be pre-processed, could do it here.
@@ -92,10 +154,10 @@ protected:
     // If the listener falls behind way to much than leader, the leader will send all its data
     // in snapshot by batch, listener need to implement it if it need handle this case. The return
     // value is a pair of <logs count, logs size> of this batch.
-    virtual std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
-                                                       LogID committedLogId,
-                                                       TermID committedLogTerm,
-                                                       bool finished) override;
+    std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
+                                               LogID committedLogId,
+                                               TermID committedLogTerm,
+                                               bool finished) override;
 
     void doApply();
 
