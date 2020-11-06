@@ -120,9 +120,6 @@ folly::Future<Status> AdminClient::addLearner(GraphSpaceID spaceId,
                 [] (auto client, auto request) {
                     return client->future_addLearner(request);
                 },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                    return;
-                },
                 0, std::move(pro), FLAGS_max_retry_times_admin_op);
     return f;
 }
@@ -146,9 +143,6 @@ folly::Future<Status> AdminClient::waitingForCatchUpData(GraphSpaceID spaceId,
     getResponse(std::move(ret).value(), 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_waitingForCatchUpData(request);
-                },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                    return;
                 },
                 0, std::move(pro), 3);
     return f;
@@ -175,9 +169,6 @@ folly::Future<Status> AdminClient::memberChange(GraphSpaceID spaceId,
     getResponse(std::move(ret).value(), 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_memberChange(request);
-                },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                    return;
                 },
                 0, std::move(pro), FLAGS_max_retry_times_admin_op);
     return f;
@@ -375,16 +366,15 @@ folly::Future<Status> AdminClient::getResponse(
 }
 
 template<typename Request,
-         typename RemoteFunc,
-         typename RespGenerator>
+         typename RemoteFunc>
 void AdminClient::getResponse(std::vector<HostAddr> hosts,
                               int32_t index,
                               Request req,
                               RemoteFunc remoteFunc,
-                              RespGenerator respGen,
                               int32_t retry,
                               folly::Promise<Status> pro,
-                              int32_t retryLimit) {
+                              int32_t retryLimit,
+                              HandleResultOpt respGen) {
     auto* evb = ioThreadPool_->getEventBase();
     CHECK_GE(index, 0);
     CHECK_LT(index, hosts.size());
@@ -409,10 +399,10 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
                                 index,
                                 std::move(req),
                                 std::move(remoteFunc),
-                                std::move(respGen),
                                 retry + 1,
                                 std::move(p),
-                                retryLimit);
+                                retryLimit,
+                                std::move(respGen));
                     return;
                 }
                 p.setValue(Status::Error(folly::stringPrintf("RPC failure in AdminClient: %s",
@@ -422,7 +412,10 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
             auto&& adminResp = std::move(t.value());
             if (adminResp.result.get_failed_parts().empty()) {
                 // succeeded
-                respGen(std::move(adminResp));
+                if (respGen != folly::none) {
+                    auto val = respGen.value();
+                    val(std::move(adminResp));
+                }
                 p.setValue(Status::OK());
                 return;
             }
@@ -445,10 +438,10 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
                                         index,
                                         std::move(req),
                                         std::move(remoteFunc),
-                                        std::move(respGen),
                                         retry + 1,
                                         std::move(p),
-                                        retryLimit);
+                                        retryLimit,
+                                        std::move(respGen));
                             return;
                         }
                         int32_t leaderIndex = 0;
@@ -475,10 +468,10 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
                                     leaderIndex,
                                     std::move(req),
                                     std::move(remoteFunc),
-                                    std::move(respGen),
                                     retry + 1,
                                     std::move(p),
-                                    retryLimit);
+                                    retryLimit,
+                                    std::move(respGen));
                         return;
                     }
                     p.setValue(Status::Error("Leader changed!"));
@@ -495,10 +488,10 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
                                     index,
                                     std::move(req),
                                     std::move(remoteFunc),
-                                    std::move(respGen),
                                     retry + 1,
                                     std::move(p),
-                                    retryLimit);
+                                    retryLimit,
+                                    std::move(respGen));
                         return;
                     }
                     p.setValue(Status::Error("Unknown code %d",
@@ -629,9 +622,6 @@ folly::Future<Status> AdminClient::createSnapshot(GraphSpaceID spaceId,
                 [] (auto client, auto request) {
                     return client->future_createCheckpoint(request);
                 },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                   return;
-                },
                 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
@@ -653,9 +643,6 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
                 [] (auto client, auto request) {
                     return client->future_dropCheckpoint(request);
                 },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                   return;
-                },
                 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
@@ -671,9 +658,6 @@ folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
     getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_blockingWrites(request);
-                },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                   return;
                 },
                 0, std::move(pro), 32 /*The blocking need to retry 32 times*/);
     return f;
@@ -698,9 +682,6 @@ folly::Future<Status> AdminClient::rebuildTagIndex(const HostAddr& address,
                 [] (auto client, auto request) {
                     return client->future_rebuildTagIndex(request);
                 },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                   return;
-                },
                 0, std::move(pro), 1);
     return f;
 }
@@ -723,9 +704,6 @@ folly::Future<Status> AdminClient::rebuildEdgeIndex(const HostAddr& address,
     getResponse(std::move(hosts), 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_rebuildEdgeIndex(request);
-                },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                    return;
                 },
                 0, std::move(pro), 1);
     return f;
@@ -756,18 +734,20 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
     req.set_para(para);
 
     folly::Promise<Status> pro;
+    std::function<void(storage::cpp2::AdminExecResp && resp)> respGen =
+    [&statisResult] (storage::cpp2::AdminExecResp&& resp) -> void {
+        if (statisResult && resp.__isset.statis) {
+            *statisResult = *(resp.get_statis());
+        }
+    };
+
     auto f = pro.getFuture();
 
     getResponse(hosts, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_addAdminTask(request);
                 },
-                [&statisResult] (storage::cpp2::AdminExecResp&& resp) -> void {
-                    if (statisResult && resp.__isset.statis) {
-                        *statisResult = *(resp.get_statis());
-                    }
-                },
-                0, std::move(pro), 0);
+                0, std::move(pro), 0, std::move(respGen));
 
     return f;
 }
@@ -787,9 +767,6 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
     getResponse(hosts, 0, std::move(req),
                 [] (auto client, auto request) {
                     return client->future_stopAdminTask(request);
-                },
-                [] (storage::cpp2::AdminExecResp&&) -> void {
-                   return;
                 },
                 0, std::move(pro), 1);
 

@@ -20,6 +20,7 @@ namespace meta {
 using HostLeaderMap = std::unordered_map<HostAddr,
                                          std::unordered_map<GraphSpaceID,
                                                             std::vector<PartitionID>>>;
+using HandleResultOpt = folly::Optional<std::function<void(storage::cpp2::AdminExecResp&&)>>;
 
 class FaultInjector {
 public:
@@ -151,16 +152,15 @@ private:
                                       RespGenerator respGen);
 
     template<typename Request,
-             typename RemoteFunc,
-             class RespGenerator>
+             typename RemoteFunc>
     void getResponse(std::vector<HostAddr> hosts,
                      int32_t index,
                      Request req,
                      RemoteFunc remoteFunc,
-                     RespGenerator respGen,
                      int32_t retry,
                      folly::Promise<Status> pro,
-                     int32_t retryLimit);
+                     int32_t retryLimit,
+                     HandleResultOpt respGen = folly::none);
 
     void getLeaderDist(const HostAddr& host,
                        folly::Promise<StatusOr<storage::cpp2::GetLeaderPartsResp>>&& pro,
@@ -180,6 +180,7 @@ private:
     std::unique_ptr<thrift::ThriftClientManager<storage::cpp2::StorageAdminServiceAsyncClient>>
     clientsMan_;
 };
+
 }  // namespace meta
 }  // namespace nebula
 
