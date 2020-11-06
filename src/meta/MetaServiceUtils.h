@@ -283,14 +283,6 @@ public:
 
     static const std::string& statisKeyPrefix();
 
-    static std::string fulltextIndexKey(GraphSpaceID spaceId, const cpp2::FTIndexType& type);
-
-    static std::string fulltextIndexVal(const cpp2::FTIndexItem& index);
-
-    static cpp2::FTIndexItem parseFTindex(folly::StringPiece rawData);
-
-    static std::string fulltextIndexPrefix(GraphSpaceID spaceId);
-
     static std::string fulltextServiceKey();
 
     static std::string fulltextServiceVal(cpp2::FTServiceType type,

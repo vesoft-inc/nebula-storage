@@ -1088,37 +1088,6 @@ const std::string& MetaServiceUtils::statisKeyPrefix() {
     return kStatisTable;
 }
 
-std::string MetaServiceUtils::fulltextIndexKey(GraphSpaceID spaceId,
-                                               const cpp2::FTIndexType& type) {
-    // Only two full-text indexes in a space. tag index or edge index
-    std::string key;
-    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
-    key.append(kFTIndexTable.data(), kFTIndexTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-        .append((type == cpp2::FTIndexType::EDGE) ? "_e" : "_t");
-    return key;
-}
-
-std::string MetaServiceUtils::fulltextIndexVal(const cpp2::FTIndexItem& index) {
-    std::string val;
-    apache::thrift::CompactSerializer::serialize(index, &val);
-    return val;
-}
-
-cpp2::FTIndexItem MetaServiceUtils::parseFTindex(folly::StringPiece rawData) {
-    cpp2::FTIndexItem index;
-    apache::thrift::CompactSerializer::deserialize(rawData, index);
-    return index;
-}
-
-std::string MetaServiceUtils::fulltextIndexPrefix(GraphSpaceID spaceId) {
-    std::string key;
-    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
-    key.append(kFTIndexTable.data(), kFTIndexTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
-    return key;
-}
-
 std::string MetaServiceUtils::fulltextServiceKey() {
     std::string key;
     key.reserve(kFTServiceTable.size());

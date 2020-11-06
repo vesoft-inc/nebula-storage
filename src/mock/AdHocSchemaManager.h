@@ -57,6 +57,8 @@ public:
 
     StatusOr<GraphSpaceID> toGraphSpaceID(folly::StringPiece spaceName) override;
 
+    StatusOr<std::string> toGraphSpaceName(GraphSpaceID space) override;
+
     StatusOr<TagID> toTagID(GraphSpaceID space, folly::StringPiece tagName) override;
 
     StatusOr<std::string> toTagName(GraphSpaceID, TagID tagId) override;
@@ -92,6 +94,10 @@ public:
                          EdgeType edge,
                          SchemaVer ver);
 
+    StatusOr<std::vector<nebula::meta::cpp2::FTClient>> getFTClients() override;
+
+    void addFTClient(const nebula::meta::cpp2::FTClient& client);
+
 protected:
     folly::RWSpinLock tagLock_;
 
@@ -120,6 +126,8 @@ private:
     std::unordered_map<GraphSpaceID,
         std::unordered_map<std::pair<EdgeType, SchemaVer>,
             std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>> edgeSchemasInMap_;
+
+    std::vector<nebula::meta::cpp2::FTClient> ftClients_;
 };
 
 }  // namespace mock
