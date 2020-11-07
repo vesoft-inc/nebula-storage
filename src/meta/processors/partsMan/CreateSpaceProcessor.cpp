@@ -135,8 +135,10 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         }
 
         auto hostLoading = hostLoadingRet.value();
+        std::unordered_map<std::string, Hosts> zoneHosts;
         for (auto partId = 1; partId <= partitionNum; partId++) {
-            auto pickedZonesRet = pickLightLoadZones(zones, replicaFactor, hostLoading);
+            auto pickedZonesRet = pickLightLoadZones(zones, replicaFactor,
+                                                     hostLoading, zoneHosts);
             if (!pickedZonesRet.ok()) {
                 LOG(ERROR) << "Pick zone failed";
                 handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
@@ -145,7 +147,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
             }
 
             auto pickedZones = std::move(pickedZonesRet).value();
-            auto partHostsRet = pickHostsWithZone(pickedZones, hostLoading);
+            auto partHostsRet = pickHostsWithZone(pickedZones, hostLoading, zoneHosts);
             if (!partHostsRet.ok()) {
                 LOG(ERROR) << "Pick hosts with zone failed";
                 handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
@@ -188,12 +190,12 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
 }
 
 
-std::vector<HostAddr>
+Hosts
 CreateSpaceProcessor::pickHosts(PartitionID partId,
-                                const std::vector<HostAddr>& hosts,
+                                const Hosts& hosts,
                                 int32_t replicaFactor) {
     auto startIndex = partId;
-    std::vector<HostAddr> pickedHosts;
+    Hosts pickedHosts;
     for (int32_t i = 0; i < replicaFactor; i++) {
         pickedHosts.emplace_back(toThriftHost(hosts[startIndex++ % hosts.size()]));
     }
@@ -221,18 +223,20 @@ CreateSpaceProcessor::getHostLoading() {
     return result;
 }
 
-StatusOr<std::vector<HostAddr>>
+StatusOr<Hosts>
 CreateSpaceProcessor::pickHostsWithZone(const std::vector<std::string>& zones,
-                                        std::unordered_map<HostAddr, int32_t>& loading) {
-    std::vector<HostAddr> pickedHosts;
-    for (auto& zoneName : zones) {
-        auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
-        auto zoneValueRet = doGet(std::move(zoneKey));
-        auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValueRet).value());
+                                        std::unordered_map<HostAddr, int32_t>& loading,
+                                        std::unordered_map<std::string, Hosts>& zoneHosts) {
+    Hosts pickedHosts;
+    for (auto iter = zoneHosts.begin(); iter != zoneHosts.end(); iter++) {
+        auto zoneIter = std::find(std::begin(zones), std::end(zones), iter->first);
+        if (zoneIter == std::end(zones)) {
+            continue;
+        }
 
         HostAddr picked;
         int32_t size = INT_MAX;
-        for (auto& host : hosts) {
+        for (auto& host : iter->second) {
             auto hostIter = loading.find(host);
             if (hostIter == loading.end()) {
                 LOG(ERROR) << "Host " << host << " not found";
@@ -256,7 +260,8 @@ CreateSpaceProcessor::pickHostsWithZone(const std::vector<std::string>& zones,
 StatusOr<std::vector<std::string>>
 CreateSpaceProcessor::pickLightLoadZones(const std::vector<std::string>& zones,
                                          int32_t replicaFactor,
-                                         std::unordered_map<HostAddr, int32_t>& loading) {
+                                         std::unordered_map<HostAddr, int32_t>& loading,
+                                         std::unordered_map<std::string, Hosts>& zoneHosts) {
     std::unordered_map<std::string, int32_t> zoneLoading;
     for (auto& zone : zones) {
         auto zoneKey = MetaServiceUtils::zoneKey(zone);
@@ -275,6 +280,7 @@ CreateSpaceProcessor::pickLightLoadZones(const std::vector<std::string>& zones,
             }
             zoneLoading[zone] += hostIter->second;
         }
+        zoneHosts[zone] = std::move(hosts);
     }
 
     std::multimap<int32_t, std::string> sortedMap;
