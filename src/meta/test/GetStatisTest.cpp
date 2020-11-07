@@ -53,7 +53,7 @@ protected:
 
 TEST_F(GetStatisTest, StatisJob) {
     GraphSpaceID  spaceId = 1;
-    std::vector<std::string> paras{"1"};
+    std::vector<std::string> paras{"test_space"};
     JobDescription statisJob(12, cpp2::AdminCmd::STATIS, paras);
     auto rc = jobMgr->addJob(statisJob, adminClient_.get());
     ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
@@ -127,7 +127,7 @@ TEST_F(GetStatisTest, StatisJob) {
     }
 
     // Execute new statis job in same space.
-    std::vector<std::string> paras1{"1"};
+    std::vector<std::string> paras1{"test_space"};
     JobDescription statisJob2(13, cpp2::AdminCmd::STATIS, paras1);
     auto rc1 = jobMgr->addJob(statisJob2, adminClient_.get());
     ASSERT_EQ(rc1, cpp2::ErrorCode::SUCCEEDED);
