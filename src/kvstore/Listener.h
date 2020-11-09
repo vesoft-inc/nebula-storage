@@ -76,11 +76,8 @@ derived class.
     // apply the kv to state machine
     bool apply(const std::vector<KV>& data)
 
-    // persist last commit log id and term
-    bool persistCommitLogId(LogID, TermID)
-
-    // persist last apply id
-    bool persistApplyId(LogID)
+    // persist last commit log id/term and lastApplyId
+    bool persist(LogID, TermID, LogID)
 
     // extra cleanup work, will be invoked when listener is about to be removed
     virtual void cleanup() = 0
@@ -124,9 +121,7 @@ protected:
 
     virtual bool apply(const std::vector<KV>& data) = 0;
 
-    virtual bool persistCommitLogId(LogID, TermID) = 0;
-
-    virtual bool persistApplyId(LogID) = 0;
+    virtual bool persist(LogID, TermID, LogID) = 0;
 
     void onLostLeadership(TermID) override {
         LOG(FATAL) << "Should not reach here";
@@ -162,6 +157,9 @@ protected:
     void doApply();
 
 protected:
+    // lastId_ and lastTerm_ is same as committedLogId_ and term_ in usual case
+    LogID lastId_ = -1;
+    TermID lastTerm_ = -1;
     LogID lastApplyLogId_ = 0;
     meta::SchemaManager* schemaMan_{nullptr};
 };

@@ -48,11 +48,7 @@ protected:
         return true;
     }
 
-    bool persistCommitLogId(LogID, TermID) override {
-        return true;
-    }
-
-    bool persistApplyId(LogID) override {
+    bool persist(LogID, TermID, LogID) override {
         return true;
     }
 

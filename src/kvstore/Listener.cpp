@@ -117,7 +117,8 @@ bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
         ++(*iter);
     }
     if (lastId > 0) {
-        return persistCommitLogId(lastId, lastTerm);
+        lastId_ = lastId;
+        lastTerm_ = lastTerm;
     }
     return true;
 }
@@ -142,13 +143,11 @@ void Listener::doApply() {
             iter = wal_->iterator(lastApplyLogId_ + 1, committedLogId_);
         }
 
-        LogID lastId = -1;
-        TermID lastTerm = -1;
+        LogID lastApplyId = -1;
         // the kv pair which can sync to remote safely
         std::vector<KV> data;
         while (iter->valid()) {
-            lastId = iter->logId();
-            lastTerm = iter->logTerm();
+            lastApplyId = iter->logId();
 
             auto log = iter->logMsg();
             if (log.empty()) {
@@ -209,8 +208,8 @@ void Listener::doApply() {
             // apply to state machine
             if (apply(data)) {
                 std::lock_guard<std::mutex> guard(raftLock_);
-                lastApplyLogId_ = lastId;
-                persistApplyId(lastApplyLogId_);
+                lastApplyLogId_ = lastApplyId;
+                persist(lastId_, lastTerm_, lastApplyLogId_);
                 VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             }
         }
