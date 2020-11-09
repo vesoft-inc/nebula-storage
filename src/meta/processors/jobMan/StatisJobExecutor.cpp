@@ -79,19 +79,19 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
             statisItem.space_edges += item.space_edges;
 
             for (auto& tag : item.tag_vertices) {
-                auto tagId = tag.first;
-                if (tagVertices.find(tagId) == tagVertices.end()) {
-                    tagVertices[tagId] = tag.second;
+                auto tagName = tag.first;
+                if (tagVertices.find(tagName) == tagVertices.end()) {
+                    tagVertices[tagName] = tag.second;
                 } else {
-                    tagVertices[tagId] += tag.second;
+                    tagVertices[tagName] += tag.second;
                 }
             }
             for (auto& edge : item.edges) {
-                auto edgetype = edge.first;
-                if (edges.find(edgetype) == edges.end()) {
-                    edges[edgetype] = edge.second;
+                auto edgeName = edge.first;
+                if (edges.find(edgeName) == edges.end()) {
+                    edges[edgeName] = edge.second;
                 } else {
-                    edges[edgetype] += edge.second;
+                    edges[edgeName] += edge.second;
                 }
             }
         }
