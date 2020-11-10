@@ -52,7 +52,6 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         // If no filed in fields, only _vid can be returned for tag.
         // For edge, only _src, _ranking, _dst can be returned
         if (fields.size() == 0) {
-            //
             if (contexts_.size() != 1 || yieldCols_.size() != 0 ||
                 needFilter || ctx.get_column_hints().size() != 0) {
                 return cpp2::ErrorCode::E_INVALID_OPERATION;
@@ -84,14 +83,12 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
     switch (filter->kind()) {
         case Expression::Kind::kLogicalOr :
         case Expression::Kind::kLogicalAnd : {
-            auto lExpr = static_cast<LogicalExpression*>(filter);
-            auto ret = isOutsideIndex(lExpr->left(), index);
-            if (ret) {
-                return ret;
-            }
-            ret = isOutsideIndex(lExpr->right(), index);
-            if (ret) {
-                return ret;
+            auto *lExpr = static_cast<LogicalExpression*>(filter);
+            for (auto &expr : lExpr->operands()) {
+                auto ret = isOutsideIndex(expr.get(), index);
+                if (ret) {
+                    return ret;
+                }
             }
             break;
         }
