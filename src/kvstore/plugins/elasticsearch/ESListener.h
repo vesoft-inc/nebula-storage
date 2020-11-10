@@ -30,6 +30,7 @@ public:
               meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, std::move(localAddr), walPath,
                    ioPool, workers, handlers, snapshotMan, clientMan, schemaMan) {
+        CHECK(!!schemaMan);
         lastApplyLogFile_ = std::make_unique<std::string>(
             folly::stringPrintf("%s/last_apply_log_%d", walPath.c_str(), partId));
     }
@@ -57,11 +58,11 @@ private:
 
     std::string encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) const noexcept;
 
-    bool appendDocItem(std::vector<DocItem>& items, const KV& kv) const;
+    bool appendDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
 
-    bool appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv) const;
+    bool appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
 
-    bool appendTagDocItem(std::vector<DocItem>& items, const KV& kv) const;
+    bool appendTagDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
 
     bool appendDocs(std::vector<DocItem>& items,
                     const meta::SchemaProviderIf* schema,
@@ -75,9 +76,9 @@ private:
     bool writeDatum(const std::vector<nebula::plugin::DocItem>& items,
                     const std::vector<nebula::plugin::HttpClient>& clients) const;
 
-    int32_t vIdLen() const;
+    StatusOr<int32_t> getVidLen() const;
 
-    const std::string& spaceName() const;
+    StatusOr<std::string> getSpaceName() const;
 
 private:
     std::unique_ptr<std::string> lastApplyLogFile_{nullptr};

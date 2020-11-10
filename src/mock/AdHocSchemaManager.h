@@ -72,7 +72,7 @@ public:
         return Status::Error("Unimplemented");
     }
 
-    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID) override;
+    StatusOr<int32_t> getSpaceVidLen(GraphSpaceID space) override;
 
     StatusOr<meta::cpp2::PropertyType> getSpaceVidType(GraphSpaceID) override;
 

@@ -653,3 +653,28 @@ nebula_add_test(
         wangle
         gtest
 )
+
+nebula_add_test(
+    NAME
+        es_bulk_test
+    SOURCES
+        ElasticSearchBulkInsertTest.cpp
+    OBJECTS
+        $<TARGET_OBJECTS:storage_admin_service_handler>
+        $<TARGET_OBJECTS:storage_common_obj>
+        $<TARGET_OBJECTS:meta_service_handler>
+        $<TARGET_OBJECTS:mock_obj>
+        $<TARGET_OBJECTS:common_general_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+        $<TARGET_OBJECTS:common_ws_common_obj>
+        $<TARGET_OBJECTS:common_ws_obj>
+        $<TARGET_OBJECTS:common_http_client_obj>
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        proxygenhttpserver
+        proxygenlib
+        wangle
+        gtest
+)

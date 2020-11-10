@@ -8,17 +8,21 @@
 #include "kvstore/plugins/elasticsearch/ESListener.h"
 #include "common/plugin/fulltext/elasticsearch/ESStorageAdapter.h"
 
-DECLARE_int32(ft_data_write_retry_times);
+DECLARE_int32(ft_request_retry_times);
 
 namespace nebula {
 namespace kvstore {
 bool ESListener::apply(const std::vector<KV>& data) {
     std::vector<nebula::plugin::DocItem> docItems;
+    auto vIdLen = getVidLen();
+    if (!vIdLen.ok()) {
+        return false;
+    }
     for (const auto& kv : data) {
         if (!nebula::NebulaKeyUtils::isDataKey(kv.first)) {
             continue;
         }
-        if (!appendDocItem(docItems, kv)) {
+        if (!appendDocItem(docItems, kv, vIdLen.value())) {
             return false;
         }
     }
@@ -69,7 +73,7 @@ LogID ESListener::lastApplyLogId() {
 bool ESListener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
     int32_t fd = open(
         lastApplyLogFile_->c_str(),
-        O_CREAT | O_EXCL | O_WRONLY | O_TRUNC | O_CLOEXEC,
+        O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC,
         0644);
     if (fd < 0) {
         VLOG(3) << "Failed to open file \"" << lastApplyLogFile_->c_str()
@@ -82,8 +86,10 @@ bool ESListener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLo
     if (written != (ssize_t)raw.size()) {
         VLOG(3) << idStr_ << "bytesWritten:" << written << ", expected:" << raw.size()
                 << ", error:" << strerror(errno);
+        close(fd);
         return false;
     }
+    close(fd);
     return true;
 }
 
@@ -106,6 +112,7 @@ bool ESListener::readAppliedId(std::string& raw) const {
         close(fd);
         return false;
     }
+    close(fd);
     return true;
 }
 
@@ -119,13 +126,15 @@ ESListener::encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId)
     return val;
 }
 
-bool ESListener::appendDocItem(std::vector<DocItem>& items, const KV& kv) const {
-    auto isEdge = NebulaKeyUtils::isEdge(vIdLen(), kv.first);
-    return isEdge ? appendEdgeDocItem(items, kv) : appendTagDocItem(items, kv);
+bool ESListener::appendDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const {
+    auto isEdge = NebulaKeyUtils::isEdge(vIdLen, kv.first);
+    return isEdge ? appendEdgeDocItem(items, kv, vIdLen) : appendTagDocItem(items, kv, vIdLen);
 }
 
-bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv) const {
-    auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen(), kv.first);
+bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items,
+                                   const KV& kv,
+                                   int32_t vIdLen) const {
+    auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen, kv.first);
     auto schema = schemaMan_->getEdgeSchema(spaceId_, edgeType);
     if (schema == nullptr) {
         VLOG(3) << "get edge schema failed, edgeType " << edgeType;
@@ -142,8 +151,10 @@ bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv) co
     return appendDocs(items, schema.get(), reader.get(), edgeType, true);
 }
 
-bool ESListener::appendTagDocItem(std::vector<DocItem>& items, const KV& kv) const {
-    auto tagId = NebulaKeyUtils::getTagId(vIdLen(), kv.first);
+bool ESListener::appendTagDocItem(std::vector<DocItem>& items,
+                                  const KV& kv,
+                                  int32_t vIdLen) const {
+    auto tagId = NebulaKeyUtils::getTagId(vIdLen, kv.first);
     auto schema = schemaMan_->getTagSchema(spaceId_, tagId);
     if (schema == nullptr) {
         VLOG(3) << "get tag schema failed, tagId " << tagId;
@@ -165,6 +176,10 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
                             RowReader* reader,
                             int32_t schemaId,
                             bool isEdge) const {
+    auto spaceName = getSpaceName();
+    if (!spaceName.ok()) {
+        return false;
+    }
     auto count = schema->getNumFields();
     for (size_t i = 0; i < count; i++) {
         auto name = schema->getFieldName(i);
@@ -172,7 +187,7 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
         if (v.type() != Value::Type::STRING) {
             continue;
         }
-        auto ftIndex = nebula::plugin::IndexTraits::indexName(spaceName(), isEdge);
+        auto ftIndex = nebula::plugin::IndexTraits::indexName(spaceName.value(), isEdge);
         items.emplace_back(DocItem(std::move(ftIndex),
                                    std::move(name),
                                    partId_,
@@ -184,8 +199,8 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
 
 bool ESListener::writeData(const std::vector<nebula::plugin::DocItem>& items,
                            const std::vector<nebula::plugin::HttpClient>& clients) const {
-    auto retryCnt = FLAGS_ft_data_write_retry_times;
     bool isNeedWriteOneByOne = false;
+    auto retryCnt = FLAGS_ft_request_retry_times;
     while (--retryCnt > 0) {
         auto index = folly::Random::rand32(clients.size() - 1);
         auto suc = nebula::plugin::ESStorageAdapter::kAdapter->bulk(clients[index], items);
@@ -208,10 +223,10 @@ bool ESListener::writeData(const std::vector<nebula::plugin::DocItem>& items,
 
 bool ESListener::writeDatum(const std::vector<nebula::plugin::DocItem>& items,
                             const std::vector<nebula::plugin::HttpClient>& clients) const {
-    auto retryCnt = FLAGS_ft_data_write_retry_times;
     bool done = false;
     for (const auto& item : items) {
         done = false;
+        auto retryCnt = FLAGS_ft_request_retry_times;
         while (--retryCnt > 0) {
             auto index = folly::Random::rand32(clients.size() - 1);
             auto suc = nebula::plugin::ESStorageAdapter::kAdapter->put(clients[index], item);
@@ -235,18 +250,20 @@ bool ESListener::writeDatum(const std::vector<nebula::plugin::DocItem>& items,
     return true;
 }
 
-int32_t ESListener::vIdLen() const {
+StatusOr<int32_t> ESListener::getVidLen() const {
     auto ret = schemaMan_->getSpaceVidLen(spaceId_);
     if (!ret.ok()) {
-        LOG(FATAL) << "Failed to get space vid length";
+        VLOG(3) << "Failed to get space vid length";
+        return ret.status();
     }
     return ret.value();
 }
 
-const std::string& ESListener::spaceName() const {
+StatusOr<std::string> ESListener::getSpaceName() const {
     auto ret = schemaMan_->toGraphSpaceName(spaceId_);
     if (!ret.ok()) {
-        LOG(FATAL) << "Failed to get space name";
+        VLOG(3) << "Failed to get space name";
+        return ret.status();
     }
     return ret.value();
 }
