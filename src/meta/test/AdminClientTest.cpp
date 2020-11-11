@@ -331,39 +331,6 @@ TEST(AdminClientTest, SnapshotTest) {
         ASSERT_TRUE(status.ok());
     }
 }
-
-TEST(AdminClientTest, RebuildIndexTest) {
-    auto rpcServer = std::make_unique<mock::RpcServer>();
-    auto handler = std::make_shared<TestStorageService>();
-    rpcServer->start("storage-admin", 0, handler);
-    LOG(INFO) << "Start storage server on " << rpcServer->port_;
-
-    std::string localIp("127.0.0.1");
-
-    LOG(INFO) << "Now test interfaces with retry to leader!";
-    fs::TempDir rootPath("/tmp/admin_snapshot_test.XXXXXX");
-    std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
-    auto now = time::WallClock::fastNowInMilliSec();
-    ActiveHostsMan::updateHostInfo(kv.get(),
-                                   Utils::getStoreAddrFromAdminAddr({localIp, rpcServer->port_}),
-                                   HostInfo(now, meta::cpp2::HostRole::STORAGE, ""));
-    ASSERT_EQ(1, ActiveHostsMan::getActiveHosts(kv.get()).size());
-    auto address = HostAddr(localIp, rpcServer->port_);
-    auto client = std::make_unique<AdminClient>(kv.get());
-    {
-        LOG(INFO) << "Test Rebuild Tag Index...";
-        std::vector<PartitionID> parts{1, 2, 3};
-        auto status = client->rebuildTagIndex(address, 1, 1, std::move(parts)).get();
-        ASSERT_TRUE(status.ok()) << status;
-    }
-    {
-        LOG(INFO) << "Test Rebuild Edge Index...";
-        std::vector<PartitionID> parts{1, 2, 3};
-        auto status = client->rebuildEdgeIndex(address, 1, 1, std::move(parts)).get();
-        ASSERT_TRUE(status.ok()) << status;
-    }
-}
-
 }  // namespace meta
 }  // namespace nebula
 
