@@ -966,6 +966,7 @@ std::string MetaServiceUtils::genTimestampStr() {
 }
 
 folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvstore) {
+    folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     auto prefix = rebuildIndexStatusPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);

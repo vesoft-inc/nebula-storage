@@ -148,8 +148,6 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
 void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     auto* backupSpaces = req.get_space_name();
 
-    folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
-
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
     if (result == folly::none) {
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
@@ -195,6 +193,10 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Send blocking sign to storage engine error";
         handleErrorCode(ret);
+        ret = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_OFF);
+        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            LOG(ERROR) << "Cancel write blocking error";
+        }
         onFinished();
         return;
     }
@@ -245,11 +247,13 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         onFinished();
         return;
     }
+
     std::unordered_map<GraphSpaceID, cpp2::SpaceBackupInfo> backupInfo;
 
     // set backup info
     auto snapshotInfo = std::move(sret.right());
     for (auto id : spaces) {
+        LOG(INFO) << "backup space " << id;
         cpp2::SpaceBackupInfo spaceInfo;
         auto spaceKey = MetaServiceUtils::spaceKey(id);
         auto spaceRet = doGet(spaceKey);
@@ -267,11 +271,13 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         backupInfo.emplace(id, std::move(spaceInfo));
     }
     cpp2::BackupMeta backup;
+    LOG(INFO) << "sst files count was:" << backupFiles.value().size();
     backup.set_meta_files(std::move(backupFiles.value()));
     backup.set_backup_info(std::move(backupInfo));
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_meta(std::move(backup));
+    LOG(INFO) << "backup done";
 
     onFinished();
 }

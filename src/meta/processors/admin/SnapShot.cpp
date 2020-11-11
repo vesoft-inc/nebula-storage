@@ -70,6 +70,9 @@ cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
             auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
             if (!status.ok()) {
                 LOG(ERROR) << " Send blocking sign error on host : " << host;
+                if (sign == storage::cpp2::EngineSignType::BLOCK_ON) {
+                    return cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;
+                }
             }
         }
     }

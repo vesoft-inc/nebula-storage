@@ -453,16 +453,20 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
     rocksdb::Options options;
     rocksdb::SstFileWriter sstFileWriter(rocksdb::EnvOptions(), options);
 
-    auto s = sstFileWriter.Open(backupPath);
-    if (!s.ok()) {
-        LOG(ERROR) << "BackupTable failed, path: " << backupPath << ", error: " << s.ToString();
-        return ResultCode::ERR_BACKUP_OPEN_FAILED;
-    }
-
     std::unique_ptr<KVIterator> iter;
     auto ret = prefix(tablePrefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         return ResultCode::ERR_BACKUP_EMPTY_TABLE;
+    }
+
+    if (!iter->valid()) {
+        return ResultCode::ERR_BACKUP_EMPTY_TABLE;
+    }
+
+    auto s = sstFileWriter.Open(backupPath);
+    if (!s.ok()) {
+        LOG(ERROR) << "BackupTable failed, path: " << backupPath << ", error: " << s.ToString();
+        return ResultCode::ERR_BACKUP_OPEN_FAILED;
     }
 
     while (iter->valid()) {
@@ -478,10 +482,15 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
         }
         iter->next();
     }
+
     s = sstFileWriter.Finish();
     if (!s.ok()) {
         LOG(WARNING) << "Failure to insert data when backupTable,  " << backupPath
                      << ", error: " << s.ToString();
+        return ResultCode::ERR_BACKUP_EMPTY_TABLE;
+    }
+
+    if (sstFileWriter.FileSize() == 0) {
         return ResultCode::ERR_BACKUP_EMPTY_TABLE;
     }
 
