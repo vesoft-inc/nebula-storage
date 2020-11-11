@@ -202,10 +202,10 @@ TEST(AdminClientTest, RetryTest) {
         thriftPeers.emplace_back("0", 0);
 
         // The second one is not leader.
-        thriftPeers.emplace_back(localIp, rpcServer2->port_);
+        thriftPeers.emplace_back(Utils::getStoreAddrFromAdminAddr({localIp, rpcServer2->port_}));
 
         // The third one is healthy.
-        thriftPeers.emplace_back(localIp, rpcServer1->port_);
+        thriftPeers.emplace_back(Utils::getStoreAddrFromAdminAddr({localIp, rpcServer1->port_}));
 
         std::vector<kvstore::KV> data;
         data.emplace_back(MetaServiceUtils::partKey(0, 1),
@@ -226,7 +226,10 @@ TEST(AdminClientTest, RetryTest) {
     {
         LOG(INFO) << "Test transLeader, return ok if target is not leader";
         folly::Baton<true, std::atomic> baton;
-        client->transLeader(0, 1, {localIp, rpcServer2->port_}, HostAddr("1", 1))
+        client->transLeader(0,
+                            1,
+                            Utils::getStoreAddrFromAdminAddr({localIp, rpcServer2->port_}),
+                            HostAddr("1", 1))
             .thenValue([&baton](auto&& st) {
             CHECK(st.ok()) << st;
             baton.post();
@@ -283,8 +286,8 @@ TEST(AdminClientTest, RetryTest) {
         CHECK(peersRet.ok());
         auto hosts = std::move(peersRet).value();
         ASSERT_EQ(3, hosts.size());
-        ASSERT_EQ(HostAddr(localIp, rpcServer2->port_), hosts[0]);
-        ASSERT_EQ(HostAddr(localIp, rpcServer1->port_), hosts[1]);
+        ASSERT_EQ(Utils::getStoreAddrFromAdminAddr({localIp, rpcServer2->port_}), hosts[0]);
+        ASSERT_EQ(Utils::getStoreAddrFromAdminAddr({localIp, rpcServer1->port_}), hosts[1]);
         ASSERT_EQ(HostAddr("1", 1), hosts[2]);
     }
 }
