@@ -520,7 +520,7 @@ StatusOr<std::vector<HostAddr>> AdminClient::getPeers(GraphSpaceID spaceId, Part
 std::vector<HostAddr> AdminClient::getAdminAddrFromPeers(const std::vector<HostAddr> &peers) {
     std::vector<HostAddr> adminHosts;
     adminHosts.resize(peers.size());
-    std::transform(peers.begin(), peers.end(), adminHosts.begin(), [this](const auto& h) {
+    std::transform(peers.begin(), peers.end(), adminHosts.begin(), [](const auto& h) {
         return Utils::getAdminAddrFromStoreAddr(h);
     });
     return adminHosts;
