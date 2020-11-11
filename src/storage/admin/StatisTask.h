@@ -46,15 +46,15 @@ private:
 protected:
     std::atomic<bool>                           canceled_{false};
     GraphSpaceID                                spaceId_;
-    
+
     // All tagIds and tagName of the spaceId
     std::unordered_map<TagID, std::string>      tags_;
-    
+
     // All edgeTypes and edgeName of the spaceId
     std::unordered_map<EdgeType, std::string>   edges_;
-    
+
     folly::ConcurrentHashMap<PartitionID, nebula::meta::cpp2::StatisItem> statistics_;
-    
+
     // The number of subtasks equals to the number of parts in request
     size_t                                      subTaskSize_{0};
 };
