@@ -178,6 +178,7 @@ private:
     std::unordered_map<HostAddr, std::vector<PartitionID>>
     buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
                            GraphSpaceID spaceId,
+                           int32_t replicaFactor,
                            bool dependentOnZone,
                            LeaderBalancePlan& plan,
                            bool useDeviation = true);
@@ -199,7 +200,9 @@ private:
                           LeaderBalancePlan& plan,
                           GraphSpaceID spaceId);
 
-    bool checkZoneConflict();
+    bool fetchHostLoadingBySpace(GraphSpaceID spaceId, int32_t replicaFactor);
+
+    bool calculationBounds(GraphSpaceID spaceId, int32_t replicaFactor);
 
 private:
     std::atomic_bool running_{false};

@@ -46,7 +46,7 @@ bool DropGroupProcessor::checkSpaceDependency(const std::string& groupName) {
     while (iter->valid()) {
         auto properties = MetaServiceUtils::parseSpace(iter->val());
         if (properties.__isset.group_name &&
-           *properties.get_group_name() == groupName) {
+            *properties.get_group_name() == groupName) {
             LOG(ERROR) << "Space " << properties.get_space_name()
                        << " is bind to the group " << groupName;
             handleErrorCode(cpp2::ErrorCode::E_NOT_DROP);

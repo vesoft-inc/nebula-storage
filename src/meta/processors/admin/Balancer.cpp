@@ -355,6 +355,7 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
         auto key = iter->key();
         PartitionID partId;
         memcpy(&partId, key.data() + prefix.size(), sizeof(PartitionID));
+        // LOG(INFO) << "PartID: " << partId;
         auto partHosts = MetaServiceUtils::parsePartVal(iter->val());
         for (auto& ph : partHosts) {
             if (dependentOnGroup &&
@@ -380,12 +381,13 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
     CHECK_EQ(totalParts, properties.get_partition_num());
     if (dependentOnZone) {
         auto groupName = *properties.get_group_name();
+        LOG(INFO) << "Group Name: " << groupName;
         auto groupKey = MetaServiceUtils::groupKey(groupName);
         std::string groupValue;
         code = kv_->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Get group " << groupName << " failed";
-            return;
+            return false;
         }
 
         std::vector<HostAddr> totalHosts;
@@ -396,17 +398,17 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
             code = kv_->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
             if (code != kvstore::ResultCode::SUCCEEDED) {
                 LOG(ERROR) << "Get zone " << zoneName << " failed";
-                return;
+                return false;
             }
             auto hosts = MetaServiceUtils::parseZoneHosts(std::move(zoneValue));
             totalHosts.insert(totalHosts.end(), hosts.begin(), hosts.end());
         }
 
-        for (auto hostIter = hostParts.begin(); hostIter != hostParts.end();) {
+        for (auto hostIter = hostParts.begin(); hostIter != hostParts.end(); hostIter++) {
             auto found = std::find(totalHosts.begin(), totalHosts.end(), hostIter->first);
             if (found == totalHosts.end()) {
                 delete &hostIter->second;
-                hostParts.erase(hostIter++);
+                hostParts.erase(hostIter);
             }
         }
     }
@@ -660,8 +662,11 @@ bool Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
                 taskCount += giveupLeaders(leaderHostParts, peersMap,
                                            activeHosts, host, plan, spaceId);
             }
-        }
 
+            if (dependentOnZone) {
+                calculationBounds(spaceId, replicaFactor);
+            }
+        }
         // If every host is balanced or no more task during this loop, then the plan is done
         if (!hasUnbalancedHost || taskCount == 0) {
             LOG(INFO) << "Not need balance";
@@ -784,9 +789,84 @@ void Balancer::simplifyLeaderBalnacePlan(GraphSpaceID spaceId, LeaderBalancePlan
     }
 }
 
-bool Balancer::checkZoneConflict() {
-    return false;
+bool Balancer::fetchHostLoadingBySpace(GraphSpaceID spaceId, int32_t replicaFactor) {
+    std::unique_ptr<kvstore::KVIterator> iter;
+    const auto& prefix = MetaServiceUtils::partPrefix(spaceId);
+    auto code = kv_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    if (code != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "List Parts Failed";
+        return false;
+    }
+
+    std::unordered_map<HostAddr, int32_t> hostLoading;
+    while (iter->valid()) {
+        auto hosts = MetaServiceUtils::parsePartVal(iter->val());
+        for (auto& host : hosts) {
+            hostLoading[host]++;
+        }
+        iter->next();
+    }
+
+    for (auto it = hostLoading.begin(); it != hostLoading.end(); it++) {
+        int32_t min = it->second / replicaFactor;
+        auto pair = Bounds(min, min + 1);
+        LOG(INFO) << "Host: " << it->first << " Bounds: " << min << " : " << min + 1;
+        hostBounds_[it->first] = std::move(pair);
+    }
+    return true;
 }
 
+bool Balancer::calculationBounds(GraphSpaceID spaceId, int32_t replicaFactor) {
+    std::unique_ptr<kvstore::KVIterator> iter;
+    const auto& prefix = MetaServiceUtils::partPrefix(spaceId);
+    auto code = kv_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    if (code != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "List Parts Failed";
+        return false;
+    }
+
+    std::unordered_map<HostAddr, int32_t> hostLoading;
+    PartAllocation partAddresses;
+    while (iter->valid()) {
+        auto partId = MetaServiceUtils::parsePartKeyPartId(iter->key());
+        auto hosts = MetaServiceUtils::parsePartVal(iter->val());
+        for (auto host : hosts) {
+            hostLoading[host]++;
+            partAddresses[partId].emplace_back(host);
+        }
+        iter->next();
+    }
+
+    std::unordered_map<PartitionID, std::vector<int32_t>> partLoading;
+    for (auto partIter = partAddresses.begin(); partIter != partAddresses.end(); partIter++) {
+        auto part = partIter->first;
+        for (auto address : partIter->second) {
+            auto hostIter = hostLoading.find(address);
+            if (hostIter == hostLoading.end()) {
+                LOG(ERROR) << "Can't find host " << address;
+                return false;
+            }
+
+            VLOG(3) << "Part: " << part << " size: " << hostIter->second;
+            partLoading[part].emplace_back(hostIter->second);
+        }
+    }
+
+    for (auto partIter = partLoading.begin(); partIter != partLoading.end(); partIter++) {
+        auto part = partIter->first;
+        auto size = partIter->second.size();
+        auto sum = std::accumulate(partIter->second.begin(), partIter->second.end(), 0);
+        int32_t min = sum / size / replicaFactor;
+        int32_t max = min;
+        if (sum % (size * replicaFactor) != 0) {
+            max += 1;
+        }
+
+        auto pair = Bounds(min, max);
+        LOG(INFO) << "Part: " << part << " Bounds: [" << pair.first << ", " << pair.second << "]";
+        partBounds_[part] = std::move(pair);
+    }
+    return true;
+}
 }  // namespace meta
 }  // namespace nebula
