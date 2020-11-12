@@ -1329,7 +1329,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
 
         indexMan->addTagIndex(spaceId, tagId, indexId, std::move(cols));
     }
-    auto genVid = [] (size_t vIdLen, std::string& vId) -> std::string {
+    auto genVid = [vIdLen] (std::string& vId) -> std::string {
         return vId.append(vIdLen - sizeof(vId), '\0');
     };
 
@@ -1356,7 +1356,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1374,7 +1374,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1392,7 +1392,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1410,7 +1410,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1428,7 +1428,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1446,7 +1446,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1827,7 +1827,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         cols.emplace_back(nullColumnDef("col_str", meta::cpp2::PropertyType::FIXED_STRING));
         indexMan->addTagIndex(spaceId, tagId, indexId, std::move(cols));
     }
-    auto genVid = [] (size_t vIdLen, std::string& vId) -> std::string {
+    auto genVid = [vIdLen] (std::string& vId) -> std::string {
         return vId.append(vIdLen - sizeof(vId), '\0');
     };
     // insert data
@@ -1853,7 +1853,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1871,7 +1871,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1889,7 +1889,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1907,7 +1907,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1925,7 +1925,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1943,7 +1943,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
             newTag.set_props(std::move(props));
             std::vector<nebula::storage::cpp2::NewTag> newTags;
             newTags.push_back(std::move(newTag));
-            newVertex.set_id(genVid(vIdLen, vId));
+            newVertex.set_id(genVid(vId));
             newVertex.set_tags(std::move(newTags));
             req.parts[partId].emplace_back(std::move(newVertex));
         }
@@ -1957,12 +1957,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
 
     auto columnHint = [] (const std::string& col, const cpp2::ScanType& scanType,
                           const Value& begin, const Value& end) {
-        cpp2::IndexColumnHint columnHint;
-        columnHint.set_column_name(col);
-        columnHint.set_scan_type(scanType);
-        columnHint.set_begin_value(begin);
-        columnHint.set_end_value(end);
-        return columnHint;
+        cpp2::IndexColumnHint hint;
+        hint.set_column_name(col);
+        hint.set_scan_type(scanType);
+        hint.set_begin_value(begin);
+        hint.set_end_value(end);
+        return hint;
     };
 
     cpp2::LookupIndexRequest req;
