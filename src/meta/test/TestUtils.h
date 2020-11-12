@@ -186,7 +186,7 @@ public:
         return hosts.size();
     }
 
-    static bool assembleGroupAndZone(kvstore::KVStore* kv,
+    static void assembleGroupAndZone(kvstore::KVStore* kv,
                                      const ZoneInfo& zoneInfo,
                                      const GroupInfo& groupInfo) {
         std::vector<kvstore::KV> data;
@@ -199,7 +199,6 @@ public:
                               MetaServiceUtils::groupVal(iter->second));
         }
 
-        bool ret = false;
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
                           [&] (kvstore::ResultCode code) {
@@ -207,7 +206,6 @@ public:
                               baton.post();
                           });
         baton.wait();
-        return ret;
     }
 
     static void assembleSpace(kvstore::KVStore* kv, GraphSpaceID id, int32_t partitionNum,
