@@ -71,17 +71,18 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
 
         // setup index key
 
-        std::vector<Value> values;
-        values.emplace_back(Value(true));
-        values.emplace_back(Value(1L));
-        values.emplace_back(Value(1.1F));
-        values.emplace_back(Value(1.1F));
-        values.emplace_back(Value("row1"));
+        std::string indexVal1;
+        indexVal1.append(IndexKeyUtils::encodeValue(true));
+        indexVal1.append(IndexKeyUtils::encodeValue(1L));
+        indexVal1.append(IndexKeyUtils::encodeValue(1.1F));
+        indexVal1.append(IndexKeyUtils::encodeValue(1.1F));
+        indexVal1.append(IndexKeyUtils::encodeValue("row1"));
+        std::string indexVal2 = indexVal1;
 
-        key = IndexKeyUtils::vertexIndexKey(vIdLen.value(), 1, 3, vId1, values);
+        key = IndexKeyUtils::vertexIndexKey(vIdLen.value(), 1, 3, vId1, std::move(indexVal1));
         keyValues.emplace_back(std::move(key), "");
 
-        key = IndexKeyUtils::vertexIndexKey(vIdLen.value(), 1, 3, vId2, values);
+        key = IndexKeyUtils::vertexIndexKey(vIdLen.value(), 1, 3, vId2, std::move(indexVal2));
         keyValues.emplace_back(std::move(key), "");
 
         folly::Baton<true, std::atomic> baton;

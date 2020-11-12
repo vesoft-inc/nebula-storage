@@ -55,7 +55,7 @@ public:
         return Value::Type::__EMPTY__;
     }
 
-    static std::string encodeNullValue(Value::Type type) {
+    static std::string encodeNullValue(Value::Type type, const int16_t* strLen) {
         size_t len = 0;
         switch (type) {
             case Value::Type::INT: {
@@ -71,7 +71,7 @@ public:
                 break;
             }
             case Value::Type::STRING: {
-                len = 1;
+                len = static_cast<size_t>(*strLen);
                 break;
             }
             case Value::Type::TIME: {
@@ -368,6 +368,7 @@ public:
             if (hasNullableCol && col.get_name() == prop && nullableBit.test(nullableColPosit)) {
                 return Value(NullType::__NULL__);
             }
+            // doodle: mark
             switch (IndexKeyUtils::toValueType(col.type.get_type())) {
                 case Value::Type::BOOL: {
                     len = sizeof(bool);
@@ -454,11 +455,14 @@ public:
     /**
      * Generate vertex|edge index key for kv store
      **/
+    // doodle
+    /*
     static void encodeValues(const std::vector<Value>& values, std::string& raw);
 
     static void encodeValuesWithNull(const std::vector<Value>& values,
                                      const std::vector<Value::Type>& colsType,
                                      std::string& raw);
+    */
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -466,8 +470,7 @@ public:
      **/
     static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
                                       IndexID indexId, VertexID vId,
-                                      const std::vector<Value>& values,
-                                      const std::vector<Value::Type>& valueTypes = {});
+                                      std::string&& values);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -476,17 +479,15 @@ public:
     static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
                                     IndexID indexId, VertexID srcId,
                                     EdgeRanking rank, VertexID dstId,
-                                    const std::vector<Value>& values,
-                                    const std::vector<Value::Type>& valueTypes = {});
+                                    std::string&& values);
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
     static std::string indexPrefix(PartitionID partId);
 
-    static StatusOr<std::vector<Value>>
+    static StatusOr<std::string>
     collectIndexValues(RowReader* reader,
-                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
-                       std::vector<Value::Type>& colsType);
+                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
 private:
     IndexKeyUtils() = delete;
