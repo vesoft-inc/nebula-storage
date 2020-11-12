@@ -338,7 +338,7 @@ public:
     }
 
     static Value getValueFromIndexKey(size_t vIdLen,
-                                      const std::string& key,
+                                      folly::StringPiece key,
                                       const std::string& prop,
                                       const std::vector<meta::cpp2::ColumnDef>& cols,
                                       bool isEdgeIndex = false,
@@ -360,7 +360,7 @@ public:
 
         if (hasNullableCol) {
             auto bitOffset = key.size() - tailLen - sizeof(u_short);
-            auto v = *reinterpret_cast<const u_short*>(key.c_str() + bitOffset);
+            auto v = *reinterpret_cast<const u_short*>(key.data() + bitOffset);
             nullableBit = v;
         }
 
@@ -368,7 +368,6 @@ public:
             if (hasNullableCol && col.get_name() == prop && nullableBit.test(nullableColPosit)) {
                 return Value(NullType::__NULL__);
             }
-            // doodle: mark
             switch (IndexKeyUtils::toValueType(col.type.get_type())) {
                 case Value::Type::BOOL: {
                     len = sizeof(bool);
@@ -383,8 +382,7 @@ public:
                     break;
                 }
                 case Value::Type::STRING: {
-                    len = (hasNullableCol && nullableBit.test(nullableColPosit))
-                          ? 1 : *col.type.get_type_length();
+                    len = *col.type.get_type_length();
                     break;
                 }
                 case Value::Type::TIME: {
@@ -410,10 +408,7 @@ public:
             }
             offset += len;
         }
-        /*
-         * here need a string copy.
-         */
-        auto propVal = key.substr(offset, len);
+        auto propVal = key.subpiece(offset, len);
         return decodeValue(propVal, type);
     }
 
@@ -455,14 +450,8 @@ public:
     /**
      * Generate vertex|edge index key for kv store
      **/
-    // doodle
-    /*
-    static void encodeValues(const std::vector<Value>& values, std::string& raw);
-
-    static void encodeValuesWithNull(const std::vector<Value>& values,
-                                     const std::vector<Value::Type>& colsType,
-                                     std::string& raw);
-    */
+    static std::string encodeValues(std::vector<Value>&& values,
+                                    const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns

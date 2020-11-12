@@ -8,39 +8,46 @@
 
 namespace nebula {
 
-// doodle
-/*
 // static
-void IndexKeyUtils::encodeValues(const std::vector<Value>& values, std::string& raw) {
-    for (auto& value : values) {
-        raw.append(encodeValue(value));
-    }
-}
-
-// static
-void IndexKeyUtils::encodeValuesWithNull(const std::vector<Value>& values,
-                                         const std::vector<Value::Type>& colsType,
-                                         std::string& raw) {
+std::string IndexKeyUtils::encodeValues(std::vector<Value>&& values,
+                                        const std::vector<nebula::meta::cpp2::ColumnDef>& cols) {
+    bool hasNullCol = false;
     // An index has a maximum of 16 columns. 2 byte (16 bit) is enough.
-    u_short nullableBitset = 0;
+    u_short nullableBitSet = 0;
+    std::string index;
 
     for (size_t i = 0; i < values.size(); i++) {
-        std::string val;
-        // if the value is null, the nullable bit should be '1'.
-        // And create a string of a fixed length，filled with 0.
-        // if the value is not null, encode value.
-        if (values[i].isNull()) {
-            nullableBitset |= 0x8000 >> i;
-            val = encodeNullValue(colsType[i]);
-        } else {
-            val = encodeValue(values[i]);
+        auto isNullable = cols[i].__isset.nullable && *(cols[i].get_nullable());
+        if (isNullable) {
+            hasNullCol = true;
         }
-        raw.append(val);
-    }
 
-    raw.append(reinterpret_cast<const char*>(&nullableBitset), sizeof(u_short));
+        if (!values[i].isNull()) {
+            // string index need to fill with '\0' if length is less than schema
+            if (cols[i].type.type == meta::cpp2::PropertyType::FIXED_STRING) {
+                auto len = static_cast<size_t>(*cols[i].type.get_type_length());
+                std::string str = values[i].moveStr();
+                if (len > str.size()) {
+                    str.append(len - str.size(), '\0');
+                } else {
+                    str = str.substr(0, len);
+                }
+                index.append(str);
+            } else {
+                index.append(encodeValue(values[i]));
+            }
+        } else {
+            nullableBitSet |= 0x8000 >> i;
+            auto type = IndexKeyUtils::toValueType(cols[i].type.get_type());
+            index.append(encodeNullValue(type, cols[i].type.get_type_length()));
+        }
+    }
+    // if has nullable field, append nullableBitSet to the end
+    if (hasNullCol) {
+        index.append(reinterpret_cast<const char*>(&nullableBitSet), sizeof(u_short));
+    }
+    return index;
 }
-*/
 
 // static
 std::string IndexKeyUtils::vertexIndexKey(size_t vIdLen, PartitionID partId,
@@ -102,11 +109,8 @@ IndexKeyUtils::collectIndexValues(RowReader* reader,
     if (reader == nullptr) {
         return Status::Error("Invalid row reader");
     }
-    std::string values;
-    values.reserve(256);
-    u_short nullableBitSet = 0;
-    for (size_t i = 0; i < cols.size(); i++) {
-        const auto& col = cols[i];
+    std::vector<Value> values;
+    for (const auto& col : cols) {
         auto v = reader->getValueByName(col.get_name());
         auto isNullable = col.__isset.nullable && *(col.get_nullable());
         auto ret = checkValue(v, isNullable);
@@ -115,29 +119,9 @@ IndexKeyUtils::collectIndexValues(RowReader* reader,
                        << ". status : " << ret;
             return ret;
         }
-        if (!v.isNull()) {
-            if (col.type.get_type() == meta::cpp2::PropertyType::FIXED_STRING) {
-                auto len = static_cast<size_t>(*col.type.get_type_length());
-                std::string str = v.moveStr();
-                if (len > str.size()) {
-                    str.append(len - str.size(), '\0');
-                } else {
-                    str = str.substr(0, len);
-                }
-                values.append(str);
-            } else {
-                values.append(encodeValue(v));
-            }
-        } else {
-            nullableBitSet |= 0x8000 >> i;
-            auto type = IndexKeyUtils::toValueType(col.type.get_type());
-            values.append(encodeNullValue(type, col.type.get_type_length()));
-        }
+        values.emplace_back(std::move(v));
     }
-    if (nullableBitSet != 0) {
-        values.append(reinterpret_cast<const char*>(&nullableBitSet), sizeof(u_short));
-    }
-    return values;
+    return encodeValues(std::move(values), cols);
 }
 
 // static
