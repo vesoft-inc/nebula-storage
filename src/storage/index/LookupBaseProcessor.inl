@@ -330,12 +330,6 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
                                                   StoragePlan<IndexID>& plan) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
-    auto schema = planContext_->isEdge_
-                  ? this->env_->schemaMan_->getEdgeSchema(this->spaceId_, planContext_->edgeType_)
-                  : this->env_->schemaMan_->getTagSchema(this->spaceId_, planContext_->tagId_);
-    if (!schema) {
-        return nullptr;
-    }
 
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
@@ -343,7 +337,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
     if (planContext_->isEdge_) {
         auto edge = std::make_unique<IndexEdgeNode<IndexID>>(planContext_.get(),
                                                              indexScan.get(),
-                                                             std::move(schema),
+                                                             schema_,
                                                              planContext_->edgeName_);
         edge->addDependency(indexScan.get());
         auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
@@ -357,7 +351,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
         auto vertex = std::make_unique<IndexVertexNode<IndexID>>(planContext_.get(),
                                                                  this->vertexCache_,
                                                                  indexScan.get(),
-                                                                 std::move(schema),
+                                                                 schema_,
                                                                  planContext_->tagName_);
         vertex->addDependency(indexScan.get());
         auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
@@ -453,12 +447,6 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                            Expression* exp) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
-    auto schema = planContext_->isEdge_
-                  ? this->env_->schemaMan_->getEdgeSchema(spaceId_, planContext_->edgeType_)
-                  : this->env_->schemaMan_->getTagSchema(spaceId_, planContext_->tagId_);
-    if (!schema) {
-        return nullptr;
-    }
 
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
@@ -466,7 +454,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
     if (planContext_->isEdge_) {
         auto edge = std::make_unique<IndexEdgeNode<IndexID>>(planContext_.get(),
                                                              indexScan.get(),
-                                                             std::move(schema),
+                                                             schema_,
                                                              planContext_->edgeName_);
         edge->addDependency(indexScan.get());
         auto filter = std::make_unique<IndexFilterNode<IndexID>>(edge.get(),
@@ -486,7 +474,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
         auto vertex = std::make_unique<IndexVertexNode<IndexID>>(planContext_.get(),
                                                                  this->vertexCache_,
                                                                  indexScan.get(),
-                                                                 std::move(schema),
+                                                                 schema_,
                                                                  planContext_->tagName_);
         vertex->addDependency(indexScan.get());
         auto filter = std::make_unique<IndexFilterNode<IndexID>>(vertex.get(),
