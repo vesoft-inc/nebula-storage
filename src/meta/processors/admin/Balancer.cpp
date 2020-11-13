@@ -471,11 +471,8 @@ cpp2::ErrorCode Balancer::leaderBalance() {
                 }
             }
         }).wait();
+        LOG(INFO) << failed << " partiton failed to transfer leader";
         inLeaderBalance_ = false;
-        if (failed > 0) {
-            LOG(ERROR) << failed << " partiton failed to transfer leader";
-            return cpp2::ErrorCode::E_BALANCER_FAILURE;
-        }
         return cpp2::ErrorCode::SUCCEEDED;
     }
     return cpp2::ErrorCode::E_BALANCER_RUNNING;
