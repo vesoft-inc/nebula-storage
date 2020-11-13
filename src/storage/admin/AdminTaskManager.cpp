@@ -112,7 +112,8 @@ void AdminTaskManager::schedule() {
         auto errOrSubTasks = task->genSubTasks();
         if (!nebula::ok(errOrSubTasks)) {
             auto code = static_cast<int>(nebula::error(errOrSubTasks));
-            LOG(ERROR) << "genSubTasks() failed, err=" << code;
+            LOG(ERROR) << folly::sformat(
+                "job {}, genSubTask failed, err={}", task->getJobId(), code);
             task->finish(nebula::error(errOrSubTasks));
             tasks_.erase(handle);
             continue;
