@@ -751,9 +751,13 @@ void FileBasedWal::cleanWAL(LogID id) {
 
     // find the first wal file which first id is greater than the given log id,
     // and clean the outdate wal files
-    auto iter = walFiles_.upper_bound(id);
-    if (iter != walFiles_.end()) {
-        walFiles_.erase(walFiles_.begin(), std::prev(iter));
+    auto bound = walFiles_.upper_bound(id);
+    if (bound != walFiles_.end()) {
+        for (auto iter = walFiles_.begin(); iter != std::prev(bound); iter++) {
+            VLOG(1) << "Clean wals, Remove " << iter->second->path();
+            unlink(iter->second->path());
+        }
+        walFiles_.erase(walFiles_.begin(), std::prev(bound));
     }
     firstLogId_ = walFiles_.begin()->second->firstId();
 }
