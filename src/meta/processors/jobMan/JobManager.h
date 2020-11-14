@@ -13,6 +13,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <gtest/gtest_prod.h>
 #include <folly/concurrency/UnboundedQueue.h>
+#include <folly/concurrency/ConcurrentHashMap.h>
 #include "kvstore/NebulaStore.h"
 #include "meta/processors/jobMan/JobStatus.h"
 #include "meta/processors/jobMan/JobDescription.h"
@@ -55,6 +56,10 @@ public:
      * */
     cpp2::ErrorCode addJob(const JobDescription& jobDesc, AdminClient* client);
 
+    bool checkJobExist(const cpp2::AdminCmd& cmd,
+                       const std::vector<std::string>& paras,
+                       JobID& iJob);
+
     ErrorOr<cpp2::ErrorCode, std::vector<cpp2::JobDesc>> showJobs();
 
     ErrorOr<cpp2::ErrorCode, std::pair<cpp2::JobDesc, std::vector<cpp2::TaskDesc>>>
@@ -79,9 +84,16 @@ private:
     void removeExpiredJobs(const std::vector<std::string>& jobKeys);
 
 private:
-    // std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  queue_;
-    // Contains two priorities
-    std::unique_ptr<folly::PriorityUMPSCQueueSet<int32_t, true>>  queue_;
+    // Todo(pandasheep)
+    // When folly is upgraded, PriorityUMPSCQueueSet can be used
+    // std::unique_ptr<folly::PriorityUMPSCQueueSet<int32_t, true>>  queue_;
+    // Use two queues to simulate priority queue, Divide by job cmd
+    std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  lowPriorityQueue_;
+    std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  HighPriorityQueue_;
+
+    // the job in running or queue
+    folly::ConcurrentHashMap<JobID, JobDescription>    jobMap_;
+
     std::unique_ptr<thread::GenericWorker>             bgThread_;
     std::mutex                                         statusGuard_;
     Status                                             status_{Status::NOT_START};

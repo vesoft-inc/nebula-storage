@@ -51,6 +51,8 @@ public:
 
     JobID getJobId() const { return id_; }
 
+    void setJobId(JobID jobId) { id_ = jobId; }
+
     /*
      * return the command for this job. (e.g. compact, flush ...)
      * */
@@ -133,6 +135,16 @@ public:
      * check if the given rawKey is a valid JobKey
      * */
     static bool isJobKey(const folly::StringPiece& rawKey);
+
+    bool operator==(const JobDescription& that) const {
+        return this->cmd_ == that.cmd_ &&
+               this->paras_ == that.paras_ &&
+               this->status_ == that.status_;
+    }
+
+    bool operator!=(const JobDescription& that) const {
+        return !(*this == that);
+    }
 
 private:
     static bool isSupportedValue(const folly::StringPiece& val);

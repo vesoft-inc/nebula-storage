@@ -48,8 +48,9 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     pool_ = std::make_unique<nebula::thread::GenericThreadPool>();
     pool_->start(FLAGS_dispatch_thread_num);
 
-    // queue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
-    queue_ = std::make_unique<folly::PriorityUMPSCQueueSet<int32_t, true>>(2);
+    lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
+    HighPriorityQueue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
+
     bgThread_ = std::make_unique<thread::GenericWorker>();
     CHECK(bgThread_->start());
 
@@ -81,7 +82,7 @@ void JobManager::scheduleThread() {
     LOG(INFO) << "JobManager::runJobBackground() enter";
     while (status_ == Status::RUNNING) {
         int32_t iJob = 0;
-        while (!queue_->try_dequeue(iJob)) {
+        while (!(HighPriorityQueue_->try_dequeue(iJob) || lowPriorityQueue_->try_dequeue(iJob))) {
             if (status_ == Status::STOPPED) {
                 LOG(INFO) << "[JobManager] detect shutdown called, exit";
                 break;
@@ -106,6 +107,12 @@ void JobManager::scheduleThread() {
             jobDesc->setStatus(cpp2::JobStatus::FAILED);
         }
         save(jobDesc->jobKey(), jobDesc->jobVal());
+
+        // Delete the job after job finished or failed
+        auto it = jobMap_.find(jobDesc->getJobId());
+        if (it != jobMap_.end()) {
+            jobMap_.erase(it);
+        }
     }
     LOG(INFO) << "[JobManager] exit";
 }
@@ -162,7 +169,14 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
     auto rc = save(jobDesc.jobKey(), jobDesc.jobVal());
     if (rc == nebula::kvstore::ResultCode::SUCCEEDED) {
-        queue_->enqueue(jobDesc.getJobId());
+        if (jobDesc.getCmd() == cpp2::AdminCmd::STATIS) {
+            HighPriorityQueue_->enqueue(jobDesc.getJobId());
+        } else {
+            lowPriorityQueue_->enqueue(jobDesc.getJobId());
+        }
+
+        // add job to jobMap
+        jobMap_.emplace(jobDesc.getJobId(), jobDesc);
     } else {
         LOG(ERROR) << "Add Job Failed";
         return cpp2::ErrorCode::E_ADD_JOB_FAILURE;
@@ -214,7 +228,8 @@ JobManager::showJobs() {
 }
 
 bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
-    if (jobDesc.status == cpp2::JobStatus::QUEUE || jobDesc.status == cpp2::JobStatus::RUNNING) {
+    if (jobDesc.status == cpp2::JobStatus::QUEUE ||
+        jobDesc.status == cpp2::JobStatus::RUNNING) {
         return false;
     }
     auto jobStart = jobDesc.get_start_time();
@@ -233,6 +248,22 @@ void JobManager::removeExpiredJobs(const std::vector<std::string>& expiredJobsAn
                                });
     baton.wait();
 }
+
+bool JobManager::checkJobExist(const cpp2::AdminCmd& cmd,
+                               const std::vector<std::string>& paras,
+                               JobID& iJob) {
+    JobDescription jobDesc(0, cmd, paras);
+    auto it = jobMap_.begin();
+    while (it != jobMap_.end()) {
+        if (it->second == jobDesc) {
+            iJob = it->first;
+            return true;
+        }
+        ++it;
+    }
+    return false;
+}
+
 
 ErrorOr<cpp2::ErrorCode, std::pair<cpp2::JobDesc, std::vector<cpp2::TaskDesc>>>
 JobManager::showJob(JobID iJob) {
@@ -282,6 +313,12 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
         return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
 
+    // stop job remove form JobMap
+    auto it = jobMap_.find(jobDesc->getJobId());
+    if (it != jobMap_.end()) {
+        jobMap_.erase(jobDesc->getJobId());
+    }
+
     return jobExecutor->stop();
 }
 
@@ -304,8 +341,20 @@ ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
         auto optJob = JobDescription::makeJobDescription(iter->key(), iter->val());
         if (optJob != folly::none) {
             if (optJob->getStatus() == cpp2::JobStatus::QUEUE) {
-                queue_->at_priority(0).enqueue(optJob->getJobId());
-                ++recoveredJobNum;
+                // check if the job exists
+                JobID jId = 0;
+                auto jobExist = checkJobExist(optJob->getCmd(), optJob->getParas(), jId);
+
+                if (!jobExist) {
+                    jobMap_.emplace(optJob->getJobId(), *optJob);
+
+                    if (optJob->getCmd() == cpp2::AdminCmd::STATIS) {
+                        HighPriorityQueue_->enqueue(optJob->getJobId());
+                    } else {
+                        lowPriorityQueue_->enqueue(optJob->getJobId());
+                    }
+                    ++recoveredJobNum;
+                }
             }
         }
     }
