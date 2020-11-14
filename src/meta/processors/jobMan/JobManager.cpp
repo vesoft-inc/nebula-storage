@@ -48,7 +48,8 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     pool_ = std::make_unique<nebula::thread::GenericThreadPool>();
     pool_->start(FLAGS_dispatch_thread_num);
 
-    queue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
+    // queue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
+    queue_ = std::make_unique<folly::PriorityUMPSCQueueSet<int32_t, true>>(2);
     bgThread_ = std::make_unique<thread::GenericWorker>();
     CHECK(bgThread_->start());
 
@@ -303,7 +304,7 @@ ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
         auto optJob = JobDescription::makeJobDescription(iter->key(), iter->val());
         if (optJob != folly::none) {
             if (optJob->getStatus() == cpp2::JobStatus::QUEUE) {
-                queue_->enqueue(optJob->getJobId());
+                queue_->at_priority(0).enqueue(optJob->getJobId());
                 ++recoveredJobNum;
             }
         }

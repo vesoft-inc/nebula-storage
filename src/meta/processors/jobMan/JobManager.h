@@ -79,7 +79,9 @@ private:
     void removeExpiredJobs(const std::vector<std::string>& jobKeys);
 
 private:
-    std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  queue_;
+    // std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  queue_;
+    // Contains two priorities
+    std::unique_ptr<folly::PriorityUMPSCQueueSet<int32_t, true>>  queue_;
     std::unique_ptr<thread::GenericWorker>             bgThread_;
     std::mutex                                         statusGuard_;
     Status                                             status_{Status::NOT_START};
