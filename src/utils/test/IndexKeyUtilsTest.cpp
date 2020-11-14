@@ -347,23 +347,27 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
     auto null = Value(NullType::__NULL__);
 
     std::vector<meta::cpp2::ColumnDef> cols;
+    size_t indexValueSize = 0;
     {
         meta::cpp2::ColumnDef col;
         col.set_name("col_bool");
         col.type.set_type(meta::cpp2::PropertyType::BOOL);
         cols.emplace_back(col);
+        indexValueSize += sizeof(bool);
     }
     {
         meta::cpp2::ColumnDef col;
         col.set_name("col_int");
         col.type.set_type(meta::cpp2::PropertyType::INT64);
         cols.emplace_back(col);
+        indexValueSize += sizeof(int64_t);
     }
     {
         meta::cpp2::ColumnDef col;
         col.set_name("col_float");
         col.type.set_type(meta::cpp2::PropertyType::FLOAT);
         cols.emplace_back(col);
+        indexValueSize += sizeof(double);
     }
     {
         meta::cpp2::ColumnDef col;
@@ -371,18 +375,21 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
         col.type.set_type(meta::cpp2::PropertyType::FIXED_STRING);
         col.type.set_type_length(4);
         cols.emplace_back(col);
+        indexValueSize += 4;
     }
     {
         meta::cpp2::ColumnDef col;
         col.set_name("col_date");
         col.type.set_type(meta::cpp2::PropertyType::DATE);
         cols.emplace_back(col);
+        indexValueSize += sizeof(int8_t) * 2 + sizeof(int16_t);
     }
     {
         meta::cpp2::ColumnDef col;
         col.set_name("col_datetime");
         col.type.set_type(meta::cpp2::PropertyType::DATETIME);
         cols.emplace_back(col);
+        indexValueSize += sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5;
     }
 
     // vertices test without nullable column
@@ -396,6 +403,7 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
         std::vector<std::string> indexKeys;
         for (auto& row : vertices) {
             auto values = IndexKeyUtils::encodeValues(std::move(row.second), cols);
+            ASSERT_EQ(indexValueSize, values.size());
             indexKeys.emplace_back(IndexKeyUtils::vertexIndexKey(
                 vIdLen, partId, indexId, row.first, std::move(values)));
         }
@@ -414,6 +422,7 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
         std::vector<std::string> indexKeys;
         for (auto& row : edges) {
             auto values = IndexKeyUtils::encodeValues(std::move(row.second), cols);
+            ASSERT_EQ(indexValueSize, values.size());
             indexKeys.emplace_back(IndexKeyUtils::edgeIndexKey(
                 vIdLen, partId, indexId, row.first, 0, row.first, std::move(values)));
         }
@@ -424,6 +433,8 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
     for (auto& col : cols) {
         col.set_nullable(true);
     }
+    // since there are nullable columns, there will be two extra bytes to save nullBitSet
+    indexValueSize += sizeof(ushort);
 
     // vertices test with nullable
     {
@@ -442,6 +453,7 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
         std::vector<std::string> indexKeys;
         for (auto& row : vertices) {
             auto values = IndexKeyUtils::encodeValues(std::move(row.second), cols);
+            ASSERT_EQ(indexValueSize, values.size());
             auto key = IndexKeyUtils::vertexIndexKey(
                 vIdLen, partId, indexId, row.first, std::move(values));
             indexKeys.emplace_back(key);
@@ -467,6 +479,7 @@ TEST(IndexKeyUtilsTest, getValueFromIndexKeyTest) {
         std::vector<std::string> indexKeys;
         for (auto& row : edges) {
             auto values = IndexKeyUtils::encodeValues(std::move(row.second), cols);
+            ASSERT_EQ(indexValueSize, values.size());
             indexKeys.emplace_back(IndexKeyUtils::edgeIndexKey(
                 vIdLen, partId, indexId, row.first, 0, row.first, std::move(values)));
         }
