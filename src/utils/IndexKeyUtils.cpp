@@ -26,13 +26,7 @@ std::string IndexKeyUtils::encodeValues(std::vector<Value>&& values,
             // string index need to fill with '\0' if length is less than schema
             if (cols[i].type.type == meta::cpp2::PropertyType::FIXED_STRING) {
                 auto len = static_cast<size_t>(*cols[i].type.get_type_length());
-                std::string str = values[i].moveStr();
-                if (len > str.size()) {
-                    str.append(len - str.size(), '\0');
-                } else {
-                    str = str.substr(0, len);
-                }
-                index.append(str);
+                index.append(encodeValue(values[i], len));
             } else {
                 index.append(encodeValue(values[i]));
             }
