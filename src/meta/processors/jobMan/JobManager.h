@@ -29,6 +29,8 @@ class JobManager : public nebula::cpp::NonCopyable, public nebula::cpp::NonMovab
     FRIEND_TEST(JobManagerTest, buildJobDescription);
     FRIEND_TEST(JobManagerTest, addJob);
     FRIEND_TEST(JobManagerTest, StatisJob);
+    FRIEND_TEST(JobManagerTest, JobPriority);
+    FRIEND_TEST(JobManagerTest, JobDeduplication);
     FRIEND_TEST(JobManagerTest, loadJobDescription);
     FRIEND_TEST(JobManagerTest, showJobs);
     FRIEND_TEST(JobManagerTest, showJob);
@@ -56,6 +58,9 @@ public:
      * */
     cpp2::ErrorCode addJob(const JobDescription& jobDesc, AdminClient* client);
 
+    /*
+     * The same job is in jobMap
+     */
     bool checkJobExist(const cpp2::AdminCmd& cmd,
                        const std::vector<std::string>& paras,
                        JobID& iJob);
@@ -68,6 +73,18 @@ public:
     cpp2::ErrorCode stopJob(JobID iJob);
 
     ErrorOr<cpp2::ErrorCode, JobID> recoverJob();
+
+    // Only used for Test
+    // The number of jobs in lowPriorityQueue_ a and highPriorityQueue_
+    size_t jobSize() const;
+
+    // Tries to extract an element from the front of the highPriorityQueue_,
+    // if faild, then extract an element from lowPriorityQueue_.
+    // If the element is obtained, return true, otherwise return false.
+    bool try_dequeue(JobID& jobId);
+
+    // Enter different priority queues according to the command type
+    void enqueue(const JobID& jobId, const cpp2::AdminCmd& cmd);
 
 private:
     JobManager() = default;
@@ -86,12 +103,11 @@ private:
 private:
     // Todo(pandasheep)
     // When folly is upgraded, PriorityUMPSCQueueSet can be used
-    // std::unique_ptr<folly::PriorityUMPSCQueueSet<int32_t, true>>  queue_;
     // Use two queues to simulate priority queue, Divide by job cmd
-    std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  lowPriorityQueue_;
-    std::unique_ptr<folly::UMPSCQueue<int32_t, true>>  HighPriorityQueue_;
+    std::unique_ptr<folly::UMPSCQueue<JobID, true>>    lowPriorityQueue_;
+    std::unique_ptr<folly::UMPSCQueue<JobID, true>>    highPriorityQueue_;
 
-    // the job in running or queue
+    // The job in running or queue
     folly::ConcurrentHashMap<JobID, JobDescription>    jobMap_;
 
     std::unique_ptr<thread::GenericWorker>             bgThread_;
