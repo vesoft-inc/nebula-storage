@@ -51,8 +51,6 @@ public:
 
     JobID getJobId() const { return id_; }
 
-    void setJobId(JobID jobId) { id_ = jobId; }
-
     /*
      * return the command for this job. (e.g. compact, flush ...)
      * */

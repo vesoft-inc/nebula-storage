@@ -108,7 +108,7 @@ private:
     std::unique_ptr<folly::UMPSCQueue<JobID, true>>    highPriorityQueue_;
 
     // The job in running or queue
-    folly::ConcurrentHashMap<JobID, JobDescription>    jobMap_;
+    folly::ConcurrentHashMap<JobID, JobDescription>    inFlightJobs_;
 
     std::unique_ptr<thread::GenericWorker>             bgThread_;
     std::mutex                                         statusGuard_;

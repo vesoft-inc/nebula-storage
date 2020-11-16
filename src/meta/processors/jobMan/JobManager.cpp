@@ -48,8 +48,8 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     pool_ = std::make_unique<nebula::thread::GenericThreadPool>();
     pool_->start(FLAGS_dispatch_thread_num);
 
-    lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
-    highPriorityQueue_ = std::make_unique<folly::UMPSCQueue<int32_t, true>>();
+    lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
+    highPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
 
     bgThread_ = std::make_unique<thread::GenericWorker>();
     CHECK(bgThread_->start());
@@ -109,9 +109,9 @@ void JobManager::scheduleThread() {
         save(jobDesc->jobKey(), jobDesc->jobVal());
 
         // Delete the job after job finished or failed
-        auto it = jobMap_.find(jobDesc->getJobId());
-        if (it != jobMap_.end()) {
-            jobMap_.erase(it);
+        auto it = inFlightJobs_.find(jobDesc->getJobId());
+        if (it != inFlightJobs_.end()) {
+            inFlightJobs_.erase(it);
         }
     }
     LOG(INFO) << "[JobManager] exit";
@@ -172,7 +172,7 @@ cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* c
         auto jobId = jobDesc.getJobId();
         enqueue(jobId, jobDesc.getCmd());
         // Add job to jobMap
-        jobMap_.emplace(jobId, jobDesc);
+        inFlightJobs_.emplace(jobId, jobDesc);
     } else {
         LOG(ERROR) << "Add Job Failed";
         return cpp2::ErrorCode::E_ADD_JOB_FAILURE;
@@ -269,8 +269,8 @@ bool JobManager::checkJobExist(const cpp2::AdminCmd& cmd,
                                const std::vector<std::string>& paras,
                                JobID& iJob) {
     JobDescription jobDesc(0, cmd, paras);
-    auto it = jobMap_.begin();
-    while (it != jobMap_.end()) {
+    auto it = inFlightJobs_.begin();
+    while (it != inFlightJobs_.end()) {
         if (it->second == jobDesc) {
             iJob = it->first;
             return true;
@@ -330,9 +330,9 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
     }
 
     // Stop job remove form JobMap
-    auto it = jobMap_.find(jobDesc->getJobId());
-    if (it != jobMap_.end()) {
-        jobMap_.erase(it);
+    auto it = inFlightJobs_.find(jobDesc->getJobId());
+    if (it != inFlightJobs_.end()) {
+        inFlightJobs_.erase(it);
     }
 
     return jobExecutor->stop();
@@ -364,7 +364,7 @@ ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
                 if (!jobExist) {
                     auto jobId = optJob->getJobId();
                     enqueue(jobId, optJob->getCmd());
-                    jobMap_.emplace(jobId, *optJob);
+                    inFlightJobs_.emplace(jobId, *optJob);
                     ++recoveredJobNum;
                 }
             }
