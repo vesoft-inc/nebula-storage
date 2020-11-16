@@ -1100,7 +1100,7 @@ std::string MetaServiceUtils::fulltextServiceVal(cpp2::FTServiceType type,
     apache::thrift::CompactSerializer::serialize(clients, &cval);
     val.reserve(sizeof(cpp2::FTServiceType) + cval.size());
     val.append(reinterpret_cast<const char*>(&type), sizeof(cpp2::FTServiceType))
-        .append(cval);
+       .append(cval);
     return val;
 }
 
