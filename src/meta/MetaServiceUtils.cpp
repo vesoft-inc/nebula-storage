@@ -36,7 +36,6 @@ const std::string kListenerTable       = "__listener__";         // NOLINT
 // The number of edges of each edgetype in the space
 const std::string kStatisTable         = "__statis__";           // NOLINT
 
-const std::string kFTIndexTable        = "__ft_index__";         // NOLINT
 const std::string kFTServiceTable      = "__ft_service__";       // NOLINT
 
 const std::string kHostOnline  = "Online";       // NOLINT
@@ -1086,37 +1085,6 @@ cpp2::StatisItem MetaServiceUtils::parseStatisVal(folly::StringPiece rawData) {
 
 const std::string& MetaServiceUtils::statisKeyPrefix() {
     return kStatisTable;
-}
-
-std::string MetaServiceUtils::fulltextIndexKey(GraphSpaceID spaceId,
-                                               const cpp2::FTIndexType& type) {
-    // Only two full-text indexes in a space. tag index or edge index
-    std::string key;
-    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
-    key.append(kFTIndexTable.data(), kFTIndexTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-        .append((type == cpp2::FTIndexType::EDGE) ? "_e" : "_t");
-    return key;
-}
-
-std::string MetaServiceUtils::fulltextIndexVal(const cpp2::FTIndexItem& index) {
-    std::string val;
-    apache::thrift::CompactSerializer::serialize(index, &val);
-    return val;
-}
-
-cpp2::FTIndexItem MetaServiceUtils::parseFTindex(folly::StringPiece rawData) {
-    cpp2::FTIndexItem index;
-    apache::thrift::CompactSerializer::deserialize(rawData, index);
-    return index;
-}
-
-std::string MetaServiceUtils::fulltextIndexPrefix(GraphSpaceID spaceId) {
-    std::string key;
-    key.reserve(kFTIndexTable.size() + sizeof(GraphSpaceID) + 2);
-    key.append(kFTIndexTable.data(), kFTIndexTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
-    return key;
 }
 
 std::string MetaServiceUtils::fulltextServiceKey() {
