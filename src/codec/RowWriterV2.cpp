@@ -135,7 +135,7 @@ RowWriterV2::RowWriterV2(RowReader& reader)
                 set(i, v.moveDateTime());
                 break;
             default:
-                LOG(FATAL) << "Invalid data";
+                LOG(FATAL) << "Invalid data: " << v << ", type: " << v.typeName();
         }
         isSet_[i] = true;
     }
@@ -812,7 +812,8 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
 
             WriteResult r = WriteResult::SUCCEEDED;
             if (field->hasDefault()) {
-                const auto& defVal = Expression::eval(field->defaultValue(), expCtx);
+                auto expr = field->defaultValue()->clone();
+                auto defVal = Expression::eval(expr.get(), expCtx);
                 switch (defVal.type()) {
                     case Value::Type::NULLVALUE:
                         setNullBit(field->nullFlagPos());
@@ -839,7 +840,9 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
                         r = write(i, defVal.getDateTime());
                         break;
                     default:
-                        LOG(FATAL) << "Unsupported default value type";
+                        LOG(FATAL) << "Unsupported default value type: " << defVal.typeName()
+                                   << ", default value: " << defVal
+                                   << ", default value expr: " << field->defaultValue()->toString();
                 }
             } else {
                 // Set NULL
