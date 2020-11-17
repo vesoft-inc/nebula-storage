@@ -394,7 +394,7 @@ public:
                     break;
                 }
                 case Value::Type::DATETIME: {
-                    len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
+                    len = sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5;
                     break;
                 }
                 default:

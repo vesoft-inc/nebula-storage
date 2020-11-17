@@ -906,7 +906,6 @@ std::vector<std::pair<PartitionID, std::string>> MockData::mockServeIndexKeys() 
         values.append(encodeFixedStr(serve.playerName_, 20));
         values.append(encodeFixedStr(serve.teamName_, 20));
         values.append(IndexKeyUtils::encodeValue(serve.startYear_));
-        std::vector<Value::Type> colsType;
         auto key = IndexKeyUtils::edgeIndexKey(32, part, 101,
                                                serve.playerName_,
                                                serve.startYear_,
