@@ -9,22 +9,14 @@
 #include "common/plugin/fulltext/elasticsearch/ESStorageAdapter.h"
 
 DECLARE_int32(ft_request_retry_times);
+DECLARE_int32(ft_bulk_batch_size);
 
 namespace nebula {
 namespace kvstore {
 bool ESListener::apply(const std::vector<KV>& data) {
-    std::vector<nebula::plugin::DocItem> docItems;
     auto vIdLen = getVidLen();
     if (!vIdLen.ok()) {
         return false;
-    }
-    for (const auto& kv : data) {
-        if (!nebula::NebulaKeyUtils::isDataKey(kv.first)) {
-            continue;
-        }
-        if (!appendDocItem(docItems, kv, vIdLen.value())) {
-            return false;
-        }
     }
     auto clients = schemaMan_->getFTClients();
     if (!clients.ok()) {
@@ -40,7 +32,26 @@ bool ESListener::apply(const std::vector<KV>& data) {
         }
         hClients.emplace_back(std::move(hc));
     }
-    return writeData(docItems, hClients);
+    std::vector<nebula::plugin::DocItem> docItems;
+    for (const auto& kv : data) {
+        if (!nebula::NebulaKeyUtils::isDataKey(kv.first)) {
+            continue;
+        }
+        if (!appendDocItem(docItems, kv, vIdLen.value())) {
+            return false;
+        }
+        if (docItems.size() >= static_cast<size_t>(FLAGS_ft_bulk_batch_size)) {
+            auto suc = writeData(docItems, hClients);
+            if (!suc) {
+                return suc;
+            }
+            docItems.clear();
+        }
+    }
+    if (docItems.size() > 0) {
+        return writeData(docItems, hClients);
+    }
+    return true;
 }
 
 bool ESListener::persist(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
