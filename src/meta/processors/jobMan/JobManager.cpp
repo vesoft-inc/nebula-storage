@@ -168,7 +168,7 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
 
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
     auto rc = save(jobDesc.jobKey(), jobDesc.jobVal());
-    if (rc == nebula::kvstore::SUCCEEDED) {
+    if (rc == nebula::kvstore::ResultCode::SUCCEEDED) {
         auto jobId = jobDesc.getJobId();
         enqueue(jobId, jobDesc.getCmd());
         // Add job to jobMap
