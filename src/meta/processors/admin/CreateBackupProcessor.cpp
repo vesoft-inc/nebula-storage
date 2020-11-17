@@ -266,7 +266,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         // todo we should save partition info.
         auto it = snapshotInfo.find(id);
         DCHECK(it != snapshotInfo.end());
-        spaceInfo.set_backup_name(it->second);
+        spaceInfo.set_cp_dirs(it->second);
         spaceInfo.set_space(std::move(properties));
         backupInfo.emplace(id, std::move(spaceInfo));
     }
@@ -274,6 +274,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     LOG(INFO) << "sst files count was:" << backupFiles.value().size();
     backup.set_meta_files(std::move(backupFiles.value()));
     backup.set_backup_info(std::move(backupInfo));
+    backup.set_backup_name(std::move(backupName));
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_meta(std::move(backup));

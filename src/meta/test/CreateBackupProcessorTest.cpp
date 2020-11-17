@@ -132,8 +132,8 @@ TEST(ProcessorTest, CreateBackupTest) {
         ASSERT_EQ(1, meta.get_backup_info().size());
         for (auto s : meta.get_backup_info()) {
             ASSERT_EQ(1, s.first);
-            ASSERT_EQ(1, s.second.get_backup_name().size());
-            auto checkInfo = s.second.get_backup_name()[0];
+            ASSERT_EQ(1, s.second.get_cp_dirs().size());
+            auto checkInfo = s.second.get_cp_dirs()[0];
             ASSERT_EQ("snapshot_path", checkInfo.get_checkpoint_dir());
         }
     }
