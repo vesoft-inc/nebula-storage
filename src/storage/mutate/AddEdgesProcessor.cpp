@@ -135,8 +135,9 @@ AddEdgesProcessor::addEdges(PartitionID partId,
      */
     std::unordered_map<std::string, std::string> newEdges;
     std::for_each(edges.begin(), edges.end(),
-                  [&newEdges](const std::map<std::string, std::string>::value_type& e)
-                  { newEdges[e.first] = e.second; });
+                  [&newEdges](const auto& e) {
+                      newEdges[e.first] = e.second;
+                  });
 
     for (auto& e : newEdges) {
         std::string val;
@@ -151,7 +152,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                  * step 1 , Delete old version index if exists.
                  */
                 if (val.empty()) {
-                    auto obsIdx = findObsoleteIndex(partId, e.first);
+                    auto obsIdx = findOldValue(partId, e.first);
                     if (obsIdx == folly::none) {
                         return folly::none;
                     }
@@ -227,7 +228,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
 }
 
 folly::Optional<std::string>
-AddEdgesProcessor::findObsoleteIndex(PartitionID partId, const folly::StringPiece& rawKey) {
+AddEdgesProcessor::findOldValue(PartitionID partId, const folly::StringPiece& rawKey) {
     auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_,
                                              partId,
                                              NebulaKeyUtils::getSrcId(spaceVidLen_, rawKey).str(),

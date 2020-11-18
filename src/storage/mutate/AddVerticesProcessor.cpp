@@ -142,8 +142,9 @@ AddVerticesProcessor::addVertices(PartitionID partId,
      */
     std::unordered_map<std::string, std::string> newVertices;
     std::for_each(vertices.begin(), vertices.end(),
-                  [&newVertices](const std::map<std::string, std::string>::value_type& v)
-                  { newVertices[v.first] = v.second; });
+                  [&newVertices](const auto& v) {
+                      newVertices[v.first] = v.second;
+                  });
 
     for (auto& v : newVertices) {
         std::string val;
@@ -160,7 +161,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
                  * step 1 , Delete old version index if exists.
                  */
                 if (val.empty()) {
-                    auto obsIdx = findObsoleteIndex(partId, vId, tagId);
+                    auto obsIdx = findOldValue(partId, vId, tagId);
                     if (obsIdx == folly::none) {
                         return folly::none;
                     }
@@ -236,7 +237,7 @@ AddVerticesProcessor::addVertices(PartitionID partId,
 }
 
 folly::Optional<std::string>
-AddVerticesProcessor::findObsoleteIndex(PartitionID partId, VertexID vId, TagID tagId) {
+AddVerticesProcessor::findOldValue(PartitionID partId, VertexID vId, TagID tagId) {
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
