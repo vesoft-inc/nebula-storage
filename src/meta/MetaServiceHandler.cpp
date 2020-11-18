@@ -63,6 +63,7 @@
 #include "meta/processors/zoneMan/ListGroupsProcessor.h"
 #include "meta/processors/zoneMan/UpdateGroupProcessor.h"
 #include "meta/processors/listenerMan/ListenerProcessor.h"
+#include "meta/processors/admin/RestoreProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -483,6 +484,12 @@ MetaServiceHandler::future_removeListener(const cpp2::RemoveListenerReq& req) {
 folly::Future<cpp2::ListListenerResp>
 MetaServiceHandler::future_listListener(const cpp2::ListListenerReq& req) {
     auto* processor = ListListenerProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_restoreMeta(const cpp2::RestoreMetaReq& req) {
+    auto* processor = RestoreProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 }  // namespace meta

@@ -252,6 +252,8 @@ public:
     folly::Future<cpp2::ListListenerResp>
     future_listListener(const cpp2::ListListenerReq& req) override;
 
+    folly::Future<cpp2::ExecResp> future_restoreMeta(const cpp2::RestoreMetaReq& req) override;
+
 private:
     kvstore::KVStore* kvstore_ = nullptr;
     ClusterID clusterId_{0};

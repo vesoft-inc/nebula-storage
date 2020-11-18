@@ -41,6 +41,10 @@ void RestoreProcessor::process(const cpp2::RestoreMetaReq& req) {
         }
     }
 
+    for (auto &f : files) {
+        unlink(f.c_str());
+    }
+
     onFinished();
 }
 }   // namespace meta
