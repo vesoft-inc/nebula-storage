@@ -441,37 +441,21 @@ nebula_add_executable(
         boost_regex
 )
 
+nebula_add_test(
+    NAME
+        compaction_test
+    SOURCES
+        CompactionTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        proxygenlib
+        wangle
+        gtest
+)
 
-#nebula_add_test(
-#    NAME
-#        vertex_props_test
-#    SOURCES
-#        QueryVertexPropsTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
-#nebula_add_test(
-#    NAME
-#        edge_props_test
-#    SOURCES
-#        QueryEdgePropsTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#
 #nebula_add_test(
 #    NAME
 #        query_stats_test
@@ -564,20 +548,6 @@ nebula_add_executable(
 #    LIBRARIES
 #        proxygenhttpserver
 #        proxygenlib
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#nebula_add_test(
-#    NAME
-#        compaction_test
-#    SOURCES
-#        CompactionTest.cpp
-#    OBJECTS
-#        ${storage_test_deps}
-#    LIBRARIES
 #        ${ROCKSDB_LIBRARIES}
 #        ${THRIFT_LIBRARIES}
 #        wangle
