@@ -54,8 +54,6 @@ protected:
 private:
     bool writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId);
 
-    bool readAppliedId(std::string& raw) const;
-
     std::string encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) const noexcept;
 
     bool appendDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;

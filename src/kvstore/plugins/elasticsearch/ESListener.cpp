@@ -62,23 +62,45 @@ bool ESListener::persist(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
 }
 
 std::pair<LogID, TermID> ESListener::lastCommittedLogId() {
-    std::string ret;
-    if (!readAppliedId(ret)) {
-        VLOG(3) << "read applied ids failed, file is " << *lastApplyLogFile_;
+    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
+        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
         return {0, 0};
     }
-    auto lastId = *reinterpret_cast<const LogID*>(ret.data());
-    auto lastTermId = *reinterpret_cast<const TermID*>(ret.data() + sizeof(LogID));
-    return {lastId, lastTermId};
+    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
+    if (fd < 0) {
+        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
+                   << errno << "): " << strerror(errno);
+    }
+    // read last logId from listener wal file.
+    LogID logId;
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), 0),
+             static_cast<ssize_t>(sizeof(LogID)));
+
+    // read last termId from listener wal file.
+    TermID termId;
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&termId), sizeof(TermID), sizeof(LogID)),
+             static_cast<ssize_t>(sizeof(TermID)));
+    close(fd);
+    return {logId, termId};
 }
 
 LogID ESListener::lastApplyLogId() {
-    std::string ret;
-    if (!readAppliedId(ret)) {
-        VLOG(3) << "read applied ids failed, file is " << *lastApplyLogFile_;
+    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
+        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
         return 0;
     }
-    return *reinterpret_cast<const LogID*>(ret.data() + sizeof(LogID) + sizeof(TermID));
+    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
+    if (fd < 0) {
+        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
+                   << errno << "): " << strerror(errno);
+    }
+    // read last applied logId from listener wal file.
+    LogID logId;
+    auto offset = sizeof(LogID) + sizeof(TermID);
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), offset),
+             static_cast<ssize_t>(sizeof(LogID)));
+    close(fd);
+    return logId;
 }
 
 bool ESListener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
@@ -97,29 +119,6 @@ bool ESListener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLo
     if (written != (ssize_t)raw.size()) {
         VLOG(3) << idStr_ << "bytesWritten:" << written << ", expected:" << raw.size()
                 << ", error:" << strerror(errno);
-        close(fd);
-        return false;
-    }
-    close(fd);
-    return true;
-}
-
-bool ESListener::readAppliedId(std::string& raw) const {
-    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
-        raw = encodeAppliedId(0, 0, 0);
-        return true;
-    }
-    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
-    if (fd < 0) {
-        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
-                   << errno << "): " << strerror(errno);
-    }
-
-    size_t size = sizeof(LogID) * 2 + sizeof(TermID);
-    if (read(fd, &raw, size) != static_cast<ssize_t>(size)) {
-        LOG(ERROR) << "Failed to read the raw from \""
-                    << lastApplyLogFile_->c_str() << "\" (" << errno << "): "
-                    << strerror(errno);
         close(fd);
         return false;
     }
