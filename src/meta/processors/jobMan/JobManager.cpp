@@ -153,12 +153,14 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
         save(task.taskKey(), task.taskVal());
         ++taskId;
     }
+
+    jobExecutor->finish(jobSuccess);
     return jobSuccess;
 }
 
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
     auto rc = save(jobDesc.jobKey(), jobDesc.jobVal());
-    if (rc == nebula::kvstore::SUCCEEDED) {
+    if (rc == nebula::kvstore::ResultCode::SUCCEEDED) {
         queue_->enqueue(jobDesc.getJobId());
     } else {
         LOG(ERROR) << "Add Job Failed";
@@ -173,7 +175,7 @@ JobManager::showJobs() {
     std::unique_ptr<kvstore::KVIterator> iter;
     ResultCode rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId,
                                      JobUtil::jobPrefix(), &iter);
-    if (rc != nebula::kvstore::SUCCEEDED) {
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
 
@@ -211,6 +213,9 @@ JobManager::showJobs() {
 }
 
 bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
+    if (jobDesc.status == cpp2::JobStatus::QUEUE || jobDesc.status == cpp2::JobStatus::RUNNING) {
+        return false;
+    }
     auto jobStart = jobDesc.get_start_time();
     auto duration = std::difftime(nebula::time::WallClock::fastNowInSec(), jobStart);
     return duration > FLAGS_job_expired_secs;
@@ -233,7 +238,7 @@ JobManager::showJob(JobID iJob) {
     auto jobKey = JobDescription::makeJobKey(iJob);
     std::unique_ptr<kvstore::KVIterator> iter;
     auto rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, jobKey, &iter);
-    if (rc != nebula::kvstore::SUCCEEDED) {
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
 
@@ -272,7 +277,7 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
 
     jobDesc->setStatus(cpp2::JobStatus::STOPPED);
     auto rc = save(jobDesc->jobKey(), jobDesc->jobVal());
-    if (rc != nebula::kvstore::SUCCEEDED) {
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
         return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
 
@@ -286,7 +291,7 @@ ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
     int32_t recoveredJobNum = 0;
     std::unique_ptr<kvstore::KVIterator> iter;
     auto rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, JobUtil::jobPrefix(), &iter);
-    if (rc != nebula::kvstore::SUCCEEDED) {
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Can't find jobs";
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
@@ -309,7 +314,7 @@ ErrorOr<cpp2::ErrorCode, JobID> JobManager::recoverJob() {
 ResultCode JobManager::save(const std::string& k, const std::string& v) {
     std::vector<kvstore::KV> data{std::make_pair(k, v)};
     folly::Baton<true, std::atomic> baton;
-    nebula::kvstore::ResultCode rc = nebula::kvstore::SUCCEEDED;
+    auto rc = nebula::kvstore::ResultCode::SUCCEEDED;
     kvStore_->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
                             [&] (nebula::kvstore::ResultCode code) {
                                 rc = code;

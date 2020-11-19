@@ -26,7 +26,8 @@ Value StorageExpressionContext::readValue(const std::string& propName) const {
         auto nullType = value.getNull();
         if (nullType == NullType::UNKNOWN_PROP && field->hasDefault()) {
             DefaultValueContext expCtx;
-            return Value(Expression::eval(field->defaultValue(), expCtx));
+            auto expr = field->defaultValue()->clone();
+            return Value(Expression::eval(expr.get(), expCtx));
         }
         return Value::kNullValue;
     }
@@ -45,7 +46,7 @@ Value StorageExpressionContext::getTagProp(const std::string& tagName,
         }
         if (prop == kVid) {
             auto vId = NebulaKeyUtils::getVertexId(vIdLen_, key_);
-            return isIntId_ ? vId : vId.subpiece(0, vId.find_first_of('\0'));
+            return isIntId_ ? vId.toString() : vId.subpiece(0, vId.find_first_of('\0')).toString();
         } else {
             return readValue(prop);
         }
@@ -69,10 +70,14 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
         }
         if (prop == kSrc) {
             auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key_);
-            return isIntId_ ? srcId : srcId.subpiece(0, srcId.find_first_of('\0'));
+            return isIntId_ ?
+                srcId.toString() :
+                srcId.subpiece(0, srcId.find_first_of('\0')).toString();
         } else if (prop == kDst) {
             auto dstId = NebulaKeyUtils::getDstId(vIdLen_, key_);
-            return isIntId_ ? dstId : dstId.subpiece(0, dstId.find_first_of('\0'));
+            return isIntId_ ?
+                dstId.toString() :
+                dstId.subpiece(0, dstId.find_first_of('\0')).toString();
         } else if (prop == kRank) {
             return NebulaKeyUtils::getRank(vIdLen_, key_);
         } else if (prop == kType) {
@@ -108,8 +113,14 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
 }
 
 Value StorageExpressionContext::getIndexValue(const std::string& prop, bool isEdge) const {
-    return IndexKeyUtils::getValueFromIndexKey(vIdLen_, vColNum_, key_, prop,
-                                               indexCols_, isEdge, hasNullableCol_);
+    // TODO (sky) : Handle string type values.
+    //              when field type is FIXED_STRING type,
+    //              actual length of the value is called "len"
+    //              FIXED_STRING.type.len is called "fixed_len"
+    //              if (len > fixed_len) : v = value.substr(0, fixed_len)
+    //              if (len < fixed_len) : v.append(fixed_len - len, '\0')
+    return IndexKeyUtils::getValueFromIndexKey(vIdLen_, key_, prop,
+                                               fields_, isEdge, hasNullableCol_);
 }
 
 }  // namespace storage

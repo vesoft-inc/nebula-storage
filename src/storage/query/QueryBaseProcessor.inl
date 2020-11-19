@@ -347,15 +347,43 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             return cpp2::ErrorCode::SUCCEEDED;
         }
+        case Expression::Kind::kCase: {
+            auto* caseExp = static_cast<const CaseExpression*>(exp);
+            if (caseExp->hasCondition()) {
+                auto ret = checkExp(caseExp->condition(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            if (caseExp->hasDefault()) {
+                auto ret = checkExp(caseExp->defaultResult(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            for (auto& whenThen : caseExp->cases()) {
+                auto ret = checkExp(whenThen.when.get(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+                ret = checkExp(whenThen.then.get(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return cpp2::ErrorCode::SUCCEEDED;
+        }
         case Expression::Kind::kLogicalAnd:
         case Expression::Kind::kLogicalOr:
         case Expression::Kind::kLogicalXor: {
             auto* logExp = static_cast<const LogicalExpression*>(exp);
-            auto ret = checkExp(logExp->left(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
-                return ret;
+            for (auto &expr : logExp->operands()) {
+                auto ret = checkExp(expr.get(), returned, filtered, updated);
+                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
             }
-            return checkExp(logExp->right(), returned, filtered, updated);
+            return cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kTypeCasting: {
             auto* typExp = static_cast<const TypeCastingExpression*>(exp);

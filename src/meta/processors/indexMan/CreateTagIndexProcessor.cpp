@@ -14,15 +14,13 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     CHECK_SPACE_ID_AND_RETURN(space);
     const auto &indexName = req.get_index_name();
     auto &tagName = req.get_tag_name();
-    auto &fieldNames = req.get_fields();
-    if (fieldNames.empty()) {
-        LOG(ERROR) << "The index field of an tag should not be empty.";
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
-        onFinished();
-        return;
+    const auto &fields = req.get_fields();
+
+    std::set<std::string> columnSet;
+    for (const auto& field : fields) {
+        columnSet.emplace(field.get_name());
     }
-    std::set<std::string> columnSet(fieldNames.begin(), fieldNames.end());
-    if (fieldNames.size() != columnSet.size()) {
+    if (fields.size() != columnSet.size()) {
         LOG(ERROR) << "Conflict field in the tag index.";
         handleErrorCode(cpp2::ErrorCode::E_CONFLICT);
         onFinished();
@@ -40,7 +38,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::tagIndexLock());
     auto ret = getIndexID(space, indexName);
     if (ret.ok()) {
-        LOG(ERROR) << "Create Tag Index Failed: " << indexName << " have existed";
+        LOG(ERROR) << "Create Tag Index Failed: " << indexName << " has existed";
         if (req.get_if_not_exists()) {
             resp_.set_id(to(ret.value(), EntryType::INDEX));
             handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
@@ -73,13 +71,13 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
         auto val = checkIter->val();
         auto item = MetaServiceUtils::parseIndex(val);
         if (item.get_schema_id().getType() != cpp2::SchemaID::Type::tag_id ||
-            fieldNames.size() > item.get_fields().size() ||
+            fields.size() > item.get_fields().size() ||
             tagID != item.get_schema_id().get_tag_id()) {
             checkIter->next();
             continue;
         }
 
-        if (checkIndexExist(fieldNames, item)) {
+        if (checkIndexExist(fields, item)) {
             resp_.set_code(cpp2::ErrorCode::E_EXISTED);
             onFinished();
             return;
@@ -104,17 +102,34 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
 
     const auto& schemaCols = latestTagSchema.get_columns();
     std::vector<cpp2::ColumnDef> columns;
-    for (auto &field : fieldNames) {
+    for (auto &field : fields) {
         auto iter = std::find_if(schemaCols.begin(), schemaCols.end(),
-                                 [field](const auto& col) { return field == col.get_name(); });
+                                 [field](const auto& col) {
+                                     return field.get_name() == col.get_name();
+                                 });
         if (iter == schemaCols.end()) {
-            LOG(ERROR) << "Field " << field << " not found in Tag " << tagName;
+            LOG(ERROR) << "Field " << field.get_name() << " not found in Tag " << tagName;
             handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
             onFinished();
             return;
-        } else {
-            columns.emplace_back(*iter);
         }
+        cpp2::ColumnDef col = *iter;
+        if (col.type.get_type() == meta::cpp2::PropertyType::STRING) {
+            if (!field.__isset.type_length) {
+                LOG(ERROR) << "No type length set : " << field.get_name();
+                handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+                onFinished();
+                return;
+            }
+            col.type.set_type(meta::cpp2::PropertyType::FIXED_STRING);
+            col.type.set_type_length(*field.get_type_length());
+        } else if (field.__isset.type_length) {
+            LOG(ERROR) << "No need to set type length : " << field.get_name();
+            handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+            onFinished();
+            return;
+        }
+        columns.emplace_back(col);
     }
 
     std::vector<kvstore::KV> data;

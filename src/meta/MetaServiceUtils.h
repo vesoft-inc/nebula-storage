@@ -270,6 +270,14 @@ public:
 
     static PartitionID parseListenerPart(folly::StringPiece rawData);
 
+    static std::string statisKey(GraphSpaceID spaceId);
+
+    static std::string statisVal(const cpp2::StatisItem &statisItem);
+
+    static cpp2::StatisItem parseStatisVal(folly::StringPiece rawData);
+
+    static const std::string& statisKeyPrefix();
+
     static std::string genTimestampStr();
 
     static folly::Optional<bool> isIndexRebuilding(kvstore::KVStore*);

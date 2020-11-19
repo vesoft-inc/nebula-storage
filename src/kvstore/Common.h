@@ -16,7 +16,7 @@
 namespace nebula {
 namespace kvstore {
 
-enum ResultCode {
+enum class ResultCode {
     SUCCEEDED               = 0,
     ERR_SPACE_NOT_FOUND     = -1,
     ERR_PART_NOT_FOUND      = -2,
@@ -48,6 +48,10 @@ enum ResultCode {
     ERR_PARTIAL_RESULT      = -99,
     ERR_UNKNOWN             = -100,
 };
+
+inline std::ostream& operator <<(std::ostream& os, const ResultCode& rc) {
+    return os << static_cast<int32_t>(rc);
+}
 
 class KVFilter {
 public:
