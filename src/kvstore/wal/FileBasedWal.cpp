@@ -749,6 +749,12 @@ void FileBasedWal::cleanWAL(LogID id) {
         return;
     }
 
+    if (walFiles_.rbegin()->second->lastId() < id) {
+        LOG(WARNING) << "Try to clean wal not existed " << id
+                     << ", lastWal is " << walFiles_.rbegin()->second->lastId();
+        return;
+    }
+
     // remove wal file that lastId is less than target
     auto iter = walFiles_.begin();
     while (iter != walFiles_.end()) {

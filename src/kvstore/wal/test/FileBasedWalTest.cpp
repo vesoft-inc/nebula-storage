@@ -609,6 +609,10 @@ TEST(FileBasedWal, CleanWalBeforeIdTest) {
         logToKeep += folly::Random::rand64(10);
     }
     CHECK_EQ(1000, wal->lastLogId());
+
+    // try to clean not existed log
+    wal->cleanWAL(1L);
+    CHECK_EQ(1000, wal->lastLogId());
 }
 
 }  // namespace wal
