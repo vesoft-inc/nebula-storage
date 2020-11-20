@@ -89,6 +89,12 @@ public:
     }
 
     void TearDown() override {
+        for (const auto& store : stores_) {
+            store->stop();
+        }
+        for (const auto& listener : listeners_) {
+            listener->stop();
+        }
     }
 
 protected:
