@@ -66,6 +66,11 @@ public:
         LOG(FATAL) << "Not allowed to call";
         return Value::kEmpty;
     }
+
+    std::regex getRegex(const std::string&) override {
+        LOG(FATAL) << "Not allowed to call";
+        return std::regex();
+    }
 };
 }  // namespace nebula
 

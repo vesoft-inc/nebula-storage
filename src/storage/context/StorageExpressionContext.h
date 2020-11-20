@@ -108,6 +108,10 @@ public:
         LOG(FATAL) << "Unimplemented";
     }
 
+    std::regex getRegex(const std::string&) override {
+        LOG(FATAL) << "Unimplemented";
+    }
+
 
     // index key
     void reset(const std::string& key) {
