@@ -114,6 +114,10 @@ public:
         return options_.partMan_.get();
     }
 
+    bool isListener() const {
+        return !options_.listenerPath_.empty();
+    }
+
     ResultCode get(GraphSpaceID spaceId,
                    PartitionID  partId,
                    const std::string& key,

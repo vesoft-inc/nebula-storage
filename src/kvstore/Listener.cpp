@@ -4,6 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "common/time/WallClock.h"
 #include "kvstore/Listener.h"
 #include "kvstore/LogEncoder.h"
 #include "codec/RowReaderWrapper.h"
@@ -31,6 +32,8 @@ Listener::Listener(GraphSpaceID spaceId,
 
 void Listener::start(std::vector<HostAddr>&& peers, bool) {
     std::lock_guard<std::mutex> g(raftLock_);
+
+    init();
 
     lastLogId_ = wal_->lastLogId();
     lastLogTerm_ = wal_->lastLogTerm();
@@ -120,6 +123,7 @@ bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
         lastId_ = lastId;
         lastTerm_ = lastTerm;
     }
+    lastCommitTime_ = time::WallClock::fastNowInMilliSec();
     return true;
 }
 
@@ -204,14 +208,13 @@ void Listener::doApply() {
             ++(*iter);
         }
 
-        if (!data.empty()) {
-            // apply to state machine
-            if (apply(data)) {
-                std::lock_guard<std::mutex> guard(raftLock_);
-                lastApplyLogId_ = lastApplyId;
-                persist(lastId_, lastTerm_, lastApplyLogId_);
-                VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
-            }
+        // apply to state machine
+        if (apply(data)) {
+            std::lock_guard<std::mutex> guard(raftLock_);
+            lastApplyLogId_ = lastApplyId;
+            persist(lastId_, lastTerm_, lastApplyLogId_);
+            VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
+            lastApplyTime_ = time::WallClock::fastNowInMilliSec();
         }
     });
 }
@@ -220,7 +223,7 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
                                                      LogID committedLogId,
                                                      TermID committedLogTerm,
                                                      bool finished) {
-    LOG(WARNING) << "Not implemented";
+    LOG(WARNING) << "Listener snapshot has not implemented yet";
     UNUSED(committedLogId); UNUSED(committedLogTerm); UNUSED(finished);
     int64_t count = 0;
     int64_t size = 0;

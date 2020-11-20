@@ -41,6 +41,9 @@ public:
     }
 
 protected:
+    void init() override {
+    }
+
     bool apply(const std::vector<KV>& kvs) override {
         for (const auto& kv : kvs) {
             data_.emplace_back(kv);

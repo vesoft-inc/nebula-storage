@@ -54,10 +54,14 @@ bool NebulaStore::init() {
         LOG(ERROR) << "Start the raft service failed";
         return false;
     }
-    loadPartFromDataPath();
-    loadPartFromPartManager();
-    loadLocalListenerFromPartManager();
-    loadRemoteListenerFromPartManager();
+    // todo(doodle): we could support listener and normal storage start at same instance
+    if (!isListener()) {
+        loadPartFromDataPath();
+        loadPartFromPartManager();
+        loadRemoteListenerFromPartManager();
+    } else {
+        loadLocalListenerFromPartManager();
+    }
 
     bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     LOG(INFO) << "Register handler...";

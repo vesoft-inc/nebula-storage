@@ -67,6 +67,9 @@ derived class.
                                                bool finished) override;
 
 * Must implement in derived class
+    // extra initialize work could do here
+    void init()
+
     // read last commit log id and term from external storage, used in initialization
     std::pair<LogID, TermID> lastCommittedLogId()
 
@@ -102,8 +105,8 @@ public:
     // Stop listener
     void stop() override;
 
-    int64_t logGap() {
-        return wal_->lastLogId() - lastApplyLogId_;
+    int64_t logGapInMs() {
+        return lastCommitTime_ - lastApplyTime_;
     }
 
     LogID getApplyId() {
@@ -116,6 +119,8 @@ public:
     }
 
 protected:
+    virtual void init() = 0;
+
     // Last apply id, need to be persisted, used in initialization
     virtual LogID lastApplyLogId() = 0;
 
@@ -157,10 +162,12 @@ protected:
     void doApply();
 
 protected:
-    // lastId_ and lastTerm_ is same as committedLogId_ and term_ in usual case
+    // lastId_ and lastTerm_ is same as committedLogId_ and term_
     LogID lastId_ = -1;
     TermID lastTerm_ = -1;
     LogID lastApplyLogId_ = 0;
+    int64_t lastCommitTime_ = 0;
+    int64_t lastApplyTime_ = 0;
     meta::SchemaManager* schemaMan_{nullptr};
 };
 

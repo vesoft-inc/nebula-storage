@@ -29,6 +29,9 @@ public:
     }
 
 protected:
+    void init() override {
+    }
+
     bool apply(const std::vector<KV>&) override {
         return true;
     }
