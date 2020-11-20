@@ -23,7 +23,7 @@
 
 DEFINE_int32(dispatch_thread_num, 10, "Number of job dispatch http thread");
 DEFINE_int32(job_check_intervals, 5000, "job intervals in us");
-DEFINE_double(job_expired_secs, 7*24*60*60, "job expired intervals in sec");
+DEFINE_double(job_expired_secs, 7 * 24 * 60 * 60, "job expired intervals in sec");
 
 using nebula::kvstore::ResultCode;
 using nebula::kvstore::KVIterator;
@@ -75,11 +75,9 @@ void JobManager::shutDown() {
     pool_->stop();
     bgThread_->stop();
     bgThread_->wait();
-    LOG(INFO) << "JobManager::shutDown() end";
 }
 
 void JobManager::scheduleThread() {
-    LOG(INFO) << "JobManager::runJobBackground() enter";
     while (status_ == Status::RUNNING) {
         int32_t iJob = 0;
         while (!try_dequeue(iJob)) {
@@ -114,7 +112,6 @@ void JobManager::scheduleThread() {
             inFlightJobs_.erase(it);
         }
     }
-    LOG(INFO) << "[JobManager] exit";
 }
 
 // @return: true if succeed, false if any task failed
@@ -205,9 +202,10 @@ void JobManager::enqueue(const JobID& jobId, const cpp2::AdminCmd& cmd) {
 ErrorOr<cpp2::ErrorCode, std::vector<cpp2::JobDesc>>
 JobManager::showJobs() {
     std::unique_ptr<kvstore::KVIterator> iter;
-    ResultCode rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId,
-                                     JobUtil::jobPrefix(), &iter);
+    auto rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId,
+                               JobUtil::jobPrefix(), &iter);
     if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Fetch Jobs Failed";
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
 
@@ -237,7 +235,12 @@ JobManager::showJobs() {
             }
         }
     }
-    removeExpiredJobs(expiredJobKeys);
+
+    if (!removeExpiredJobs(expiredJobKeys)) {
+        LOG(ERROR) << "Remove Expired Jobs Failed";
+        return cpp2::ErrorCode::E_STORE_FAILURE;
+    }
+
     std::sort(ret.begin(), ret.end(), [](const auto& a, const auto& b) {
         return a.get_id() > b.get_id();
     });
@@ -253,16 +256,19 @@ bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
     return duration > FLAGS_job_expired_secs;
 }
 
-void JobManager::removeExpiredJobs(const std::vector<std::string>& expiredJobsAndTasks) {
+bool JobManager::removeExpiredJobs(const std::vector<std::string>& expiredJobsAndTasks) {
+    bool result = true;
     folly::Baton<true, std::atomic> baton;
     kvStore_->asyncMultiRemove(kDefaultSpaceId, kDefaultPartId, expiredJobsAndTasks,
                                [&](nebula::kvstore::ResultCode code) {
                                    if (code != kvstore::ResultCode::SUCCEEDED) {
+                                       result = false;
                                        LOG(ERROR) << "kvstore asyncRemoveRange failed: " << code;
                                    }
                                    baton.post();
                                });
     baton.wait();
+    return result;
 }
 
 bool JobManager::checkJobExist(const cpp2::AdminCmd& cmd,

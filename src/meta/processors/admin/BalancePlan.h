@@ -43,6 +43,10 @@ public:
         tasks_.emplace_back(std::move(task));
     }
 
+    void addTasks(std::vector<BalanceTask>&& tasks) {
+        tasks_ = std::move(tasks);
+    }
+
     void invoke();
 
     /**
@@ -65,6 +69,14 @@ public:
 
     const std::vector<BalanceTask>& tasks() const {
         return tasks_;
+    }
+
+    int32_t taskSize() const {
+        return tasks_.size();
+    }
+
+    void setFinishCallback(std::function<void()>&& function) {
+        onFinished_ = function;
     }
 
     void stop() {

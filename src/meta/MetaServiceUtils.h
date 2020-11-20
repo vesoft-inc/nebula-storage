@@ -50,6 +50,8 @@ public:
 
     static std::string spaceName(folly::StringPiece rawVal);
 
+    static std::string spaceDependentGroupName(folly::StringPiece rawVal);
+
     static std::string partKey(GraphSpaceID spaceId, PartitionID partId);
 
     static GraphSpaceID parsePartKeySpaceId(folly::StringPiece key);

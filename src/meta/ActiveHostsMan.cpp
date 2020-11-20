@@ -9,7 +9,7 @@
 #include "utils/Utils.h"
 
 DEFINE_int32(expired_threshold_sec, 10 * 60,
-                     "Hosts will be expired in this time if no heartbeat received");
+             "Hosts will be expired in this time if no heartbeat received");
 
 namespace nebula {
 namespace meta {
@@ -98,7 +98,6 @@ std::vector<HostAddr> ActiveHostsMan::getActiveHostsInZone(kvstore::KVStore* kv,
 std::vector<HostAddr> ActiveHostsMan::getActiveHostsBySpace(kvstore::KVStore* kv,
                                                             GraphSpaceID spaceId,
                                                             int32_t expiredTTL) {
-    LOG(INFO) << "getActiveHostsBySpace";
     std::string spaceValue;
     std::vector<HostAddr> activeHosts;
     auto spaceKey = MetaServiceUtils::spaceKey(spaceId);
@@ -113,14 +112,13 @@ std::vector<HostAddr> ActiveHostsMan::getActiveHostsBySpace(kvstore::KVStore* kv
     auto groupKey = MetaServiceUtils::groupKey(space.group_name);
     ret = kv->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Get group " << space.group_name  << "failed";
+        LOG(ERROR) << "Get group " << space.group_name << " failed";
         return activeHosts;
     }
 
     auto zoneNames = MetaServiceUtils::parseZoneNames(std::move(groupValue));
     for (const auto& zoneName : zoneNames) {
         auto hosts = getActiveHostsInZone(kv, zoneName, expiredTTL);
-        LOG(INFO) << "Zone " << zoneName << " Host Size: " << hosts.size();
         activeHosts.insert(activeHosts.end(), hosts.begin(), hosts.end());
     }
     return activeHosts;

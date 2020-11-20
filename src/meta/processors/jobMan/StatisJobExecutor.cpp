@@ -102,7 +102,6 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
     }
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
     save(statisKey, statisVal);
-    return;
 }
 
 cpp2::ErrorCode StatisJobExecutor::stop() {

@@ -68,13 +68,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
-    std::unordered_set<HostAddr> hostDel;
-    if (req.get_host_del() != nullptr) {
-        hostDel.reserve(req.get_host_del()->size());
-        for (const auto& host : *req.get_host_del()) {
-            hostDel.emplace(host);
-        }
-    }
+
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
     if (hosts.empty()) {
         LOG(ERROR) << "There is no active hosts";
@@ -82,6 +76,8 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
+
+    auto hostDel = *req.get_host_del();
     auto ret = Balancer::instance(kvstore_)->balance(std::move(hostDel));
     if (!ok(ret)) {
         LOG(ERROR) << "Balance Failed: " << static_cast<int32_t>(ret.left());

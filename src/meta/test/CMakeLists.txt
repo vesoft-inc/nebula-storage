@@ -15,6 +15,7 @@ set(meta_test_deps
     $<TARGET_OBJECTS:keyutils_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>
     $<TARGET_OBJECTS:common_file_based_cluster_id_man_obj>
+    $<TARGET_OBJECTS:common_ws_obj>
     $<TARGET_OBJECTS:common_ws_common_obj>
     $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_raftex_thrift_obj>
@@ -26,6 +27,7 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_meta_obj>
     $<TARGET_OBJECTS:common_stats_obj>
     $<TARGET_OBJECTS:common_fs_obj>
+    $<TARGET_OBJECTS:common_hdfs_helper_obj>
     $<TARGET_OBJECTS:common_time_obj>
     $<TARGET_OBJECTS:common_network_obj>
     $<TARGET_OBJECTS:common_thread_obj>
@@ -62,7 +64,7 @@ nebula_add_test(
         $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         gtest
 )
 
@@ -76,7 +78,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -91,7 +93,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -106,7 +108,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -121,54 +123,45 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
 
-#nebula_add_test(
-#    NAME
-#        meta_http_download_test
-#    SOURCES
-#        MetaHttpDownloadHandlerTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:storage_http_handler>
-#        $<TARGET_OBJECTS:meta_http_handler>
-#        $<TARGET_OBJECTS:ws_obj>
-#        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
-#        $<TARGET_OBJECTS:http_client_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        proxygenhttpserver
-#        proxygenlib
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-#
-#nebula_add_test(
-#    NAME
-#        meta_http_ingest_test
-#    SOURCES
-#        MetaHttpIngestHandlerTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:storage_http_handler>
-#        $<TARGET_OBJECTS:meta_http_handler>
-#        $<TARGET_OBJECTS:ws_obj>
-#        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
-#        $<TARGET_OBJECTS:http_client_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        proxygenhttpserver
-#        proxygenlib
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
+nebula_add_test(
+    NAME
+        meta_http_download_test
+    SOURCES
+        MetaHttpDownloadHandlerTest.cpp
+    OBJECTS
+        $<TARGET_OBJECTS:storage_http_handler>
+        $<TARGET_OBJECTS:meta_http_handler>
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+)
+
+
+nebula_add_test(
+    NAME
+        meta_http_ingest_test
+    SOURCES
+        MetaHttpIngestHandlerTest.cpp
+    OBJECTS
+        $<TARGET_OBJECTS:storage_http_handler>
+        $<TARGET_OBJECTS:meta_http_handler>
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+)
 
 nebula_add_test(
     NAME
@@ -180,32 +173,33 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
 
 
-#nebula_add_test(
-#    NAME
-#        balance_integration_test
-#    SOURCES
-#        BalanceIntegrationTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:index_obj>
-#        $<TARGET_OBJECTS:storage_service_handler>
-#        $<TARGET_OBJECTS:storage_client>
-#        $<TARGET_OBJECTS:dataman_obj>
-#        $<TARGET_OBJECTS:filter_obj>
-#        $<TARGET_OBJECTS:adHocSchema_obj>
-#        $<TARGET_OBJECTS:adHocIndex_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
+nebula_add_test(
+    NAME
+        balance_integration_test
+    SOURCES
+        BalanceIntegrationTest.cpp
+    OBJECTS
+        #$<TARGET_OBJECTS:index_obj>
+        #$<TARGET_OBJECTS:storage_service_handler>
+        #$<TARGET_OBJECTS:storage_client>
+        #$<TARGET_OBJECTS:dataman_obj>
+        #$<TARGET_OBJECTS:filter_obj>
+        #$<TARGET_OBJECTS:adHocSchema_obj>
+        #$<TARGET_OBJECTS:adHocIndex_obj>
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+)
 
 
 nebula_add_test(
@@ -218,6 +212,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
         wangle
         gtest
@@ -234,7 +229,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -249,7 +244,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -262,16 +257,11 @@ nebula_add_test(
 #    OBJECTS
 #        $<TARGET_OBJECTS:storage_http_handler>
 #        $<TARGET_OBJECTS:meta_http_handler>
-#        $<TARGET_OBJECTS:ws_obj>
-#        $<TARGET_OBJECTS:ws_common_obj>
-#        $<TARGET_OBJECTS:hdfs_helper_obj>
-#        $<TARGET_OBJECTS:http_client_obj>
 #        ${meta_test_deps}
 #    LIBRARIES
-#        proxygenhttpserver
-#        proxygenlib
 #        ${ROCKSDB_LIBRARIES}
 #        ${THRIFT_LIBRARIES}
+#        ${PROXYGEN_LIBRARIES}
 #        wangle
 #        gtest
 #)
@@ -284,11 +274,9 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -301,11 +289,9 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -318,10 +304,9 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )

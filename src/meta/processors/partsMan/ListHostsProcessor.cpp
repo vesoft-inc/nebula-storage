@@ -30,7 +30,6 @@ static cpp2::HostRole toHostRole(cpp2::ListHostType type) {
 }
 
 void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
-    UNUSED(req);
     Status status;
     {
         folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());

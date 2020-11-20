@@ -147,6 +147,10 @@ std::string MetaServiceUtils::spaceName(folly::StringPiece rawVal) {
     return parseSpace(rawVal).get_space_name();
 }
 
+std::string MetaServiceUtils::spaceDependentGroupName(folly::StringPiece rawVal) {
+    return parseSpace(rawVal).group_name;
+}
+
 std::string MetaServiceUtils::partKey(GraphSpaceID spaceId, PartitionID partId) {
     std::string key;
     key.reserve(kPartsTable.size() + sizeof(GraphSpaceID) + sizeof(PartitionID));
@@ -571,7 +575,7 @@ std::string MetaServiceUtils::indexGroupKey(const std::string& name) {
     std::string key;
     key.reserve(128);
     key.append(kIndexTable.data(), kIndexTable.size())
-       .append(reinterpret_cast<const char*>(&type), sizeof(type))
+       .append(reinterpret_cast<const char*>(&type), sizeof(EntryType))
        .append(name);
     return key;
 }
@@ -915,7 +919,7 @@ void MetaServiceUtils::upgradeMetaDataV1toV2(nebula::kvstore::KVStore* kv) {
     std::vector<nebula::kvstore::KV> data;
     {
         // 1. kPartsTable
-        const auto& spacePrefix = nebula::meta::MetaServiceUtils::spacePrefix();
+        const auto& spacePrefix = MetaServiceUtils::spacePrefix();
         std::unique_ptr<nebula::kvstore::KVIterator> itSpace;
         if (kv->prefix(kDefaultSpaceId, kDefaultPartId, spacePrefix, &itSpace) != suc) {
             return;
