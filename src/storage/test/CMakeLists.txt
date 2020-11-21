@@ -654,9 +654,9 @@ nebula_add_test(
         gtest
 )
 
-nebula_add_test(
+nebula_add_executable(
     NAME
-        es_bulk_test
+        es_bulk_example
     SOURCES
         ElasticSearchBulkInsertTest.cpp
     OBJECTS
