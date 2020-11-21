@@ -1,0 +1,8 @@
+package cmd
+
+import "github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
+
+var (
+	cf            config.BackupConfig
+	restoreConfig config.RestoreConfig
+)
