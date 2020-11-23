@@ -102,7 +102,7 @@ func (b *Backup) createBackup(count int) (*meta.CreateBackupResp, error) {
 }
 
 func (b *Backup) writeMetadata(meta *meta.BackupMeta) error {
-	b.metaFileName = tmpDir + meta.BackupName + ".meta"
+	b.metaFileName = tmpDir + string(meta.BackupName[:]) + ".meta"
 
 	file, err := os.OpenFile(b.metaFileName, os.O_TRUNC|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -115,10 +115,10 @@ func (b *Backup) writeMetadata(meta *meta.BackupMeta) error {
 
 	binaryOut := thrift.NewBinaryProtocol(trans, false, true)
 	defer trans.Close()
-	var absMetaFiles []string
+	var absMetaFiles [][]byte
 	for _, files := range meta.MetaFiles {
-		f := filepath.Base(files)
-		absMetaFiles = append(absMetaFiles, f)
+		f := filepath.Base(string(files[:]))
+		absMetaFiles = append(absMetaFiles, []byte(f))
 	}
 	meta.MetaFiles = absMetaFiles
 	err = meta.Write(binaryOut)
@@ -211,12 +211,16 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 	//upload meta
 	g, _ := errgroup.WithContext(context.Background())
 
-	err := b.execPreCommand(meta.GetBackupName())
+	err := b.execPreCommand(string(meta.GetBackupName()[:]))
 	if err != nil {
 		return err
 	}
 
-	b.uploadMeta(g, meta.GetMetaFiles())
+	var metaFiles []string
+	for _, f := range meta.GetMetaFiles() {
+		metaFiles = append(metaFiles, string(f[:]))
+	}
+	b.uploadMeta(g, metaFiles)
 	//upload storage
 	storageMap := make(map[string][]spaceInfo)
 	for k, v := range meta.GetBackupInfo() {

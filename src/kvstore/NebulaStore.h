@@ -16,10 +16,15 @@
 #include "kvstore/Part.h"
 #include "kvstore/PartManager.h"
 #include "kvstore/raftex/RaftexService.h"
+#include "kvstore/Listener.h"
+#include "kvstore/ListenerFactory.h"
+#include "kvstore/KVEngine.h"
 #include "kvstore/raftex/SnapshotManager.h"
 
 namespace nebula {
 namespace kvstore {
+
+using ListenerMap = std::unordered_map<meta::cpp2::ListenerType, std::shared_ptr<Listener>>;
 
 struct SpacePartInfo {
     ~SpacePartInfo() {
@@ -32,6 +37,10 @@ struct SpacePartInfo {
     std::vector<std::unique_ptr<KVEngine>> engines_;
 };
 
+struct SpaceListenerInfo {
+    std::unordered_map<PartitionID, ListenerMap> listeners_;
+};
+
 class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, SimpleTest);
     FRIEND_TEST(NebulaStoreTest, PartsTest);
@@ -39,6 +48,7 @@ class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, TransLeaderTest);
     FRIEND_TEST(NebulaStoreTest, CheckpointTest);
     FRIEND_TEST(NebulaStoreTest, ThreeCopiesCheckpointTest);
+    friend class ListenerBasicTest;
 
 public:
     NebulaStore(KVOptions options,
@@ -90,8 +100,12 @@ public:
         return ioPool_;
     }
 
-    std::shared_ptr<thread::GenericThreadPool> getWorkers() const {
+    std::shared_ptr<thread::GenericThreadPool> getBgWorkers() const {
         return bgWorkers_;
+    }
+
+    std::shared_ptr<folly::Executor> getExecutors() const {
+        return workers_;
     }
 
     // Return the current leader
@@ -99,6 +113,10 @@ public:
 
     PartManager* partManager() const override {
         return options_.partMan_.get();
+    }
+
+    bool isListener() const {
+        return !options_.listenerPath_.empty();
     }
 
     ResultCode get(GraphSpaceID spaceId,
@@ -220,14 +238,14 @@ public:
     /**
      * Implement four interfaces in Handler.
      * */
-    void addSpace(GraphSpaceID spaceId) override;
+    void addSpace(GraphSpaceID spaceId, bool isListener = false) override;
 
     void addPart(GraphSpaceID spaceId,
                  PartitionID partId,
                  bool asLearner,
                  const std::vector<HostAddr>& peers = {}) override;
 
-    void removeSpace(GraphSpaceID spaceId) override;
+    void removeSpace(GraphSpaceID spaceId, bool isListener) override;
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
@@ -243,7 +261,28 @@ public:
     ResultCode restoreFromFiles(GraphSpaceID spaceId,
                                 const std::vector<std::string>& files) override;
 
+    void addListener(GraphSpaceID spaceId,
+                     PartitionID partId,
+                     meta::cpp2::ListenerType type,
+                     const std::vector<HostAddr>& peers) override;
+
+    void removeListener(GraphSpaceID spaceId,
+                        PartitionID partId,
+                        meta::cpp2::ListenerType type) override;
+
+    void checkRemoteListeners(GraphSpaceID spaceId,
+                              PartitionID partId,
+                              const std::vector<HostAddr>& remoteListeners) override;
+
 private:
+    void loadPartFromDataPath();
+
+    void loadPartFromPartManager();
+
+    void loadLocalListenerFromPartManager();
+
+    void loadRemoteListenerFromPartManager();
+
     void updateSpaceOption(GraphSpaceID spaceId,
                            const std::unordered_map<std::string, std::string>& options,
                            bool isDbOption) override;
@@ -256,6 +295,11 @@ private:
                                   bool asLearner,
                                   const std::vector<HostAddr>& defaultPeers);
 
+    std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
+                                          PartitionID partId,
+                                          meta::cpp2::ListenerType type,
+                                          const std::vector<HostAddr>& peers);
+
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);
 
     bool checkLeader(std::shared_ptr<Part> part, bool canReadFromFollower = false) const;
@@ -266,6 +310,7 @@ private:
     // The lock used to protect spaces_
     folly::RWSpinLock lock_;
     std::unordered_map<GraphSpaceID, std::shared_ptr<SpacePartInfo>> spaces_;
+    std::unordered_map<GraphSpaceID, std::shared_ptr<SpaceListenerInfo>> spaceListeners_;
 
     std::shared_ptr<folly::IOThreadPoolExecutor> ioPool_;
     std::shared_ptr<thread::GenericThreadPool> bgWorkers_;

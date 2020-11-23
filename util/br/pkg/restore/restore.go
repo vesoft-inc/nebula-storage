@@ -156,6 +156,11 @@ func stringToHostAddr(host string) (*nebula.HostAddr, error) {
 func (r *Restore) restoreMeta(sstFiles []string, storageIDMap map[string]string, count int) error {
 	r.log.Info("restoreMeta")
 	var hostMap []*meta.HostPair
+
+	var files [][]byte
+	for _, f := range sstFiles {
+		files = append(files, []byte(f))
+	}
 	if len(storageIDMap) != 0 {
 		for k, v := range storageIDMap {
 			fromAddr, err := stringToHostAddr(k)
@@ -178,7 +183,7 @@ func (r *Restore) restoreMeta(sstFiles []string, storageIDMap map[string]string,
 		restoreReq := meta.NewRestoreMetaReq()
 		defer r.client.Close()
 		restoreReq.Hosts = hostMap
-		restoreReq.Files = sstFiles
+		restoreReq.Files = files
 
 		resp, err := r.client.RestoreMeta(restoreReq)
 		if err != nil {
@@ -319,7 +324,13 @@ func (r *Restore) RestoreCluster() error {
 
 	g, _ := errgroup.WithContext(context.Background())
 
-	sstFiles := r.downloadMeta(g, m.MetaFiles)
+	var files []string
+
+	for _, f := range m.MetaFiles {
+		files = append(files, string(f[:]))
+	}
+
+	sstFiles := r.downloadMeta(g, files)
 	storageIDMap := r.downloadStorage(g, m.BackupInfo)
 
 	err = g.Wait()
