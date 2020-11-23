@@ -36,7 +36,7 @@ JobManager* JobManager::getInstance() {
     return &inst;
 }
 
-bool JobManager::init(nebula::kvstore::KVStore* store) {
+bool JobManager::init(nebula::kvstore::KVStore* store, bool startSchedule) {
     if (store == nullptr) {
         return false;
     }
@@ -55,7 +55,9 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     CHECK(bgThread_->start());
 
     status_ = Status::RUNNING;
-    bgThread_->addTask(&JobManager::scheduleThread, this);
+    if (startSchedule) {
+        bgThread_->addTask(&JobManager::scheduleThread, this);
+    }
     LOG(INFO) << "JobManager initialized";
     return true;
 }

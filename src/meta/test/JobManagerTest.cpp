@@ -45,7 +45,7 @@ protected:
 
         jobMgr = JobManager::getInstance();
         jobMgr->status_ = JobManager::Status::NOT_START;
-        jobMgr->init(kv_.get());
+        jobMgr->init(kv_.get(), false);
     }
 
     void TearDown() override {

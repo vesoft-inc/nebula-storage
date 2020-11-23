@@ -49,7 +49,7 @@ public:
         STOPPED,
     };
 
-    bool init(nebula::kvstore::KVStore* store);
+    bool init(nebula::kvstore::KVStore* store, bool startSchedule = true);
 
     void shutDown();
 
