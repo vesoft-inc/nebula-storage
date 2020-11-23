@@ -58,7 +58,6 @@ func NewBackupClient(cf config.BackupConfig, log *zap.Logger) *Backup {
 		log.Error("new external storage failed", zap.Error(err))
 		return nil
 	}
-
 	return &Backup{config: cf, backendStorage: backend, log: log}
 }
 

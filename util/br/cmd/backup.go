@@ -14,10 +14,10 @@ func NewBackupCmd() *cobra.Command {
 	}
 
 	backupCmd.AddCommand(newFullBackupCmd())
-	backupCmd.PersistentFlags().StringArrayVar(&cf.MetaAddrs, "meta", nil, "meta server url")
+	backupCmd.PersistentFlags().StringSliceVar(&cf.MetaAddrs, "meta", nil, "meta server url")
 	backupCmd.MarkPersistentFlagRequired("meta")
-	backupCmd.PersistentFlags().StringArrayVar(&cf.StorageAddrs, "storage", nil, "storage server url")
-	backupCmd.PersistentFlags().StringArrayVar(&cf.SpaceNames, "space", nil, "space name")
+	backupCmd.PersistentFlags().StringSliceVar(&cf.StorageAddrs, "storage", nil, "storage server url")
+	backupCmd.PersistentFlags().StringSliceVar(&cf.SpaceNames, "space", nil, "space name")
 	backupCmd.PersistentFlags().StringVar(&cf.BackendUrl, "backend", "", "backend url")
 	backupCmd.MarkPersistentFlagRequired("backend")
 	backupCmd.PersistentFlags().StringVar(&cf.StorageUser, "storageuser", "", "storage server user")

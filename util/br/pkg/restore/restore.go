@@ -3,6 +3,7 @@ package restore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/facebook/fbthrift/thrift/lib/go/thrift"
+	"github.com/scylladb/go-set/strset"
 	"github.com/vesoft-inc/nebula-clients/go/nebula/"
 	"github.com/vesoft-inc/nebula-clients/go/nebula/meta"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
@@ -49,6 +51,20 @@ func NewRestore(config config.RestoreConfig, log *zap.Logger) *Restore {
 	}
 	backend.SetBackupName(config.BackupName)
 	return &Restore{config: config, log: log, backend: backend}
+}
+
+func (r *Restore) checkPhysicalTopology(info map[nebula.GraphSpaceID]*meta.SpaceBackupInfo) error {
+	s := strset.New()
+	for _, v := range info {
+		for _, c := range v.CpDirs {
+			s.Add(hostaddrToString(c.Host))
+		}
+	}
+
+	if s.Size() != len(r.config.StorageAddrs) {
+		return fmt.Errorf("The physical topology of storage must be consistent")
+	}
+	return nil
 }
 
 func (r *Restore) downloadMetaFile() error {
@@ -269,13 +285,8 @@ func (r *Restore) startStorageService() error {
 }
 
 func (r *Restore) RestoreCluster() error {
-	err := r.stopCluster()
-	if err != nil {
-		r.log.Error("stop cluster failed", zap.Error(err))
-		return err
-	}
 
-	err = r.downloadMetaFile()
+	err := r.downloadMetaFile()
 	if err != nil {
 		r.log.Error("download meta file failed", zap.Error(err))
 		return err
@@ -285,6 +296,18 @@ func (r *Restore) RestoreCluster() error {
 
 	if err != nil {
 		r.log.Error("restore meta file failed", zap.Error(err))
+		return err
+	}
+
+	err = r.checkPhysicalTopology(m.BackupInfo)
+	if err != nil {
+		r.log.Error("check physical failed", zap.Error(err))
+		return err
+	}
+
+	err = r.stopCluster()
+	if err != nil {
+		r.log.Error("stop cluster failed", zap.Error(err))
 		return err
 	}
 

@@ -16,9 +16,9 @@ func NewRestoreCMD() *cobra.Command {
 	}
 
 	restoreCmd.AddCommand(newFullRestoreCmd())
-	restoreCmd.PersistentFlags().StringArrayVar(&restoreConfig.MetaAddrs, "meta", nil, "meta server url")
+	restoreCmd.PersistentFlags().StringSliceVar(&restoreConfig.MetaAddrs, "meta", nil, "meta server url")
 	restoreCmd.MarkPersistentFlagRequired("meta")
-	restoreCmd.PersistentFlags().StringArrayVar(&restoreConfig.StorageAddrs, "storage", nil, "storage server url")
+	restoreCmd.PersistentFlags().StringSliceVar(&restoreConfig.StorageAddrs, "storage", nil, "storage server url")
 	restoreCmd.MarkPersistentFlagRequired("storage")
 	restoreCmd.PersistentFlags().StringVar(&restoreConfig.BackendUrl, "backend", "", "backend url")
 	restoreCmd.MarkPersistentFlagRequired("backend")

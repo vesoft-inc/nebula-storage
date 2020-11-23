@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/facebook/fbthrift v0.0.0-20190922225929-2f9839604e25
+	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/cobra v1.1.1
 	github.com/vesoft-inc/nebula-clients/go v0.0.0-20201120073720-da53c187a62b
 	go.uber.org/zap v1.10.0
