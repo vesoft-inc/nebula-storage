@@ -106,7 +106,7 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
                        std::make_move_iterator(values.end()),
                        std::inserter(spaces, spaces.end()),
                        [](const std::string& rawID) {
-                           return MetaServiceUtils::parseIndexesKeySpaceID(rawID);
+                           return *reinterpret_cast<const GraphSpaceID*>(rawID.c_str());
                        });
 
     } else {
@@ -127,15 +127,6 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
         }
     }
 
-    if (backupSpaces != nullptr && !backupSpaces->empty()) {
-        LOG(ERROR) << "Failed to create a backup, the space to be backed up does not exist.";
-        for (auto& s : *backupSpaces) {
-            LOG(ERROR) << "Space that doesn't exist: " << s << ",";
-        }
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
-        return folly::none;
-    }
-
     if (spaces.empty()) {
         LOG(ERROR) << "Failed to create a full backup because there is currently no space.";
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
@@ -146,7 +137,7 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
 }
 
 void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
-    auto* backupSpaces = req.get_space_name();
+    auto* backupSpaces = req.get_spaces();
 
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
     if (result == folly::none) {

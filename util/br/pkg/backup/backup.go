@@ -72,6 +72,11 @@ func (b *Backup) createBackup(count int) (*meta.CreateBackupResp, error) {
 		}
 		backupReq := meta.NewCreateBackupReq()
 		defer b.client.Close()
+		if len(b.config.SpaceNames) != 0 {
+			for _, name := range b.config.SpaceNames {
+				backupReq.Spaces = append(backupReq.Spaces, []byte(name))
+			}
+		}
 
 		resp, err := b.client.CreateBackup(backupReq)
 		if err != nil {
@@ -251,7 +256,7 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 		return err
 	}
 
-	b.log.Info("upload done")
+	b.log.Info("backup nebula cluster finished", zap.String("backupName", string(meta.GetBackupName()[:])))
 
 	return nil
 }
