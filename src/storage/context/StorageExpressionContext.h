@@ -108,10 +108,7 @@ public:
         LOG(FATAL) << "Unimplemented";
     }
 
-    std::regex getRegex(const std::string&) override {
-        LOG(FATAL) << "Unimplemented";
-    }
-
+    std::regex getRegex(const std::string&) override;
 
     // index key
     void reset(const std::string& key) {
@@ -172,6 +169,8 @@ private:
     // tag or edge latest schema
     const meta::NebulaSchemaProvider  *schema_;
     bool                               isEdge_;
+
+    std::unordered_map<std::string, std::regex> regex_;
 
     // index
     bool isIndex_ = false;

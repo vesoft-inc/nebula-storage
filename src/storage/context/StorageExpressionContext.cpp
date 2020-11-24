@@ -112,6 +112,13 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
     }
 }
 
+std::regex StorageExpressionContext::getRegex(const std::string& pattern) {
+    if (regex_.find(pattern) == regex_.end()) {
+        regex_[pattern] = std::regex(pattern);
+    }
+    return regex_[pattern];
+}
+
 Value StorageExpressionContext::getIndexValue(const std::string& prop, bool isEdge) const {
     // TODO (sky) : Handle string type values.
     //              when field type is FIXED_STRING type,
