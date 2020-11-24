@@ -112,11 +112,12 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
     }
 }
 
-std::regex StorageExpressionContext::getRegex(const std::string& pattern) {
-    if (regex_.find(pattern) == regex_.end()) {
-        regex_[pattern] = std::regex(pattern);
+const std::regex& StorageExpressionContext::getRegex(const std::string& pattern) {
+    auto iter = regex_.find(pattern);
+    if (iter == regex_.end()) {
+        iter = regex_.emplace(pattern, std::regex(pattern)).first;
     }
-    return regex_[pattern];
+    return iter->second;
 }
 
 Value StorageExpressionContext::getIndexValue(const std::string& prop, bool isEdge) const {
