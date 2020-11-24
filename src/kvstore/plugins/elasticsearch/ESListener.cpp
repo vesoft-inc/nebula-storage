@@ -13,43 +13,53 @@ DECLARE_int32(ft_bulk_batch_size);
 
 namespace nebula {
 namespace kvstore {
-bool ESListener::apply(const std::vector<KV>& data) {
-    auto vIdLen = getVidLen();
-    if (!vIdLen.ok()) {
-        return false;
+void ESListener::init() {
+    auto vRet = schemaMan_->getSpaceVidLen(spaceId_);
+    if (!vRet.ok()) {
+        LOG(FATAL) << "vid length error";
     }
-    auto clients = schemaMan_->getFTClients();
-    if (!clients.ok()) {
-        return false;
+    vIdLen_ = vRet.value();
+
+    auto cRet = schemaMan_->getFTClients();
+    if (!cRet.ok() || cRet.value().empty()) {
+        LOG(FATAL) << "elasticsearch clients error";
     }
-    std::vector<nebula::plugin::HttpClient> hClients;
-    for (const auto& c : clients.value()) {
+    for (const auto& c : cRet.value()) {
         nebula::plugin::HttpClient hc;
         hc.host = c.host;
         if (c.__isset.user) {
             hc.user = c.user;
             hc.password = c.pwd;
         }
-        hClients.emplace_back(std::move(hc));
+        esClients_.emplace_back(std::move(hc));
     }
+
+    auto sRet = schemaMan_->toGraphSpaceName(spaceId_);
+    if (!sRet.ok()) {
+        LOG(FATAL) << "space name error";
+    }
+    spaceName_ = std::make_unique<std::string>(sRet.value());
+}
+
+bool ESListener::apply(const std::vector<KV>& data) {
     std::vector<nebula::plugin::DocItem> docItems;
     for (const auto& kv : data) {
         if (!nebula::NebulaKeyUtils::isDataKey(kv.first)) {
             continue;
         }
-        if (!appendDocItem(docItems, kv, vIdLen.value())) {
+        if (!appendDocItem(docItems, kv)) {
             return false;
         }
         if (docItems.size() >= static_cast<size_t>(FLAGS_ft_bulk_batch_size)) {
-            auto suc = writeData(docItems, hClients);
+            auto suc = writeData(docItems);
             if (!suc) {
                 return suc;
             }
             docItems.clear();
         }
     }
-    if (docItems.size() > 0) {
-        return writeData(docItems, hClients);
+    if (!docItems.empty()) {
+        return writeData(docItems);
     }
     return true;
 }
@@ -136,15 +146,13 @@ ESListener::encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId)
     return val;
 }
 
-bool ESListener::appendDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const {
-    auto isEdge = NebulaKeyUtils::isEdge(vIdLen, kv.first);
-    return isEdge ? appendEdgeDocItem(items, kv, vIdLen) : appendTagDocItem(items, kv, vIdLen);
+bool ESListener::appendDocItem(std::vector<DocItem>& items, const KV& kv) const {
+    auto isEdge = NebulaKeyUtils::isEdge(vIdLen_, kv.first);
+    return isEdge ? appendEdgeDocItem(items, kv) : appendTagDocItem(items, kv);
 }
 
-bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items,
-                                   const KV& kv,
-                                   int32_t vIdLen) const {
-    auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen, kv.first);
+bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv) const {
+    auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, kv.first);
     auto schema = schemaMan_->getEdgeSchema(spaceId_, edgeType);
     if (schema == nullptr) {
         VLOG(3) << "get edge schema failed, edgeType " << edgeType;
@@ -161,10 +169,8 @@ bool ESListener::appendEdgeDocItem(std::vector<DocItem>& items,
     return appendDocs(items, schema.get(), reader.get(), edgeType, true);
 }
 
-bool ESListener::appendTagDocItem(std::vector<DocItem>& items,
-                                  const KV& kv,
-                                  int32_t vIdLen) const {
-    auto tagId = NebulaKeyUtils::getTagId(vIdLen, kv.first);
+bool ESListener::appendTagDocItem(std::vector<DocItem>& items, const KV& kv) const {
+    auto tagId = NebulaKeyUtils::getTagId(vIdLen_, kv.first);
     auto schema = schemaMan_->getTagSchema(spaceId_, tagId);
     if (schema == nullptr) {
         VLOG(3) << "get tag schema failed, tagId " << tagId;
@@ -186,10 +192,6 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
                             RowReader* reader,
                             int32_t schemaId,
                             bool isEdge) const {
-    auto spaceName = getSpaceName();
-    if (!spaceName.ok()) {
-        return false;
-    }
     auto count = schema->getNumFields();
     for (size_t i = 0; i < count; i++) {
         auto name = schema->getFieldName(i);
@@ -197,7 +199,7 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
         if (v.type() != Value::Type::STRING) {
             continue;
         }
-        auto ftIndex = nebula::plugin::IndexTraits::indexName(spaceName.value(), isEdge);
+        auto ftIndex = nebula::plugin::IndexTraits::indexName(*spaceName_, isEdge);
         items.emplace_back(DocItem(std::move(ftIndex),
                                    std::move(name),
                                    partId_,
@@ -207,13 +209,12 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
     return true;
 }
 
-bool ESListener::writeData(const std::vector<nebula::plugin::DocItem>& items,
-                           const std::vector<nebula::plugin::HttpClient>& clients) const {
+bool ESListener::writeData(const std::vector<nebula::plugin::DocItem>& items) const {
     bool isNeedWriteOneByOne = false;
     auto retryCnt = FLAGS_ft_request_retry_times;
     while (--retryCnt > 0) {
-        auto index = folly::Random::rand32(clients.size() - 1);
-        auto suc = nebula::plugin::ESStorageAdapter::kAdapter->bulk(clients[index], items);
+        auto index = folly::Random::rand32(esClients_.size() - 1);
+        auto suc = nebula::plugin::ESStorageAdapter::kAdapter->bulk(esClients_[index], items);
         if (!suc.ok()) {
             VLOG(3) << "bulk failed. retry : " << retryCnt;
             continue;
@@ -225,21 +226,20 @@ bool ESListener::writeData(const std::vector<nebula::plugin::DocItem>& items,
         return true;
     }
     if (isNeedWriteOneByOne) {
-        return writeDatum(items, clients);
+        return writeDatum(items);
     }
     LOG(ERROR) << "A fatal error . Full-text engine is not working.";
     return false;
 }
 
-bool ESListener::writeDatum(const std::vector<nebula::plugin::DocItem>& items,
-                            const std::vector<nebula::plugin::HttpClient>& clients) const {
+bool ESListener::writeDatum(const std::vector<nebula::plugin::DocItem>& items) const {
     bool done = false;
     for (const auto& item : items) {
         done = false;
         auto retryCnt = FLAGS_ft_request_retry_times;
         while (--retryCnt > 0) {
-            auto index = folly::Random::rand32(clients.size() - 1);
-            auto suc = nebula::plugin::ESStorageAdapter::kAdapter->put(clients[index], item);
+            auto index = folly::Random::rand32(esClients_.size() - 1);
+            auto suc = nebula::plugin::ESStorageAdapter::kAdapter->put(esClients_[index], item);
             if (!suc.ok()) {
                 VLOG(3) << "put failed. retry : " << retryCnt;
                 continue;
@@ -258,24 +258,6 @@ bool ESListener::writeDatum(const std::vector<nebula::plugin::DocItem>& items,
         }
     }
     return true;
-}
-
-StatusOr<int32_t> ESListener::getVidLen() const {
-    auto ret = schemaMan_->getSpaceVidLen(spaceId_);
-    if (!ret.ok()) {
-        VLOG(3) << "Failed to get space vid length";
-        return ret.status();
-    }
-    return ret.value();
-}
-
-StatusOr<std::string> ESListener::getSpaceName() const {
-    auto ret = schemaMan_->toGraphSpaceName(spaceId_);
-    if (!ret.ok()) {
-        VLOG(3) << "Failed to get space name";
-        return ret.status();
-    }
-    return ret.value();
 }
 
 }  // namespace kvstore

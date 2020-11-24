@@ -30,15 +30,13 @@ public:
               meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, std::move(localAddr), walPath,
                    ioPool, workers, handlers, snapshotMan, clientMan, schemaMan) {
-        CHECK(!!schemaMan);
-        lastApplyLogFile_ = std::make_unique<std::string>(
+            CHECK(!!schemaMan);
+            lastApplyLogFile_ = std::make_unique<std::string>(
             folly::stringPrintf("%s/last_apply_log_%d", walPath.c_str(), partId));
     }
 
 protected:
-    void init() override {
-    }
-
+    void init() override;
 
     bool apply(const std::vector<KV>& data) override;
 
@@ -56,11 +54,11 @@ private:
 
     std::string encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) const noexcept;
 
-    bool appendDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
+    bool appendDocItem(std::vector<DocItem>& items, const KV& kv) const;
 
-    bool appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
+    bool appendEdgeDocItem(std::vector<DocItem>& items, const KV& kv) const;
 
-    bool appendTagDocItem(std::vector<DocItem>& items, const KV& kv, int32_t vIdLen) const;
+    bool appendTagDocItem(std::vector<DocItem>& items, const KV& kv) const;
 
     bool appendDocs(std::vector<DocItem>& items,
                     const meta::SchemaProviderIf* schema,
@@ -68,18 +66,15 @@ private:
                     int32_t schemaId,
                     bool isEdge) const;
 
-    bool writeData(const std::vector<nebula::plugin::DocItem>& items,
-                   const std::vector<nebula::plugin::HttpClient>& clients) const;
+    bool writeData(const std::vector<nebula::plugin::DocItem>& items) const;
 
-    bool writeDatum(const std::vector<nebula::plugin::DocItem>& items,
-                    const std::vector<nebula::plugin::HttpClient>& clients) const;
-
-    StatusOr<int32_t> getVidLen() const;
-
-    StatusOr<std::string> getSpaceName() const;
+    bool writeDatum(const std::vector<nebula::plugin::DocItem>& items) const;
 
 private:
-    std::unique_ptr<std::string> lastApplyLogFile_{nullptr};
+    std::unique_ptr<std::string>            lastApplyLogFile_{nullptr};
+    std::unique_ptr<std::string>            spaceName_{nullptr};
+    std::vector<nebula::plugin::HttpClient> esClients_;
+    int32_t                                 vIdLen_;
 };
 
 }  // namespace kvstore
