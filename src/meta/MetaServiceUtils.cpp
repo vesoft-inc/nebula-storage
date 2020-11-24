@@ -974,6 +974,7 @@ folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvst
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "prefix index rebuilding state failed, result code: " << ret;
         return folly::none;
     }
 
@@ -1070,10 +1071,7 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
                               .str();
                 LOG(INFO) << "sn was " << sn;
                 auto it = std::find_if(spaceName->cbegin(), spaceName->cend(), [&sn](auto& name) {
-                    if (sn == name) {
-                        return true;
-                    }
-                    return false;
+                    return sn == name;
                 });
 
                 if (it == spaceName->cend()) {
