@@ -74,7 +74,7 @@ protected:
                                        rootPath_->path(),
                                        esPort_,
                                        cluster);
-        std::system(cmd.c_str());
+        ASSERT_LE(0, system(cmd.c_str()));
         LOG(INFO) << "start elasticsearch : " << cmd;
     }
     void startES() {
@@ -113,7 +113,7 @@ protected:
                                        "| awk '{print $2}' "
                                        "| xargs kill -9",
                                        esPort_);
-        std::system(cmd.c_str());
+        ASSERT_LE(0, system(cmd.c_str()));
     }
 
     std::vector<nebula::mock::VertexData> mockVertices(int64_t begin, int64_t end) {
