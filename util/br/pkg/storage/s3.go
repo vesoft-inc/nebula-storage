@@ -30,7 +30,7 @@ func (s *S3BackedStore) BackupPreCommand() []string {
 }
 
 func (s *S3BackedStore) BackupStorageCommand(src string, host string, spaceID string) string {
-	storageDir := s.url + "/" + "storage/" + host + "/" + spaceID
+	storageDir := s.url + "/" + "storage/" + host + "/" + spaceID + "/"
 	return "aws s3 sync " + src + " " + storageDir
 }
 
