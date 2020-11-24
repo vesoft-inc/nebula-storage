@@ -278,6 +278,13 @@ public:
 
     static const std::string& statisKeyPrefix();
 
+    static std::string fulltextServiceKey();
+
+    static std::string fulltextServiceVal(cpp2::FTServiceType type,
+                                          const std::vector<cpp2::FTClient>& clients);
+
+    static std::vector<cpp2::FTClient> parseFTClients(folly::StringPiece rawData);
+
     static std::string genTimestampStr();
 
     static folly::Optional<bool> isIndexRebuilding(kvstore::KVStore*);
