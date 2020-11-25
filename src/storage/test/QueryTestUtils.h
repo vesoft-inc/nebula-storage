@@ -485,32 +485,38 @@ public:
         // if no property specified, would return all props
         if (props.empty()) {
             ASSERT_EQ(player.name_, values[0].getStr());
-            ASSERT_EQ(player.age_, values[1].getInt());
-            ASSERT_EQ(player.playing_, values[2].getBool());
-            ASSERT_EQ(player.career_, values[3].getInt());
-            ASSERT_EQ(player.startYear_, values[4].getInt());
-            ASSERT_EQ(player.endYear_, values[5].getInt());
-            ASSERT_EQ(player.games_, values[6].getInt());
-            ASSERT_EQ(player.avgScore_, values[7].getFloat());
-            ASSERT_EQ(player.serveTeams_, values[8].getInt());
+            ASSERT_EQ(1, values[1].getInt());
+            ASSERT_EQ(player.name_, values[2].getStr());
+            ASSERT_EQ(player.age_, values[3].getInt());
+            ASSERT_EQ(player.playing_, values[4].getBool());
+            ASSERT_EQ(player.career_, values[5].getInt());
+            ASSERT_EQ(player.startYear_, values[6].getInt());
+            ASSERT_EQ(player.endYear_, values[7].getInt());
+            ASSERT_EQ(player.games_, values[8].getInt());
+            ASSERT_EQ(player.avgScore_, values[9].getFloat());
+            ASSERT_EQ(player.serveTeams_, values[10].getInt());
             int32_t hasTtl = FLAGS_mock_ttl_col ? 1 : 0;
             if (player.country_.empty()) {
                 // default value
-                ASSERT_EQ("America", values[9 + hasTtl].getStr());
+                ASSERT_EQ("America", values[11 + hasTtl].getStr());
             } else {
-                ASSERT_EQ(player.country_, values[9 + hasTtl].getStr());
+                ASSERT_EQ(player.country_, values[11 + hasTtl].getStr());
             }
             if (player.champions_ == 0) {
                 // 0 means not initialized, should return null
-                ASSERT_EQ(NullType::__NULL__, values[10 + hasTtl].getNull());
+                ASSERT_EQ(NullType::__NULL__, values[12 + hasTtl].getNull());
             } else {
-                ASSERT_EQ(player.champions_, values[10 + hasTtl].getInt());
+                ASSERT_EQ(player.champions_, values[12 + hasTtl].getInt());
             }
             return;
         }
         ASSERT_EQ(props.size(), values.size());
         for (size_t i = 0; i < props.size(); i++) {
-            if (props[i] == "name") {
+            if (props[i] == kVid) {
+                ASSERT_EQ(player.name_, values[i].getStr());
+            } else if (props[i] == kTag) {
+                ASSERT_EQ(1, values[i].getInt());
+            } else if (props[i] == "name") {
                 ASSERT_EQ(player.name_, values[i].getStr());
             } else if (props[i] == "age") {
                 ASSERT_EQ(player.age_, values[i].getInt());
@@ -548,10 +554,36 @@ public:
         }
     }
 
+    static void checkTeam(const std::vector<std::string>& props,
+                          const std::string& team,
+                          const std::vector<Value>& values) {
+        // if no property specified, would return all props
+        if (props.empty()) {
+            ASSERT_EQ(team, values[0].getStr());
+            ASSERT_EQ(2, values[1].getInt());
+            ASSERT_EQ(team, values[2].getStr());
+            return;
+        }
+        ASSERT_EQ(props.size(), values.size());
+        for (size_t i = 0; i < props.size(); i++) {
+            if (props[i] == kVid) {
+                ASSERT_EQ(team, values[i].getStr());
+            } else if (props[i] == kTag) {
+                ASSERT_EQ(2, values[i].getInt());
+            } else if (props[i] == "name") {
+                ASSERT_EQ(team, values[i].getStr());
+            } else {
+                LOG(FATAL) << "Should not reach here";
+            }
+        }
+    }
+
     static void checkOutServe(EdgeType edgeType,
                               const std::vector<std::string>& props,
                               const std::vector<mock::Serve>& serves,
-                              const std::vector<Value>& values) {
+                              const std::vector<Value>& values,
+                              size_t teamNameIndex = 0,
+                              size_t startYearIndex = 1) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
                 // Find corresponding record by team name and start year,
@@ -565,13 +597,10 @@ public:
             checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
-        // Make sure teamName and startYear is the first two props,
-        // otherwise we could not make sure which serve it is
-        ASSERT_EQ("teamName", props[0]);
-        ASSERT_EQ("startYear", props[1]);
         auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
             // find corresponding record by team name and start year
-            return serve.teamName_ == values[0].getStr() && serve.startYear_ == values[1].getInt();
+            return serve.teamName_ == values[teamNameIndex].getStr() &&
+                   serve.startYear_ == values[startYearIndex].getInt();
         });
         ASSERT_TRUE(iter != serves.end());
         checkSomePropertyOfServe(edgeType, props, *iter, values);
@@ -580,7 +609,9 @@ public:
     static void checkInServe(EdgeType edgeType,
                              const std::vector<std::string>& props,
                              const std::vector<mock::Serve>& serves,
-                             const std::vector<Value>& values) {
+                             const std::vector<Value>& values,
+                             size_t playerNameIndex = 0,
+                             size_t startYearIndex = 1) {
         if (props.empty()) {
             auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
                 // Find corresponding record by player name and start year,
@@ -594,14 +625,10 @@ public:
             checkAllPropertyOfServe(edgeType, *iter, values);
             return;
         }
-        // Make sure playerName and startYear is the first two props
-        // otherwise we could not make sure which serve it is
-        ASSERT_EQ("playerName", props[0]);
-        ASSERT_EQ("startYear", props[1]);
         auto iter = std::find_if(serves.begin(), serves.end(), [&] (const auto& serve) {
             // find corresponding record by team name
-            return serve.playerName_ == values[0].getStr() &&
-                   serve.startYear_ == values[1].getInt();
+            return serve.playerName_ == values[playerNameIndex].getStr() &&
+                   serve.startYear_ == values[startYearIndex].getInt();
         });
         ASSERT_TRUE(iter != serves.end());
         checkSomePropertyOfServe(edgeType, props, *iter, values);
@@ -649,7 +676,28 @@ public:
                                          const mock::Serve& serve,
                                          const std::vector<Value>& values) {
         for (size_t i = 0; i < props.size(); i++) {
-            if (props[i] == "playerName") {
+            if (props[i] == kSrc) {
+                if (edgeType > 0) {
+                    ASSERT_EQ(serve.playerName_, values[i].getStr());
+                } else {
+                    ASSERT_EQ(serve.teamName_, values[i].getStr());
+                }
+            } else if (props[i] == kType) {
+                if (edgeType > 0) {
+                    ASSERT_EQ(101, values[i].getInt());
+                } else {
+                    ASSERT_EQ(-101, values[i].getInt());
+                }
+            } else if (props[i] == kRank) {
+                // see MockData::mockEdges
+                ASSERT_EQ(serve.startYear_, values[i].getInt());
+            } else if (props[i] == kDst) {
+                if (edgeType > 0) {
+                    ASSERT_EQ(serve.teamName_, values[i].getStr());
+                } else {
+                    ASSERT_EQ(serve.playerName_, values[i].getStr());
+                }
+            } else if (props[i] == "playerName") {
                 ASSERT_EQ(serve.playerName_, values[i].getStr());
             } else if (props[i] == "teamName") {
                 ASSERT_EQ(serve.teamName_, values[i].getStr());

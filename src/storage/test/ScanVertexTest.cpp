@@ -18,7 +18,6 @@ cpp2::ScanVertexRequest buildRequest(
         const std::string& cursor,
         const std::pair<TagID, std::vector<std::string>>& tag,
         int32_t rowLimit = 100,
-        bool returnNoColumns = false,
         int64_t startTime = 0,
         int64_t endTime = std::numeric_limits<int64_t>::max(),
         bool onlyLatestVer = false) {
@@ -33,7 +32,6 @@ cpp2::ScanVertexRequest buildRequest(
         vertexProp.props.emplace_back(std::move(prop));
     }
     req.set_return_columns(std::move(vertexProp));
-    req.set_no_columns(returnNoColumns);
     req.set_limit(rowLimit);
     req.set_start_time(startTime);
     req.set_end_time(endTime);
@@ -43,14 +41,20 @@ cpp2::ScanVertexRequest buildRequest(
 
 void checkResponse(const nebula::DataSet& dataSet,
                    const std::pair<TagID, std::vector<std::string>>& tag,
-                   std::unordered_map<TagID, size_t>& expectColumnCount,
+                   size_t expectColumnCount,
                    size_t& totalRowCount) {
+    ASSERT_EQ(dataSet.colNames.size(), expectColumnCount);
+    if (!tag.second.empty()) {
+        ASSERT_EQ(dataSet.colNames.size(), tag.second.size());
+        for (size_t i = 0; i < dataSet.colNames.size(); i++) {
+            ASSERT_EQ(dataSet.colNames[i], std::to_string(tag.first) + "." + tag.second[i]);
+        }
+    }
     totalRowCount += dataSet.rows.size();
     for (const auto& row : dataSet.rows) {
         auto vId = row.values[0].getStr();
         auto tagId = row.values[1].getInt();
-        auto expectCol = expectColumnCount[tagId];
-        ASSERT_EQ(expectCol, row.values.size());
+        ASSERT_EQ(expectColumnCount, row.values.size());
         auto props = tag.second;
         switch (tagId) {
             case 1: {
@@ -59,6 +63,8 @@ void checkResponse(const nebula::DataSet& dataSet,
                                          mock::MockData::players_.end(),
                                          [&] (const auto& player) { return player.name_ == vId; });
                 CHECK(iter != mock::MockData::players_.end());
+                // doodle
+                /*
                 if (expectCol > 2) {
                     std::vector<Value> values;
                     // properties starts from the third column
@@ -67,6 +73,8 @@ void checkResponse(const nebula::DataSet& dataSet,
                     }
                     QueryTestUtils::checkPlayer(props, *iter, values);
                 }
+                */
+                QueryTestUtils::checkPlayer(props, *iter, row.values);
                 break;
             }
             case 2: {
@@ -74,6 +82,8 @@ void checkResponse(const nebula::DataSet& dataSet,
                 auto iter = std::find(mock::MockData::teams_.begin(),
                                       mock::MockData::teams_.end(),
                                       vId);
+                // doodle
+                /*
                 CHECK(iter != mock::MockData::teams_.end());
                 if (expectCol > 2) {
                     std::vector<Value> values;
@@ -84,6 +94,8 @@ void checkResponse(const nebula::DataSet& dataSet,
                     ASSERT_EQ(1, values.size());
                     ASSERT_EQ(*iter, values[0].getStr());
                 }
+                */
+                QueryTestUtils::checkTeam(props, *iter, row.values);
                 break;
             }
             default:
@@ -106,9 +118,8 @@ TEST(ScanVertexTest, PropertyTest) {
     {
         LOG(INFO) << "Scan one tag with some properties in one batch";
         size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{"name", "age", "avgScore"});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 3);
+        auto tag = std::make_pair(player, std::vector<std::string>{
+            kVid, kTag, "name", "age", "avgScore"});
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             auto req = buildRequest(partId, "", tag);
             auto* processor = ScanVertexProcessor::instance(env, nullptr);
@@ -117,7 +128,7 @@ TEST(ScanVertexTest, PropertyTest) {
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+            checkResponse(resp.vertex_data, tag, tag.second.size(), totalRowCount);
         }
         CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
     }
@@ -125,8 +136,6 @@ TEST(ScanVertexTest, PropertyTest) {
         LOG(INFO) << "Scan one tag with all properties in one batch";
         size_t totalRowCount = 0;
         auto tag = std::make_pair(player, std::vector<std::string>{});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 11);
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             auto req = buildRequest(partId, "", tag);
             auto* processor = ScanVertexProcessor::instance(env, nullptr);
@@ -135,25 +144,8 @@ TEST(ScanVertexTest, PropertyTest) {
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
-        }
-        CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
-    }
-    {
-        LOG(INFO) << "Scan one tag with no properties in one batch";
-        size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 0);
-        for (PartitionID partId = 1; partId <= totalParts; partId++) {
-            auto req = buildRequest(partId, "", tag, 100, true);
-            auto* processor = ScanVertexProcessor::instance(env, nullptr);
-            auto f = processor->getFuture();
-            processor->process(req);
-            auto resp = std::move(f).get();
-
-            ASSERT_EQ(0, resp.result.failed_parts.size());
-            checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+            // all 11 columns in value and 2 columns in key
+            checkResponse(resp.vertex_data, tag, 2 + 11, totalRowCount);
         }
         CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
     }
@@ -173,9 +165,8 @@ TEST(ScanVertexTest, CursorTest) {
     {
         LOG(INFO) << "Scan one tag with some properties with limit = 5";
         size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{"name", "age", "avgScore"});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 3);
+        auto tag = std::make_pair(player, std::vector<std::string>{
+            kVid, kTag, "name", "age", "avgScore"});
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             bool hasNext = true;
             std::string cursor = "";
@@ -187,7 +178,7 @@ TEST(ScanVertexTest, CursorTest) {
                 auto resp = std::move(f).get();
 
                 ASSERT_EQ(0, resp.result.failed_parts.size());
-                checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+                checkResponse(resp.vertex_data, tag, tag.second.size(), totalRowCount);
                 hasNext = resp.get_has_next();
                 if (hasNext) {
                     CHECK(resp.__isset.next_cursor);
@@ -200,9 +191,8 @@ TEST(ScanVertexTest, CursorTest) {
     {
         LOG(INFO) << "Scan one tag with some properties with limit = 1";
         size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{"name", "age", "avgScore"});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 3);
+        auto tag = std::make_pair(player, std::vector<std::string>{
+            kVid, kTag, "name", "age", "avgScore"});
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             bool hasNext = true;
             std::string cursor = "";
@@ -214,7 +204,7 @@ TEST(ScanVertexTest, CursorTest) {
                 auto resp = std::move(f).get();
 
                 ASSERT_EQ(0, resp.result.failed_parts.size());
-                checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+                checkResponse(resp.vertex_data, tag, tag.second.size(), totalRowCount);
                 hasNext = resp.get_has_next();
                 if (hasNext) {
                     CHECK(resp.__isset.next_cursor);
@@ -244,19 +234,18 @@ TEST(ScanVertexTest, OnlyLatestVerTest) {
     {
         LOG(INFO) << "Scan one tag with some properties only latest version";
         size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{"name", "age", "avgScore"});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 3);
+        auto tag = std::make_pair(player, std::vector<std::string>{
+            kVid, kTag, "name", "age", "avgScore"});
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             auto req = buildRequest(
-                partId, "", tag, 100, false, 0, std::numeric_limits<int64_t>::max(), true);
+                partId, "", tag, 100, 0, std::numeric_limits<int64_t>::max(), true);
             auto* processor = ScanVertexProcessor::instance(env, nullptr);
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+            checkResponse(resp.vertex_data, tag, tag.second.size(), totalRowCount);
         }
         CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
     }
@@ -264,19 +253,18 @@ TEST(ScanVertexTest, OnlyLatestVerTest) {
     {
         LOG(INFO) << "Scan one tag with some properties all version";
         size_t totalRowCount = 0;
-        auto tag = std::make_pair(player, std::vector<std::string>{"name", "age", "avgScore"});
-        std::unordered_map<TagID, size_t> expectColumnCount;
-        expectColumnCount.emplace(player, 2 + 3);
+        auto tag = std::make_pair(player, std::vector<std::string>{
+            kVid, kTag, "name", "age", "avgScore"});
         for (PartitionID partId = 1; partId <= totalParts; partId++) {
             auto req = buildRequest(
-                partId, "", tag, 100, false, 0, std::numeric_limits<int64_t>::max(), true);
+                partId, "", tag, 100, 0, std::numeric_limits<int64_t>::max(), true);
             auto* processor = ScanVertexProcessor::instance(env, nullptr);
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            checkResponse(resp.vertex_data, tag, expectColumnCount, totalRowCount);
+            checkResponse(resp.vertex_data, tag, tag.second.size(), totalRowCount);
         }
         CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
     }
