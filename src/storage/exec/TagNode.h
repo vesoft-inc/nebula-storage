@@ -71,11 +71,11 @@ public:
     }
 
     kvstore::ResultCode collectTagPropsIfValid(NullHandler nullHandler,
-                                               TagPropHandler valueHandler) {
+                                               PropHandler valueHandler) {
         if (!iter_ || !iter_->valid()) {
             return nullHandler(props_);
         }
-        return valueHandler(tagId_, iter_->reader(), props_);
+        return valueHandler(iter_->key(), iter_->reader(), props_);
     }
 
     bool valid() const override {
@@ -101,6 +101,7 @@ public:
         return nullptr;
     }
 
+    // doodle: do we need it?
     const std::string& getTagName() {
         return tagName_;
     }

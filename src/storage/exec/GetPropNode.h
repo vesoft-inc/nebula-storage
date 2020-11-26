@@ -41,13 +41,12 @@ public:
             return ret;
         }
 
-        std::vector<Value> row;
-        // vertexId is the first column
-        row.emplace_back(vId);
+        List row;
+        auto vIdLen = planContext_->vIdLen_;
+        auto isIntId = planContext_->isIntId_;
         for (auto* tagNode : tagNodes_) {
-            const auto& tagName = tagNode->getTagName();
             ret = tagNode->collectTagPropsIfValid(
-                [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
+                [&row](const std::vector<PropContext>* props) -> kvstore::ResultCode {
                     for (const auto& prop : *props) {
                         if (prop.returned_) {
                             row.emplace_back(Value());
@@ -55,21 +54,13 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &row, &tagName] (TagID tagId,
-                                        RowReader* reader,
-                                        const std::vector<PropContext>* props)
+                [&row, vIdLen, isIntId] (folly::StringPiece key,
+                                         RowReader* reader,
+                                         const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
-                    nebula::List list;
-                    auto code = collectTagProps(tagId,
-                                                tagName,
-                                                reader,
-                                                props,
-                                                list);
-                    if (code != kvstore::ResultCode::SUCCEEDED) {
-                        return code;
-                    }
-                    for (auto& col : list.values) {
-                        row.emplace_back(std::move(col));
+                    if (!QueryUtils::collectVertexProps(key, vIdLen, isIntId,
+                                                        reader, props, row).ok()) {
+                        return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -91,13 +82,11 @@ class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
 public:
     using RelNode::execute;
 
-    GetEdgePropNode(std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
-                    size_t vIdLen,
-                    bool isIntId,
+    GetEdgePropNode(PlanContext *planCtx,
+                    std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes,
                     nebula::DataSet* resultDataSet)
-        : edgeNodes_(std::move(edgeNodes))
-        , vIdLen_(vIdLen)
-        , isIntId_(isIntId)
+        : planContext_(planCtx)
+        , edgeNodes_(std::move(edgeNodes))
         , resultDataSet_(resultDataSet) {}
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
@@ -106,7 +95,9 @@ public:
             return ret;
         }
 
-        std::vector<Value> row;
+        List row;
+        auto vIdLen = planContext_->vIdLen_;
+        auto isIntId = planContext_->isIntId_;
         for (auto* edgeNode : edgeNodes_) {
             ret = edgeNode->collectEdgePropsIfValid(
                 [&row] (const std::vector<PropContext>* props) -> kvstore::ResultCode {
@@ -117,24 +108,13 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &row] (EdgeType edgeType,
-                              folly::StringPiece key,
-                              RowReader* reader,
-                              const std::vector<PropContext>* props)
+                [&row, vIdLen, isIntId] (folly::StringPiece key,
+                                         RowReader* reader,
+                                         const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
-                    UNUSED(edgeType);
-                    nebula::List list;
-                    auto code = collectEdgeProps(reader,
-                                                 key,
-                                                 vIdLen_,
-                                                 isIntId_,
-                                                 props,
-                                                 list);
-                    if (code != kvstore::ResultCode::SUCCEEDED) {
-                        return code;
-                    }
-                    for (auto& col : list.values) {
-                        row.emplace_back(std::move(col));
+                    if (!QueryUtils::collectEdgeProps(key, vIdLen, isIntId,
+                                                      reader, props, row).ok()) {
+                        return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -147,9 +127,8 @@ public:
     }
 
 private:
+    PlanContext          *planContext_;
     std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes_;
-    size_t vIdLen_;
-    bool isIntId_;
     nebula::DataSet* resultDataSet_;
 };
 

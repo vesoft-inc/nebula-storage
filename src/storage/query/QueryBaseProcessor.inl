@@ -195,12 +195,15 @@ void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
     }
 }
 
+// doodle
 template<typename REQ, typename RESP>
 std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
     std::vector<cpp2::VertexProp> result;
     for (const auto& entry : tagContext_.schemas_) {
         cpp2::VertexProp tagProp;
         tagProp.tag = entry.first;
+        tagProp.props.emplace_back(kVid);
+        tagProp.props.emplace_back(kTag);
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
@@ -214,6 +217,7 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
     return result;
 }
 
+// doodle
 template<typename REQ, typename RESP>
 std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         const cpp2::EdgeDirection& direction) {

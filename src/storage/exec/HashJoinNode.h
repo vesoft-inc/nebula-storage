@@ -63,10 +63,11 @@ public:
                     result.values.emplace_back(Value());
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [this, &result, &tagName] (TagID tagId,
+                [this, &result, &tagName] (folly::StringPiece key,
                                            RowReader* reader,
                                            const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
+                    /*
                     nebula::List list;
                     auto code = collectTagProps(tagId,
                                                 tagName,
@@ -78,6 +79,13 @@ public:
                         return code;
                     }
                     result.values.emplace_back(std::move(list));
+                    */
+                    UNUSED(key);
+                    UNUSED(reader);
+                    UNUSED(props);
+                    UNUSED(result);
+                    UNUSED(tagName);
+                    UNUSED(expCtx_);
                     return kvstore::ResultCode::SUCCEEDED;
                 });
             if (ret != kvstore::ResultCode::SUCCEEDED) {
