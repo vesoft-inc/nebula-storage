@@ -960,7 +960,7 @@ ResultCode NebulaStore::setWriteBlocking(GraphSpaceID spaceId, bool sign) {
             }
             if (ret != ResultCode::SUCCEEDED) {
                  LOG(ERROR) << "Part sync failed. space : " << spaceId << " Part : " << part;
-                 return ret;
+                 continue;
             }
         }
     }

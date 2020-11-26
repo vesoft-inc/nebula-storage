@@ -44,9 +44,10 @@ func (e *BackupError) Error() string {
 }
 
 type Backup struct {
-	client         *metaclient.MetaClient
 	config         config.BackupConfig
-	metaAddr       string
+	metaNodeMap    map[string]config.NodeInfo
+	storageNodeMap map[string]config.NodeInfo
+	metaLeader     config.NodeInfo
 	backendStorage storage.ExternalStorage
 	log            *zap.Logger
 	metaFileName   string
@@ -65,20 +66,26 @@ func hostaddrToString(host *nebula.HostAddr) string {
 	return host.Host + ":" + strconv.Itoa(int(host.Port))
 }
 
-func (b *Backup) createBackup(count int) (*meta.CreateBackupResp, error) {
+func (b *Backup) createBackup() (*meta.CreateBackupResp, error) {
+	node := b.config.MetaNodes
+	addr := node[0].Addrs
+
 	for {
-		if count == 0 {
-			return nil, LeaderNotFoundError
+		client := metaclient.NewMetaClient(b.log)
+		err := client.Open(addr)
+		if err != nil {
+			return nil, err
 		}
+
 		backupReq := meta.NewCreateBackupReq()
-		defer b.client.Close()
+		defer client.Close()
 		if len(b.config.SpaceNames) != 0 {
 			for _, name := range b.config.SpaceNames {
 				backupReq.Spaces = append(backupReq.Spaces, []byte(name))
 			}
 		}
 
-		resp, err := b.client.CreateBackup(backupReq)
+		resp, err := client.CreateBackup(backupReq)
 		if err != nil {
 			return nil, err
 		}
@@ -97,12 +104,9 @@ func (b *Backup) createBackup(count int) (*meta.CreateBackupResp, error) {
 			return nil, LeaderNotFoundError
 		}
 
-		// we need reconnect the new leader
-		err = b.client.Open(hostaddrToString(leader))
-		if err != nil {
-			return nil, err
-		}
-		count--
+		b.log.Info("leader changed", zap.String("leader", leader.String()))
+		addr = hostaddrToString(leader)
+		b.metaLeader = b.metaNodeMap[addr]
 	}
 }
 
@@ -134,13 +138,24 @@ func (b *Backup) writeMetadata(meta *meta.BackupMeta) error {
 	return nil
 }
 
-func (b *Backup) BackupCluster() error {
-	b.client = metaclient.NewMetaClient(b.log)
-	err := b.client.Open(b.config.MetaAddrs[0])
-	if err != nil {
-		return err
+func (b *Backup) Init() {
+	metaNodeMap := make(map[string]config.NodeInfo)
+	for _, node := range b.config.MetaNodes {
+		metaNodeMap[node.Addrs] = node
 	}
-	resp, err := b.createBackup(3)
+	b.metaNodeMap = metaNodeMap
+
+	storageNodeMap := make(map[string]config.NodeInfo)
+	for _, node := range b.config.StorageNodes {
+		storageNodeMap[node.Addrs] = node
+	}
+
+	b.storageNodeMap = storageNodeMap
+}
+
+func (b *Backup) BackupCluster() error {
+	b.Init()
+	resp, err := b.createBackup()
 	if err != nil {
 		b.log.Error("backup cluster failed", zap.Error(err))
 		return err
@@ -159,9 +174,9 @@ func (b *Backup) uploadMeta(g *errgroup.Group, files []string) {
 
 	b.log.Info("will upload meta", zap.Int("sst file count", len(files)))
 	cmd := b.backendStorage.BackupMetaCommand(files)
-	b.log.Info("start upload meta", zap.String("addr", b.metaAddr))
-	ipAddr := strings.Split(b.metaAddr, ":")
-	g.Go(func() error { return ssh.ExecCommandBySSH(ipAddr[0], b.config.MetaUser, cmd, b.log) })
+	b.log.Info("start upload meta", zap.String("addr", b.metaLeader.Addrs))
+	ipAddr := strings.Split(b.metaLeader.Addrs, ":")
+	g.Go(func() error { return ssh.ExecCommandBySSH(ipAddr[0], b.metaLeader.User, cmd, b.log) })
 }
 
 func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) {
@@ -175,9 +190,9 @@ func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) {
 
 		ipAddrs := strings.Split(k, ":")
 		for id2, cp := range idMap {
-			cmd := b.backendStorage.BackupStorageCommand(cp, ipAddrs[0], id2)
+			cmd := b.backendStorage.BackupStorageCommand(cp, k, id2)
 
-			g.Go(func() error { return ssh.ExecCommandBySSH(ipAddrs[0], b.config.StorageUser, cmd, b.log) })
+			g.Go(func() error { return ssh.ExecCommandBySSH(ipAddrs[0], b.storageNodeMap[k].User, cmd, b.log) })
 		}
 	}
 }
@@ -223,7 +238,12 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 
 	var metaFiles []string
 	for _, f := range meta.GetMetaFiles() {
-		metaFiles = append(metaFiles, string(f[:]))
+		fileName := string(f[:])
+		if !filepath.IsAbs(fileName) {
+			root := b.metaLeader.RootDir
+			fileName = filepath.Join(root, fileName)
+		}
+		metaFiles = append(metaFiles, string(fileName))
 	}
 	b.uploadMeta(g, metaFiles)
 	//upload storage

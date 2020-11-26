@@ -46,6 +46,7 @@ func (m *MetaClient) Open(addr string) error {
 	addressOption := thrift.SocketAddr(addr)
 	sock, err := thrift.NewSocket(timeoutOption, addressOption)
 	if err != nil {
+		m.log.Error("open socket failed", zap.Error(err), zap.String("addr", addr))
 		return err
 	}
 

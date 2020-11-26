@@ -29,19 +29,17 @@ func (e sshValidateError) UnWrap() error {
 	return e.err
 }
 
-func checkSSH(addrs []string, user string, log *zap.Logger) error {
-	for _, addr := range addrs {
-		ipAddr := strings.Split(addr, ":")
-		if len(ipAddr) != 2 {
-			return &addressValidateError{addr}
-		}
-		session, err := ssh.NewSshSession(ipAddr[0], user, log)
-		if err != nil {
-			log.Error("must enable SSH tunneling")
-			return &sshValidateError{err}
-		}
-		session.Close()
+func checkSSH(addr string, user string, log *zap.Logger) error {
+	ipAddr := strings.Split(addr, ":")
+	if len(ipAddr) != 2 {
+		return &addressValidateError{addr}
 	}
+	session, err := ssh.NewSshSession(ipAddr[0], user, log)
+	if err != nil {
+		log.Error("must enable SSH tunneling")
+		return &sshValidateError{err}
+	}
+	session.Close()
 	return nil
 }
 

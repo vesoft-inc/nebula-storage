@@ -97,7 +97,11 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
         auto ret = kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &values);
         if (ret.first != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Failed to get space id, error: " << ret.first;
-            handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
+            if (ret.first == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+                handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
+            } else {
+                handleErrorCode(MetaCommon::to(ret.first));
+            }
             return folly::none;
         }
 
@@ -137,6 +141,12 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
 
 void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     auto* backupSpaces = req.get_spaces();
+    auto* store = static_cast<kvstore::NebulaStore*>(kvstore_);
+    if (!store->isLeader(kDefaultSpaceId, kDefaultPartId)) {
+        handleErrorCode(cpp2::ErrorCode::E_LEADER_CHANGED);
+        onFinished();
+        return;
+    }
 
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
     if (result == folly::none) {

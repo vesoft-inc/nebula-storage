@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"fmt"
+	"io/ioutil"
+
 	"github.com/spf13/cobra"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/backup"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 )
+
+var backupConfigFile string
 
 func NewBackupCmd() *cobra.Command {
 	backupCmd := &cobra.Command{
@@ -14,16 +20,8 @@ func NewBackupCmd() *cobra.Command {
 	}
 
 	backupCmd.AddCommand(newFullBackupCmd())
-	backupCmd.PersistentFlags().StringSliceVar(&cf.MetaAddrs, "meta", nil, "meta server url")
-	backupCmd.MarkPersistentFlagRequired("meta")
-	backupCmd.PersistentFlags().StringSliceVar(&cf.StorageAddrs, "storage", nil, "storage server url")
-	backupCmd.PersistentFlags().StringSliceVar(&cf.SpaceNames, "space", nil, "space name")
-	backupCmd.PersistentFlags().StringVar(&cf.BackendUrl, "backend", "", "backend url")
-	backupCmd.MarkPersistentFlagRequired("backend")
-	backupCmd.PersistentFlags().StringVar(&cf.StorageUser, "storageuser", "", "storage server user")
-	backupCmd.MarkPersistentFlagRequired("storageuser")
-	backupCmd.PersistentFlags().StringVar(&cf.MetaUser, "metauser", "", "meta server user")
-	backupCmd.MarkPersistentFlagRequired("metauser")
+	backupCmd.PersistentFlags().StringVar(&backupConfigFile, "config", "backup.yaml", "config file path")
+	backupCmd.MarkPersistentFlagRequired("config")
 
 	return backupCmd
 }
@@ -35,14 +33,38 @@ func newFullBackupCmd() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			logger, _ := zap.NewProduction()
 			defer logger.Sync() // flushes buffer, if any
-			err := checkSSH(cf.StorageAddrs, cf.StorageUser, logger)
+
+			yamlFile, err := ioutil.ReadFile(backupConfigFile)
 			if err != nil {
 				return err
 			}
 
-			err = checkSSH(cf.MetaAddrs, cf.MetaUser, logger)
+			err = yaml.Unmarshal(yamlFile, &backupConfig)
 			if err != nil {
 				return err
+			}
+
+			for _, n := range backupConfig.MetaNodes {
+				err := checkSSH(n.Addrs, n.User, logger)
+				if err != nil {
+					return err
+				}
+
+				if !checkPathAbs(n.RootDir) {
+					logger.Error("meta's datadir must be an absolute path..", zap.String("dir", n.RootDir))
+					return fmt.Errorf("meta's datadir must be an absolute path.")
+				}
+			}
+			for _, n := range backupConfig.StorageNodes {
+				err := checkSSH(n.Addrs, n.User, logger)
+				if err != nil {
+					return err
+				}
+
+				if !checkPathAbs(n.RootDir) {
+					logger.Error("storage's datadir must be an absolute path..", zap.String("dir", n.RootDir))
+					return fmt.Errorf("storage's datadir must be an absolute path.")
+				}
 			}
 
 			return nil
@@ -52,7 +74,7 @@ func newFullBackupCmd() *cobra.Command {
 			logger, _ := zap.NewProduction()
 
 			defer logger.Sync() // flushes buffer, if any
-			b := backup.NewBackupClient(cf, logger)
+			b := backup.NewBackupClient(backupConfig, logger)
 
 			err := b.BackupCluster()
 			if err != nil {

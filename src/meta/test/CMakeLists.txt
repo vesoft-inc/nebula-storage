@@ -330,6 +330,8 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        proxygenhttpserver
+        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         wangle
@@ -344,6 +346,8 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        proxygenhttpserver
+        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         wangle
