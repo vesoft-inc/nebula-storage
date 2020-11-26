@@ -67,25 +67,23 @@ public:
                                            RowReader* reader,
                                            const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
-                    /*
                     nebula::List list;
-                    auto code = collectTagProps(tagId,
-                                                tagName,
-                                                reader,
-                                                props,
-                                                list,
-                                                expCtx_);
-                    if (code != kvstore::ResultCode::SUCCEEDED) {
-                        return code;
+                    list.reserve(props->size());
+                    for (const auto& prop : *props) {
+                        VLOG(2) << "Collect prop " << prop.name_;
+                        auto value = QueryUtils::readVertexProp(
+                            key, planContext_->vIdLen_, planContext_->isIntId_, reader, prop);
+                        if (!value.ok()) {
+                            return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                        }
+                        if (prop.filtered_ && expCtx_ != nullptr) {
+                            expCtx_->setTagProp(tagName, prop.name_, value.value());
+                        }
+                        if (prop.returned_) {
+                            list.emplace_back(std::move(value).value());
+                        }
                     }
                     result.values.emplace_back(std::move(list));
-                    */
-                    UNUSED(key);
-                    UNUSED(reader);
-                    UNUSED(props);
-                    UNUSED(result);
-                    UNUSED(tagName);
-                    UNUSED(expCtx_);
                     return kvstore::ResultCode::SUCCEEDED;
                 });
             if (ret != kvstore::ResultCode::SUCCEEDED) {

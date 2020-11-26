@@ -375,9 +375,7 @@ public:
             size_t expectColumnCount,
             std::unordered_map<VertexID, std::vector<Value>>* expectStats = nullptr) {
         UNUSED(over);
-        if (!edges.empty()) {
-            checkColNames(dataSet, tags, edges);
-        }
+        checkColNames(dataSet, tags, edges);
         ASSERT_EQ(expectRowCount, dataSet.rows.size());
         for (const auto& row : dataSet.rows) {
             ASSERT_EQ(expectColumnCount, row.values.size());
@@ -394,28 +392,9 @@ public:
             } else {
                 ASSERT_EQ(Value::Type::__EMPTY__, row.values[1].type());
             }
-            checkRowProps(row, dataSet.colNames, tags, edges);
-        }
-    }
-
-    // check response when none of the tags or edges is specified, will return all props
-    static void checkResponse(
-            const nebula::DataSet& dataSet,
-            const std::vector<VertexID>& vertices,
-            size_t expectRowCount,
-            size_t expectColumnCount) {
-        ASSERT_EQ(expectColumnCount, dataSet.colNames.size());
-        ASSERT_EQ(expectRowCount, dataSet.rows.size());
-        for (const auto& row : dataSet.rows) {
-            ASSERT_EQ(expectColumnCount, row.values.size());
-            auto vId = row.values[0].getStr();
-            auto iter = std::find(vertices.begin(), vertices.end(), vId);
-            ASSERT_TRUE(iter != vertices.end());
-            // the second column is stats
-            ASSERT_EQ(Value::Type::__EMPTY__, row.values[1].type());
             // the last column is yeild expression
             ASSERT_EQ(Value::Type::__EMPTY__, row.values[expectColumnCount - 1].type());
-            checkRowProps(row, dataSet.colNames, {}, {});
+            checkRowProps(row, dataSet.colNames, tags, edges);
         }
     }
 
@@ -450,13 +429,24 @@ public:
             const std::vector<std::pair<TagID, std::vector<std::string>>>& tags,
             const std::vector<std::pair<EdgeType, std::vector<std::string>>>& edges) {
         auto colNames = dataSet.colNames;
-        ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 3);
+        if (!tags.empty() && !edges.empty()) {
+            ASSERT_EQ(colNames.size(), tags.size() + edges.size() + 3);
+        }
         ASSERT_EQ(kVid, colNames[0]);
         ASSERT_EQ(0, colNames[1].find("_stats"));
         ASSERT_EQ(0, colNames[colNames.size() - 1].find("_expr"));
 
         for (size_t i = 0; i < tags.size(); i++) {
             if (tags[i].second.empty()) {
+                std::vector<std::string> cols;
+                folly::split(":", colNames[i + 2], cols);
+                if (tags[i].first == 1) {
+                    // 2 for _tag and tag name, 2 for kVid and kTag, 11 for property
+                    ASSERT_EQ(2 + 2 + 11, cols.size());
+                } else if (tags[i].first == 2) {
+                    // 2 for _tag and tag name, 2 for kVid and kTag, 1 for property
+                    ASSERT_EQ(2 + 2 + 1, cols.size());
+                }
                 continue;
             }
             auto expected = "_tag:" + folly::to<std::string>(tags[i].first);
@@ -467,6 +457,15 @@ public:
         }
         for (size_t i = 0; i < edges.size(); i++) {
             if (edges[i].second.empty()) {
+                std::vector<std::string> cols;
+                folly::split(":", colNames[i + 2 + tags.size()], cols);
+                if (edges[i].first == 101 || edges[i].first == -101) {
+                    // 2 for _edge and edge name, 4 for kSrc kType kRank kDst, 9 for property
+                    ASSERT_EQ(2 + 4 + 9, cols.size());
+                } else if (edges[i].first == 102 || edges[i].first == -102) {
+                    // 2 for _edge and edge name, 4 for kSrc kType kRank kDst, 5 for property
+                    ASSERT_EQ(2 + 4 + 5, cols.size());
+                }
                 continue;
             }
             std::string expected = "_edge:";
@@ -840,8 +839,7 @@ public:
                                           vId);
                     if (iter != mock::MockData::teams_.end()) {
                         auto tagCell = row.values[i].getList();
-                        ASSERT_EQ(1, tagCell.values.size());
-                        ASSERT_EQ(*iter, tagCell.values[0].getStr());
+                        checkTeam(props, *iter, tagCell.values);
                     } else {
                         ASSERT_EQ(Value::Type::__EMPTY__, row.values[i].type());
                     }
