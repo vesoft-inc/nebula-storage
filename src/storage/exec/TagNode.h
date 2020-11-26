@@ -101,7 +101,6 @@ public:
         return nullptr;
     }
 
-    // doodle: do we need it?
     const std::string& getTagName() {
         return tagName_;
     }

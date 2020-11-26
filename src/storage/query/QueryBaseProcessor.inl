@@ -195,7 +195,6 @@ void QueryBaseProcessor<REQ, RESP>::buildEdgeTTLInfo() {
     }
 }
 
-// doodle
 template<typename REQ, typename RESP>
 std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() {
     std::vector<cpp2::VertexProp> result;
@@ -217,7 +216,6 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
     return result;
 }
 
-// doodle
 template<typename REQ, typename RESP>
 std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         const cpp2::EdgeDirection& direction) {

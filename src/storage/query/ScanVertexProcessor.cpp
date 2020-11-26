@@ -129,7 +129,6 @@ cpp2::ErrorCode ScanVertexProcessor::checkAndBuildContexts(const cpp2::ScanVerte
     return ret;
 }
 
-// doodle: could unify
 void ScanVertexProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {
     for (const auto& tagProp : tagProps) {
         auto tagId = tagProp.tag;

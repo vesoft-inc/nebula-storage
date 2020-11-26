@@ -61,23 +61,6 @@ void checkResponse(const nebula::DataSet& dataSet,
                 // out edge serve
                 auto iter = mock::MockData::playerServes_.find(srcId);
                 CHECK(iter != mock::MockData::playerServes_.end());
-                // doodle
-                /*
-                std::vector<Value> values;
-                if (expectCol == 4 + 9) {
-                    // return all columns, collect all columns
-                    for (size_t i = 0; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    QueryTestUtils::checkOutServe(edgeType, props, iter->second, values);
-                } else if (expectCol > 4) {
-                    // return some properties, collect properites starting from fifth column
-                    for (size_t i = 4; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    QueryTestUtils::checkOutServe(edgeType, props, iter->second, values);
-                }
-                */
                 QueryTestUtils::checkOutServe(edgeType, props, iter->second, row.values, 4, 5);
                 break;
             }
@@ -86,22 +69,6 @@ void checkResponse(const nebula::DataSet& dataSet,
                 auto iter = mock::MockData::teamServes_.find(srcId);
                 CHECK(iter != mock::MockData::teamServes_.end());
                 std::vector<Value> values;
-                // doodle
-                /*
-                if (expectCol == 4 + 9) {
-                    // return all columns, collect all columns
-                    for (size_t i = 0; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    QueryTestUtils::checkInServe(edgeType, props, iter->second, values);
-                } else if (expectCol > 4) {
-                    // return some properties, collect properites starting from fifth column
-                    for (size_t i = 4; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    QueryTestUtils::checkInServe(edgeType, props, iter->second, values);
-                }
-                */
                 QueryTestUtils::checkInServe(edgeType, props, iter->second, row.values);
                 break;
             }

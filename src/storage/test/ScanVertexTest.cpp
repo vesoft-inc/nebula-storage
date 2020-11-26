@@ -63,17 +63,6 @@ void checkResponse(const nebula::DataSet& dataSet,
                                          mock::MockData::players_.end(),
                                          [&] (const auto& player) { return player.name_ == vId; });
                 CHECK(iter != mock::MockData::players_.end());
-                // doodle
-                /*
-                if (expectCol > 2) {
-                    std::vector<Value> values;
-                    // properties starts from the third column
-                    for (size_t i = 2; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    QueryTestUtils::checkPlayer(props, *iter, values);
-                }
-                */
                 QueryTestUtils::checkPlayer(props, *iter, row.values);
                 break;
             }
@@ -82,19 +71,6 @@ void checkResponse(const nebula::DataSet& dataSet,
                 auto iter = std::find(mock::MockData::teams_.begin(),
                                       mock::MockData::teams_.end(),
                                       vId);
-                // doodle
-                /*
-                CHECK(iter != mock::MockData::teams_.end());
-                if (expectCol > 2) {
-                    std::vector<Value> values;
-                    // properties starts from the third column
-                    for (size_t i = 2; i < row.values.size(); i++) {
-                        values.emplace_back(std::move(row.values[i]));
-                    }
-                    ASSERT_EQ(1, values.size());
-                    ASSERT_EQ(*iter, values[0].getStr());
-                }
-                */
                 QueryTestUtils::checkTeam(props, *iter, row.values);
                 break;
             }
