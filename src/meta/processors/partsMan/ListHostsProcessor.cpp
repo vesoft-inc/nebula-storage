@@ -16,6 +16,38 @@ DEFINE_int32(removed_threshold_sec, 24 * 60 * 60,
 namespace nebula {
 namespace meta {
 
+static cpp2::HostRole toHostRole(cpp2::ListHostType type) {
+    switch (type) {
+        case cpp2::ListHostType::GRAPH:
+            return cpp2::HostRole::GRAPH;
+        case cpp2::ListHostType::META:
+            return cpp2::HostRole::META;
+        case cpp2::ListHostType::STORAGE:
+            return cpp2::HostRole::STORAGE;
+        default:
+            return cpp2::HostRole::UNKNOWN;
+    }
+}
+
+void printHostItem(const cpp2::HostItem& item) {
+    std::ostringstream oss;
+    oss << "messi printHostItem()"
+        << ", hostAddr=" << item.hostAddr
+        << ", HostStatus=" << cpp2::_HostStatus_VALUES_TO_NAMES.at(item.status)
+        << ", leader_parts.size()=" << item.leader_parts.size()
+        << ", all_parts.size()=" << item.all_parts.size()
+        << ", HostRole=" << cpp2::_HostRole_VALUES_TO_NAMES.at(item.role)
+        << ", git_info_sha=" << item.git_info_sha;
+    LOG(INFO) << oss.str();
+}
+
+void printHostItemVec(const std::vector<cpp2::HostItem>& hostItems) {
+    LOG(INFO) << "messi hostItems.size()=" << hostItems.size();
+    for (auto& item : hostItems) {
+        printHostItem(item);
+    }
+}
+
 void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
     Status status;
     {
@@ -26,13 +58,24 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
             return;
         }
 
-        status = req.__isset.role ? allHostsWithStatus(*req.get_role())
-                                  : fillLeaderAndPartInfoPerHost();
+        meta::cpp2::ListHostType type = req.get_type();
+        LOG(INFO) << "messi list host type = "
+                  << meta::cpp2::_ListHostType_VALUES_TO_NAMES.at(type);
+        if (type == cpp2::ListHostType::ALLOC) {
+            status = fillLeaderAndPartInfoPerHost();
+        } else {
+            auto hostRole = toHostRole(type);
+            status = allHostsWithStatus(hostRole);
+        }
+        // status = req.__isset.role ? allHostsWithStatus(*req.get_role())
+        //                           : fillLeaderAndPartInfoPerHost();
     }
+    printHostItemVec(hostItems_);
     if (status.ok()) {
         handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
         resp_.set_hosts(std::move(hostItems_));
     }
+
     onFinished();
 }
 
@@ -44,13 +87,15 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
  * it's not necessary add this interface only for gitInfoSHA
  * */
 Status ListHostsProcessor::allMetaHostsStatus() {
+    LOG(INFO) << "messi allMetaHostsStatus()";
     auto* partManager = kvstore_->partManager();
     auto status = partManager->partMeta(kDefaultSpaceId, kDefaultPartId);
     if (!status.ok()) {
-        LOG(ERROR) << "Get parts failed: " << status.status();
+        LOG(ERROR) << "messi Get parts failed: " << status.status();
         return status.status();
     }
     auto partMeta = status.value();
+    LOG(INFO) << "messi partMeta.hosts_.size()=" << partMeta.hosts_.size();
     for (auto& host : partMeta.hosts_) {
         cpp2::HostItem item;
         item.set_hostAddr(std::move(host));
@@ -58,7 +103,7 @@ Status ListHostsProcessor::allMetaHostsStatus() {
         item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
         item.set_status(cpp2::HostStatus::ONLINE);
         hostItems_.emplace_back(item);
-    }
+            }
     return Status::OK();
 }
 
