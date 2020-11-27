@@ -34,6 +34,13 @@ func (m *MetaClient) CreateBackup(req *meta.CreateBackupReq) (*meta.CreateBackup
 	return m.client.CreateBackup(req)
 }
 
+func (m *MetaClient) DropBackup(req *meta.DropSnapshotReq) (*meta.ExecResp, error) {
+	if m.client == nil {
+		return nil, fmt.Errorf("client not open")
+	}
+	return m.client.DropSnapshot(req)
+}
+
 func (m *MetaClient) Open(addr string) error {
 
 	if m.client != nil {

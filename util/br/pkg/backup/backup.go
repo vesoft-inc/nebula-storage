@@ -2,6 +2,7 @@ package backup
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,6 +65,31 @@ func NewBackupClient(cf config.BackupConfig, log *zap.Logger) *Backup {
 
 func hostaddrToString(host *nebula.HostAddr) string {
 	return host.Host + ":" + strconv.Itoa(int(host.Port))
+}
+
+func (b *Backup) dropBackup(name []byte) (*meta.ExecResp, error) {
+	addr := b.metaLeader.Addrs
+
+	client := metaclient.NewMetaClient(b.log)
+	err := client.Open(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot := meta.NewDropSnapshotReq()
+	snapshot.Name = name
+	defer client.Close()
+
+	resp, err := client.DropBackup(snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.GetCode() != meta.ErrorCode_SUCCEEDED {
+		return nil, fmt.Errorf("drop backup failed %d", resp.GetCode())
+	}
+
+	return resp, nil
 }
 
 func (b *Backup) createBackup() (*meta.CreateBackupResp, error) {
@@ -274,6 +300,11 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 	if err != nil {
 		b.log.Error("upload meta file failed", zap.Error(err))
 		return err
+	}
+
+	_, err = b.dropBackup(meta.GetBackupName())
+	if err != nil {
+		b.log.Error("drop backup failed", zap.Error(err))
 	}
 
 	b.log.Info("backup nebula cluster finished", zap.String("backupName", string(meta.GetBackupName()[:])))

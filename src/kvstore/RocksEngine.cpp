@@ -438,7 +438,7 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
     const std::string& tablePrefix,
     std::function<bool(const folly::StringPiece& key)> filter) {
     auto backupPath = folly::stringPrintf(
-        "%s/backup_tables/%s/%s.sst", dataPath_.c_str(), name.c_str(), tablePrefix.c_str());
+        "%s/checkpoints/%s/%s.sst", dataPath_.c_str(), name.c_str(), tablePrefix.c_str());
     VLOG(3) << "Start writing the sst file with table (" << tablePrefix
             << ") to file: " << backupPath;
 
