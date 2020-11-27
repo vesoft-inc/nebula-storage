@@ -264,6 +264,10 @@ public:
                               PartitionID partId,
                               const std::vector<HostAddr>& remoteListeners) override;
 
+    raftex::RaftexService* getRaftexService() const {
+        return raftService_.get();
+    }
+
 private:
     void loadPartFromDataPath();
 

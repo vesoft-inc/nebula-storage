@@ -103,7 +103,41 @@ Status ListHostsProcessor::allMetaHostsStatus() {
         item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
         item.set_status(cpp2::HostStatus::ONLINE);
         hostItems_.emplace_back(item);
-            }
+    }
+
+    auto* nbStore = dynamic_cast<kvstore::NebulaStore*>(kvstore_);
+    do {
+        if (nbStore == nullptr) {
+            LOG(INFO) << "messi nbStore == nullptr";
+            break;
+        }
+        auto* raftService = nbStore->getRaftexService();
+        if (raftService == nullptr) {
+            LOG(INFO) << "messi raftService == nullptr";
+            break;
+        }
+        auto spRaftPart = raftService->findPart(kDefaultSpaceId, kDefaultPartId);
+        if (spRaftPart == nullptr) {
+            LOG(INFO) << "messi spRaftPart == nullptr";
+            break;
+        }
+        std::vector<HostAddr> metas;
+        metas.emplace_back(spRaftPart->leader());
+        LOG(INFO) << "messi metas.size()=" << metas.size();
+        auto follwers = spRaftPart->peers();
+        for (auto& follwer : follwers) {
+            metas.emplace_back(follwer);
+        }
+        LOG(INFO) << "messi metas.size()=" << metas.size();
+        for (auto& host : metas) {
+            cpp2::HostItem item;
+            item.set_hostAddr(std::move(host));
+            item.set_role(cpp2::HostRole::META);
+            item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
+            item.set_status(cpp2::HostStatus::ONLINE);
+            hostItems_.emplace_back(item);
+        }
+    } while (0);
     return Status::OK();
 }
 

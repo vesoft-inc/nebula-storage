@@ -223,7 +223,7 @@ public:
 
     bool needToCleanWal();
 
-    std::set<HostAddr> peers() const;
+    std::vector<HostAddr> peers() const;
 
     std::set<HostAddr> listeners() const;
 

@@ -1864,6 +1864,19 @@ std::vector<std::shared_ptr<Host>> RaftPart::followers() const {
     return hosts;
 }
 
+std::vector<HostAddr> RaftPart::peers() const {
+    std::vector<HostAddr> peer;
+    peer.emplace_back(leader_);
+    for (auto& spHost : hosts_) {
+        auto iter = std::find(peer.begin(), peer.end(), spHost->address());
+        if (iter != peer.end()) {
+            continue;
+        }
+        peer.emplace_back(spHost->address());
+    }
+    return peer;
+}
+
 std::set<HostAddr> RaftPart::listeners() const {
     std::lock_guard<std::mutex> lck(raftLock_);
     return listeners_;
