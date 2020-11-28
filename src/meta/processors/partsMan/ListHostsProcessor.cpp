@@ -95,10 +95,10 @@ Status ListHostsProcessor::allMetaHostsStatus() {
             LOG(ERROR) << "spRaftPart == nullptr";
             break;
         }
-        std::vector<HostAddr> metas;
-        auto follwers = spRaftPart->peers();
-        for (auto& follwer : follwers) {
-            metas.emplace_back(follwer);
+        auto metas = spRaftPart->peers();
+        // transform raft port to servre port
+        for (auto& metaHost : metas) {
+            --metaHost.port;
         }
         for (auto& host : metas) {
             cpp2::HostItem item;
