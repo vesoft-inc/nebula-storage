@@ -424,6 +424,10 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             CHECK(!iter->second.empty());
             const auto& tagSchema = iter->second.back();
 
+            if (*propName == kVid || *propName == kTag) {
+                return cpp2::ErrorCode::SUCCEEDED;
+            }
+
             auto field = tagSchema->field(*propName);
             if (field == nullptr) {
                 VLOG(1) << "Can't find related prop " << *propName << " on tag " << *tagName;
@@ -466,6 +470,11 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             CHECK(!iter->second.empty());
             const auto& edgeSchema = iter->second.back();
+
+            if (*propName == kSrc || *propName == kType ||
+                *propName == kRank || *propName == kDst) {
+                return cpp2::ErrorCode::SUCCEEDED;
+            }
 
             const meta::SchemaProviderIf::Field* field = nullptr;
             if (exp->kind() == Expression::Kind::kEdgeProperty) {
