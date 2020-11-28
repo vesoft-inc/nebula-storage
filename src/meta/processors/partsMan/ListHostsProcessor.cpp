@@ -29,25 +29,6 @@ static cpp2::HostRole toHostRole(cpp2::ListHostType type) {
     }
 }
 
-void printHostItem(const cpp2::HostItem& item) {
-    std::ostringstream oss;
-    oss << "messi printHostItem()"
-        << ", hostAddr=" << item.hostAddr
-        << ", HostStatus=" << cpp2::_HostStatus_VALUES_TO_NAMES.at(item.status)
-        << ", leader_parts.size()=" << item.leader_parts.size()
-        << ", all_parts.size()=" << item.all_parts.size()
-        << ", HostRole=" << cpp2::_HostRole_VALUES_TO_NAMES.at(item.role)
-        << ", git_info_sha=" << item.git_info_sha;
-    LOG(INFO) << oss.str();
-}
-
-void printHostItemVec(const std::vector<cpp2::HostItem>& hostItems) {
-    LOG(INFO) << "messi hostItems.size()=" << hostItems.size();
-    for (auto& item : hostItems) {
-        printHostItem(item);
-    }
-}
-
 void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
     Status status;
     {
@@ -59,18 +40,13 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
         }
 
         meta::cpp2::ListHostType type = req.get_type();
-        LOG(INFO) << "messi list host type = "
-                  << meta::cpp2::_ListHostType_VALUES_TO_NAMES.at(type);
         if (type == cpp2::ListHostType::ALLOC) {
             status = fillLeaderAndPartInfoPerHost();
         } else {
             auto hostRole = toHostRole(type);
             status = allHostsWithStatus(hostRole);
         }
-        // status = req.__isset.role ? allHostsWithStatus(*req.get_role())
-        //                           : fillLeaderAndPartInfoPerHost();
     }
-    printHostItemVec(hostItems_);
     if (status.ok()) {
         handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
         resp_.set_hosts(std::move(hostItems_));
@@ -87,15 +63,13 @@ void ListHostsProcessor::process(const cpp2::ListHostsReq& req) {
  * it's not necessary add this interface only for gitInfoSHA
  * */
 Status ListHostsProcessor::allMetaHostsStatus() {
-    LOG(INFO) << "messi allMetaHostsStatus()";
     auto* partManager = kvstore_->partManager();
     auto status = partManager->partMeta(kDefaultSpaceId, kDefaultPartId);
     if (!status.ok()) {
-        LOG(ERROR) << "messi Get parts failed: " << status.status();
+        LOG(ERROR) << "Get parts failed: " << status.status();
         return status.status();
     }
     auto partMeta = status.value();
-    LOG(INFO) << "messi partMeta.hosts_.size()=" << partMeta.hosts_.size();
     for (auto& host : partMeta.hosts_) {
         cpp2::HostItem item;
         item.set_hostAddr(std::move(host));
@@ -108,27 +82,24 @@ Status ListHostsProcessor::allMetaHostsStatus() {
     auto* nbStore = dynamic_cast<kvstore::NebulaStore*>(kvstore_);
     do {
         if (nbStore == nullptr) {
-            LOG(INFO) << "messi nbStore == nullptr";
+            LOG(ERROR) << "nbStore == nullptr";
             break;
         }
         auto* raftService = nbStore->getRaftexService();
         if (raftService == nullptr) {
-            LOG(INFO) << "messi raftService == nullptr";
+            LOG(ERROR) << "raftService == nullptr";
             break;
         }
         auto spRaftPart = raftService->findPart(kDefaultSpaceId, kDefaultPartId);
         if (spRaftPart == nullptr) {
-            LOG(INFO) << "messi spRaftPart == nullptr";
+            LOG(ERROR) << "spRaftPart == nullptr";
             break;
         }
         std::vector<HostAddr> metas;
-        metas.emplace_back(spRaftPart->leader());
-        LOG(INFO) << "messi metas.size()=" << metas.size();
         auto follwers = spRaftPart->peers();
         for (auto& follwer : follwers) {
             metas.emplace_back(follwer);
         }
-        LOG(INFO) << "messi metas.size()=" << metas.size();
         for (auto& host : metas) {
             cpp2::HostItem item;
             item.set_hostAddr(std::move(host));
