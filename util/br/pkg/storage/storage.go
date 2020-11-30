@@ -18,8 +18,8 @@ type ExternalStorage interface {
 	RestoreStorageCommand(host string, spaceID []string, dst string) string
 	RestoreMetaPreCommand(dst string) string
 	RestoreStoragePreCommand(dst string) string
+	CheckCommand() string
 	URI() string
-	CheckValidCommand() string
 }
 
 func NewExternalStorage(storageUrl string, log *zap.Logger) (ExternalStorage, error) {

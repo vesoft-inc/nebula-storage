@@ -179,7 +179,19 @@ func (b *Backup) Init() {
 	b.storageNodeMap = storageNodeMap
 }
 
+func (b *Backup) check() error {
+	nodes := append(b.config.MetaNodes, b.config.StorageNodes...)
+	command := b.backendStorage.CheckCommand()
+	return ssh.CheckCommand(command, nodes, b.log)
+}
+
 func (b *Backup) BackupCluster() error {
+	err := b.check()
+	if err != nil {
+		b.log.Error("check failed", zap.Error(err))
+		return err
+	}
+
 	b.Init()
 	resp, err := b.createBackup()
 	if err != nil {

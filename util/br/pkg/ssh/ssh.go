@@ -2,12 +2,16 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 
+	"github.com/monadbobo/br/pkg/config"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/sync/errgroup"
 )
 
 func NewSshSession(addr string, user string, log *zap.Logger) (*ssh.Session, error) {
@@ -60,5 +64,22 @@ func ExecCommandBySSH(addr string, user string, cmd string, log *zap.Logger) err
 		return err
 	}
 	log.Info("Command execution completed", zap.String("result", stdoutBuf.String()))
+	return nil
+}
+
+func CheckCommand(checkCommand string, nodes []config.NodeInfo, log *zap.Logger) error {
+	g, _ := errgroup.WithContext(context.Background())
+	for _, node := range nodes {
+		addr := node.Addrs
+		ipAddrs := strings.Split(addr, ":")
+		user := node.User
+		g.Go(func() error { return ExecCommandBySSH(ipAddrs[0], user, checkCommand, log) })
+	}
+
+	err := g.Wait()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

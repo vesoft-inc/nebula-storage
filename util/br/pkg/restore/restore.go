@@ -62,9 +62,16 @@ func (r *Restore) checkPhysicalTopology(info map[nebula.GraphSpaceID]*meta.Space
 	return nil
 }
 
+func (r *Restore) check() error {
+	nodes := append(r.config.MetaNodes, r.config.StorageNodes...)
+	command := r.backend.CheckCommand()
+	return ssh.CheckCommand(command, nodes, r.log)
+}
+
 func (r *Restore) downloadMetaFile() error {
 	r.metaFileName = r.config.BackupName + ".meta"
 	cmdStr := r.backend.RestoreMetaFileCommand(r.metaFileName, "/tmp/")
+	r.log.Info("download metafile", zap.Strings("cmd", cmdStr))
 	cmd := exec.Command(cmdStr[0], cmdStr[1:]...)
 	err := cmd.Run()
 	if err != nil {
@@ -306,7 +313,14 @@ func (r *Restore) startStorageService() error {
 
 func (r *Restore) RestoreCluster() error {
 
-	err := r.downloadMetaFile()
+	err := r.check()
+
+	if err != nil {
+		r.log.Error("restore check failed", zap.Error(err))
+		return err
+	}
+
+	err = r.downloadMetaFile()
 	if err != nil {
 		r.log.Error("download meta file failed", zap.Error(err))
 		return err

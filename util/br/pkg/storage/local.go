@@ -94,7 +94,7 @@ func (s LocalBackedStore) RestoreStoragePreCommand(dst string) string {
 	return "rm -rf " + dst + " && mkdir -p " + dst
 }
 
-func (s LocalBackedStore) CheckValidCommand() string {
+func (s LocalBackedStore) CheckCommand() string {
 	r := rand.Int()
 	dst := s.dir + "/" + strconv.Itoa(r)
 	return "touch " + dst + " && rm " + dst

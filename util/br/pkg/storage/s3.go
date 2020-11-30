@@ -71,6 +71,6 @@ func (s S3BackedStore) URI() string {
 	return s.url
 }
 
-func (s S3BackedStore) CheckValidCommand() string {
+func (s S3BackedStore) CheckCommand() string {
 	return "aws s3 ls " + s.url
 }
