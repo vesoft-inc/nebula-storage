@@ -79,6 +79,7 @@ folly::Optional<std::vector<std::string>> CreateBackupProcessor::backupMeta(
 
 folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNameToId(
     const std::vector<std::string>* backupSpaces) {
+    folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     std::unordered_set<GraphSpaceID> spaces;
 
     if (backupSpaces != nullptr) {
