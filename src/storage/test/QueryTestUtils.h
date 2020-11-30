@@ -131,7 +131,7 @@ public:
             std::vector<Value> values;
             for (int i = 0; i < vers; i++) {
                 auto ver = FLAGS_enable_multi_versions ?
-                    std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() :
+                    std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec() - i:
                     0L;
                 auto key = NebulaKeyUtils::edgeKey(spaceVidLen, partId, edge.srcId_, edge.type_,
                                                    edge.rank_, edge.dstId_,
