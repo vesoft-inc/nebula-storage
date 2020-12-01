@@ -48,13 +48,16 @@ cpp2::ErrorCode StatisJobExecutor::prepare() {
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
-folly::Future<Status>
-StatisJobExecutor::executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) {
+std::vector<folly::Future<Status>>
+StatisJobExecutor::executeInternal(HostAddr&& host, std::vector<PartitionID>&& parts) {
     cpp2::StatisItem item;
-    statisItem_.emplace(address, item);
-    return adminClient_->addTask(cpp2::AdminCmd::STATS, jobId_, taskId_++,
-                                 space_, {std::move(address)}, {},
-                                 std::move(parts), concurrency_, &(statisItem_[address]));
+    statisItem_.emplace(host, item);
+    std::vector<folly::Future<Status>> futures;
+    auto future = adminClient_->addTask(cpp2::AdminCmd::STATS, jobId_, taskId_++,
+                                        space_, {std::move(host)}, {},
+                                        std::move(parts), concurrency_, &(statisItem_[host]));
+    futures.emplace_back(std::move(future));
+    return futures;
 }
 
 void StatisJobExecutor::finish(bool ExeSuccessed) {
@@ -121,7 +124,7 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
     }
 
     folly::collectAll(std::move(futures))
-        .thenValue([] (const auto& tries) mutable {
+        .thenValue([&] (auto&& tries) mutable {
             for (const auto& t : tries) {
                 if (!t.value().ok()) {
                     LOG(ERROR) << "Stop statis job Failed";

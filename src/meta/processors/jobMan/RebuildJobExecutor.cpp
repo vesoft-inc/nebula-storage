@@ -29,16 +29,21 @@ cpp2::ErrorCode RebuildJobExecutor::prepare() {
     }
     space_ = nebula::value(spaceRet);
 
-    std::string indexValue;
-    auto indexKey = MetaServiceUtils::indexIndexKey(space_, paras_[0]);
-    auto result = kvstore_->get(kDefaultSpaceId, kDefaultPartId, indexKey, &indexValue);
-    if (result != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Get indexKey error indexName: " << paras_[0];
-        return cpp2::ErrorCode::E_NOT_FOUND;
-    }
+    std::vector<std::string> indexes;
+    folly::split(',', paras_[0], indexes);
+    for (auto& indexName : indexes) {
+        std::string indexValue;
+        auto indexKey = MetaServiceUtils::indexIndexKey(space_, indexName);
+        auto result = kvstore_->get(kDefaultSpaceId, kDefaultPartId, indexKey, &indexValue);
+        if (result != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Get indexKey error indexName: " << indexName;
+            return cpp2::ErrorCode::E_NOT_FOUND;
+        }
 
-    indexId_ = *reinterpret_cast<const IndexID*>(indexValue.c_str());
-    LOG(INFO) << "Rebuild Index Space " << space_ << ", Index " << indexId_;
+        auto indexId = *reinterpret_cast<const IndexID*>(indexValue.c_str());
+        indexIds_.emplace_back(indexId);
+        LOG(INFO) << "Rebuild Index Space " << space_ << ", Index " << indexId;
+    }
     return cpp2::ErrorCode::SUCCEEDED;
 }
 

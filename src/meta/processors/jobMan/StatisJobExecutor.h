@@ -30,8 +30,8 @@ public:
 
     cpp2::ErrorCode stop() override;
 
-    folly::Future<Status>
-    executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) override;
+    std::vector<folly::Future<Status>>
+    executeInternal(HostAddr&& host, std::vector<PartitionID>&& parts) override;
 
     // Summarize the results of statisItem_
     void finish(bool ExeSuccessed) override;

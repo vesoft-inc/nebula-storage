@@ -133,16 +133,13 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
 
 void MetaJobExecutor::interruptExecution(JobID jobId) {
     if (jobId == jobId_) {
-        std::unique_lock<std::mutex> lk(muInterrupt_);
         stopped_ = true;
-        condInterrupt_.notify_one();
-        lk.unlock();
-
         LOG(INFO) << folly::sformat("cancel job {}", jobId);
     }
 }
 
-ExecuteRet MetaJobExecutor::execute() {
+ErrorOr<cpp2::ErrorCode, std::vector<std::pair<HostAddr, Status>>>
+MetaJobExecutor::execute() {
     ErrOrHosts addressesRet;
     if (toLeader_) {
         addressesRet = getLeaderHost(space_);
@@ -150,40 +147,46 @@ ExecuteRet MetaJobExecutor::execute() {
         addressesRet = getTargetHost(space_);
     }
 
+    std::vector<std::pair<HostAddr, Status>> results;
+    std::vector<folly::Future<Status>> futures;
     if (!nebula::ok(addressesRet)) {
         LOG(ERROR) << "Can't get hosts";
         return cpp2::ErrorCode::E_NO_HOSTS;
     }
 
     std::vector<PartitionID> parts;
-
-    auto addresses = nebula::value(addressesRet);
-    auto unfinishedTask = addresses.size();
-
-    std::unordered_map<HostAddr, Status> ret;
-    for (auto& address : addresses) {
+    std::vector<HostAddr> hosts;
+    for (auto& address : nebula::value(addressesRet)) {
         // transform to the admin host
         auto& host = address.first;
-        auto fut = executeInternal(Utils::getAdminAddrFromStoreAddr(host),
+        auto future = executeInternal(Utils::getAdminAddrFromStoreAddr(host),
                                       std::move(address.second));
-        std::move(fut).thenTry([&](auto&& t) {
-            std::lock_guard<std::mutex> lk(muInterrupt_);
-            --unfinishedTask;
-            if (t.hasValue()) {
-                ret[host] = t.value();
-            } else {
-                ret[host] = nebula::Status::Error();
+        for (size_t i = 0; i < future.size(); i++) {
+            hosts.emplace_back(host);
+        }
+        futures.insert(futures.end(),
+                       std::make_move_iterator(future.begin()),
+                       std::make_move_iterator(future.end()));
+    }
+
+    std::vector<Status> status;
+    folly::collectAll(std::move(futures))
+        .thenValue([&](const std::vector<folly::Try<Status>> tries) {
+            for (const auto& t : tries) {
+                if (t.hasException()) {
+                    LOG(ERROR) << "Admin Failed: " << t.exception();
+                    status.emplace_back(nebula::Status::Error());
+                } else {
+                    status.emplace_back(t.value());
+                }
             }
-            condInterrupt_.notify_one();
         });
-    }
 
-    {
-        std::unique_lock<std::mutex> lk(muInterrupt_);
-        condInterrupt_.wait(lk, [&]{ return unfinishedTask == 0 || stopped_; });
+    for (size_t i = 0; i < status.size(); i++) {
+        auto element = std::make_pair(hosts[i], status[i]);
+        results.emplace_back(std::move(element));
     }
-
-    return ret;
+    return results;
 }
 
 }  // namespace meta

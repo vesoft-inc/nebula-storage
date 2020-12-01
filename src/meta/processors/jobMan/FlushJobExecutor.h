@@ -19,8 +19,8 @@ public:
                      AdminClient* adminClient,
                      const std::vector<std::string>& params);
 
-    folly::Future<Status> executeInternal(HostAddr&& address,
-                                          std::vector<PartitionID>&& parts) override;
+    std::vector<folly::Future<Status>>
+    executeInternal(HostAddr&& host, std::vector<PartitionID>&& parts) override;
 };
 
 }  // namespace meta

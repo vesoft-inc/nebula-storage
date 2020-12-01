@@ -15,10 +15,13 @@ CompactJobExecutor::CompactJobExecutor(JobID jobId,
                                        const std::vector<std::string>& paras)
     : SimpleConcurrentJobExecutor(jobId, kvstore, adminClient, paras) {}
 
-folly::Future<Status> CompactJobExecutor::executeInternal(HostAddr&& address,
-                                                          std::vector<PartitionID>&& parts) {
-    return adminClient_->addTask(cpp2::AdminCmd::COMPACT, jobId_, taskId_++, space_,
-                                 {std::move(address)}, {}, std::move(parts), concurrency_);
+std::vector<folly::Future<Status>>
+CompactJobExecutor::executeInternal(HostAddr&& host, std::vector<PartitionID>&& parts) {
+    std::vector<folly::Future<Status>> futures;
+    auto future = adminClient_->addTask(cpp2::AdminCmd::COMPACT, jobId_, taskId_++, space_,
+                                        {std::move(host)}, {}, std::move(parts), concurrency_);
+    futures.emplace_back(std::move(future));
+    return futures;
 }
 
 }  // namespace meta

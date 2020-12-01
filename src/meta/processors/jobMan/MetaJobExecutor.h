@@ -41,7 +41,8 @@ public:
 
     // The skeleton to run the job.
     // You should rewrite the executeInternal to trigger the calling.
-    ExecuteRet execute();
+    ErrorOr<cpp2::ErrorCode, std::vector<std::pair<HostAddr, Status>>>
+    execute();
 
     void interruptExecution(JobID jobId);
 
@@ -58,8 +59,8 @@ protected:
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
 
-    virtual folly::Future<Status>
-    executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) = 0;
+    virtual std::vector<folly::Future<Status>>
+    executeInternal(HostAddr&& host, std::vector<PartitionID>&& parts) = 0;
 
 protected:
     JobID                       jobId_{INT_MIN};
@@ -71,8 +72,6 @@ protected:
     bool                        toLeader_{false};
     int32_t                     concurrency_{INT_MAX};
     bool                        stopped_{false};
-    std::mutex                  muInterrupt_;
-    std::condition_variable     condInterrupt_;
 };
 
 class MetaJobExecutorFactory {
