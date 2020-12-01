@@ -276,6 +276,8 @@ TEST(CompactionFilterTest, TTLFilterDataExpiredTest) {
     checkEdgeData(spaceVidLen, spaceId, 101, parts, env, 0);
     // check teammates positive data, data count is 18
     checkEdgeData(spaceVidLen, spaceId, 102, parts, env, 18);
+
+    FLAGS_mock_ttl_col = false;
 }
 
 
@@ -407,3 +409,4 @@ int main(int argc, char** argv) {
     google::SetStderrLogging(google::INFO);
     return RUN_ALL_TESTS();
 }
+

@@ -26,7 +26,6 @@ public:
         VLOG(1) << "Starting web service...";
 
         rootPath_ = std::make_unique<fs::TempDir>("/tmp/StorageHttpIngestHandler.XXXXXX");
-        // kv_ = TestUtils::initKV(rootPath_->path(), 1);
         cluster_ = std::make_unique<mock::MockCluster>();
         cluster_->initStorageKV(rootPath_->path());
 
