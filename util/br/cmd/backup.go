@@ -70,7 +70,6 @@ func newFullBackupCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// nil mean backup all space
 			logger, _ := zap.NewProduction()
 
 			defer logger.Sync() // flushes buffer, if any

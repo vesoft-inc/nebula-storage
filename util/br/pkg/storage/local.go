@@ -2,8 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"math/rand"
-	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -95,7 +93,5 @@ func (s LocalBackedStore) RestoreStoragePreCommand(dst string) string {
 }
 
 func (s LocalBackedStore) CheckCommand() string {
-	r := rand.Int()
-	dst := s.dir + "/" + strconv.Itoa(r)
-	return "touch " + dst + " && rm " + dst
+	return "ls " + s.dir
 }

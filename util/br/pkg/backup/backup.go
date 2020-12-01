@@ -95,6 +95,7 @@ func (b *Backup) dropBackup(name []byte) (*meta.ExecResp, error) {
 func (b *Backup) createBackup() (*meta.CreateBackupResp, error) {
 	node := b.config.MetaNodes
 	addr := node[0].Addrs
+	b.metaLeader = node[0]
 
 	for {
 		client := metaclient.NewMetaClient(b.log)
@@ -288,7 +289,12 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 	storageMap := make(map[string][]spaceInfo)
 	for k, v := range meta.GetBackupInfo() {
 		for _, f := range v.GetCpDirs() {
-			cpDir := spaceInfo{k, string(f.CheckpointDir)}
+			dir := string(f.CheckpointDir)
+			if !filepath.IsAbs(dir) {
+				root := b.storageNodeMap[hostaddrToString(f.Host)].RootDir
+				dir = filepath.Join(root, dir)
+			}
+			cpDir := spaceInfo{k, dir}
 			storageMap[hostaddrToString(f.Host)] = append(storageMap[hostaddrToString(f.Host)], cpDir)
 		}
 	}
@@ -296,7 +302,7 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 
 	err = g.Wait()
 	if err != nil {
-		b.log.Error("upload error")
+		b.log.Error("upload error", zap.Error(err))
 		return err
 	}
 	// write the meta for this backup to local
