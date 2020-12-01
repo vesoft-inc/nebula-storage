@@ -79,36 +79,23 @@ Status ListHostsProcessor::allMetaHostsStatus() {
         hostItems_.emplace_back(item);
     }
 
-    auto* nbStore = dynamic_cast<kvstore::NebulaStore*>(kvstore_);
-    do {
-        if (nbStore == nullptr) {
-            LOG(ERROR) << "nbStore == nullptr";
-            break;
-        }
-        auto* raftService = nbStore->getRaftexService();
-        if (raftService == nullptr) {
-            LOG(ERROR) << "raftService == nullptr";
-            break;
-        }
-        auto spRaftPart = raftService->findPart(kDefaultSpaceId, kDefaultPartId);
-        if (spRaftPart == nullptr) {
-            LOG(ERROR) << "spRaftPart == nullptr";
-            break;
-        }
-        auto metas = spRaftPart->peers();
-        // transform raft port to servre port
-        for (auto& metaHost : metas) {
-            --metaHost.port;
-        }
-        for (auto& host : metas) {
-            cpp2::HostItem item;
-            item.set_hostAddr(std::move(host));
-            item.set_role(cpp2::HostRole::META);
-            item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
-            item.set_status(cpp2::HostStatus::ONLINE);
-            hostItems_.emplace_back(item);
-        }
-    } while (0);
+    auto errOrPart = kvstore_->part(kDefaultSpaceId, kDefaultPartId);
+    if (!nebula::ok(errOrPart)) {
+        return Status::SpaceNotFound();
+    }
+    auto metaPeers = nebula::value(errOrPart)->peers();
+    // transform raft port to servre port
+    for (auto& metaHost : metaPeers) {
+        --metaHost.port;
+    }
+    for (auto& host : metaPeers) {
+        cpp2::HostItem item;
+        item.set_hostAddr(std::move(host));
+        item.set_role(cpp2::HostRole::META);
+        item.set_git_info_sha(NEBULA_STRINGIFY(GIT_INFO_SHA));
+        item.set_status(cpp2::HostStatus::ONLINE);
+        hostItems_.emplace_back(item);
+    }
     return Status::OK();
 }
 
