@@ -203,6 +203,7 @@ cpp2::ErrorCode GetPropProcessor::buildEdgeContext(const cpp2::GetPropRequest& r
 }
 
 void GetPropProcessor::buildTagColName(const std::vector<cpp2::VertexProp>& tagProps) {
+    resultDataSet_.colNames.emplace_back(kVid);
     for (const auto& tagProp : tagProps) {
         auto tagId = tagProp.tag;
         auto tagName = tagContext_.tagNames_[tagId];
