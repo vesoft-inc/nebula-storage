@@ -15,6 +15,8 @@
 #include "codec/RowWriterV2.h"
 #include "mock/AdHocSchemaManager.h"
 #include "mock/AdHocIndexManager.h"
+#include "mock/MockCluster.h"
+#include "mock/MockData.h"
 
 namespace nebula {
 namespace storage {
