@@ -19,6 +19,21 @@ constexpr int kOutEdgeFail = 29;
 // constexpr int kRemoveLockFail = 37;
 constexpr int kSucceeded = 99;
 
+// only used in Toss Error Test, may remove after that test removed.
+static std::string extractSingleProps(const std::string& props) {
+    size_t cnt = 0;
+    if (props.empty()) {
+        return 0;
+    }
+    size_t p = props.find(',', 0);
+    while (cnt < 3 && p != std::string::npos) {
+        ++cnt;
+        ++p;
+        p = props.find(',', p);
+    }
+    return props.substr(p+1);
+}
+
 namespace nebula {
 namespace storage {
 

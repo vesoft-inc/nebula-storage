@@ -68,7 +68,7 @@ BENCHMARK(bmOneReqOneEdgeTossNo) {
     auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
     auto edge = env->generateEdge(srcId, gRank, vals, dstId);
 
-    env->addEdgeAsync(edge, notToss);
+    env->syncAddEdge(edge, notToss);
 }
 
 BENCHMARK_RELATIVE(bmOneReqOneEdgeTossYes) {
@@ -83,7 +83,7 @@ BENCHMARK_RELATIVE(bmOneReqOneEdgeTossYes) {
     auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
     auto edge = env->generateEdge(srcId, gRank, vals, dstId);
 
-    env->addEdgeAsync(edge, useToss);
+    env->syncAddEdge(edge, useToss);
 }
 
 

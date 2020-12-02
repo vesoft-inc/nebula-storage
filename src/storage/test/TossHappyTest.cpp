@@ -37,8 +37,6 @@ enum class TossTestEnum {
     TEN_EDGES_CASE_3,
     // add 10 edges(diff local part, diff remote part)
     TEN_EDGES_CASE_4,
-    // 100 random edges
-    HUNREDS_EDGES
 };
 
 class TossTest : public ::testing::Test {
@@ -105,7 +103,7 @@ TEST_F(TossTest, NO_TOSS) {
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
     LOG(INFO) << "going to add edge:" << edges.back().props.back();
-    auto code = env_->addEdgeAsync(edges, kNotToss);
+    auto code = env_->syncAddMultiEdges(edges, kNotToss);
 
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
             << "fatal code=" << static_cast<int32_t>(code);
@@ -134,7 +132,7 @@ TEST_F(TossTest, ADD_ONES_EDGE) {
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
     LOG(INFO) << "going to add edge:" << edges.back().props.back();
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
 
     props = env_->getNeiProps(startWith);
@@ -166,7 +164,7 @@ TEST_F(TossTest, TWO_EDGES_CASE_1) {
     auto props = env_->getNeiProps(startWith);
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
         << "fatal code=" << static_cast<int32_t>(code);
 
@@ -194,7 +192,7 @@ TEST_F(TossTest, TWO_EDGES_CASE_2) {
     auto props = env_->getNeiProps(first);
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
         << "fatal code=" << static_cast<int32_t>(code);
 
@@ -228,7 +226,7 @@ TEST_F(TossTest, TWO_EDGES_CASE_3) {
     props = env_->getNeiProps(second);
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
 
     props = env_->getNeiProps(first);
@@ -268,7 +266,7 @@ TEST_F(TossTest, TWO_EDGES_CASE_4) {
     auto props = env_->getNeiProps(startWith);
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
         << "fatal code=" << static_cast<int32_t>(code);
 
@@ -295,7 +293,7 @@ TEST_F(TossTest, TEN_EDGES_CASE_1) {
     // auto props = env_->getNeiProps(startWith);
     // EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
         << "fatal code=" << static_cast<int32_t>(code);
 
@@ -318,7 +316,7 @@ TEST_F(TossTest, TEN_EDGES_CASE_2) {
 
     std::vector<cpp2::NewEdge> first{edges[0]};
 
-    auto code = env_->addEdgeAsync(edges, kUseToss);
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
     LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
         << "fatal code=" << static_cast<int32_t>(code);
 
@@ -332,6 +330,43 @@ TEST_F(TossTest, TEN_EDGES_CASE_2) {
             LOG(INFO) << "s" << s;
         }
     }
+}
+
+TEST_F(TossTest, internal_storage_client_test) {
+    auto num = 1U;
+    std::vector<cpp2::NewEdge> edges = env_->generateNEdges(num);
+
+    // auto interClient =
+
+    std::vector<cpp2::NewEdge> first{edges[0]};
+
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
+    ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
+
+    auto props = env_->getNeiProps(first);
+
+    auto svec = TossTestUtils::splitNeiResults(props);
+    EXPECT_EQ(svec.size(), num);
+    // TossTestUtils::logIfSizeNotAsExpect(svec.size(), num);
+}
+
+TEST_F(TossTest, base_component_test_1) {
+    auto num = 1U;
+    std::vector<cpp2::NewEdge> edges = env_->generateNEdges(num);
+
+    std::vector<cpp2::NewEdge> first{edges[0]};
+
+    auto code = env_->syncAddMultiEdges(edges, kUseToss);
+    ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
+
+    auto props = env_->getNeiProps(first);
+
+    auto svec = TossTestUtils::splitNeiResults(props);
+    EXPECT_EQ(svec.size(), num);
+    // TossTestUtils::logIfSizeNotAsExpect(svec.size(), num);
+
+    auto lockKey = env_->insertLock(edges[0]);
+    LOG(INFO) << "base_component_test_1 lockKey = " << lockKey;
 }
 
 }  // namespace storage

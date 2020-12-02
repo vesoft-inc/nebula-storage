@@ -17,9 +17,15 @@
 #include <folly/Format.h>
 #include <folly/container/Enumerate.h>
 
+#include "codec/RowWriterV2.h"
 #include "common/base/Base.h"
 #include "common/clients/storage/GraphStorageClient.h"
+#include "common/clients/storage/InternalStorageClient.h"
 #include "common/expression/ConstantExpression.h"
+#include "common/meta/SchemaManager.h"
+#include "storage/transaction/TransactionUtils.h"
+#include "utils/NebulaKeyUtils.h"
+#include "kvstore/LogEncoder.h"
 
 #define FLOG_FMT(...) LOG(INFO) << folly::sformat(__VA_ARGS__)
 
@@ -107,6 +113,12 @@ struct TossTestUtils {
         return ret;
     }
 
+    static void logIfSizeNotAsExpect(const std::vector<std::string>& svec, size_t expect) {
+        if (svec.size() != expect) {
+            print_svec(svec);
+        }
+    }
+
     static std::vector<std::string> splitNeiResult(folly::StringPiece str) {
         std::vector<std::string> ret;
         auto begin = str.begin();
@@ -133,7 +145,7 @@ struct TossTestUtils {
             LOG(INFO) << str;
         }
     }
-};
+};  // end TossTestUtils
 
 struct TossEnvironment {
     static TossEnvironment* getInstance(const std::string& metaName, int32_t metaPort) {
@@ -145,6 +157,8 @@ struct TossEnvironment {
         executor_ = std::make_shared<folly::IOThreadPoolExecutor>(20);
         mClient_ = setupMetaClient(metaName, metaPort);
         sClient_ = std::make_unique<StorageClient>(executor_, mClient_.get());
+        interClient_ = std::make_unique<storage::InternalStorageClient>(executor_, mClient_.get());
+        schemaMan_ = meta::SchemaManager::create(mClient_.get());
     }
 
     std::unique_ptr<meta::MetaClient>
@@ -273,7 +287,7 @@ struct TossEnvironment {
         return e;
     }
 
-    cpp2::ErrorCode addEdgeAsync(std::vector<cpp2::NewEdge>& edges, bool useToss) {
+    cpp2::ErrorCode syncAddMultiEdges(std::vector<cpp2::NewEdge>& edges, bool useToss) {
         bool retLeaderChange = false;
         int32_t retry = 0;
         int32_t retryMax = 10;
@@ -322,9 +336,9 @@ struct TossEnvironment {
         return cpp2::ErrorCode::SUCCEEDED;
     }
 
-    cpp2::ErrorCode addEdgeAsync(const cpp2::NewEdge& edge, bool useToss = true) {
+    cpp2::ErrorCode syncAddEdge(const cpp2::NewEdge& edge, bool useToss = true) {
         std::vector<cpp2::NewEdge> edges{edge};
-        return addEdgeAsync(edges, useToss);
+        return syncAddMultiEdges(edges, useToss);
     }
 
     folly::SemiFuture<StorageRpcResponse<cpp2::ExecResponse>>
@@ -545,26 +559,103 @@ struct TossEnvironment {
         return ret;
     }
 
-    static std::string extractSingleProps(const std::string& props) {
-        size_t cnt = 0;
-        if (props.empty()) {
-            return 0;
-        }
-        size_t p = props.find(',', 0);
-        while (cnt < 3 && p != std::string::npos) {
-            ++cnt;
-            ++p;
-            p = props.find(',', p);
-        }
-        return props.substr(p+1);
+    int64_t getSrc() const {
+        return src_;
     }
 
-    std::shared_ptr<folly::IOThreadPoolExecutor>    executor_;
-    std::unique_ptr<meta::MetaClient>               mClient_;
-    std::unique_ptr<StorageClient>                  sClient_;
+    void setSrc(int64_t src) {
+        src_ = src;
+    }
 
-    int32_t                                         spaceId_{0};
-    int32_t                                         edgeType_{0};
+    std::vector<cpp2::NewEdge> generateNEdges(size_t cnt) {
+        auto vals = TossTestUtils::genValues(cnt);
+        std::vector<cpp2::NewEdge> edges;
+        for (auto i = 0U; i != cnt; ++i) {
+            edges.emplace_back(generateEdge(src_, 0, vals[i], src_ + i));
+        }
+        return edges;
+    }
+
+    void insertMutliLocks(const std::vector<cpp2::NewEdge>& edges) {
+        UNUSED(edges);
+        // auto lockKey = ;
+    }
+
+
+    std::string insertLock(const cpp2::NewEdge& edge, size_t vIdLen = 8) {
+        auto& edgeKey = edge.key;
+        auto stPart = mClient_->partId(spaceId_, edgeKey.src.getStr());
+        if (!stPart.ok()) {
+            LOG(FATAL) << "partId(spaceId_, edgeKey.src.getStr()) not ok";
+        }
+        auto partId = stPart.value();
+        auto rawKey = TransactionUtils::edgeKey(vIdLen, partId, edgeKey, 0);
+        auto lockKey = NebulaKeyUtils::toLockKey(rawKey);
+        auto cpLockKey = lockKey;
+
+        auto props = edge.props;
+        auto edgeType = edgeKey.get_edge_type();
+        auto pSchema = schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType)).get();
+        if (!pSchema) {
+            LOG(FATAL) << "Space " << spaceId_ << ", Edge " << edgeType << " invalid";
+        }
+
+        auto propNames = makeColNames(edge.props.size());
+        auto lockVal = encodeRowVal(pSchema, propNames, edge.props);
+        kvstore::BatchHolder bat;
+        bat.put(std::move(lockKey), std::move(lockVal));
+        auto batch = encodeBatchValue(bat.getBatch());
+
+        auto sf = interClient_->forwardTransaction(0, spaceId_, partId, std::move(batch)).wait();
+        LOG_IF(FATAL, !sf.hasValue()) << "!sf.hasValue()";
+
+        auto& stExec = sf.value();
+        LOG_IF(FATAL, !stExec.ok()) << "!stExec.ok()";
+
+        auto& respCommon = stExec.value().result;
+        LOG_IF(FATAL, !respCommon.failed_parts.empty()) << "!respCommon.failed_parts.empty()";
+
+        return cpLockKey;
+    }
+
+    // simple copy of Storage::BaseProcessor::encodeRowVal
+    std::string encodeRowVal(const meta::NebulaSchemaProvider* schema,
+                             const std::vector<std::string>& propNames,
+                             const std::vector<Value>& props) {
+        RowWriterV2 rowWrite(schema);
+        WriteResult wRet;
+        if (!propNames.empty()) {
+            for (size_t i = 0; i < propNames.size(); i++) {
+                wRet = rowWrite.setValue(propNames[i], props[i]);
+                if (wRet != WriteResult::SUCCEEDED) {
+                    LOG(FATAL) << "Add field faild";
+                }
+            }
+        } else {
+            for (size_t i = 0; i < props.size(); i++) {
+                wRet = rowWrite.setValue(i, props[i]);
+                if (wRet != WriteResult::SUCCEEDED) {
+                    LOG(FATAL) << "Add field faild";
+                }
+            }
+        }
+        wRet = rowWrite.finish();
+        if (wRet != WriteResult::SUCCEEDED) {
+            LOG(FATAL) << "Add field faild";
+        }
+
+        return std::move(rowWrite).moveEncodedStr();
+    }
+
+    std::shared_ptr<folly::IOThreadPoolExecutor>        executor_;
+    std::unique_ptr<meta::MetaClient>                   mClient_;
+    std::unique_ptr<StorageClient>                      sClient_;
+    std::unique_ptr<storage::InternalStorageClient>     interClient_;
+    std::unique_ptr<meta::SchemaManager>                schemaMan_;
+
+    int32_t                                             spaceId_{0};
+    int32_t                                             edgeType_{0};
+    int64_t                                             src_{0};
 };
 
 }  // namespace storage

@@ -89,6 +89,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
     // steps 2: batch commit persist locks
     std::string batch;
     std::vector<KV> lockData = localEdges;
+    // insert don't have BatchGetter
     if (!optBatchGetter) {
         // insert don't have batch Getter
         auto addEdgeErrorCode = cpp2::ErrorCode::SUCCEEDED;
@@ -100,7 +101,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                     return std::make_pair(NebulaKeyUtils::toLockKey(kv.first), *optVal);
                 } else {
                     addEdgeErrorCode = cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
-                    return std::make_pair(NebulaKeyUtils::toLockKey(kv.first), "");
+                    return std::make_pair(NebulaKeyUtils::toLockKey(kv.first), std::string(""));
                 }
             } else {
                 std::vector<KV> data{std::make_pair(kv.first, kv.second)};
@@ -110,7 +111,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
         });
         if (addEdgeErrorCode != cpp2::ErrorCode::SUCCEEDED) {
             cleanup();
-            return cpp2::ErrorCode::addEdgeErrorCode;
+            return addEdgeErrorCode;
         }
         auto lockDataSink = lockData;
         batch = encodeBatch(std::move(lockDataSink));

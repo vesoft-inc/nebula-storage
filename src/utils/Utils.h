@@ -40,6 +40,8 @@ public:
             return raftAddr;
         }
         return HostAddr(raftAddr.host, raftAddr.port - 1);
+    }
+
     static HostAddr getInternalAddrFromStoreAddr(HostAddr adminAddr) {
         if (adminAddr == HostAddr("", 0)) {
             return adminAddr;
