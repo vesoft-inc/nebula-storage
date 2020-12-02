@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/monadbobo/br/pkg/config"
+	"github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"

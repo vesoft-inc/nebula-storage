@@ -63,10 +63,6 @@ func NewBackupClient(cf config.BackupConfig, log *zap.Logger) *Backup {
 	return &Backup{config: cf, backendStorage: backend, log: log}
 }
 
-func hostaddrToString(host *nebula.HostAddr) string {
-	return host.Host + ":" + strconv.Itoa(int(host.Port))
-}
-
 func (b *Backup) dropBackup(name []byte) (*meta.ExecResp, error) {
 	addr := b.metaLeader.Addrs
 
@@ -132,7 +128,7 @@ func (b *Backup) createBackup() (*meta.CreateBackupResp, error) {
 		}
 
 		b.log.Info("leader changed", zap.String("leader", leader.String()))
-		addr = hostaddrToString(leader)
+		addr = metaclient.HostaddrToString(leader)
 		b.metaLeader = b.metaNodeMap[addr]
 	}
 }
@@ -291,11 +287,11 @@ func (b *Backup) uploadAll(meta *meta.BackupMeta) error {
 		for _, f := range v.GetCpDirs() {
 			dir := string(f.CheckpointDir)
 			if !filepath.IsAbs(dir) {
-				root := b.storageNodeMap[hostaddrToString(f.Host)].RootDir
+				root := b.storageNodeMap[metaclient.HostaddrToString(f.Host)].RootDir
 				dir = filepath.Join(root, dir)
 			}
 			cpDir := spaceInfo{k, dir}
-			storageMap[hostaddrToString(f.Host)] = append(storageMap[hostaddrToString(f.Host)], cpDir)
+			storageMap[metaclient.HostaddrToString(f.Host)] = append(storageMap[metaclient.HostaddrToString(f.Host)], cpDir)
 		}
 	}
 	b.uploadStorage(g, storageMap)

@@ -52,7 +52,7 @@ func (r *Restore) checkPhysicalTopology(info map[nebula.GraphSpaceID]*meta.Space
 	s := strset.New()
 	for _, v := range info {
 		for _, c := range v.CpDirs {
-			s.Add(hostaddrToString(c.Host))
+			s.Add(metaclient.HostaddrToString(c.Host))
 		}
 	}
 
@@ -118,16 +118,12 @@ func (r *Restore) downloadMeta(g *errgroup.Group, file []string) map[string][][]
 	return sstFiles
 }
 
-func hostaddrToString(host *nebula.HostAddr) string {
-	return host.Host + ":" + strconv.Itoa(int(host.Port))
-}
-
 func (r *Restore) downloadStorage(g *errgroup.Group, info map[nebula.GraphSpaceID]*meta.SpaceBackupInfo) map[string]string {
 	idMap := make(map[string][]string)
 	for gid, bInfo := range info {
 		for _, dir := range bInfo.CpDirs {
 			idStr := strconv.FormatInt(int64(gid), 10)
-			idMap[hostaddrToString(dir.Host)] = append(idMap[hostaddrToString(dir.Host)], idStr)
+			idMap[metaclient.HostaddrToString(dir.Host)] = append(idMap[metaclient.HostaddrToString(dir.Host)], idStr)
 		}
 	}
 

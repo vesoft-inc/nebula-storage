@@ -21,3 +21,8 @@ type RestoreConfig struct {
 	BackendUrl string `yaml:"backend"`
 	BackupName string `yaml:"backup_name"`
 }
+
+type CleanupConfig struct {
+	BackupName string
+	MetaServer []string
+}
