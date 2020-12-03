@@ -22,7 +22,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
         return;
     }
 
-    if (!result.value()) {
+    if (result.value()) {
         LOG(ERROR) << "Index is rebuilding, not allowed to create snapshot.";
         handleErrorCode(cpp2::ErrorCode::E_SNAPSHOT_FAILURE);
         onFinished();

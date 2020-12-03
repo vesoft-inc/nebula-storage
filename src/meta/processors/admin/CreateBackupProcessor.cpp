@@ -157,7 +157,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         return;
     }
 
-    if (!result.value()) {
+    if (result.value()) {
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_BUILDING_INDEX);
         onFinished();
         return;

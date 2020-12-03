@@ -984,12 +984,12 @@ folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvst
 
     while (iter->valid()) {
         if (iter->val() == "RUNNING") {
-            return false;
+            return true;
         }
         iter->next();
     }
 
-    return true;
+    return false;
 }
 
 std::function<bool(const folly::StringPiece& key)>
