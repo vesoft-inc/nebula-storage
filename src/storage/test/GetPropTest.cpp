@@ -227,12 +227,11 @@ TEST(GetPropTest, AllPropertyInOneSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         nebula::DataSet expected;
-        expected.colNames = {kVid, std::string("1.").append(kVid), std::string("1.").append(kTag),
-                             "1.name", "1.age", "1.playing", "1.career",
+        expected.colNames = {kVid, "1.name", "1.age", "1.playing", "1.career",
                              "1.startYear", "1.endYear", "1.games", "1.avgScore",
                              "1.serveTeams", "1.country", "1.champions"};
-        nebula::Row row({"Tim Duncan", "Tim Duncan", 1, "Tim Duncan", 44, false, 19, 1997, 2016,
-                         1392, 19.0, 1, "America", 5});
+        nebula::Row row({"Tim Duncan", "Tim Duncan", 44, false, 19,
+                         1997, 2016, 1392, 19.0, 1, "America", 5});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.props);
     }
@@ -258,15 +257,10 @@ TEST(GetPropTest, AllPropertyInOneSchemaTest) {
 
         ASSERT_EQ(0, resp.result.failed_parts.size());
         nebula::DataSet expected;
-        expected.colNames = {"101._src", "101._type", "101._rank", "101._dst",
-                             "101.playerName", "101.teamName", "101.startYear", "101.endYear",
+        expected.colNames = {"101.playerName", "101.teamName", "101.startYear", "101.endYear",
                              "101.teamCareer", "101.teamGames", "101.teamAvgScore", "101.type",
                              "101.champions"};
-        nebula::Row row({"Tim Duncan",  // src
-                         101,           // type
-                         1997,          // rank
-                         "Spurs",       // dst
-                         "Tim Duncan", "Spurs", 1997, 2016, 19, 1392, 19.000000, "zzzzz", 5});
+        nebula::Row row({"Tim Duncan", "Spurs", 1997, 2016, 19, 1392, 19.000000, "zzzzz", 5});
         expected.rows.emplace_back(std::move(row));
         ASSERT_EQ(expected, resp.props);
     }
@@ -296,17 +290,17 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
         {
             std::vector<nebula::Row> expected;
             nebula::Row row;
-            // The first one is kVid, and player have 2 + 11 properties in key and value
-            std::vector<Value> values{"Tim Duncan", "Tim Duncan", 1, "Tim Duncan", 44, false, 19,
+            // The first one is kVid, and player 11 properties in value
+            std::vector<Value> values{"Tim Duncan", "Tim Duncan", 44, false, 19,
                                       1997, 2016, 1392, 19.0, 1, "America", 5};
-            // team: kVid, kTag and 1 property, tag3: kVid, kTag and 11 property, in total 16
-            for (size_t i = 0; i < 16; i++) {
+            // team: 1 property, tag3: 11 property, in total 12
+            for (size_t i = 0; i < 12; i++) {
                 values.emplace_back(Value());
             }
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
-            // kVid, player: 2 + 11, team: 2 + 1, tag3: 2 + 11
-            ASSERT_EQ(1 + 13 + 3 + 13, resp.props.colNames.size());
+            // kVid, player: 11, team: 1, tag3: 11
+            ASSERT_EQ(1 + 11 + 1 + 11, resp.props.colNames.size());
             verifyResult(expected, resp.props);
         }
     }
@@ -335,18 +329,14 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             nebula::Row row;
             std::vector<Value> values;
             // -teammate
-            for (size_t i = 0; i < 5 + 4; i++) {
+            for (size_t i = 0; i < 5; i++) {
                 values.emplace_back(Value());
             }
             // -serve
-            for (size_t i = 0; i < 9 + 4; i++) {
+            for (size_t i = 0; i < 9; i++) {
                 values.emplace_back(Value());
             }
             // serve
-            values.emplace_back("Tim Duncan");    // src
-            values.emplace_back(101);             // type
-            values.emplace_back(1997);            // rank
-            values.emplace_back("Spurs");         // dst
             values.emplace_back("Tim Duncan");
             values.emplace_back("Spurs");
             values.emplace_back(1997);
@@ -357,7 +347,7 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             values.emplace_back("zzzzz");
             values.emplace_back(5);
             // teammate
-            for (size_t i = 0; i < 5 + 4; i++) {
+            for (size_t i = 0; i < 5; i++) {
                 values.emplace_back(Value());
             }
             row.values = std::move(values);
@@ -400,17 +390,17 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
         {
             std::vector<nebula::Row> expected;
             nebula::Row row;
-            // The first one is kVid, and player have 2 + 11 properties in key and value
-            std::vector<Value> values{"Tim Duncan", "Tim Duncan", 1, "Tim Duncan", 44, false, 19,
+            // The first one is kVid, and player have 11 properties in key and value
+            std::vector<Value> values{"Tim Duncan", "Tim Duncan", 44, false, 19,
                                       1997, 2016, 1392, 19.0, 1, "America", 5};
-            // team: kVid, kTag and 1 property, tag3: kVid, kTag and 11 property, in total 16
-            for (size_t i = 0; i < 16; i++) {
+            // team: 1 property, tag3: 11 property, in total 12
+            for (size_t i = 0; i < 12; i++) {
                 values.emplace_back(Value());
             }
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
-            // kVid, player: 2 + 11, team: 2 + 1, tag3: 2 + 11
-            ASSERT_EQ(1 + 13 + 3 + 13, resp.props.colNames.size());
+            // kVid, player: 11, team: 1, tag3: 11
+            ASSERT_EQ(1 + 11 + 1 + 11, resp.props.colNames.size());
             verifyResult(expected, resp.props);
         }
     }

@@ -46,10 +46,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         } else {
             // if the list of property names is empty, then all properties on the given tag
             // will be returned
-            addReturnPropContext(ctxs, kVid, nullptr);
-            addReturnPropContext(ctxs, kTag, nullptr);
-            vertexProp.props.emplace_back(kVid);
-            vertexProp.props.emplace_back(kTag);
             auto count = tagSchema->getNumFields();
             for (size_t i = 0; i < count; i++) {
                 auto name = tagSchema->getFieldName(i);
@@ -100,14 +96,6 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         } else {
             // if the list of property names is empty, then all properties on the given edgeType
             // will be returned
-            addReturnPropContext(ctxs, kSrc, nullptr);
-            addReturnPropContext(ctxs, kType, nullptr);
-            addReturnPropContext(ctxs, kRank, nullptr);
-            addReturnPropContext(ctxs, kDst, nullptr);
-            edgeProp.props.emplace_back(kSrc);
-            edgeProp.props.emplace_back(kType);
-            edgeProp.props.emplace_back(kRank);
-            edgeProp.props.emplace_back(kDst);
             auto count = edgeSchema->getNumFields();
             for (size_t i = 0; i < count; i++) {
                 auto name = edgeSchema->getFieldName(i);
@@ -201,8 +189,6 @@ std::vector<cpp2::VertexProp> QueryBaseProcessor<REQ, RESP>::buildAllTagProps() 
     for (const auto& entry : tagContext_.schemas_) {
         cpp2::VertexProp tagProp;
         tagProp.tag = entry.first;
-        tagProp.props.emplace_back(kVid);
-        tagProp.props.emplace_back(kTag);
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {
@@ -226,13 +212,6 @@ std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
         if (direction == cpp2::EdgeDirection::IN_EDGE) {
             edgeProp.type = -edgeProp.type;
         }
-
-        // add default property in key
-        edgeProp.props.emplace_back(kSrc);
-        edgeProp.props.emplace_back(kType);
-        edgeProp.props.emplace_back(kRank);
-        edgeProp.props.emplace_back(kDst);
-
         const auto& schema = entry.second.back();
         auto count = schema->getNumFields();
         for (size_t i = 0; i < count; i++) {

@@ -52,8 +52,9 @@ void checkResponse(const nebula::DataSet& dataSet,
     }
     totalRowCount += dataSet.rows.size();
     for (const auto& row : dataSet.rows) {
+        // always pass player name or kVid at first
         auto vId = row.values[0].getStr();
-        auto tagId = row.values[1].getInt();
+        auto tagId = tag.first;
         ASSERT_EQ(expectColumnCount, row.values.size());
         auto props = tag.second;
         switch (tagId) {
@@ -120,8 +121,8 @@ TEST(ScanVertexTest, PropertyTest) {
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            // all 11 columns in value and 2 columns in key
-            checkResponse(resp.vertex_data, tag, 2 + 11, totalRowCount);
+            // all 11 columns in value
+            checkResponse(resp.vertex_data, tag, 11, totalRowCount);
         }
         CHECK_EQ(mock::MockData::players_.size(), totalRowCount);
     }

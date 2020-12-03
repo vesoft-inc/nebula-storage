@@ -52,8 +52,9 @@ void checkResponse(const nebula::DataSet& dataSet,
     }
     totalRowCount += dataSet.rows.size();
     for (const auto& row : dataSet.rows) {
+        // always pass name or kSrc at first
         auto srcId = row.values[0].getStr();
-        auto edgeType = row.values[1].getInt();
+        auto edgeType = edge.first;
         ASSERT_EQ(expectColumnCount, row.values.size());
         auto props = edge.second;
         switch (edgeType) {
@@ -119,8 +120,8 @@ TEST(ScanEdgeTest, PropertyTest) {
             auto resp = std::move(f).get();
 
             ASSERT_EQ(0, resp.result.failed_parts.size());
-            // all 9 columns in value and 4 columns in key
-            checkResponse(resp.edge_data, edge, 4 + 9, totalRowCount);
+            // all 9 columns in value
+            checkResponse(resp.edge_data, edge, 9, totalRowCount);
         }
         CHECK_EQ(mock::MockData::serves_.size(), totalRowCount);
     }
