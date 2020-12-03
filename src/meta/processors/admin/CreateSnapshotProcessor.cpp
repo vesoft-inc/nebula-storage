@@ -31,7 +31,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
         }
         iter->next();
     }
-    auto snapshot = genSnapshotName();
+    auto snapshot = folly::format("SNAPSHOT_{}", MetaServiceUtils::genTimestampStr()).str();
     folly::SharedMutex::WriteHolder wHolder(LockUtils::snapshotLock());
 
     auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
@@ -110,13 +110,6 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     LOG(INFO) << "Create snapshot " << snapshot << " successfully";
     onFinished();
-}
-
-std::string CreateSnapshotProcessor::genSnapshotName() {
-    char ch[60];
-    std::time_t t = std::time(nullptr);
-    std::strftime(ch, sizeof(ch), "%Y_%m_%d_%H_%M_%S", localtime(&t));
-    return folly::stringPrintf("SNAPSHOT_%s", ch);
 }
 
 cpp2::ErrorCode CreateSnapshotProcessor::cancelWriteBlocking() {
