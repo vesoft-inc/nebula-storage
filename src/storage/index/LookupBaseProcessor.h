@@ -20,6 +20,7 @@
 
 namespace nebula {
 namespace storage {
+
 using IndexFilterItem =
     std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>,
                                           std::unique_ptr<Expression>>>;

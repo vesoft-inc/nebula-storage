@@ -12,6 +12,9 @@
 namespace nebula {
 namespace storage {
 
+// EdgeRanking and the third parameter VertexID will not be used when tag index scan
+using ResultMap = std::unordered_map<std::tuple<VertexID, EdgeRanking, VertexID>, Row>;
+
 template<typename T>
 class IndexOutputNode final : public RelNode<T> {
 public:
@@ -28,12 +31,14 @@ public:
         kVertexFromDataFilter,
     };
 
-    IndexOutputNode(nebula::DataSet* result,
+    IndexOutputNode(ResultMap* result,
+                    const std::vector<std::string>& colNames,
                     PlanContext* planCtx,
                     IndexScanNode<T>* indexScanNode,
                     bool hasNullableCol,
                     const std::vector<meta::cpp2::ColumnDef>& fields)
         : result_(result)
+        , colNames_(colNames)
         , planContext_(planCtx)
         , indexScanNode_(indexScanNode)
         , hasNullableCol_(hasNullableCol)
@@ -43,29 +48,35 @@ public:
                 : IndexResultType::kVertexFromIndexScan;
     }
 
-    IndexOutputNode(nebula::DataSet* result,
+    IndexOutputNode(ResultMap* result,
+                    const std::vector<std::string>& colNames,
                     PlanContext* planCtx,
                     IndexEdgeNode<T>* indexEdgeNode)
         : result_(result)
+        , colNames_(colNames)
         , planContext_(planCtx)
         , indexEdgeNode_(indexEdgeNode) {
         type_ = IndexResultType::kEdgeFromDataScan;
     }
 
-    IndexOutputNode(nebula::DataSet* result,
+    IndexOutputNode(ResultMap* result,
+                    const std::vector<std::string>& colNames,
                     PlanContext* planCtx,
                     IndexVertexNode<T>* indexVertexNode)
         : result_(result)
+        , colNames_(colNames)
         , planContext_(planCtx)
         , indexVertexNode_(indexVertexNode) {
         type_ = IndexResultType::kVertexFromDataScan;
     }
 
-    IndexOutputNode(nebula::DataSet* result,
+    IndexOutputNode(ResultMap* result,
+                    const std::vector<std::string>& colNames,
                     PlanContext* planCtx,
                     IndexFilterNode<T>* indexFilterNode,
                     bool indexFilter = false)
         : result_(result)
+        , colNames_(colNames)
         , planContext_(planCtx)
         , indexFilterNode_(indexFilterNode) {
         hasNullableCol_ = indexFilterNode->hasNullableCol();
@@ -172,7 +183,7 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace_back(std::move(row));
+            result_->emplace(std::make_tuple(vId.toString(), 0, ""), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -186,7 +197,7 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace_back(std::move(row));
+            result_->emplace(std::make_tuple(vId.toString(), 0, ""), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -211,7 +222,7 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace_back(std::move(row));
+            result_->emplace(std::make_tuple(src.toString(), rank, dst.toString()), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -225,7 +236,7 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace_back(std::move(row));
+            result_->emplace(std::make_tuple(src.toString(), rank, dst.toString()), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -342,7 +353,8 @@ private:
     }
 
 private:
-    nebula::DataSet*                                  result_;
+    ResultMap*                                        result_;
+    std::vector<std::string>                          colNames_;
     PlanContext*                                      planContext_;
     IndexResultType                                   type_;
     IndexScanNode<T>*                                 indexScanNode_{nullptr};
