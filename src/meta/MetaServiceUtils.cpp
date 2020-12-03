@@ -984,7 +984,6 @@ folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvst
 
     while (iter->valid()) {
         if (iter->val() == "RUNNING") {
-            LOG(ERROR) << "Index is rebuilding, not allowed to block write.";
             return false;
         }
         iter->next();

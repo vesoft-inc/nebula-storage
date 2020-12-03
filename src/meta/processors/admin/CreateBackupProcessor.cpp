@@ -151,6 +151,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
     if (result == folly::none) {
+        LOG(ERROR) << "Index is rebuilding, not allowed to create backup.";
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
         onFinished();
         return;
