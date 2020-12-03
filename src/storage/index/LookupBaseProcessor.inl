@@ -134,7 +134,7 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
 template<typename REQ, typename RESP>
 StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
     StoragePlan<IndexID> plan;
-    auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(&resultDataSet_);
+    auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(nullptr);
     int32_t filterId = 0;
     std::unique_ptr<IndexOutputNode<IndexID>> out;
 
@@ -266,7 +266,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
                                                               indexId,
                                                               std::move(colHints));
 
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                             resultDataSet_.colNames,
                                                              planContext_.get(),
                                                              indexScan.get(),
                                                              hasNullableCol,
@@ -312,7 +313,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
                                                              schema_,
                                                              planContext_->edgeName_);
         edge->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                                 resultDataSet_.colNames,
                                                                  planContext_.get(),
                                                                  edge.get());
         output->addDependency(edge.get());
@@ -326,7 +328,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
                                                                  schema_,
                                                                  planContext_->tagName_);
         vertex->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                                 resultDataSet_.colNames,
                                                                  planContext_.get(),
                                                                  vertex.get());
         output->addDependency(vertex.get());
@@ -374,7 +377,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
                                                              exp,
                                                              planContext_->isEdge_);
     filter->addDependency(indexScan.get());
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                             resultDataSet_.colNames,
                                                              planContext_.get(),
                                                              filter.get(), true);
     output->addDependency(filter.get());
@@ -434,7 +438,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                                  exp);
         filter->addDependency(edge.get());
 
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                                 resultDataSet_.colNames,
                                                                  planContext_.get(),
                                                                  filter.get());
         output->addDependency(filter.get());
@@ -454,7 +459,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                                  exp);
         filter->addDependency(vertex.get());
 
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultMap_,
+                                                                 resultDataSet_.colNames,
                                                                  planContext_.get(),
                                                                  filter.get());
         output->addDependency(filter.get());

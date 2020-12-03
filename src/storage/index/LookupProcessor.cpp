@@ -54,6 +54,13 @@ void LookupProcessor::onProcessFinished() {
                        resultDataSet_.colNames.begin(),
                        [this](const auto& col) { return planContext_->tagName_ + "." + col; });
     }
+    // dedup result set
+    std::transform(resultMap_.begin(),
+                   resultMap_.end(),
+                   std::back_inserter(resultDataSet_.rows),
+                   [] (const auto& row) {
+                       return row.second;
+    });
     resp_.set_data(std::move(resultDataSet_));
 }
 

@@ -19,6 +19,7 @@
 
 namespace nebula {
 namespace storage {
+
 using IndexFilterItem =
     std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>,
                                           std::unique_ptr<Expression>>>;
@@ -76,6 +77,7 @@ protected:
     IndexFilterItem                             filterItems_;
     // Save schema when column is out of index, need to read from data
     std::shared_ptr<const meta::NebulaSchemaProvider> schema_;
+    ResultMap                                   resultMap_;
 };
 }  // namespace storage
 }  // namespace nebula

@@ -1701,7 +1701,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         expected.rows.emplace_back(nebula::Row({"string_null"}));
         expected.rows.emplace_back(nebula::Row({"3_c_3_c"}));
         expected.rows.emplace_back(nebula::Row({"3_c_null_null"}));
-        ASSERT_EQ(expected, *(resp.get_data()));
+        QueryTestUtils::checkResponse(resp, expected.colNames, expected.rows);
     }
     {
         LOG(INFO) << "lookup on tag where tag.col1 > 2";
@@ -1730,7 +1730,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         nebula::DataSet expected({std::string("111.").append(kVid)});
         expected.rows.emplace_back(nebula::Row({"3_c_3_c"}));
         expected.rows.emplace_back(nebula::Row({"3_c_null_null"}));
-        ASSERT_EQ(expected, *(resp.get_data()));
+        QueryTestUtils::checkResponse(resp, expected.colNames, expected.rows);
     }
     {
         // col3 and col4 is out of index, need to pass as filter
@@ -2088,7 +2088,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         nebula::DataSet expected({std::string("111.").append(kVid)});
         expected.rows.emplace_back(nebula::Row({"true_1_1.0_a"}));
         expected.rows.emplace_back(nebula::Row({"true_4_null_d"}));
-        ASSERT_EQ(expected, *(resp.get_data()));
+        QueryTestUtils::checkResponse(resp, expected.colNames, expected.rows);
     }
     {
         LOG(INFO) << "lookup on tag where tag.col_bool == true and tag.col_int == 1";
@@ -2471,7 +2471,7 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         nebula::DataSet expected({std::string("111.").append(kVid)});
         expected.rows.emplace_back(nebula::Row({"null_2_2.0_b"}));
         expected.rows.emplace_back(nebula::Row({"all_null"}));
-        ASSERT_EQ(expected, *(resp.get_data()));
+        QueryTestUtils::checkResponse(resp, expected.colNames, expected.rows);
     }
     {
         LOG(INFO) << "lookup on tag where tag.col_bool == null and tag.col_int == null";
