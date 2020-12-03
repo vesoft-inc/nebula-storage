@@ -35,6 +35,8 @@ func NewExternalStorage(storageUrl string, log *zap.Logger) (ExternalStorage, er
 		return NewLocalBackedStore(u.Path, log), nil
 	case "s3":
 		return NewS3BackendStore(storageUrl, log), nil
+	case "oss":
+		return NewOSSBackendStore(storageUrl, log), nil
 	default:
 		return nil, fmt.Errorf("Unsupported Backend Storage Types")
 	}
