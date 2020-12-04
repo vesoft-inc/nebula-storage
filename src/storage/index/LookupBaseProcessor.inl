@@ -172,10 +172,10 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
                 continue;
             }
             auto it = std::find_if(fields.begin(),
-                                    fields.end(),
-                                    [&yieldCol] (const auto& columnDef) {
-                                        return yieldCol == columnDef.get_name();
-                                    });
+                                   fields.end(),
+                                   [&yieldCol] (const auto& columnDef) {
+                                       return yieldCol == columnDef.get_name();
+                                   });
             if (it == fields.end()) {
                 needData = true;
                 break;
