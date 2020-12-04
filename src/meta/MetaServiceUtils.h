@@ -341,9 +341,20 @@ public:
         kvstore::KVStore* kvstore,
         const std::unordered_set <GraphSpaceID>& spaces,
         const std::string& backupName);
-    static bool replaceHost(kvstore::KVStore* kvstore,
-                            const HostAddr& ipv4From,
-                            const HostAddr& ipv4To);
+    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupGroupTable(
+        kvstore::KVStore* kvstore,
+        const std::unordered_set<GraphSpaceID>& spaces,
+        const std::string& backupName);
+    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupZoneTable(
+        kvstore::KVStore* kvstore,
+        const std::unordered_set<GraphSpaceID>& spaces,
+        const std::string& backupName);
+    static bool replaceHostInPartition(kvstore::KVStore* kvstore,
+                                       const HostAddr& ipv4From,
+                                       const HostAddr& ipv4To);
+    static bool replaceHostInZone(kvstore::KVStore* kvstore,
+                                  const HostAddr& ipv4From,
+                                  const HostAddr& ipv4To);
 };
 
 }   // namespace meta

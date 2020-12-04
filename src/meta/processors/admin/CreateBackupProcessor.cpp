@@ -24,7 +24,9 @@ static const std::unordered_map<std::string,
                  {"index_status", MetaServiceUtils::backupIndexStatusTable},
                  {"users", MetaServiceUtils::backupUsersTable},
                  {"roles", MetaServiceUtils::backupRolesTable},
-                 {"configs", MetaServiceUtils::backupConfigsTable}};
+                 {"configs", MetaServiceUtils::backupConfigsTable},
+                 {"group", MetaServiceUtils::backupGroupTable},
+                 {"zone", MetaServiceUtils::backupZoneTable}};
 
 template <typename F>
 bool CreateBackupProcessor::backupTable(const std::unordered_set<GraphSpaceID>& spaces,

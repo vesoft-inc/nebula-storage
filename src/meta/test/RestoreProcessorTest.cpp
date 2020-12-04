@@ -38,10 +38,12 @@ TEST(RestoreProcessorTest, RestoreTest) {
     bool ret = false;
     cpp2::SpaceDesc properties;
     GraphSpaceID id = 1;
+    std::string groupName = "test_group";
     properties.set_space_name("test_space");
     int partNum = 10;
     properties.set_partition_num(partNum);
     properties.set_replica_factor(3);
+    properties.set_group_name(groupName);
 
     auto spaceVal = MetaServiceUtils::spaceVal(properties);
     std::vector<nebula::kvstore::KV> data;
@@ -61,6 +63,19 @@ TEST(RestoreProcessorTest, RestoreTest) {
         }
         data.emplace_back(MetaServiceUtils::partKey(id, partId), MetaServiceUtils::partVal(hosts4));
     }
+
+    auto groupId = 1;
+    std::string zoneName = "test_zone";
+    std::vector<std::string> zoneNames = {zoneName};
+    data.emplace_back(MetaServiceUtils::indexGroupKey(groupName),
+                      std::string(reinterpret_cast<const char*>(&groupId), sizeof(GroupID)));
+    data.emplace_back(MetaServiceUtils::groupKey(groupName), MetaServiceUtils::groupVal(zoneNames));
+
+    auto zoneId = 1;
+    data.emplace_back(MetaServiceUtils::indexZoneKey(zoneName),
+                      std::string(reinterpret_cast<const char*>(&zoneId), sizeof(ZoneID)));
+    data.emplace_back(MetaServiceUtils::zoneKey(zoneName), MetaServiceUtils::zoneVal(hosts));
+
     folly::Baton<true, std::atomic> baton;
     kv->asyncMultiPut(0, 0, std::move(data), [&](kvstore::ResultCode code) {
         ret = (code == kvstore::ResultCode::SUCCEEDED);
@@ -81,9 +96,6 @@ TEST(RestoreProcessorTest, RestoreTest) {
     DCHECK(ok(spaceFile));
 
     {
-        fs::TempDir rootRestorePath("/tmp/RestoreTest.XXXXXX");
-        std::unique_ptr<kvstore::KVStore> kvRestore(
-            MockCluster::initMetaKV(rootRestorePath.path()));
         cpp2::RestoreMetaReq req;
         std::vector<std::string> files = {
             value(partFile)[0], value(indexFile)[0], value(spaceFile)[0]};
@@ -101,7 +113,7 @@ TEST(RestoreProcessorTest, RestoreTest) {
 
         req.set_hosts(std::move(hostPairs));
 
-        auto* processor = RestoreProcessor::instance(kvRestore.get());
+        auto* processor = RestoreProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
@@ -111,7 +123,7 @@ TEST(RestoreProcessorTest, RestoreTest) {
         std::unique_ptr<kvstore::KVIterator> iter;
 
         const auto& partPrefix = MetaServiceUtils::partPrefix(id);
-        result = kvRestore->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
+        result = kv->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, result);
 
         std::unordered_map<HostAddr, std::vector<size_t>> toPartInfo;
@@ -131,6 +143,24 @@ TEST(RestoreProcessorTest, RestoreTest) {
             auto parts = toPartInfo[hostMap[pi.first]];
             ASSERT_EQ(parts.size(), pi.second.size());
             ASSERT_TRUE(std::equal(parts.cbegin(), parts.cend(), pi.second.cbegin()));
+        }
+
+        auto prefix = MetaServiceUtils::zonePrefix();
+        result = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+        ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, result);
+
+        std::vector<cpp2::Zone> zones;
+        std::vector<HostAddr> restoredHosts = {host4, host5, host6};
+        while (iter->valid()) {
+            auto zn = MetaServiceUtils::parseZoneName(iter->key());
+            auto zoneHosts = MetaServiceUtils::parseZoneHosts(iter->val());
+            cpp2::Zone zone;
+            ASSERT_EQ(zoneName, zn);
+            ASSERT_EQ(zoneHosts.size(), restoredHosts.size());
+            for (std::vector<nebula::HostAddr>::size_type i = 0; i < zoneHosts.size(); ++i) {
+                ASSERT_EQ(zoneHosts[i], restoredHosts[i]);
+            }
+            iter->next();
         }
     }
 }

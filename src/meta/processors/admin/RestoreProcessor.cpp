@@ -30,10 +30,19 @@ void RestoreProcessor::process(const cpp2::RestoreMetaReq& req) {
     auto replaceHosts = req.get_hosts();
     if (!replaceHosts.empty()) {
         for (auto h : replaceHosts) {
-            auto result =
-                MetaServiceUtils::replaceHost(kvstore_, h.get_from_host(), h.get_to_host());
+            auto result = MetaServiceUtils::replaceHostInPartition(
+                kvstore_, h.get_from_host(), h.get_to_host());
             if (!result) {
-                LOG(ERROR) << "replaceHost fails when recovered";
+                LOG(ERROR) << "replaceHost in partition fails when recovered";
+                handleErrorCode(cpp2::ErrorCode::E_RESTORE_FAILURE);
+                onFinished();
+                return;
+            }
+
+            result =
+                MetaServiceUtils::replaceHostInZone(kvstore_, h.get_from_host(), h.get_to_host());
+            if (!result) {
+                LOG(ERROR) << "replacehost in zone fails when recovered";
                 handleErrorCode(cpp2::ErrorCode::E_RESTORE_FAILURE);
                 onFinished();
                 return;

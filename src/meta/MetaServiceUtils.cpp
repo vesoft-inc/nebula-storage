@@ -1129,9 +1129,27 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupC
     return kvstore->backupTable(kDefaultSpaceId, backupName, kConfigsTable, nullptr);
 }
 
-bool MetaServiceUtils::replaceHost(kvstore::KVStore* kvstore,
-                                   const HostAddr& ipv4From,
-                                   const HostAddr& ipv4To) {
+ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupGroupTable(
+    kvstore::KVStore* kvstore,
+    const std::unordered_set <GraphSpaceID>& spaces,
+    const std::string& backupName) {
+    UNUSED(spaces);
+
+    return kvstore->backupTable(kDefaultSpaceId, backupName, kGroupsTable, nullptr);
+}
+
+ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupZoneTable(
+    kvstore::KVStore* kvstore,
+    const std::unordered_set <GraphSpaceID>& spaces,
+    const std::string& backupName) {
+    UNUSED(spaces);
+
+    return kvstore->backupTable(kDefaultSpaceId, backupName, kZonesTable, nullptr);
+}
+
+bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
+                                              const HostAddr& ipv4From,
+                                              const HostAddr& ipv4To) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& spacePrefix = MetaServiceUtils::spacePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -1173,6 +1191,51 @@ bool MetaServiceUtils::replaceHost(kvstore::KVStore* kvstore,
             }
             iter->next();
         }
+    }
+
+    bool updateSucceed{false};
+    folly::Baton<true, std::atomic> baton;
+    kvstore->asyncMultiPut(
+        kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
+            updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
+            if (!updateSucceed) {
+                LOG(ERROR) << folly::stringPrintf("write to kvstore failed");
+            }
+            baton.post();
+        });
+    baton.wait();
+    return updateSucceed;
+}
+
+bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
+                                         const HostAddr& ipv4From,
+                                         const HostAddr& ipv4To) {
+    folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
+    const auto& zonePrefix = MetaServiceUtils::zonePrefix();
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, zonePrefix, &iter);
+    if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << folly::stringPrintf("can't get space prefix=%s", zonePrefix.c_str());
+        return false;
+    }
+
+    std::vector<nebula::kvstore::KV> data;
+
+    while (iter->valid()) {
+        bool needUpdate = false;
+        auto zoneName = parseZoneName(iter->key());
+        auto hosts = parseZoneHosts(iter->val());
+        std::vector<HostAddr> DesHosts;
+        for (auto& host : hosts) {
+            if (host == ipv4From) {
+                needUpdate = true;
+                host = ipv4To;
+            }
+        }
+        if (needUpdate) {
+            data.emplace_back(iter->key(), MetaServiceUtils::zoneVal(hosts));
+        }
+        iter->next();
     }
 
     bool updateSucceed{false};
