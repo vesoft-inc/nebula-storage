@@ -1179,7 +1179,7 @@ TEST(ProcessorTest, KVOperationTest) {
 TEST(ProcessorTest, ListOrGetTagsTest) {
     fs::TempDir rootPath("/tmp/ListOrGetTagsTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 10);
 
     // Test ListTagsProcessor
@@ -1253,7 +1253,7 @@ TEST(ProcessorTest, ListOrGetTagsTest) {
 TEST(ProcessorTest, ListOrGetEdgesTest) {
     fs::TempDir rootPath("/tmp/ListOrGetEdgesTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 10);
 
     // Test ListEdgesProcessor
@@ -1328,7 +1328,7 @@ TEST(ProcessorTest, ListOrGetEdgesTest) {
 TEST(ProcessorTest, DropTagTest) {
     fs::TempDir rootPath("/tmp/DropTagTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 1);
 
     // Space not exist
@@ -1418,7 +1418,7 @@ TEST(ProcessorTest, DropTagTest) {
 TEST(ProcessorTest, DropEdgeTest) {
     fs::TempDir rootPath("/tmp/DropEdgeTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 1);
 
     // Space not exist
@@ -1508,7 +1508,7 @@ TEST(ProcessorTest, DropEdgeTest) {
 TEST(ProcessorTest, AlterTagTest) {
     fs::TempDir rootPath("/tmp/AlterTagTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 1);
     // Alter tag options test
     {
@@ -1848,7 +1848,7 @@ TEST(ProcessorTest, AlterTagTest) {
 TEST(ProcessorTest, AlterEdgeTest) {
     fs::TempDir rootPath("/tmp/AlterEdgeTest.XXXXXX");
     auto kv = MockCluster::initMetaKV(rootPath.path());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 1);
 
     // Drop all, then add
@@ -2378,7 +2378,7 @@ TEST(ProcessorTest, TagIndexTest) {
     fs::TempDir rootPath("/tmp/TagIndexTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 2);
     {
         // Allow to create tag index on no fields
@@ -2708,7 +2708,7 @@ TEST(ProcessorTest, TagIndexTestV2) {
     fs::TempDir rootPath("/tmp/TagIndexTestV2.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 2, 0, true);
     {
         cpp2::CreateTagIndexReq req;
@@ -2753,7 +2753,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
     fs::TempDir rootPath("/tmp/EdgeIndexTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 2);
     {
         // Allow to create edge index on no fields
@@ -3105,7 +3105,7 @@ TEST(ProcessorTest, EdgeIndexTestV2) {
     fs::TempDir rootPath("/tmp/EdgeIndexTestV2.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 2, 0, true);
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3147,7 +3147,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
     fs::TempDir rootPath("/tmp/IndexCheckAlterEdgeTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 2);
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3282,7 +3282,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
     fs::TempDir rootPath("/tmp/IndexCheckAlterTagTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 2);
     {
         cpp2::CreateTagIndexReq req;
@@ -3407,7 +3407,7 @@ TEST(ProcessorTest, IndexCheckDropEdgeTest) {
     fs::TempDir rootPath("/tmp/IndexCheckDropEdgeTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 2);
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3440,7 +3440,7 @@ TEST(ProcessorTest, IndexCheckDropTagTest) {
     fs::TempDir rootPath("/tmp/IndexCheckDropTagTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 2);
     {
         cpp2::CreateTagIndexReq req;
@@ -3472,7 +3472,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
     fs::TempDir rootPath("/tmp/IndexTTLTagTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockTag(kv.get(), 1);
     {
         cpp2::CreateTagIndexReq req;
@@ -3678,7 +3678,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
     fs::TempDir rootPath("/tmp/IndexTTLEdgeTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     TestUtils::mockEdge(kv.get(), 1);
     {
         cpp2::CreateEdgeIndexReq req;
