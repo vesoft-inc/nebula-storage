@@ -1,16 +1,3 @@
-#nebula_add_library(
-#    schema_obj OBJECT
-#    SchemaManager.cpp
-#    ServerBasedSchemaManager.cpp
-#    NebulaSchemaProvider.cpp
-#)
-
-#nebula_add_library(
-#    index_obj OBJECT
-#    IndexManager.cpp
-#    ServerBasedIndexManager.cpp
-#)
-
 nebula_add_library(
     meta_service_handler OBJECT
     MetaServiceHandler.cpp
