@@ -20,10 +20,12 @@ public:
 
     explicit GetTagPropNode(PlanContext *planCtx,
                             std::vector<TagNode*> tagNodes,
-                            nebula::DataSet* resultDataSet)
-        : planContext_(planCtx),
-          tagNodes_(std::move(tagNodes)),
-          resultDataSet_(resultDataSet) {}
+                            nebula::DataSet* resultDataSet,
+                            VertexCache* vertexCache)
+        : planContext_(planCtx)
+        , tagNodes_(std::move(tagNodes))
+        , resultDataSet_(resultDataSet)
+        , vertexCache_(vertexCache) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         // check is vertex exists
@@ -56,13 +58,17 @@ public:
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 },
-                [&row, vIdLen, isIntId] (folly::StringPiece key,
-                                         RowReader* reader,
-                                         const std::vector<PropContext>* props)
+                [this, &row, vIdLen, isIntId, &vId, tagNode] (folly::StringPiece key,
+                                                              RowReader* reader,
+                                                              const std::vector<PropContext>* props)
                 -> kvstore::ResultCode {
                     if (!QueryUtils::collectVertexProps(key, vIdLen, isIntId,
                                                         reader, props, row).ok()) {
                         return kvstore::ResultCode::ERR_TAG_PROP_NOT_FOUND;
+                    }
+                    if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
+                        auto tagId = tagNode->getTagId();
+                        vertexCache_->insert(std::make_pair(vId, tagId), reader->getData());
                     }
                     return kvstore::ResultCode::SUCCEEDED;
                 });
@@ -75,9 +81,10 @@ public:
     }
 
 private:
-    PlanContext          *planContext_;
-    std::vector<TagNode*> tagNodes_;
-    nebula::DataSet      *resultDataSet_;
+    PlanContext*                planContext_;
+    std::vector<TagNode*>       tagNodes_;
+    nebula::DataSet*            resultDataSet_;
+    VertexCache*                vertexCache_;
 };
 
 class GetEdgePropNode : public QueryNode<cpp2::EdgeKey> {
@@ -129,9 +136,9 @@ public:
     }
 
 private:
-    PlanContext          *planContext_;
-    std::vector<EdgeNode<cpp2::EdgeKey>*> edgeNodes_;
-    nebula::DataSet* resultDataSet_;
+    PlanContext*                            planContext_;
+    std::vector<EdgeNode<cpp2::EdgeKey>*>   edgeNodes_;
+    nebula::DataSet*                        resultDataSet_;
 };
 
 }  // namespace storage

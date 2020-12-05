@@ -31,89 +31,6 @@ public:
     virtual RowReader* reader() const = 0;
 };
 
-class SingleTagIterator : public StorageIterator {
-public:
-    SingleTagIterator(PlanContext* planCtx,
-                      std::unique_ptr<kvstore::KVIterator> iter,
-                      TagID tagId,
-                      const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
-                      const folly::Optional<std::pair<std::string, int64_t>>* ttl)
-        : planContext_(planCtx)
-        , iter_(std::move(iter))
-        , tagId_(tagId)
-        , schemas_(schemas) {
-        if (ttl->hasValue()) {
-            hasTtl_ = true;
-            ttlCol_ = ttl->value().first;
-            ttlDuration_ = ttl->value().second;
-        }
-        check(iter_->val());
-    }
-
-    SingleTagIterator(PlanContext* planCtx,
-                      folly::StringPiece val,
-                      const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
-                      const folly::Optional<std::pair<std::string, int64_t>>* ttl)
-        : planContext_(planCtx)
-        , schemas_(schemas) {
-        if (ttl->hasValue()) {
-            hasTtl_ = true;
-            ttlCol_ = ttl->value().first;
-            ttlDuration_ = ttl->value().second;
-        }
-        check(val);
-    }
-
-    bool valid() const override {
-        return lookupOne_ && reader_ != nullptr;
-    }
-
-    void next() override {
-        lookupOne_ = false;
-    }
-
-    folly::StringPiece key() const override {
-        return iter_->key();
-    }
-
-    folly::StringPiece val() const override {
-        return iter_->val();
-    }
-
-    RowReader* reader() const override {
-        return reader_.get();
-    }
-
-protected:
-    // return true when the value iter to a valid tag value
-    bool check(folly::StringPiece val) {
-        reader_.reset(*schemas_, val);
-        if (!reader_) {
-            planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
-            return false;
-        }
-
-        if (hasTtl_ && CommonUtils::checkDataExpiredForTTL(schemas_->back().get(), reader_.get(),
-                                                           ttlCol_, ttlDuration_)) {
-            reader_.reset();
-            return false;
-        }
-
-        return true;
-    }
-
-    PlanContext                                                          *planContext_ = nullptr;
-    std::unique_ptr<kvstore::KVIterator>                                  iter_;
-    TagID                                                                 tagId_;
-    const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> *schemas_ = nullptr;
-    bool                                                                  hasTtl_ = false;
-    std::string                                                           ttlCol_;
-    int64_t                                                               ttlDuration_;
-    bool                                                                  lookupOne_ = true;
-
-    RowReaderWrapper                                                      reader_;
-};
-
 // Iterator of single specified type
 class SingleEdgeIterator : public StorageIterator {
 public:
@@ -149,12 +66,12 @@ public:
     }
 
     bool valid() const override {
-        return lookupOne_ && reader_ != nullptr;
+        return !stopSearching_ && reader_ != nullptr;
     }
 
     void next() override {
         if (!moveToValidRecord_) {
-            lookupOne_ = false;
+            stopSearching_ = true;
             return;
         }
         do {
@@ -223,7 +140,7 @@ protected:
     std::string                                                           ttlCol_;
     int64_t                                                               ttlDuration_;
     bool                                                                  moveToValidRecord_{true};
-    bool                                                                  lookupOne_ = true;
+    bool                                                                  stopSearching_ = false;
 
     RowReaderWrapper                                                      reader_;
     EdgeRanking                                                           lastRank_ = 0;
