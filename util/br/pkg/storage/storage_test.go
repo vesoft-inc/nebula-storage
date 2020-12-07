@@ -23,5 +23,5 @@ func TestStorage(t *testing.T) {
 	assert.Equal(s.URI(), "s3://nebulabackup/")
 
 	s, err = NewExternalStorage("oss://nebulabackup/", logger)
-	assert.Error(err)
+	assert.NoError(err)
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/metaclient"
-	"github.com/vesoft-inc/nebula-storage/util/br/pkg/nebula/meta"
+	"github.com/vesoft-inc/nebula-go/nebula/meta"
 	"go.uber.org/zap"
 )
 
