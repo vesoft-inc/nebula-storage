@@ -104,6 +104,10 @@ struct TossTestUtils {
         return folly::hexlify(str);
     }
 
+    static std::string hexEdgeId(const cpp2::EdgeKey& ek) {
+        return hexVid(ek.src.getInt()) + hexVid(ek.dst.getInt());
+    }
+
     static std::vector<std::string> splitNeiResults(std::vector<std::string>& svec) {
         std::vector<std::string> ret;
         for (auto& str : svec) {

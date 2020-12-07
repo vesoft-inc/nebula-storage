@@ -25,9 +25,9 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
     env_->txnMan_->commitBatch(spaceId, partId, data)
         .via(env_->txnMan_->getExecutor())
         .thenValue([=](kvstore::ResultCode rc) {
+            LOG_IF(INFO, FLAGS_trace_toss) << "txnId="
+                << txnId << " commitBatch ret rc=" << static_cast<int32_t>(rc);
             auto code = to(rc);
-            LOG_IF(INFO, FLAGS_trace_toss)
-                << txnId << " commitBatch ret code=" << static_cast<int32_t>(code);
             if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
                 handleLeaderChanged(spaceId, partId);
             } else if (code != cpp2::ErrorCode::SUCCEEDED) {
@@ -46,7 +46,7 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
             onFinished();
         })
         .thenError([&](auto&& ex) {
-            LOG(ERROR) << txnId << ", " << ex.what();
+            LOG(ERROR) << "txnId=" << txnId << ", " << ex.what();
             pushResultCode(cpp2::ErrorCode::E_UNKNOWN, partId);
             onFinished();
         });

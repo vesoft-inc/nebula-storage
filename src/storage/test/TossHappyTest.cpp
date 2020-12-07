@@ -104,9 +104,7 @@ TEST_F(TossTest, NO_TOSS) {
 
     LOG(INFO) << "going to add edge:" << edges.back().props.back();
     auto code = env_->syncAddMultiEdges(edges, kNotToss);
-
-    LOG_IF(FATAL, code != cpp2::ErrorCode::SUCCEEDED)
-            << "fatal code=" << static_cast<int32_t>(code);
+    ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
 
     props = env_->getNeiProps(startWith);
 
@@ -132,6 +130,7 @@ TEST_F(TossTest, ADD_ONES_EDGE) {
     EXPECT_EQ(env_->countSquareBrackets(props), 0);
 
     LOG(INFO) << "going to add edge:" << edges.back().props.back();
+    LOG(INFO) << "going to add edge:" << TossTestUtils::hexEdgeId(edges.back().key);
     auto code = env_->syncAddMultiEdges(edges, kUseToss);
     ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
 
@@ -350,6 +349,7 @@ TEST_F(TossTest, internal_storage_client_test) {
     // TossTestUtils::logIfSizeNotAsExpect(svec.size(), num);
 }
 
+/*
 TEST_F(TossTest, base_component_test_1) {
     auto num = 1U;
     std::vector<cpp2::NewEdge> edges = env_->generateNEdges(num);
@@ -368,6 +368,7 @@ TEST_F(TossTest, base_component_test_1) {
     auto lockKey = env_->insertLock(edges[0]);
     LOG(INFO) << "base_component_test_1 lockKey = " << lockKey;
 }
+*/
 
 }  // namespace storage
 }  // namespace nebula

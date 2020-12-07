@@ -55,8 +55,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
         for (auto& kv : localEdges) {
             auto srcId = NebulaKeyUtils::getSrcId(vIdLen, kv.first);
             auto dstId = NebulaKeyUtils::getDstId(vIdLen, kv.first);
-            LOG(INFO) << "begin txn srcId=" << folly::hexlify(srcId)
-                << ", dstId=" << folly::hexlify(dstId) << ", txnId=" << txnId;
+            LOG(INFO) << "begin txn hexSrcDst=" << folly::hexlify(srcId)
+                << folly::hexlify(dstId) << ", txnId=" << txnId;
         }
     }
     // steps 1: lock edges in memory
@@ -160,13 +160,13 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
             auto remoteBatch = encodeBatch(std::move(remoteEdges));
 
             // steps 3: multi put remote edges
-            LOG_IF(INFO, FLAGS_trace_toss) << "before forwardTransaction, txnId=" << txnId;
+            LOG_IF(INFO, FLAGS_trace_toss) << "begin forwardTransaction, txnId=" << txnId;
             interClient_->forwardTransaction(txnId, spaceId, remotePart, std::move(remoteBatch))
                 .via(exec_.get())
                 .thenTry([=, p = std::move(p)](auto&& t) mutable {
                     auto code = extractErrorCode(t);
                     LOG_IF(INFO, FLAGS_trace_toss) << folly::sformat(
-                        "forwardTransaction ret: txnId={}, spaceId={}, partId={}, code={}",
+                        "end forwardTransaction: txnId={}, spaceId={}, partId={}, code={}",
                         txnId,
                         spaceId,
                         remotePart,
@@ -505,10 +505,12 @@ std::string TransactionManager::reverseKey(size_t vIdLen,
 
 cpp2::ErrorCode TransactionManager::extractErrorCode(folly::Try<StatusOr<cpp2::ExecResponse>>& t) {
     if (!t.hasValue()) {
+        LOG_IF(INFO, FLAGS_trace_toss) << "extractErrorCode() !t.hasValue()";
         return cpp2::ErrorCode::E_UNKNOWN;
     }
 
     if (!t.value().ok()) {
+        LOG_IF(INFO, FLAGS_trace_toss) << "extractErrorCode() !t.value().ok()";
         return CommonUtils::to(t.value().status());
     }
 
