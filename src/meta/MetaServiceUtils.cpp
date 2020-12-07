@@ -1217,7 +1217,7 @@ bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
     std::unique_ptr<kvstore::KVIterator> iter;
     auto kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, zonePrefix, &iter);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << folly::stringPrintf("can't get space prefix=%s", zonePrefix.c_str());
+        LOG(ERROR) << folly::stringPrintf("can't get zonePrefix=%s", zonePrefix.c_str());
         return false;
     }
 

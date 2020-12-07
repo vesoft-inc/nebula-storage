@@ -620,7 +620,7 @@ folly::Future<StatusOr<std::string>> AdminClient::createSnapshot(GraphSpaceID sp
         req.set_name(name);
         client->future_createCheckpoint(std::move(req))
             .via(evb)
-            .then([p = std::move(pro), storageHost, this](
+            .then([p = std::move(pro), storageHost](
                       folly::Try<storage::cpp2::CreateCPResp>&& t) mutable {
                 if (t.hasException()) {
                     LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
