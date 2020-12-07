@@ -86,7 +86,7 @@ Status ListHostsProcessor::allMetaHostsStatus() {
     auto metaPeers = nebula::value(errOrPart)->peers();
     // transform raft port to servre port
     for (auto& metaHost : metaPeers) {
-        --metaHost.port;
+        metaHost = Utils::getStoreAddrFromRaftAddr(metaHost);
     }
     for (auto& host : metaPeers) {
         cpp2::HostItem item;
