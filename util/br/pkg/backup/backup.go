@@ -15,8 +15,8 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vesoft-inc/nebula-clients/go/nebula/"
-	"github.com/vesoft-inc/nebula-clients/go/nebula/meta"
+	"github.com/vesoft-inc/nebula-go/nebula/"
+	"github.com/vesoft-inc/nebula-go/nebula/meta"
 
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/metaclient"

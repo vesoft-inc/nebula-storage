@@ -12,8 +12,8 @@ import (
 
 	"github.com/facebook/fbthrift/thrift/lib/go/thrift"
 	"github.com/scylladb/go-set/strset"
-	"github.com/vesoft-inc/nebula-clients/go/nebula/"
-	"github.com/vesoft-inc/nebula-clients/go/nebula/meta"
+	"github.com/vesoft-inc/nebula-go/nebula/"
+	"github.com/vesoft-inc/nebula-go/nebula/meta"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/config"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/metaclient"
 	"github.com/vesoft-inc/nebula-storage/util/br/pkg/ssh"
