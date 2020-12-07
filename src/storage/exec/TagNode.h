@@ -41,6 +41,7 @@ public:
     }
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
+        reader_.reset();
         auto ret = RelNode::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;

@@ -101,6 +101,7 @@ TEST(GetPropTest, PropertyTest) {
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
 
     TagID player = 1;
+    TagID team = 2;
     EdgeType serve = 101;
 
     {
@@ -140,6 +141,83 @@ TEST(GetPropTest, PropertyTest) {
                              "1.name", "1.age", "1.avgScore"};
         nebula::Row row({"Tim Duncan", "Tim Duncan", 1, "Tim Duncan", 44, 19.0});
         expected.rows.emplace_back(std::move(row));
+        ASSERT_EQ(expected, resp.props);
+    }
+    {
+        LOG(INFO) << "MultiVertexGetProps";
+        std::vector<VertexID> vertices = {"Tim Duncan", "Tony Parker"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {kVid, "1.name", "1.age", "1.avgScore"};
+        {
+            nebula::Row row({"Tony Parker", "Tony Parker", 38, 15.5});
+            expected.rows.emplace_back(std::move(row));
+        }
+        {
+            nebula::Row row({"Tim Duncan", "Tim Duncan", 44, 19.0});
+            expected.rows.emplace_back(std::move(row));
+        }
+        ASSERT_EQ(expected, resp.props);
+    }
+    {
+        LOG(INFO) << "MultiVertexGetMultiTagProps";
+        std::vector<VertexID> vertices = {"Tim Duncan", "Tony Parker"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(team, std::vector<std::string>{"name"});
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {kVid, "2.name", "1.name", "1.age", "1.avgScore"};
+        {
+            nebula::Row row({"Tony Parker", Value(), "Tony Parker", 38, 15.5});
+            expected.rows.emplace_back(std::move(row));
+        }
+        {
+            nebula::Row row({"Tim Duncan", Value(), "Tim Duncan", 44, 19.0});
+            expected.rows.emplace_back(std::move(row));
+        }
+        ASSERT_EQ(expected, resp.props);
+    }
+    {
+        LOG(INFO) << "MultiVertexGetMultiTagProps";
+        std::vector<VertexID> vertices = {"Tim Duncan", "Spurs"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        tags.emplace_back(player, std::vector<std::string>{"name", "age", "avgScore"});
+        tags.emplace_back(team, std::vector<std::string>{"name"});
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {kVid, "1.name", "1.age", "1.avgScore", "2.name"};
+        {
+            nebula::Row row({"Spurs", Value(), Value(), Value(), "Spurs"});
+            expected.rows.emplace_back(std::move(row));
+        }
+        {
+            nebula::Row row({"Tim Duncan", "Tim Duncan", 44, 19.0, Value()});
+            expected.rows.emplace_back(std::move(row));
+        }
         ASSERT_EQ(expected, resp.props);
     }
     {
@@ -197,6 +275,47 @@ TEST(GetPropTest, PropertyTest) {
                              "101.teamName", "101.startYear", "101.endYear"};
         nebula::Row row({"Tim Duncan", 101, 1997, "Spurs", "Spurs", 1997, 2016});
         expected.rows.emplace_back(std::move(row));
+        ASSERT_EQ(expected, resp.props);
+    }
+    {
+        LOG(INFO) << "GetEdgePropInValue";
+        std::vector<cpp2::EdgeKey> edgeKeys;
+        {
+            cpp2::EdgeKey edgeKey;
+            edgeKey.src = "Tim Duncan";
+            edgeKey.edge_type = 101;
+            edgeKey.ranking = 1997;
+            edgeKey.dst = "Spurs";
+            edgeKeys.emplace_back(std::move(edgeKey));
+        }
+        {
+            cpp2::EdgeKey edgeKey;
+            edgeKey.src = "Tony Parker";
+            edgeKey.edge_type = 101;
+            edgeKey.ranking = 2001;
+            edgeKey.dst = "Spurs";
+            edgeKeys.emplace_back(std::move(edgeKey));
+        }
+        std::vector<std::pair<TagID, std::vector<std::string>>> edges;
+        edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
+        auto req = buildEdgeRequest(totalParts, edgeKeys, edges);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        nebula::DataSet expected;
+        expected.colNames = {"101.teamName", "101.startYear", "101.endYear"};
+        {
+            nebula::Row row({"Spurs", 2001, 2018});
+            expected.rows.emplace_back(std::move(row));
+        }
+        {
+            nebula::Row row({"Spurs", 1997, 2016});
+            expected.rows.emplace_back(std::move(row));
+        }
         ASSERT_EQ(expected, resp.props);
     }
 }
@@ -399,6 +518,49 @@ TEST(GetPropTest, AllPropertyInAllSchemaTest) {
             }
             row.values = std::move(values);
             expected.emplace_back(std::move(row));
+            // kVid, player: 11, team: 1, tag3: 11
+            ASSERT_EQ(1 + 11 + 1 + 11, resp.props.colNames.size());
+            verifyResult(expected, resp.props);
+        }
+    }
+    {
+        LOG(INFO) << "MultiKey";
+        std::vector<VertexID> vertices = {"Tim Duncan", "Tony Parker"};
+        std::vector<std::pair<TagID, std::vector<std::string>>> tags;
+        auto req = buildVertexRequest(totalParts, vertices, tags);
+
+        auto* processor = GetPropProcessor::instance(env, nullptr, nullptr);
+        auto fut = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(fut).get();
+
+        ASSERT_EQ(0, resp.result.failed_parts.size());
+        {
+            std::vector<nebula::Row> expected;
+            {
+                nebula::Row row;
+                // The first one is kVid, and player have 11 properties in key and value
+                std::vector<Value> values{"Tony Parker", "Tony Parker", 38, false, 18,
+                                          2001, 2019, 1254, 15.5, 2, "France", 4};
+                // team: 1 property, tag3: 11 property, in total 12
+                for (size_t i = 0; i < 12; i++) {
+                    values.emplace_back(Value());
+                }
+                row.values = std::move(values);
+                expected.emplace_back(std::move(row));
+            }
+            {
+                nebula::Row row;
+                // The first one is kVid, and player have 11 properties in key and value
+                std::vector<Value> values{"Tim Duncan", "Tim Duncan", 44, false, 19,
+                                          1997, 2016, 1392, 19.0, 1, "America", 5};
+                // team: 1 property, tag3: 11 property, in total 12
+                for (size_t i = 0; i < 12; i++) {
+                    values.emplace_back(Value());
+                }
+                row.values = std::move(values);
+                expected.emplace_back(std::move(row));
+            }
             // kVid, player: 11, team: 1, tag3: 11
             ASSERT_EQ(1 + 11 + 1 + 11, resp.props.colNames.size());
             verifyResult(expected, resp.props);
