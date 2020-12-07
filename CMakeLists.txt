@@ -93,6 +93,8 @@ config_nebula_common(
     BUILD_DIR ${nebula_common_build_dir}
 )
 
+LintHook(${nebula_common_source_dir})
+
 # For simplicity, we make all ordinary libraries depend on the compile-time generated files,
 # including the precompiled header, a.k.a Base.h.gch, and thrift headers.
 macro(nebula_add_library name type)
