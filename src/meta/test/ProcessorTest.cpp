@@ -66,7 +66,7 @@ TEST(ProcessorTest, ListHostsTest) {
         // after received heartbeat, host status will become online
         TestUtils::registerHB(kv.get(), hosts);
         cpp2::ListHostsReq req;
-        req.set_role(cpp2::HostRole::STORAGE);
+        req.set_type(cpp2::ListHostType::STORAGE);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -82,7 +82,7 @@ TEST(ProcessorTest, ListHostsTest) {
         // host info expired
         sleep(FLAGS_expired_threshold_sec + 1);
         cpp2::ListHostsReq req;
-        req.set_role(cpp2::HostRole::STORAGE);
+        req.set_type(cpp2::ListHostType::STORAGE);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -122,7 +122,7 @@ TEST(ProcessorTest, ListSpecficHostsTest) {
     meta::TestUtils::setupHB(kv.get(), storageHosts, roleVec[2], gitInfoShaVec[2]);
     {
         cpp2::ListHostsReq req;
-        req.set_role(cpp2::HostRole::GRAPH);
+        req.set_type(cpp2::ListHostType::GRAPH);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -139,7 +139,7 @@ TEST(ProcessorTest, ListSpecficHostsTest) {
 
     {
         cpp2::ListHostsReq req;
-        req.set_role(cpp2::HostRole::STORAGE);
+        req.set_type(cpp2::ListHostType::STORAGE);
         auto* processor = ListHostsProcessor::instance(kv.get());
         auto f = processor->getFuture();
         processor->process(req);
