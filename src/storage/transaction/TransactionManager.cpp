@@ -164,15 +164,15 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
             interClient_->forwardTransaction(txnId, spaceId, remotePart, std::move(remoteBatch))
                 .via(exec_.get())
                 .thenTry([=, p = std::move(p)](auto&& _t) mutable {
-                    auto code = extractErrorCode(_t);
+                    auto _code = extractErrorCode(_t);
                     LOG_IF(INFO, FLAGS_trace_toss) << folly::sformat(
                         "end forwardTransaction: txnId={}, spaceId={}, partId={}, code={}",
                         txnId,
                         spaceId,
                         remotePart,
-                        static_cast<int32_t>(code));
-                    if (code != cpp2::ErrorCode::SUCCEEDED) {
-                        p.setValue(code);
+                        static_cast<int32_t>(_code));
+                    if (_code != cpp2::ErrorCode::SUCCEEDED) {
+                        p.setValue(_code);
                         return;
                     }
 
@@ -205,14 +205,14 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                             }
                         }
                     }
-                    auto batch = kvstore::encodeBatchValue(bat.getBatch());
-                    commitBatch(spaceId, localPart, batch)
+                    auto _batch = kvstore::encodeBatchValue(bat.getBatch());
+                    commitBatch(spaceId, localPart, _batch)
                         .via(exec_.get())
                         .thenValue([=, p = std::move(p)](auto&& rc) mutable {
-                            auto code = CommonUtils::to(rc);
+                            auto commitBatchCode = CommonUtils::to(rc);
                             LOG_IF(INFO, FLAGS_trace_toss) << "txnId=" << txnId
-                                << " finished, code=" << static_cast<int32_t>(code);
-                            p.setValue(code);
+                                << " finished, code=" << static_cast<int32_t>(commitBatchCode);
+                            p.setValue(commitBatchCode);
                         });
                 });
         })
