@@ -65,19 +65,21 @@ cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
     auto spacesHosts = retSpacesHosts.value();
+    auto ret = cpp2::ErrorCode::SUCCEEDED;
     for (const auto& spaceHosts : spacesHosts) {
         for (const auto& host : spaceHosts.second) {
             LOG(INFO) << "will block write host: " << host;
             auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
             if (!status.ok()) {
                 LOG(ERROR) << " Send blocking sign error on host : " << host;
+                ret = cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;
                 if (sign == storage::cpp2::EngineSignType::BLOCK_ON) {
-                    return cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;
+                    break;
                 }
             }
         }
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return ret;
 }
 
 StatusOr<std::map<GraphSpaceID, std::set<HostAddr>>> Snapshot::getSpacesHosts() {
