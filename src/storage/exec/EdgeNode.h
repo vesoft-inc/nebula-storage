@@ -136,7 +136,8 @@ public:
         std::unique_ptr<kvstore::KVIterator> iter;
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            if (planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
+            if (planContext_->env_->txnMan_ &&
+                planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
                 bool stopAtFirstEdge = true;
                 iter_.reset(new TossEdgeIterator(
                     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
@@ -175,7 +176,8 @@ public:
         prefix_ = NebulaKeyUtils::edgePrefix(planContext_->vIdLen_, partId, vId, edgeType_);
         ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            if (planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
+            if (planContext_->env_->txnMan_ &&
+                planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
                 bool stopAtFirstEdge = false;
                 iter_.reset(new TossEdgeIterator(
                     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));

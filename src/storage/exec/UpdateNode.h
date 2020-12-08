@@ -515,11 +515,8 @@ public:
             baton.post();
         };
 
-        if (!planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
-            planContext_->env_->kvstore_->asyncAtomicOp(
-                planContext_->spaceId_, partId, std::move(op), std::move(cb));
-            baton.wait();
-        } else {
+        if (planContext_->env_->txnMan_ &&
+            planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
             auto f = planContext_->env_->txnMan_->updateEdgeAtomic(
                 planContext_->vIdLen_, planContext_->spaceId_, key_, std::move(op));
             f.wait();
@@ -529,6 +526,10 @@ public:
             } else {
                 ret = kvstore::ResultCode::ERR_UNKNOWN;
             }
+        } else {
+            planContext_->env_->kvstore_->asyncAtomicOp(
+                planContext_->spaceId_, partId, std::move(op), std::move(cb));
+            baton.wait();
         }
         return ret;
     }

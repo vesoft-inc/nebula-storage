@@ -163,8 +163,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
             LOG_IF(INFO, FLAGS_trace_toss) << "begin forwardTransaction, txnId=" << txnId;
             interClient_->forwardTransaction(txnId, spaceId, remotePart, std::move(remoteBatch))
                 .via(exec_.get())
-                .thenTry([=, p = std::move(p)](auto&& t) mutable {
-                    auto code = extractErrorCode(t);
+                .thenTry([=, p = std::move(p)](auto&& _t) mutable {
+                    auto code = extractErrorCode(_t);
                     LOG_IF(INFO, FLAGS_trace_toss) << folly::sformat(
                         "end forwardTransaction: txnId={}, spaceId={}, partId={}, code={}",
                         txnId,
