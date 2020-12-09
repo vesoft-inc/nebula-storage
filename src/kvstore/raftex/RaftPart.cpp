@@ -665,8 +665,7 @@ folly::Future<AppendLogResult> RaftPart::appendLogAsync(ClusterID source,
             bufferOverFlow_ = false;
         } else {
             VLOG(2) << idStr_
-                    << "Another AppendLogs request is ongoing,"
-                       " just return";
+                    << "Another AppendLogs request is ongoing, just return";
             return retFuture;
         }
     }
@@ -1862,6 +1861,15 @@ std::vector<std::shared_ptr<Host>> RaftPart::followers() const {
         }
     }
     return hosts;
+}
+
+std::vector<HostAddr> RaftPart::peers() const {
+    std::lock_guard<std::mutex> lck(raftLock_);
+    std::vector<HostAddr> peer{addr_};
+    for (auto& host : hosts_) {
+        peer.emplace_back(host->address());
+    }
+    return peer;
 }
 
 std::set<HostAddr> RaftPart::listeners() const {
