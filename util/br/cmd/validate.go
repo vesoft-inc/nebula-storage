@@ -30,6 +30,7 @@ func (e sshValidateError) UnWrap() error {
 }
 
 func checkSSH(addr string, user string, log *zap.Logger) error {
+	log.Info("checking ssh", zap.String("addr", addr))
 	ipAddr := strings.Split(addr, ":")
 	if len(ipAddr) != 2 {
 		return &addressValidateError{addr}

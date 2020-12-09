@@ -183,6 +183,7 @@ func (b *Backup) check() error {
 }
 
 func (b *Backup) BackupCluster() error {
+	b.log.Info("start backup nebula cluster")
 	err := b.check()
 	if err != nil {
 		b.log.Error("check failed", zap.Error(err))

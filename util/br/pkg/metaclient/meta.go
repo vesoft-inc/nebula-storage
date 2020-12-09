@@ -42,6 +42,7 @@ func (m *MetaClient) DropBackup(req *meta.DropSnapshotReq) (*meta.ExecResp, erro
 }
 
 func (m *MetaClient) Open(addr string) error {
+	m.log.Info("start open meta", zap.String("addr", addr))
 
 	if m.client != nil {
 		if err := m.client.Transport.Close(); err != nil {
