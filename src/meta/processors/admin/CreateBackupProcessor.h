@@ -24,15 +24,6 @@ public:
 private:
     explicit CreateBackupProcessor(kvstore::KVStore* kvstore, AdminClient* client)
         : BaseProcessor<cpp2::CreateBackupResp>(kvstore), client_(client) {}
-    folly::Optional<std::vector<std::string>> backupMeta(
-        const std::unordered_set<GraphSpaceID>& spaces,
-        const std::string& name,
-        const std::vector<std::string>*);
-    template <typename F>
-    bool backupTable(const std::unordered_set<GraphSpaceID>& spaces,
-                     const std::string& backupName,
-                     std::vector<std::string>& files,
-                     F f);
     cpp2::ErrorCode cancelWriteBlocking();
     folly::Optional<std::unordered_set<GraphSpaceID>> spaceNameToId(
         const std::vector<std::string>* backupSpaces);

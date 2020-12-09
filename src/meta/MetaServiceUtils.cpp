@@ -13,39 +13,93 @@
 namespace nebula {
 namespace meta {
 
-const std::string kSpacesTable         = "__spaces__";         // NOLINT
-const std::string kPartsTable          = "__parts__";          // NOLINT
-const std::string kHostsTable          = "__hosts__";          // NOLINT
-const std::string kTagsTable           = "__tags__";           // NOLINT
-const std::string kEdgesTable          = "__edges__";          // NOLINT
-const std::string kIndexesTable        = "__indexes__";        // NOLINT
-const std::string kIndexTable          = "__index__";          // NOLINT
-const std::string kIndexStatusTable    = "__index_status__";   // NOLINT
-const std::string kUsersTable          = "__users__";          // NOLINT
-const std::string kRolesTable          = "__roles__";          // NOLINT
-const std::string kConfigsTable        = "__configs__";        // NOLINT
-const std::string kDefaultTable        = "__default__";        // NOLINT
-const std::string kSnapshotsTable      = "__snapshots__";      // NOLINT
-const std::string kLastUpdateTimeTable = "__last_update_time__"; // NOLINT
-const std::string kLeadersTable        = "__leaders__";          // NOLINT
-const std::string kGroupsTable         = "__groups__";           // NOLINT
-const std::string kZonesTable          = "__zones__";            // NOLINT
-const std::string kListenerTable       = "__listener__";         // NOLINT
+// Systemtable means that it does not contain any space information(id).false means that the backup
+// should be skipped.
+static const std::unordered_map<std::string, std::pair<std::string, bool>> systemTableMaps = {
+    {"users", {"__users__", true}},
+    {"hosts", {"__hosts__", false}},
+    {"snapshots", {"__snapshots__", false}},
+    {"configs", {"__configs__", true}},
+    {"groups", {"__groups__", true}},
+    {"zones", {"__zones__", true}},
+    {"ft_service", {"__ft_service__", false}}};
+
+// name => {prefix, parseSpaceid}, nullptr means that the backup should be skipped.
+static const std::unordered_map<
+    std::string,
+    std::pair<std::string, std::function<decltype(MetaServiceUtils::spaceId)>>>
+    tableMaps = {
+        {"spaces", {"__spaces__", MetaServiceUtils::spaceId}},
+        {"parts", {"__parts__", MetaServiceUtils::parsePartKeySpaceId}},
+        {"tags", {"__tags__", MetaServiceUtils::parseTagsKeySpaceID}},
+        {"edges", {"__edges__", MetaServiceUtils::parseEdgesKeySpaceID}},
+        {"indexes", {"__indexes__", nullptr}},
+        // Index tables are handled separately.
+        {"index", {"__index__", nullptr}},
+        {"index_status", {"__index_status__", MetaServiceUtils::parseIndexStatusKeySpaceID}},
+        {"roles", {"__roles__", MetaServiceUtils::parseRoleSpace}},
+        {"default", {"__default__", MetaServiceUtils::parseDefaultKeySpaceID}},
+        {"last_update_time", {"__last_update_time__", nullptr}},
+        {"leaders", {"__leaders__", nullptr}},
+        {"listener", {"__listener__", nullptr}},
+        {"statis", {"__statis__", nullptr}},
+        {"balance_task", {"__balance_task__", nullptr}},
+        {"balance_plan", {"__balance_plan__", nullptr}},
+        {"ft_index", {"__ft_index__", nullptr}}};
+
+static const std::string kSpacesTable         = tableMaps.at("spaces").first;         // NOLINT
+static const std::string kPartsTable          = tableMaps.at("parts").first;          // NOLINT
+static const std::string kHostsTable          = systemTableMaps.at("hosts").first;          // NOLINT
+static const std::string kTagsTable           = tableMaps.at("tags").first;           // NOLINT
+static const std::string kEdgesTable          = tableMaps.at("edges").first;          // NOLINT
+static const std::string kIndexesTable        = tableMaps.at("indexes").first;        // NOLINT
+static const std::string kIndexTable          = tableMaps.at("index").first;          // NOLINT
+static const std::string kIndexStatusTable    = tableMaps.at("index_status").first;   // NOLINT
+static const std::string kUsersTable          = systemTableMaps.at("users").first;          // NOLINT
+static const std::string kRolesTable          = tableMaps.at("roles").first;          // NOLINT
+static const std::string kConfigsTable        = systemTableMaps.at("configs").first;        // NOLINT
+static const std::string kDefaultTable        = tableMaps.at("default").first;        // NOLINT
+static const std::string kSnapshotsTable      = systemTableMaps.at("snapshots").first;      // NOLINT
+static const std::string kLastUpdateTimeTable = tableMaps.at("last_update_time").first; // NOLINT
+static const std::string kLeadersTable        = tableMaps.at("leaders").first;          // NOLINT
+static const std::string kGroupsTable         = systemTableMaps.at("groups").first;           // NOLINT
+static const std::string kZonesTable          = systemTableMaps.at("zones").first;            // NOLINT
+static const std::string kListenerTable       = tableMaps.at("listener").first;         // NOLINT
 
 // Used to record the number of vertices and edges in the space
 // The number of vertices of each tag in the space
 // The number of edges of each edgetype in the space
-const std::string kStatisTable         = "__statis__";           // NOLINT
-const std::string kBalanceTaskTable    = "__balance_task__";     // NOLINT
-const std::string kBalancePlanTable    = "__balance_plan__";     // NOLINT
+static const std::string kStatisTable         = tableMaps.at("statis").first;           // NOLINT
+static const std::string kBalanceTaskTable    = tableMaps.at("balance_task").first;     // NOLINT
+static const std::string kBalancePlanTable    = tableMaps.at("balance_plan").first;     // NOLINT
 
-const std::string kFTIndexTable        = "__ft_index__";         // NOLINT
-const std::string kFTServiceTable      = "__ft_service__";       // NOLINT
+const std::string kFTIndexTable        = tableMaps.at("ft_index").first;         // NOLINT
+const std::string kFTServiceTable = systemTableMaps.at("ft_service").first;      // NOLINT
 
 const std::string kHostOnline  = "Online";       // NOLINT
 const std::string kHostOffline = "Offline";      // NOLINT
 
 const int kMaxIpAddrLen = 15;   // '255.255.255.255'
+
+bool backupTable(kvstore::KVStore* kvstore,
+                 const std::string& backupName,
+                 const std::string& tableName,
+                 std::vector<std::string>& files,
+                 std::function<bool(const folly::StringPiece& key)> filter) {
+    auto backupFilePath = kvstore->backupTable(kDefaultSpaceId, backupName, tableName, filter);
+    if (!ok(backupFilePath)) {
+        auto result = error(backupFilePath);
+        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
+            return true;
+        }
+        return false;
+    }
+
+    files.insert(files.end(),
+                 std::make_move_iterator(value(backupFilePath).begin()),
+                 std::make_move_iterator(value(backupFilePath).end()));
+    return true;
+}
 
 std::string MetaServiceUtils::lastUpdateTimeKey() {
     std::string key;
@@ -1014,47 +1068,6 @@ MetaServiceUtils::spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
     return sf;
 }
 
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupSpaceTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kSpacesTable, spaceFilter(spaces, spaceId));
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupPartsTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kPartsTable, spaceFilter(spaces, parsePartKeySpaceId));
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupTagsTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kTagsTable, spaceFilter(spaces, parseTagsKeySpaceID));
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupEdgesTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kEdgesTable, spaceFilter(spaces, parseEdgesKeySpaceID));
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexesTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kIndexesTable, spaceFilter(spaces, parseIndexesKeySpaceID));
-}
-
 ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexTable(
     kvstore::KVStore* kvstore,
     const std::unordered_set<GraphSpaceID>& spaces,
@@ -1095,58 +1108,55 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
         });
 }
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexStatusTable(
+folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
     kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(kDefaultSpaceId,
-                                backupName,
-                                kIndexStatusTable,
-                                spaceFilter(spaces, parseIndexStatusKeySpaceID));
-}
+    const std::unordered_set<GraphSpaceID>& spaces,
+    const std::string& backupName,
+    const std::vector<std::string>* spaceNames) {
+    std::vector<std::string> files;
+    files.reserve(tableMaps.size() + systemTableMaps.size());
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupUsersTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    UNUSED(spaces);
+    for (const auto& table : tableMaps) {
+        if (table.second.second == nullptr) {
+            LOG(INFO) << table.first << " table skipped";
+            continue;
+        }
+        if (!backupTable(kvstore,
+                         backupName,
+                         table.second.first,
+                         files,
+                         spaceFilter(spaces, table.second.second))) {
+            return folly::none;
+        }
+        LOG(INFO) << table.first << " table backup successed";
+    }
 
-    return kvstore->backupTable(kDefaultSpaceId, backupName, kUsersTable, nullptr);
-}
+    for (const auto& table : systemTableMaps) {
+        if (!table.second.second) {
+            LOG(INFO) << table.first << " table skipped";
+            continue;
+        }
+        if (!backupTable(kvstore, backupName, table.second.first, files, nullptr)) {
+            return folly::none;
+        }
+        LOG(INFO) << table.first << " table backup successed";
+    }
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupRolesTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    return kvstore->backupTable(
-        kDefaultSpaceId, backupName, kRolesTable, spaceFilter(spaces, parseRoleSpace));
-}
+    // The mapping of space name and space id needs to be handled separately.
+    auto ret = backupIndexTable(kvstore, spaces, backupName, spaceNames);
+    if (!ok(ret)) {
+        auto result = error(ret);
+        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
+            return files;
+        }
+        return folly::none;
+    }
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupConfigsTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    UNUSED(spaces);
+    files.insert(files.end(),
+                 std::make_move_iterator(value(ret).begin()),
+                 std::make_move_iterator(value(ret).end()));
 
-    return kvstore->backupTable(kDefaultSpaceId, backupName, kConfigsTable, nullptr);
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupGroupTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    UNUSED(spaces);
-
-    return kvstore->backupTable(kDefaultSpaceId, backupName, kGroupsTable, nullptr);
-}
-
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupZoneTable(
-    kvstore::KVStore* kvstore,
-    const std::unordered_set <GraphSpaceID>& spaces,
-    const std::string& backupName) {
-    UNUSED(spaces);
-
-    return kvstore->backupTable(kDefaultSpaceId, backupName, kZonesTable, nullptr);
+    return files;
 }
 
 bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,

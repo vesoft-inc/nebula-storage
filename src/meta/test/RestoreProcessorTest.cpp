@@ -85,20 +85,13 @@ TEST(RestoreProcessorTest, RestoreTest) {
 
     std::unordered_set<GraphSpaceID> spaces = {id};
     auto backupName = folly::format("BACKUP_{}", MetaServiceUtils::genTimestampStr()).str();
-    auto partFile = MetaServiceUtils::backupPartsTable(kv.get(), spaces, backupName);
-    DCHECK(ok(partFile));
     auto spaceNames = std::make_unique<std::vector<std::string>>();
     spaceNames->emplace_back("test_space");
-    auto indexFile =
-        MetaServiceUtils::backupIndexTable(kv.get(), spaces, backupName, spaceNames.get());
-    DCHECK(ok(indexFile));
-    auto spaceFile = MetaServiceUtils::backupSpaceTable(kv.get(), spaces, backupName);
-    DCHECK(ok(spaceFile));
-
+    auto backupFiles = MetaServiceUtils::backup(kv.get(), spaces, backupName, spaceNames.get());
+    DCHECK(backupFiles.hasValue());
     {
         cpp2::RestoreMetaReq req;
-        std::vector<std::string> files = {
-            value(partFile)[0], value(indexFile)[0], value(spaceFile)[0]};
+        std::vector<std::string> files = backupFiles.value();
         req.set_files(std::move(files));
         std::vector<cpp2::HostPair> hostPairs;
         HostAddr host4("127.0.0.4", 3360);

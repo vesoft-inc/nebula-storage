@@ -330,65 +330,27 @@ public:
     static GraphSpaceID parseIndexKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
-    // backup
-    static std::function<bool(const folly::StringPiece& key)> spaceFilter(
-        const std::unordered_set <GraphSpaceID>& spaces,
-        std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupSpaceTable(
-        kvstore::KVStore*,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupPartsTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupTagsTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupEdgesTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexesTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName,
-        const std::vector<std::string>* spaceName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexStatusTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupUsersTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupRolesTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupConfigsTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set <GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupGroupTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set<GraphSpaceID>& spaces,
-        const std::string& backupName);
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupZoneTable(
-        kvstore::KVStore* kvstore,
-        const std::unordered_set<GraphSpaceID>& spaces,
-        const std::string& backupName);
     static bool replaceHostInPartition(kvstore::KVStore* kvstore,
                                        const HostAddr& ipv4From,
                                        const HostAddr& ipv4To);
     static bool replaceHostInZone(kvstore::KVStore* kvstore,
                                   const HostAddr& ipv4From,
                                   const HostAddr& ipv4To);
+    // backup
+    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
+        kvstore::KVStore* kvstore,
+        const std::unordered_set<GraphSpaceID>& spaces,
+        const std::string& backupName,
+        const std::vector<std::string>* spaceName);
+    static std::function<bool(const folly::StringPiece& key)> spaceFilter(
+        const std::unordered_set<GraphSpaceID>& spaces,
+        std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
+
+    static folly::Optional<std::vector<std::string>> backup(
+        kvstore::KVStore* kvstore,
+        const std::unordered_set<GraphSpaceID>& spaces,
+        const std::string& backupName,
+        const std::vector<std::string>* spaceNames);
 };
 
 }   // namespace meta

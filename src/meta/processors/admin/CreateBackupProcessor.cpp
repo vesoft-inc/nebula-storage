@@ -11,74 +11,6 @@
 namespace nebula {
 namespace meta {
 
-// std::string => folly::Optional<std::vector<std::string>>(kvstore::KVStore*,
-//                                                             const std::vector<GraphSpaceID>&,
-//                                                             const std::string&)>
-static const std::unordered_map<std::string,
-                                std::function<decltype(MetaServiceUtils::backupSpaceTable)>>
-    tableMaps = {{"spaces", MetaServiceUtils::backupSpaceTable},
-                 {"parts", MetaServiceUtils::backupPartsTable},
-                 {"tags", MetaServiceUtils::backupTagsTable},
-                 {"edges", MetaServiceUtils::backupEdgesTable},
-                 {"indexes", MetaServiceUtils::backupIndexesTable},
-                 {"index_status", MetaServiceUtils::backupIndexStatusTable},
-                 {"users", MetaServiceUtils::backupUsersTable},
-                 {"roles", MetaServiceUtils::backupRolesTable},
-                 {"configs", MetaServiceUtils::backupConfigsTable},
-                 {"group", MetaServiceUtils::backupGroupTable},
-                 {"zone", MetaServiceUtils::backupZoneTable}};
-
-template <typename F>
-bool CreateBackupProcessor::backupTable(const std::unordered_set<GraphSpaceID>& spaces,
-                                        const std::string& backupName,
-                                        std::vector<std::string>& files,
-                                        F f) {
-    auto backupFilePath = f(kvstore_, spaces, backupName);
-    if (!ok(backupFilePath)) {
-        auto result = error(backupFilePath);
-        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
-            return true;
-        }
-        return false;
-    }
-
-    files.insert(files.end(),
-                 std::make_move_iterator(value(backupFilePath).begin()),
-                 std::make_move_iterator(value(backupFilePath).end()));
-    return true;
-}
-
-folly::Optional<std::vector<std::string>> CreateBackupProcessor::backupMeta(
-    const std::unordered_set<GraphSpaceID>& spaces,
-    const std::string& backupName,
-    const std::vector<std::string>* spaceNames) {
-    std::vector<std::string> files;
-    files.reserve(tableMaps.size());
-
-    for (const auto& table : tableMaps) {
-        if (!backupTable(spaces, backupName, files, table.second)) {
-            return folly::none;
-        }
-        LOG(INFO) << table.first << " table backup successed";
-    }
-
-    // The mapping of space name and space id needs to be handled separately.
-    auto ret = MetaServiceUtils::backupIndexTable(kvstore_, spaces, backupName, spaceNames);
-    if (!ok(ret)) {
-        auto result = error(ret);
-        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
-            return files;
-        }
-        return folly::none;
-    }
-
-    files.insert(files.end(),
-                 std::make_move_iterator(value(ret).begin()),
-                 std::make_move_iterator(value(ret).end()));
-
-    return files;
-}
-
 folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNameToId(
     const std::vector<std::string>* backupSpaces) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
@@ -219,7 +151,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     // step 4 created backup for meta(export sst).
-    auto backupFiles = backupMeta(spaces, backupName, backupSpaces);
+    auto backupFiles = MetaServiceUtils::backup(kvstore_, spaces, backupName, backupSpaces);
     if (!backupFiles.hasValue()) {
         LOG(ERROR) << "Failed backup meta";
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
