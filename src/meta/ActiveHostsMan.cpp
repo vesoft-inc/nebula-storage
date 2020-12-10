@@ -38,28 +38,63 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
     return ret;
 }
 
-std::vector<HostAddr> ActiveHostsMan::getActiveHosts(kvstore::KVStore* kv,
-                                                     int32_t expiredTTL,
-                                                     cpp2::HostRole role) {
+folly::Optional<std::vector<HostAddr>> ActiveHostsMan::getHosts(
+    kvstore::KVStore* kv,
+    int32_t expiredTTL,
+    cpp2::HostRole role,
+    std::function<bool(const HostInfo& info, int64_t threshold, int64_t now)> checkFunc) {
     std::vector<HostAddr> hosts;
     const auto& prefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         FLOG_ERROR("getActiveHosts failed(%d)", static_cast<int>(ret));
-        return hosts;
+        return folly::none;
     }
     int64_t threshold = (expiredTTL == 0 ? FLAGS_expired_threshold_sec : expiredTTL) * 1000;
     auto now = time::WallClock::fastNowInMilliSec();
     while (iter->valid()) {
         auto host = MetaServiceUtils::parseHostKey(iter->key());
         HostInfo info = HostInfo::decode(iter->val());
-        if ((info.role_ == role) && (now - info.lastHBTimeInMilliSec_ < threshold)) {
-            hosts.emplace_back(host.host, host.port);
+        if (info.role_ == role) {
+            if (checkFunc && checkFunc(info, threshold, now)) {
+                return folly::none;
+            }
+
+            if (now - info.lastHBTimeInMilliSec_ < threshold) {
+                hosts.emplace_back(host.host, host.port);
+            }
         }
         iter->next();
     }
+
+    if (hosts.empty()) {
+        return folly::none;
+    }
+
     return hosts;
+}
+
+std::vector<HostAddr> ActiveHostsMan::getActiveHosts(kvstore::KVStore* kv,
+                                                     int32_t expiredTTL,
+                                                     cpp2::HostRole role) {
+    std::vector<HostAddr> hosts;
+    auto opt = getHosts(kv, expiredTTL, role);
+    if (opt.hasValue()) {
+        return opt.value();
+    }
+    return hosts;
+}
+
+folly::Optional<std::vector<HostAddr>> ActiveHostsMan::checkAndGetActiveHosts(kvstore::KVStore* kv,
+                                                                              cpp2::HostRole role) {
+    return getHosts(kv, 0, role, [](const HostInfo& info, int64_t threshold, int64_t now) {
+        if (now - info.lastHBTimeInMilliSec_ >= threshold) {
+            LOG(ERROR) << "the node has timed out.";
+            return true;
+        }
+        return false;
+    });
 }
 
 std::vector<HostAddr> ActiveHostsMan::getActiveHostsInZone(kvstore::KVStore* kv,

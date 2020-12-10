@@ -1078,7 +1078,7 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
         backupName,
         kIndexTable,
         [spaces, spaceName](const folly::StringPiece& key) -> bool {
-            if (spaces.empty() || spaceName == nullptr) {
+            if (spaces.empty() || spaceName == nullptr || spaceName->empty()) {
                 return false;
             }
 
