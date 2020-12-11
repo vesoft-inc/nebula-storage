@@ -1,16 +1,3 @@
-#nebula_add_library(
-#    schema_obj OBJECT
-#    SchemaManager.cpp
-#    ServerBasedSchemaManager.cpp
-#    NebulaSchemaProvider.cpp
-#)
-
-#nebula_add_library(
-#    index_obj OBJECT
-#    IndexManager.cpp
-#    ServerBasedIndexManager.cpp
-#)
-
 nebula_add_library(
     meta_service_handler OBJECT
     MetaServiceHandler.cpp
@@ -38,12 +25,11 @@ nebula_add_library(
     processors/indexMan/DropTagIndexProcessor.cpp
     processors/indexMan/GetTagIndexProcessor.cpp
     processors/indexMan/ListTagIndexesProcessor.cpp
-    processors/indexMan/ListTagIndexStatusProcessor.cpp
     processors/indexMan/CreateEdgeIndexProcessor.cpp
     processors/indexMan/DropEdgeIndexProcessor.cpp
     processors/indexMan/GetEdgeIndexProcessor.cpp
     processors/indexMan/ListEdgeIndexesProcessor.cpp
-    processors/indexMan/ListEdgeIndexStatusProcessor.cpp
+    processors/indexMan/FTServiceProcessor.cpp
     processors/customKV/GetProcessor.cpp
     processors/customKV/MultiGetProcessor.cpp
     processors/customKV/MultiPutProcessor.cpp
@@ -79,6 +65,10 @@ nebula_add_library(
     processors/jobMan/RebuildJobExecutor.cpp
     processors/jobMan/RebuildTagJobExecutor.cpp
     processors/jobMan/RebuildEdgeJobExecutor.cpp
+    processors/jobMan/StatisJobExecutor.cpp
+    processors/jobMan/GetStatisProcessor.cpp
+    processors/jobMan/ListTagIndexStatusProcessor.cpp
+    processors/jobMan/ListEdgeIndexStatusProcessor.cpp
     processors/zoneMan/AddZoneProcessor.cpp
     processors/zoneMan/DropZoneProcessor.cpp
     processors/zoneMan/GetZoneProcessor.cpp

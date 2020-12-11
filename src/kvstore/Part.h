@@ -51,6 +51,8 @@ public:
                           folly::StringPiece end,
                           KVCallback cb);
 
+    void asyncAppendBatch(std::string& batch, KVCallback cb);
+
     void asyncAtomicOp(raftex::AtomicOp op, KVCallback cb);
 
     void asyncAddLearner(const HostAddr& learner, KVCallback cb);
@@ -132,8 +134,10 @@ protected:
     GraphSpaceID spaceId_;
     PartitionID partId_;
     std::string walPath_;
-    KVEngine* engine_ = nullptr;
     NewLeaderCallback newLeaderCb_ = nullptr;
+
+private:
+    KVEngine* engine_ = nullptr;
 };
 
 }  // namespace kvstore

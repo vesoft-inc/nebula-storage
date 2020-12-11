@@ -27,14 +27,17 @@ struct KVOptions {
     HostAddr hbaseServer_;
 
     // SchemaManager instance, help the hbasestore to encode/decode data.
-    std::unique_ptr<meta::SchemaManager> schemaMan_{nullptr};
+    meta::SchemaManager* schemaMan_{nullptr};
 
     // Paths for data. It would be used by rocksdb engine.
     // Be careful! We should ensure each "paths" has only one instance,
     // otherwise it would mix up the data on disk.
     std::vector<std::string> dataPaths_;
 
-    //  PartManager instance for kvstore.
+    // Path for listener, only wal is stored, the structure would be spaceId/partId/wal
+    std::string listenerPath_;
+
+    // PartManager instance for kvstore.
     std::unique_ptr<PartManager> partMan_{nullptr};
 
     // Custom MergeOperator used in rocksdb.merge method.
@@ -78,7 +81,8 @@ public:
     virtual ResultCode get(GraphSpaceID spaceId,
                            PartitionID  partId,
                            const std::string& key,
-                           std::string* value) = 0;
+                           std::string* value,
+                           bool canReadFromFollower = false) = 0;
 
     // Read multiple keys, if error occurs a ResultCode is returned,
     // If key[i] does not exist, the i-th value in return value would be Status::KeyNotFound
@@ -86,14 +90,16 @@ public:
     multiGet(GraphSpaceID spaceId,
              PartitionID partId,
              const std::vector<std::string>& keys,
-             std::vector<std::string>* values) = 0;
+             std::vector<std::string>* values,
+             bool canReadFromFollower = false) = 0;
 
     // Get all results in range [start, end)
     virtual ResultCode range(GraphSpaceID spaceId,
                              PartitionID  partId,
                              const std::string& start,
                              const std::string& end,
-                             std::unique_ptr<KVIterator>* iter) = 0;
+                             std::unique_ptr<KVIterator>* iter,
+                             bool canReadFromFollower = false) = 0;
 
     // Since the `range' interface will hold references to its 3rd & 4th parameter, in `iter',
     // thus the arguments must outlive `iter'.
@@ -102,33 +108,38 @@ public:
                              PartitionID  partId,
                              std::string&& start,
                              std::string&& end,
-                             std::unique_ptr<KVIterator>* iter) = delete;
+                             std::unique_ptr<KVIterator>* iter,
+                             bool canReadFromFollower = false) = delete;
 
     // Get all results with prefix.
     virtual ResultCode prefix(GraphSpaceID spaceId,
                               PartitionID  partId,
                               const std::string& prefix,
-                              std::unique_ptr<KVIterator>* iter) = 0;
+                              std::unique_ptr<KVIterator>* iter,
+                              bool canReadFromFollower = false) = 0;
 
     // To forbid to pass rvalue via the `prefix' parameter.
     virtual ResultCode prefix(GraphSpaceID spaceId,
                               PartitionID  partId,
                               std::string&& prefix,
-                              std::unique_ptr<KVIterator>* iter) = delete;
+                              std::unique_ptr<KVIterator>* iter,
+                              bool canReadFromFollower = false) = delete;
 
     // Get all results with prefix starting from start
     virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
                                        PartitionID  partId,
                                        const std::string& start,
                                        const std::string& prefix,
-                                       std::unique_ptr<KVIterator>* iter) = 0;
+                                       std::unique_ptr<KVIterator>* iter,
+                                       bool canReadFromFollower = false) = 0;
 
     // To forbid to pass rvalue via the `rangeWithPrefix' parameter.
     virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
                                        PartitionID  partId,
                                        std::string&& start,
                                        std::string&& prefix,
-                                       std::unique_ptr<KVIterator>* iter) = delete;
+                                       std::unique_ptr<KVIterator>* iter,
+                                       bool canReadFromFollower = false) = delete;
 
     virtual ResultCode sync(GraphSpaceID spaceId,
                             PartitionID partId) = 0;
@@ -159,6 +170,17 @@ public:
                                PartitionID partId,
                                raftex::AtomicOp op,
                                KVCallback cb) = 0;
+
+    /**
+     * @brief async commit multi operation.
+     *        difference between asyncMultiPut or asyncMultiRemove is
+     *        this func allow contains both put and remove together
+     *        difference between asyncAtomicOp is asyncAtomicOp may have CAS
+     */
+    virtual void asyncAppendBatch(GraphSpaceID spaceId,
+                                  PartitionID partId,
+                                  std::string& batch,
+                                  KVCallback cb) = 0;
 
     virtual ResultCode ingest(GraphSpaceID spaceId) = 0;
 

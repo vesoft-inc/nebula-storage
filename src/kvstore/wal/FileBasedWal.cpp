@@ -11,6 +11,12 @@
 #include "kvstore/wal/WalFileIterator.h"
 #include <utime.h>
 
+DEFINE_int32(wal_ttl, 14400, "Default wal ttl");
+DEFINE_int64(wal_file_size, 16 * 1024 * 1024, "Default wal file size");
+DEFINE_int32(wal_buffer_size, 8 * 1024 * 1024, "Default wal buffer size");
+DEFINE_int32(wal_buffer_num, 2, "Default wal buffer number");
+DEFINE_bool(wal_sync, false, "Whether fsync needs to be called every write");
+
 namespace nebula {
 namespace wal {
 
@@ -537,11 +543,9 @@ bool FileBasedWal::appendLogInternal(LogID id,
                    << ", error:" << strerror(errno);
     }
 
-    if (policy_.sync) {
-        if (::fsync(currFd_) == -1) {
-            LOG(WARNING) << "sync wal \"" << currInfo_->path()
-                         << "\" failed, error: " << strerror(errno);
-        }
+    if (policy_.sync && ::fsync(currFd_) == -1) {
+        LOG(WARNING) << "sync wal \"" << currInfo_->path()
+                     << "\" failed, error: " << strerror(errno);
     }
     currInfo_->setSize(currInfo_->size() + strBuf.size());
     currInfo_->setLastId(id);
@@ -554,7 +558,6 @@ bool FileBasedWal::appendLogInternal(LogID id,
     }
 
     logBuffer_->push(id, term, cluster, std::move(msg));
-
     return true;
 }
 
@@ -603,6 +606,11 @@ bool FileBasedWal::linkCurrentWAL(const char* newPath) {
         LOG(INFO) << idStr_ << "No wal files found, skip link";
         return true;
     }
+    if (fs::FileUtils::exist(newPath) &&
+        !fs::FileUtils::remove(newPath, true)) {
+        LOG(ERROR) << "Remove exist dir failed of wal : " << newPath;
+        return false;
+     }
     if (!fs::FileUtils::makeDir(newPath)) {
         LOG(INFO) << idStr_ << "Link file parent dir make failed : " << newPath;
         return false;
@@ -697,7 +705,7 @@ bool FileBasedWal::reset() {
     return true;
 }
 
-void FileBasedWal::cleanWAL(int32_t ttl) {
+void FileBasedWal::cleanWAL() {
     std::lock_guard<std::mutex> g(walFilesMutex_);
     if (walFiles_.empty()) {
         return;
@@ -713,7 +721,7 @@ void FileBasedWal::cleanWAL(int32_t ttl) {
         return;
     }
     int count = 0;
-    int walTTL = ttl == 0 ? policy_.ttl : ttl;
+    int walTTL = FLAGS_wal_ttl;
     while (it != walFiles_.end()) {
         // keep at least two wal
         if (index++ < size - 2 && (now - it->second->mtime() > walTTL)) {
@@ -732,6 +740,31 @@ void FileBasedWal::cleanWAL(int32_t ttl) {
     firstLogId_ = walFiles_.begin()->second->firstId();
 }
 
+void FileBasedWal::cleanWAL(LogID id) {
+    std::lock_guard<std::mutex> g(walFilesMutex_);
+    if (walFiles_.empty()) {
+        return;
+    }
+
+    if (walFiles_.rbegin()->second->lastId() < id) {
+        LOG(WARNING) << "Try to clean wal not existed " << id
+                     << ", lastWal is " << walFiles_.rbegin()->second->lastId();
+        return;
+    }
+
+    // remove wal file that lastId is less than target
+    auto iter = walFiles_.begin();
+    while (iter != walFiles_.end()) {
+        if (iter->second->lastId() < id) {
+            VLOG(1) << "Clean wals, Remove " << iter->second->path();
+            unlink(iter->second->path());
+            iter = walFiles_.erase(iter);
+        } else {
+            break;
+        }
+    }
+    firstLogId_ = walFiles_.begin()->second->firstId();
+}
 
 size_t FileBasedWal::accessAllWalInfo(std::function<bool(WalFileInfoPtr info)> fn) const {
     std::lock_guard<std::mutex> g(walFilesMutex_);

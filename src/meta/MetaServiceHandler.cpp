@@ -27,12 +27,11 @@
 #include "meta/processors/indexMan/DropTagIndexProcessor.h"
 #include "meta/processors/indexMan/GetTagIndexProcessor.h"
 #include "meta/processors/indexMan/ListTagIndexesProcessor.h"
-#include "meta/processors/indexMan/ListTagIndexStatusProcessor.h"
 #include "meta/processors/indexMan/CreateEdgeIndexProcessor.h"
 #include "meta/processors/indexMan/DropEdgeIndexProcessor.h"
 #include "meta/processors/indexMan/GetEdgeIndexProcessor.h"
 #include "meta/processors/indexMan/ListEdgeIndexesProcessor.h"
-#include "meta/processors/indexMan/ListEdgeIndexStatusProcessor.h"
+#include "meta/processors/indexMan/FTServiceProcessor.h"
 #include "meta/processors/customKV/MultiPutProcessor.h"
 #include "meta/processors/customKV/GetProcessor.h"
 #include "meta/processors/customKV/MultiGetProcessor.h"
@@ -51,6 +50,9 @@
 #include "meta/processors/configMan/SetConfigProcessor.h"
 #include "meta/processors/configMan/ListConfigsProcessor.h"
 #include "meta/processors/jobMan/AdminJobProcessor.h"
+#include "meta/processors/jobMan/GetStatisProcessor.h"
+#include "meta/processors/jobMan/ListTagIndexStatusProcessor.h"
+#include "meta/processors/jobMan/ListEdgeIndexStatusProcessor.h"
 #include "meta/processors/zoneMan/AddZoneProcessor.h"
 #include "meta/processors/zoneMan/DropZoneProcessor.h"
 #include "meta/processors/zoneMan/GetZoneProcessor.h"
@@ -275,6 +277,24 @@ MetaServiceHandler::future_listEdgeIndexStatus(const cpp2::ListIndexStatusReq& r
     RETURN_FUTURE(processor);
 }
 
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_signInFTService(const cpp2::SignInFTServiceReq& req) {
+    auto* processor = SignInFTServiceProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_signOutFTService(const cpp2::SignOutFTServiceReq& req) {
+    auto* processor = SignOutFTServiceProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ListFTClientsResp>
+MetaServiceHandler::future_listFTClients(const cpp2::ListFTClientsReq& req) {
+    auto* processor = ListFTClientsProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
 folly::Future<cpp2::HBResp>
 MetaServiceHandler::future_heartBeat(const cpp2::HBReq& req) {
     auto* processor = HBProcessor::instance(kvstore_, clusterId_, &heartBeatStat_);
@@ -478,5 +498,12 @@ MetaServiceHandler::future_listListener(const cpp2::ListListenerReq& req) {
     auto* processor = ListListenerProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
+
+folly::Future<cpp2::GetStatisResp>
+MetaServiceHandler::future_getStatis(const cpp2::GetStatisReq &req) {
+    auto* processor = GetStatisProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
 }  // namespace meta
 }  // namespace nebula

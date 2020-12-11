@@ -38,14 +38,15 @@ void AdminTaskManager::addAsyncTask(std::shared_ptr<AdminTask> task) {
 }
 
 cpp2::ErrorCode AdminTaskManager::cancelJob(JobID jobId) {
-    auto ret = cpp2::ErrorCode::E_KEY_NOT_FOUND;
+    // When the job does not exist on the host,
+    // it should return success instead of failure
+    auto ret = cpp2::ErrorCode::SUCCEEDED;
     auto it = tasks_.begin();
     while (it != tasks_.end()) {
         auto handle = it->first;
         if (handle.first == jobId) {
             it->second->cancel();
             FLOG_INFO("task(%d, %d) cancelled", jobId, handle.second);
-            ret = cpp2::ErrorCode::SUCCEEDED;
         }
         ++it;
     }
@@ -110,10 +111,12 @@ void AdminTaskManager::schedule() {
         auto task = it->second;
         auto errOrSubTasks = task->genSubTasks();
         if (!nebula::ok(errOrSubTasks)) {
-            LOG(ERROR) << "genSubTasks() failed=" << static_cast<int>(nebula::error(errOrSubTasks));
+            auto code = static_cast<int>(nebula::error(errOrSubTasks));
+            LOG(ERROR) << folly::sformat(
+                "job {}, genSubTask failed, err={}", task->getJobId(), code);
             task->finish(nebula::error(errOrSubTasks));
             tasks_.erase(handle);
-            return;
+            continue;
         }
 
         auto subTasks = nebula::value(errOrSubTasks);

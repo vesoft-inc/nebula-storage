@@ -41,14 +41,12 @@ public:
 
     StorageExpressionContext(size_t vIdLen,
                              bool isIntId,
-                             int32_t vColNum,
                              bool hasNullableCol,
-                             const std::vector<std::pair<std::string, Value::Type>>& indexCols)
+                             const std::vector<meta::cpp2::ColumnDef>& fields)
         : vIdLen_(vIdLen)
         , isIntId_(isIntId)
-        , vColNum_(vColNum)
         , hasNullableCol_(hasNullableCol)
-        , indexCols_(indexCols) {
+        , fields_(fields) {
         isIndex_ = true;
     }
 
@@ -78,6 +76,11 @@ public:
         return Value::kNullValue;
     }
 
+    // Get the value by column index
+    Value getColumn(int32_t) const override {
+        return Value::kNullValue;
+    }
+
     // Get the specified property from the tag, such as tag.prop_name
     Value getTagProp(const std::string& tagName, const std::string& prop) const override;
 
@@ -92,16 +95,12 @@ public:
         return vIdLen_;
     }
 
-    int32_t vColNum() const {
-        return vColNum_;
-    }
-
     bool hasNullableCol() const {
         return hasNullableCol_;
     }
 
-    const std::vector<std::pair<std::string, Value::Type>>& indexCols() const {
-        return indexCols_;
+    const std::vector<meta::cpp2::ColumnDef>& indexCols() const {
+        return fields_;
     }
 
     void setVar(const std::string&, Value) override {}
@@ -177,17 +176,15 @@ private:
 
     // index
     bool isIndex_ = false;
-    int32_t vColNum_ = 0;
     bool hasNullableCol_ = false;
+
+    std::vector<meta::cpp2::ColumnDef> fields_;
 
     // <tagName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> tagFilters_;
 
     // <edgeName, property> -> value
     std::unordered_map<std::pair<std::string, std::string>, nebula::Value> edgeFilters_;
-
-    // Index Columns
-    std::vector<std::pair<std::string, Value::Type>>  indexCols_{};
 };
 
 }  // namespace storage

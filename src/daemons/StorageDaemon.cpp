@@ -8,6 +8,7 @@
 #include "common/base/SignalHandler.h"
 #include "common/network/NetworkUtils.h"
 #include "common/process/ProcessUtils.h"
+#include "common/time/TimeUtils.h"
 #include "storage/StorageServer.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 
@@ -15,6 +16,8 @@
 DEFINE_string(local_ip, "", "IP address which is used to identify this server");
 DEFINE_string(data_path, "", "Root data path, multi paths should be split by comma."
                              "For rocksdb engine, one path one instance.");
+DEFINE_string(listener_path, "", "Path for listener, only wal will be saved."
+                                 "if it is not empty, data_path will not take effect.");
 DEFINE_bool(daemonize, true, "Whether to run the process as a daemon");
 DEFINE_string(pid_file, "pids/nebula-storaged.pid", "File to hold the process id");
 DEFINE_string(meta_server_addrs, "", "list of meta server addresses,"
@@ -100,9 +103,18 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Initialize the global timezone, it's only used for datetime type compute
+    // won't affect the process timezone.
+    status = nebula::time::TimeUtils::initializeGlobalTimezone();
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
     gStorageServer = std::make_unique<nebula::storage::StorageServer>(host,
                                                                       metaAddrsRet.value(),
-                                                                      paths);
+                                                                      paths,
+                                                                      FLAGS_listener_path);
     if (!gStorageServer->start()) {
         LOG(ERROR) << "Storage server start failed";
         gStorageServer->stop();

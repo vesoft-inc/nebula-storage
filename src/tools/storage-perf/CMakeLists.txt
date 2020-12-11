@@ -2,12 +2,14 @@ set(perf_test_deps
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:storage_admin_service_handler>
     $<TARGET_OBJECTS:graph_storage_service_handler>
+    $<TARGET_OBJECTS:storage_transaction_executor>
     $<TARGET_OBJECTS:storage_common_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
     $<TARGET_OBJECTS:codec_obj>
     $<TARGET_OBJECTS:keyutils_obj>
+    $<TARGET_OBJECTS:common_internal_storage_client_obj>
     $<TARGET_OBJECTS:common_graph_storage_client_obj>
     $<TARGET_OBJECTS:common_storage_client_base_obj>
     $<TARGET_OBJECTS:common_ws_common_obj>
@@ -34,6 +36,8 @@ set(perf_test_deps
     $<TARGET_OBJECTS:common_function_manager_obj>
     $<TARGET_OBJECTS:common_time_function_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
+    $<TARGET_OBJECTS:common_encryption_obj>
+    $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
 )
 
 nebula_add_executable(
@@ -46,6 +50,7 @@ nebula_add_executable(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        proxygenlib
         wangle
         gtest
 )
@@ -69,6 +74,7 @@ nebula_add_executable(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        proxygenlib
         wangle
         gtest
 )

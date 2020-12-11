@@ -55,7 +55,7 @@ public:
         return Value::Type::__EMPTY__;
     }
 
-    static std::string encodeNullValue(Value::Type type) {
+    static std::string encodeNullValue(Value::Type type, const int16_t* strLen) {
         size_t len = 0;
         switch (type) {
             case Value::Type::INT: {
@@ -71,7 +71,7 @@ public:
                 break;
             }
             case Value::Type::STRING: {
-                len = 1;
+                len = static_cast<size_t>(*strLen);
                 break;
             }
             case Value::Type::TIME: {
@@ -83,7 +83,7 @@ public:
                 break;
             }
             case Value::Type::DATETIME: {
-                len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
+                len = sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5;
                 break;
             }
             default :
@@ -91,8 +91,22 @@ public:
         }
         std::string raw;
         raw.reserve(len);
-        raw.append(len, '\0');
+        raw.append(len, static_cast<char>(0xFF));
         return raw;
+    }
+
+    static std::string encodeValue(const Value& v, int16_t len) {
+        if (v.type() == Value::Type::STRING) {
+            std::string fs = v.getStr();
+            if (static_cast<size_t>(len) > v.getStr().size()) {
+                fs.append(len - v.getStr().size(), '\0');
+            } else {
+                fs = fs.substr(0, len);
+            }
+            return fs;
+        } else {
+            return encodeValue(v);
+        }
     }
 
     static std::string encodeValue(const Value& v) {
@@ -302,7 +316,7 @@ public:
                 break;
             }
             case Value::Type::STRING: {
-                v.setStr(raw.str());
+                v.setStr(raw.subpiece(0, raw.find_first_of('\0')).toString());
                 break;
             }
             case Value::Type::TIME: {
@@ -324,14 +338,12 @@ public:
     }
 
     static Value getValueFromIndexKey(size_t vIdLen,
-                                      int32_t vColNum,
-                                      const std::string& key,
+                                      folly::StringPiece key,
                                       const std::string& prop,
-                                      const std::vector<std::pair<std::string, Value::Type>>& cols,
+                                      const std::vector<meta::cpp2::ColumnDef>& cols,
                                       bool isEdgeIndex = false,
                                       bool hasNullableCol = false) {
         size_t len = 0;
-        int32_t vCount = vColNum;
         std::bitset<16> nullableBit;
         int8_t nullableColPosit = 15;
         size_t offset = sizeof(PartitionID) + sizeof(IndexID);
@@ -339,24 +351,24 @@ public:
 
         auto it = std::find_if(cols.begin(), cols.end(),
                                [&prop] (const auto& col) {
-                                   return prop == col.first;
+                                   return prop == col.get_name();
                                });
         if (it == cols.end()) {
             return Value(NullType::BAD_DATA);
         }
-        auto type = it->second;
+        auto type = IndexKeyUtils::toValueType(it->get_type().get_type());
 
         if (hasNullableCol) {
-            auto bitOffset = key.size() - tailLen - sizeof(u_short) - vCount * sizeof(int32_t);
-            auto v = *reinterpret_cast<const u_short*>(key.c_str() + bitOffset);
+            auto bitOffset = key.size() - tailLen - sizeof(u_short);
+            auto v = *reinterpret_cast<const u_short*>(key.data() + bitOffset);
             nullableBit = v;
         }
 
         for (const auto& col : cols) {
-            if (hasNullableCol && col.first == prop && nullableBit.test(nullableColPosit)) {
+            if (hasNullableCol && col.get_name() == prop && nullableBit.test(nullableColPosit)) {
                 return Value(NullType::__NULL__);
             }
-            switch (col.second) {
+            switch (IndexKeyUtils::toValueType(col.type.get_type())) {
                 case Value::Type::BOOL: {
                     len = sizeof(bool);
                     break;
@@ -370,9 +382,7 @@ public:
                     break;
                 }
                 case Value::Type::STRING: {
-                    auto off = key.size() - vCount * sizeof(int32_t) - tailLen;
-                    len = *reinterpret_cast<const int32_t*>(key.c_str() + off);
-                    --vCount;
+                    len = *col.type.get_type_length();
                     break;
                 }
                 case Value::Type::TIME: {
@@ -384,7 +394,7 @@ public:
                     break;
                 }
                 case Value::Type::DATETIME: {
-                    len = sizeof(int32_t) * 2 + sizeof(int16_t) + sizeof(int8_t) * 5;
+                    len = sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5;
                     break;
                 }
                 default:
@@ -393,15 +403,12 @@ public:
             if (hasNullableCol) {
                 nullableColPosit -= 1;
             }
-            if (col.first == prop) {
+            if (col.get_name() == prop) {
                 break;
             }
             offset += len;
         }
-        /*
-         * here need a string copy.
-         */
-        auto propVal = key.substr(offset, len);
+        auto propVal = key.subpiece(offset, len);
         return decodeValue(propVal, type);
     }
 
@@ -443,11 +450,8 @@ public:
     /**
      * Generate vertex|edge index key for kv store
      **/
-    static void encodeValues(const std::vector<Value>& values, std::string& raw);
-
-    static void encodeValuesWithNull(const std::vector<Value>& values,
-                                     const std::vector<Value::Type>& colsType,
-                                     std::string& raw);
+    static std::string encodeValues(std::vector<Value>&& values,
+                                    const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -455,8 +459,7 @@ public:
      **/
     static std::string vertexIndexKey(size_t vIdLen, PartitionID partId,
                                       IndexID indexId, VertexID vId,
-                                      const std::vector<Value>& values,
-                                      const std::vector<Value::Type>& valueTypes = {});
+                                      std::string&& values);
 
     /**
      * param valueTypes ： column type of each index column. If there are no nullable columns
@@ -465,17 +468,15 @@ public:
     static std::string edgeIndexKey(size_t vIdLen, PartitionID partId,
                                     IndexID indexId, VertexID srcId,
                                     EdgeRanking rank, VertexID dstId,
-                                    const std::vector<Value>& values,
-                                    const std::vector<Value::Type>& valueTypes = {});
+                                    std::string&& values);
 
     static std::string indexPrefix(PartitionID partId, IndexID indexId);
 
     static std::string indexPrefix(PartitionID partId);
 
-    static StatusOr<std::vector<Value>>
+    static StatusOr<std::string>
     collectIndexValues(RowReader* reader,
-                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols,
-                       std::vector<Value::Type>& colsType);
+                       const std::vector<nebula::meta::cpp2::ColumnDef>& cols);
 
 private:
     IndexKeyUtils() = delete;

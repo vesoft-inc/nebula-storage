@@ -29,10 +29,12 @@ public:
          *                            {scanType = PREFIX|RANGE; beginStr; endStr},...
          * if the scanType is RANGE, means the index scan is range scan.
          * if all scanType are PREFIX, means the index scan is prefix scan.
+         * there should be only one RANGE hnit, and it must be the last one.
          */
-        for (const auto &colHint : columnHints_) {
-            if (colHint.get_scan_type() == cpp2::ScanType::RANGE) {
+        for (size_t i = 0; i < columnHints_.size(); i++) {
+            if (columnHints_[i].get_scan_type() == cpp2::ScanType::RANGE) {
                 isRangeScan_ = true;
+                CHECK_EQ(columnHints_.size() - 1, i);
                 break;
             }
         }
@@ -43,7 +45,11 @@ public:
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
-        scanPair_ = scanStr(partId);
+        auto scanRet = scanStr(partId);
+        if (!scanRet.ok()) {
+            return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
+        }
+        scanPair_ = scanRet.value();
         std::unique_ptr<kvstore::KVIterator> iter;
         ret = isRangeScan_
               ? planContext_->env_->kvstore_->range(planContext_->spaceId_, partId,
@@ -75,37 +81,79 @@ public:
     }
 
 private:
-    std::pair<std::string, std::string> scanStr(PartitionID partId) {
+    StatusOr<std::pair<std::string, std::string>> scanStr(PartitionID partId) {
+        auto iRet = planContext_->isEdge_
+                    ? planContext_->env_->indexMan_->getEdgeIndex(planContext_->spaceId_, indexId_)
+                    : planContext_->env_->indexMan_->getTagIndex(planContext_->spaceId_, indexId_);
+        if (!iRet.ok()) {
+            return Status::IndexNotFound();
+        }
         if (isRangeScan_) {
-            return getRangeStr(partId);
+            return getRangeStr(partId, iRet.value()->get_fields());
         } else {
-            return getPrefixStr(partId);
+            return getPrefixStr(partId, iRet.value()->get_fields());
         }
     }
 
-    std::pair<std::string, std::string> getPrefixStr(PartitionID partId) {
+    StatusOr<std::pair<std::string, std::string>> getPrefixStr(
+        PartitionID partId, const std::vector< ::nebula::meta::cpp2::ColumnDef>& fields) {
         std::string prefix;
         prefix.append(IndexKeyUtils::indexPrefix(partId, indexId_));
         for (auto& col : columnHints_) {
-            prefix.append(IndexKeyUtils::encodeValue(col.get_begin_value()));
+            auto iter = std::find_if(fields.begin(), fields.end(), [col](const auto& field) {
+                return col.get_column_name() == field.get_name();
+            });
+            if (iter == fields.end()) {
+                VLOG(3) << "Field " << col.get_column_name() << " not found ";
+                return Status::Error("Field not found");
+            }
+            auto type = IndexKeyUtils::toValueType(iter->type.type);
+            if (type == Value::Type::STRING && !iter->type.__isset.type_length) {
+                return Status::Error("String property index has not set prefix length.");
+            }
+            prefix.append(encodeValue(col.begin_value, type, iter->type.get_type_length()));
         }
-        return {prefix, ""};
+        return std::make_pair(prefix, "");
     }
 
-    std::pair<std::string, std::string>  getRangeStr(PartitionID partId) {
+    StatusOr<std::pair<std::string, std::string>> getRangeStr(
+        PartitionID partId, const std::vector< ::nebula::meta::cpp2::ColumnDef>& fields) {
         std::string start, end;
         start.append(IndexKeyUtils::indexPrefix(partId, indexId_));
         end.append(IndexKeyUtils::indexPrefix(partId, indexId_));
         for (auto& col : columnHints_) {
+            auto iter = std::find_if(fields.begin(), fields.end(), [col](const auto& field) {
+                return col.get_column_name() == field.get_name();
+            });
+            if (iter == fields.end()) {
+                VLOG(3) << "Field " << col.get_column_name() << " not found ";
+                return Status::Error("Field not found");
+            }
+            auto type = IndexKeyUtils::toValueType(iter->get_type().get_type());
+            if (type == Value::Type::STRING && !iter->get_type().__isset.type_length) {
+                return Status::Error("String property index has not set prefix length.");
+            }
             if (col.get_scan_type() == cpp2::ScanType::PREFIX) {
-                start.append(IndexKeyUtils::encodeValue(col.get_begin_value()));
-                end.append(IndexKeyUtils::encodeValue(col.get_begin_value()));
+                start.append(encodeValue(col.begin_value, type, iter->type.get_type_length()));
+                end.append(encodeValue(col.begin_value, type, iter->type.get_type_length()));
             } else {
-                start.append(IndexKeyUtils::encodeValue(col.get_begin_value()));
-                end.append(IndexKeyUtils::encodeValue(col.get_end_value()));
+                start.append(encodeValue(col.begin_value, type, iter->type.get_type_length()));
+                end.append(encodeValue(col.end_value, type, iter->type.get_type_length()));
             }
         }
-        return {start, end};
+        return std::make_pair(start, end);
+    }
+
+    // precondition: if type is STRING, strLen must be valid
+    std::string encodeValue(const Value& val, Value::Type type, const int16_t* strLen) {
+        if (val.isNull()) {
+            return IndexKeyUtils::encodeNullValue(type, strLen);
+        }
+        if (type == Value::Type::STRING) {
+            return IndexKeyUtils::encodeValue(val, *strLen);
+        } else {
+            return IndexKeyUtils::encodeValue(val);
+        }
     }
 
 private:

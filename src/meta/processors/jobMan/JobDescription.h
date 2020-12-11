@@ -24,11 +24,13 @@ class JobDescription {
     FRIEND_TEST(JobDescriptionTest, parseVal);
     FRIEND_TEST(JobManagerTest, buildJobDescription);
     FRIEND_TEST(JobManagerTest, addJob);
+    FRIEND_TEST(JobManagerTest, StatisJob);
     FRIEND_TEST(JobManagerTest, loadJobDescription);
     FRIEND_TEST(JobManagerTest, showJobs);
     FRIEND_TEST(JobManagerTest, showJob);
     FRIEND_TEST(JobManagerTest, backupJob);
     FRIEND_TEST(JobManagerTest, recoverJob);
+    FRIEND_TEST(GetStatisTest, StatisJob);
 
     using Status = cpp2::JobStatus;
 
@@ -131,6 +133,16 @@ public:
      * check if the given rawKey is a valid JobKey
      * */
     static bool isJobKey(const folly::StringPiece& rawKey);
+
+    bool operator==(const JobDescription& that) const {
+        return this->cmd_ == that.cmd_ &&
+               this->paras_ == that.paras_ &&
+               this->status_ == that.status_;
+    }
+
+    bool operator!=(const JobDescription& that) const {
+        return !(*this == that);
+    }
 
 private:
     static bool isSupportedValue(const folly::StringPiece& val);

@@ -16,6 +16,8 @@ namespace nebula {
 namespace storage {
 
 class AddEdgesProcessor : public BaseProcessor<cpp2::ExecResponse> {
+    friend class TransactionManager;
+    friend class AddEdgesAtomicProcessor;
 public:
     static AddEdgesProcessor* instance(StorageEnv* env,
                                        stats::Stats* stats) {
@@ -31,8 +33,8 @@ private:
     folly::Optional<std::string> addEdges(PartitionID partId,
                                           const std::vector<kvstore::KV>& edges);
 
-    folly::Optional<std::string> findObsoleteIndex(PartitionID partId,
-                                                   const folly::StringPiece& rawKey);
+    folly::Optional<std::string> findOldValue(PartitionID partId,
+                                              const folly::StringPiece& rawKey);
 
     std::string indexKey(PartitionID partId,
                          RowReader* reader,

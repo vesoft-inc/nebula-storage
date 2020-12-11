@@ -15,11 +15,16 @@
 #include "kvstore/KVStore.h"
 #include "kvstore/PartManager.h"
 #include "kvstore/Part.h"
+#include "kvstore/Listener.h"
+#include "kvstore/ListenerFactory.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/raftex/SnapshotManager.h"
+#include "utils/Utils.h"
 
 namespace nebula {
 namespace kvstore {
+
+using ListenerMap = std::unordered_map<meta::cpp2::ListenerType, std::shared_ptr<Listener>>;
 
 struct SpacePartInfo {
     ~SpacePartInfo() {
@@ -32,6 +37,10 @@ struct SpacePartInfo {
     std::vector<std::unique_ptr<KVEngine>> engines_;
 };
 
+struct SpaceListenerInfo {
+    std::unordered_map<PartitionID, ListenerMap> listeners_;
+};
+
 class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, SimpleTest);
     FRIEND_TEST(NebulaStoreTest, PartsTest);
@@ -39,6 +48,7 @@ class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, TransLeaderTest);
     FRIEND_TEST(NebulaStoreTest, CheckpointTest);
     FRIEND_TEST(NebulaStoreTest, ThreeCopiesCheckpointTest);
+    friend class ListenerBasicTest;
 
 public:
     NebulaStore(KVOptions options,
@@ -58,18 +68,12 @@ public:
     ~NebulaStore();
 
     // Calculate the raft service address based on the storage service address
-    static HostAddr getRaftAddr(HostAddr srvcAddr) {
-        if (srvcAddr == HostAddr("", 0)) {
-            return srvcAddr;
-        }
-        return HostAddr(srvcAddr.host, srvcAddr.port + 1);
+    static HostAddr getRaftAddr(const HostAddr& srvcAddr) {
+        return Utils::getRaftAddrFromStoreAddr(srvcAddr);
     }
 
-    static HostAddr getStoreAddr(HostAddr raftAddr) {
-        if (raftAddr == HostAddr("", 0)) {
-            return raftAddr;
-        }
-        return HostAddr(raftAddr.host, raftAddr.port - 1);
+    static HostAddr getStoreAddr(const HostAddr& raftAddr) {
+        return Utils::getStoreAddrFromRaftAddr(raftAddr);
     }
 
     // Pull meta information from the PartManager and initiate
@@ -90,8 +94,12 @@ public:
         return ioPool_;
     }
 
-    std::shared_ptr<thread::GenericThreadPool> getWorkers() const {
+    std::shared_ptr<thread::GenericThreadPool> getBgWorkers() const {
         return bgWorkers_;
+    }
+
+    std::shared_ptr<folly::Executor> getExecutors() const {
+        return workers_;
     }
 
     // Return the current leader
@@ -101,55 +109,68 @@ public:
         return options_.partMan_.get();
     }
 
+    bool isListener() const {
+        return !options_.listenerPath_.empty();
+    }
+
     ResultCode get(GraphSpaceID spaceId,
                    PartitionID  partId,
                    const std::string& key,
-                   std::string* value) override;
+                   std::string* value,
+                   bool canReadFromFollower = false) override;
 
     std::pair<ResultCode, std::vector<Status>>
     multiGet(GraphSpaceID spaceId,
              PartitionID partId,
              const std::vector<std::string>& keys,
-             std::vector<std::string>* values) override;
+             std::vector<std::string>* values,
+             bool canReadFromFollower = false) override;
 
     // Get all results in range [start, end)
     ResultCode range(GraphSpaceID spaceId,
                      PartitionID  partId,
                      const std::string& start,
                      const std::string& end,
-                     std::unique_ptr<KVIterator>* iter) override;
+                     std::unique_ptr<KVIterator>* iter,
+                     bool canReadFromFollower = false) override;
+
     // Delete the overloading with a rvalue `start' and `end'
     ResultCode range(GraphSpaceID spaceId,
                      PartitionID  partId,
                      std::string&& start,
                      std::string&& end,
-                     std::unique_ptr<KVIterator>* iter) override = delete;
+                     std::unique_ptr<KVIterator>* iter,
+                     bool canReadFromFollower = false) override = delete;
 
     // Get all results with prefix.
     ResultCode prefix(GraphSpaceID spaceId,
                       PartitionID  partId,
                       const std::string& prefix,
-                      std::unique_ptr<KVIterator>* iter) override;
+                      std::unique_ptr<KVIterator>* iter,
+                      bool canReadFromFollower = false) override;
 
     // Delete the overloading with a rvalue `prefix'
     ResultCode prefix(GraphSpaceID spaceId,
                       PartitionID  partId,
                       std::string&& prefix,
-                      std::unique_ptr<KVIterator>* iter) override = delete;
+                      std::unique_ptr<KVIterator>* iter,
+                      bool canReadFromFollower = false) override = delete;
 
     // Get all results with prefix starting from start
     ResultCode rangeWithPrefix(GraphSpaceID spaceId,
                                PartitionID  partId,
                                const std::string& start,
                                const std::string& prefix,
-                               std::unique_ptr<KVIterator>* iter) override;
+                               std::unique_ptr<KVIterator>* iter,
+                               bool canReadFromFollower = false) override;
 
     // Delete the overloading with a rvalue `prefix'
     ResultCode rangeWithPrefix(GraphSpaceID spaceId,
                                PartitionID  partId,
                                std::string&& start,
                                std::string&& prefix,
-                               std::unique_ptr<KVIterator>* iter) override = delete;
+                               std::unique_ptr<KVIterator>* iter,
+                               bool canReadFromFollower = false) override = delete;
 
     ResultCode sync(GraphSpaceID spaceId,
                     PartitionID partId) override;
@@ -175,6 +196,11 @@ public:
                           const std::string& start,
                           const std::string& end,
                           KVCallback cb) override;
+
+    void asyncAppendBatch(GraphSpaceID spaceId,
+                               PartitionID partId,
+                               std::string& batch,
+                               KVCallback cb) override;
 
     void asyncAtomicOp(GraphSpaceID spaceId,
                        PartitionID partId,
@@ -211,21 +237,42 @@ public:
     /**
      * Implement four interfaces in Handler.
      * */
-    void addSpace(GraphSpaceID spaceId) override;
+    void addSpace(GraphSpaceID spaceId, bool isListener = false) override;
 
     void addPart(GraphSpaceID spaceId,
                  PartitionID partId,
                  bool asLearner,
                  const std::vector<HostAddr>& peers = {}) override;
 
-    void removeSpace(GraphSpaceID spaceId) override;
+    void removeSpace(GraphSpaceID spaceId, bool isListener) override;
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
     int32_t allLeader(std::unordered_map<GraphSpaceID,
                                          std::vector<PartitionID>>& leaderIds) override;
 
+    void addListener(GraphSpaceID spaceId,
+                     PartitionID partId,
+                     meta::cpp2::ListenerType type,
+                     const std::vector<HostAddr>& peers) override;
+
+    void removeListener(GraphSpaceID spaceId,
+                        PartitionID partId,
+                        meta::cpp2::ListenerType type) override;
+
+    void checkRemoteListeners(GraphSpaceID spaceId,
+                              PartitionID partId,
+                              const std::vector<HostAddr>& remoteListeners) override;
+
 private:
+    void loadPartFromDataPath();
+
+    void loadPartFromPartManager();
+
+    void loadLocalListenerFromPartManager();
+
+    void loadRemoteListenerFromPartManager();
+
     void updateSpaceOption(GraphSpaceID spaceId,
                            const std::unordered_map<std::string, std::string>& options,
                            bool isDbOption) override;
@@ -238,9 +285,14 @@ private:
                                   bool asLearner,
                                   const std::vector<HostAddr>& defaultPeers);
 
+    std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
+                                          PartitionID partId,
+                                          meta::cpp2::ListenerType type,
+                                          const std::vector<HostAddr>& peers);
+
     ErrorOr<ResultCode, KVEngine*> engine(GraphSpaceID spaceId, PartitionID partId);
 
-    bool checkLeader(std::shared_ptr<Part> part) const;
+    bool checkLeader(std::shared_ptr<Part> part, bool canReadFromFollower = false) const;
 
     void cleanWAL();
 
@@ -248,6 +300,7 @@ private:
     // The lock used to protect spaces_
     folly::RWSpinLock lock_;
     std::unordered_map<GraphSpaceID, std::shared_ptr<SpacePartInfo>> spaces_;
+    std::unordered_map<GraphSpaceID, std::shared_ptr<SpaceListenerInfo>> spaceListeners_;
 
     std::shared_ptr<folly::IOThreadPoolExecutor> ioPool_;
     std::shared_ptr<thread::GenericThreadPool> bgWorkers_;

@@ -1,12 +1,14 @@
 nebula_add_library(
     kvstore_obj OBJECT
     Part.cpp
+    Listener.cpp
     RocksEngine.cpp
     PartManager.cpp
     NebulaStore.cpp
     RocksEngineConfig.cpp
     LogEncoder.cpp
     SnapshotManagerImpl.cpp
+    plugins/elasticsearch/ESListener.cpp
 )
 
 nebula_add_subdirectory(raftex)

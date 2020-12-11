@@ -31,15 +31,13 @@ public:
     IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
                     IndexScanNode<T>* indexScanNode,
-                    std::vector<std::pair<std::string, Value::Type>>& cols,
-                    int32_t vColNum,
-                    bool hasNullableCol)
+                    bool hasNullableCol,
+                    const std::vector<meta::cpp2::ColumnDef>& fields)
         : result_(result)
         , planContext_(planCtx)
         , indexScanNode_(indexScanNode)
-        , cols_(std::move(cols))
-        , vColNum_(vColNum)
-        , hasNullableCol_(hasNullableCol) {
+        , hasNullableCol_(hasNullableCol)
+        , fields_(fields) {
         type_ = planContext_->isEdge_
                 ? IndexResultType::kEdgeFromIndexScan
                 : IndexResultType::kVertexFromIndexScan;
@@ -70,9 +68,8 @@ public:
         : result_(result)
         , planContext_(planCtx)
         , indexFilterNode_(indexFilterNode) {
-        vColNum_ = indexFilterNode_->vColNum();
         hasNullableCol_ = indexFilterNode->hasNullableCol();
-        cols_ = indexFilterNode_->indexCols();
+        fields_ = indexFilterNode_->indexCols();
         if (indexFilter) {
             type_ = planContext_->isEdge_
                     ? IndexResultType::kEdgeFromIndexFilter
@@ -167,9 +164,9 @@ private:
             Row row;
             auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, val.first);
             if (planContext_->isIntId_) {
-                row.emplace_back(vId);
+                row.emplace_back(vId.toString());
             } else {
-                row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')));
+                row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')).toString());
             }
             auto reader = RowReaderWrapper::getRowReader(schema, val.second);
             if (!reader) {
@@ -192,26 +189,20 @@ private:
             Row row;
             auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, val.first);
             if (planContext_->isIntId_) {
-                row.emplace_back(vId);
+                row.emplace_back(vId.toString());
             } else {
-                row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')));
+                row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')).toString());
             }
 
             // skip vertexID
             for (size_t i = 1; i < returnCols.size(); i++) {
                 auto v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
-                                                             vColNum_,
                                                              val.first,
                                                              returnCols[i],
-                                                             cols_,
+                                                             fields_,
                                                              false,
                                                              hasNullableCol_);
-                if (v.isStr()) {
-                    auto strVal = v.getStr().substr(0, v.getStr().find_first_of('\0'));
-                    row.emplace_back(std::move(strVal));
-                } else {
-                    row.emplace_back(std::move(v));
-                }
+                row.emplace_back(std::move(v));
             }
             result_->rows.emplace_back(std::move(row));
         }
@@ -232,20 +223,20 @@ private:
             auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first);
             auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
             if (planContext_->isIntId_) {
-                row.emplace_back(src);
+                row.emplace_back(src.toString());
                 row.emplace_back(rank);
-                row.emplace_back(dst);
+                row.emplace_back(dst.toString());
             } else {
-                row.emplace_back(src.subpiece(0, src.find_first_of('\0')));
+                row.emplace_back(src.subpiece(0, src.find_first_of('\0')).toString());
                 row.emplace_back(rank);
-                row.emplace_back(dst.subpiece(0, dst.find_first_of('\0')));
+                row.emplace_back(dst.subpiece(0, dst.find_first_of('\0')).toString());
             }
             auto reader = RowReaderWrapper::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
-            // skip column src_ , edgeType, ranking, dst_
+            // skip column src_, ranking, dst_
             for (size_t i = 3; i < returnCols.size(); i++) {
                 auto v = reader->getValueByName(returnCols[i]);
                 row.emplace_back(std::move(v));
@@ -263,25 +254,19 @@ private:
             auto rank = IndexKeyUtils::getIndexRank(planContext_->vIdLen_, val.first);
             auto dst = IndexKeyUtils::getIndexDstId(planContext_->vIdLen_, val.first);
 
-            row.emplace_back(Value(std::move(src).subpiece(0, src.find_first_of('\0'))));
+            row.emplace_back(Value(std::move(src).subpiece(0, src.find_first_of('\0')).toString()));
             row.emplace_back(Value(std::move(rank)));
-            row.emplace_back(Value(std::move(dst).subpiece(0, dst.find_first_of('\0'))));
+            row.emplace_back(Value(std::move(dst).subpiece(0, dst.find_first_of('\0')).toString()));
 
             // skip column src_ , ranking, dst_
             for (size_t i = 3; i < returnCols.size(); i++) {
                 auto v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
-                                                             vColNum_,
                                                              val.first,
                                                              returnCols[i],
-                                                             cols_,
+                                                             fields_,
                                                              true,
                                                              hasNullableCol_);
-                if (v.isStr()) {
-                    auto strVal = v.getStr().substr(0, v.getStr().find_first_of('\0'));
-                    row.emplace_back(std::move(strVal));
-                } else {
-                    row.emplace_back(std::move(v));
-                }
+                row.emplace_back(std::move(v));
             }
             result_->rows.emplace_back(std::move(row));
         }
@@ -296,9 +281,8 @@ private:
     IndexEdgeNode<T>*                                 indexEdgeNode_{nullptr};
     IndexVertexNode<T>*                               indexVertexNode_{nullptr};
     IndexFilterNode<T>*                               indexFilterNode_{nullptr};
-    std::vector<std::pair<std::string, Value::Type>>  cols_{};
-    int32_t                                           vColNum_{};
     bool                                              hasNullableCol_{};
+    std::vector<meta::cpp2::ColumnDef>                fields_;
 };
 
 }  // namespace storage

@@ -14,6 +14,8 @@
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/GeneralStorageServiceHandler.h"
 
+DECLARE_int32(heartbeat_interval_secs);
+
 namespace nebula {
 namespace mock {
 
@@ -103,9 +105,45 @@ void MockCluster::startMeta(int32_t port,
     LOG(INFO) << "The Meta Daemon started on port " << metaServer_->port_;
 }
 
+std::shared_ptr<apache::thrift::concurrency::PriorityThreadManager> MockCluster::getWorkers() {
+    auto worker =
+        apache::thrift::concurrency::PriorityThreadManager::newPriorityThreadManager(1, true);
+    worker->setNamePrefix("executor");
+    worker->start();
+    return worker;
+}
+
+void MockCluster::initListener(const char* dataPath, const HostAddr& addr) {
+    CHECK(metaServer_ != nullptr);
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
+    auto localhosts = std::vector<HostAddr>{HostAddr(localIP(), metaServer_->port_)};
+    lMetaClient_ = std::make_unique<meta::MetaClient>(threadPool,
+                                                      localhosts,
+                                                      meta::MetaClientOptions());
+    lMetaClient_->waitForMetadReady();
+    LOG(INFO) << "Listener meta client has been ready!";
+    auto ioThreadPool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+    kvstore::KVOptions KVOpt;
+    KVOpt.listenerPath_ = folly::stringPrintf("%s/listener", dataPath);
+    KVOpt.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(addr,
+                                                                           lMetaClient_.get());
+    lSchemaMan_ = meta::SchemaManager::create(lMetaClient_.get());
+    KVOpt.schemaMan_ = lSchemaMan_.get();
+    esListener_ = std::make_unique<kvstore::NebulaStore>(std::move(KVOpt),
+                                                         ioThreadPool,
+                                                         addr,
+                                                         getWorkers());
+    esListener_->init();
+    sleep(FLAGS_heartbeat_interval_secs + 1);
+}
+
 void MockCluster::initStorageKV(const char* dataPath,
                                 HostAddr addr,
-                                SchemaVer schemaVerCount) {
+                                SchemaVer schemaVerCount,
+                                bool hasProp,
+                                bool hasListener,
+                                const std::vector<meta::cpp2::FTClient>& clients) {
+    FLAGS_heartbeat_interval_secs = 1;
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     totalParts_ = 6;  // don't not delete this...
     kvstore::KVOptions options;
@@ -117,12 +155,36 @@ void MockCluster::initStorageKV(const char* dataPath,
         spaceDesc.replica_factor = 1;
         spaceDesc.charset_name = "utf8";
         spaceDesc.collate_name = "utf8_bin";
+        meta::cpp2::ColumnTypeDef type;
+        type.set_type(meta::cpp2::PropertyType::FIXED_STRING);
+        type.set_type_length(32);
+        spaceDesc.vid_type = std::move(type);
         auto ret = metaClient_->createSpace(spaceDesc).get();
         if (!ret.ok()) {
             LOG(FATAL) << "can't create space";
         }
         GraphSpaceID spaceId = ret.value();
         LOG(INFO) << "spaceId = " << spaceId;
+        if (hasListener) {
+            HostAddr listenerHost(localIP(), network::NetworkUtils::getAvailablePort());
+            ret = metaClient_->addListener(spaceId,
+                                           meta::cpp2::ListenerType::ELASTICSEARCH,
+                                           {listenerHost}).get();
+            if (!ret.ok()) {
+                LOG(FATAL) << "listener init failed";
+            }
+            if (clients.empty()) {
+                LOG(FATAL) << "full text client list is empty";
+            }
+            ret = metaClient_->signInFTService(meta::cpp2::FTServiceType::ELASTICSEARCH,
+                                               clients).get();
+            if (!ret.ok()) {
+                LOG(FATAL) << "full text client sign in failed";
+            }
+            sleep(FLAGS_heartbeat_interval_secs + 1);
+            options.listenerPath_ = folly::stringPrintf("%s/listener", dataPath);
+            initListener(dataPath, {std::move(listenerHost)});
+        }
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,
                                             metaClient_.get());
@@ -132,8 +194,8 @@ void MockCluster::initStorageKV(const char* dataPath,
     } else {
         LOG(INFO) << "Use meta in memory!";
         options.partMan_ = memPartMan(1, parts);;
-        schemaMan_ = memSchemaMan(schemaVerCount);
-        indexMan_ = memIndexMan();
+        schemaMan_ = memSchemaMan(schemaVerCount, 1, hasProp);
+        indexMan_ = memIndexMan(1, hasProp);
     }
     std::vector<std::string> paths;
     paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
@@ -177,21 +239,21 @@ void MockCluster::startStorage(HostAddr addr,
 }
 
 std::unique_ptr<meta::SchemaManager>
-MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId) {
+MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId, bool hasProp) {
     auto schemaMan = std::make_unique<AdHocSchemaManager>();
     // if have multi version schema, need to add from oldest to newest
     for (SchemaVer ver = 0; ver < schemaVerCount; ver++) {
         // Vertex has two tags: players and teams
         // When tagId is 1, use players data
-        schemaMan->addTagSchema(spaceId, 1, MockData::mockPlayerTagSchema(ver));
+        schemaMan->addTagSchema(spaceId, 1, MockData::mockPlayerTagSchema(ver, hasProp));
         // When tagId is 2, use teams data
-        schemaMan->addTagSchema(spaceId, 2, MockData::mockTeamTagSchema(ver));
+        schemaMan->addTagSchema(spaceId, 2, MockData::mockTeamTagSchema(ver, hasProp));
 
         // Edge has two type: serve and teammate
         // When edgeType is 101, use serve data
-        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeEdgeSchema(ver));
+        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeEdgeSchema(ver, hasProp));
         // When edgeType is 102, use teammate data
-        schemaMan->addEdgeSchema(spaceId, 102, MockData::mockTeammateEdgeSchema(ver));
+        schemaMan->addEdgeSchema(spaceId, 102, MockData::mockTeammateEdgeSchema(ver, hasProp));
     }
 
     schemaMan->addTagSchema(spaceId, 3, MockData::mockGeneralTagSchemaV1());
@@ -202,13 +264,20 @@ MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId) {
 }
 
 std::unique_ptr<meta::IndexManager>
-MockCluster::memIndexMan(GraphSpaceID spaceId) {
+MockCluster::memIndexMan(GraphSpaceID spaceId, bool hasProp) {
     auto indexMan = std::make_unique<AdHocIndexManager>();
-    indexMan->addTagIndex(spaceId, 1, 1, MockData::mockPlayerTagIndexColumns());
-    indexMan->addTagIndex(spaceId, 2, 2, MockData::mockTeamTagIndexColumns());
-    indexMan->addTagIndex(spaceId, 3, 3, MockData::mockGeneralTagIndexColumns());
-    indexMan->addEdgeIndex(spaceId, 101, 101, MockData::mockServeEdgeIndexColumns());
-    indexMan->addEdgeIndex(spaceId, 102, 102, MockData::mockTeammateEdgeIndexColumns());
+    if (hasProp) {
+        indexMan->addTagIndex(spaceId, 1, 1, MockData::mockPlayerTagIndexColumns());
+        indexMan->addTagIndex(spaceId, 2, 2, MockData::mockTeamTagIndexColumns());
+        indexMan->addTagIndex(spaceId, 3, 3, MockData::mockGeneralTagIndexColumns());
+        indexMan->addEdgeIndex(spaceId, 101, 101, MockData::mockServeEdgeIndexColumns());
+        indexMan->addEdgeIndex(spaceId, 102, 102, MockData::mockTeammateEdgeIndexColumns());
+    }
+
+    indexMan->addTagIndex(spaceId, 1, 4, {});
+    indexMan->addTagIndex(spaceId, 2, 5, {});
+    indexMan->addEdgeIndex(spaceId, 101, 103, {});
+    indexMan->addEdgeIndex(spaceId, 102, 104, {});
     return indexMan;
 }
 

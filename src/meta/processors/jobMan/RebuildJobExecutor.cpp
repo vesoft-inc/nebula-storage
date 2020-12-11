@@ -10,6 +10,7 @@
 #include "meta/common/MetaCommon.h"
 #include "meta/processors/Common.h"
 #include "meta/processors/jobMan/RebuildJobExecutor.h"
+#include "utils/Utils.h"
 
 DECLARE_int32(heartbeat_interval_secs);
 
@@ -21,18 +22,18 @@ bool RebuildJobExecutor::check() {
 }
 
 cpp2::ErrorCode RebuildJobExecutor::prepare() {
-    auto spaceRet = getSpaceIdFromName(paras_[0]);
+    auto spaceRet = getSpaceIdFromName(paras_[1]);
     if (!nebula::ok(spaceRet)) {
-        LOG(ERROR) << "Can't find the space: " << paras_[0];
+        LOG(ERROR) << "Can't find the space: " << paras_[1];
         return nebula::error(spaceRet);
     }
     space_ = nebula::value(spaceRet);
 
     std::string indexValue;
-    auto indexKey = MetaServiceUtils::indexIndexKey(space_, paras_[1]);
+    auto indexKey = MetaServiceUtils::indexIndexKey(space_, paras_[0]);
     auto result = kvstore_->get(kDefaultSpaceId, kDefaultPartId, indexKey, &indexValue);
     if (result != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "Get indexKey error indexName: " << paras_[1];
+        LOG(ERROR) << "Get indexKey error indexName: " << paras_[0];
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
 
@@ -51,7 +52,8 @@ meta::cpp2::ErrorCode RebuildJobExecutor::stop() {
     auto& hosts = nebula::value(errOrTargetHost);
     std::vector<folly::Future<Status>> futures;
     for (auto& host : hosts) {
-        auto future = adminClient_->stopTask({host.first}, jobId_, 0);
+        auto future = adminClient_->stopTask({Utils::getAdminAddrFromStoreAddr(host.first)},
+                                             jobId_, 0);
         futures.emplace_back(std::move(future));
     }
 

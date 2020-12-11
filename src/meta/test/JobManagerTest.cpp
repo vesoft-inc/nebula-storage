@@ -30,14 +30,14 @@ protected:
         kv_ = cluster.initMetaKV(rootPath_->path());
 
         ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
-        ASSERT_TRUE(TestUtils::assembleSpace(kv_.get(), 1, 1));
+        TestUtils::assembleSpace(kv_.get(), 1, 1);
 
         // Make sure the rebuild job could find the index name.
         std::vector<cpp2::ColumnDef> columns;
-        ASSERT_TRUE(TestUtils::mockTagIndex(kv_.get(), 1, "tag_name", 11,
-                                            "tag_index_name", columns));
-        ASSERT_TRUE(TestUtils::mockEdgeIndex(kv_.get(), 1, "edge_name", 21,
-                                             "edge_index_name", columns));
+        TestUtils::mockTagIndex(kv_.get(), 1, "tag_name", 11,
+                                "tag_index_name", columns);
+        TestUtils::mockEdgeIndex(kv_.get(), 1, "edge_name", 21,
+                                 "edge_index_name", columns);
 
         std::vector<Status> sts(14, Status::OK());
         std::unique_ptr<FaultInjector> injector(new TestFaultInjector(std::move(sts)));
@@ -70,7 +70,7 @@ TEST_F(JobManagerTest, addJob) {
 
 
 TEST_F(JobManagerTest, AddRebuildTagIndexJob) {
-    std::vector<std::string> paras{"test_space" , "tag_index_name"};
+    std::vector<std::string> paras{"tag_index_name", "test_space"};
     JobDescription job(11, cpp2::AdminCmd::REBUILD_TAG_INDEX, paras);
     auto rc = jobMgr->addJob(job, adminClient_.get());
     ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
@@ -80,12 +80,115 @@ TEST_F(JobManagerTest, AddRebuildTagIndexJob) {
 
 
 TEST_F(JobManagerTest, AddRebuildEdgeIndexJob) {
-    std::vector<std::string> paras{"test_space" , "edge_index_name"};
+    std::vector<std::string> paras{"edge_index_name", "test_space"};
     JobDescription job(11, cpp2::AdminCmd::REBUILD_EDGE_INDEX, paras);
     auto rc = jobMgr->addJob(job, adminClient_.get());
     ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
     auto result = jobMgr->runJobInternal(job);
     ASSERT_TRUE(result);
+}
+
+TEST_F(JobManagerTest, StatisJob) {
+    std::vector<std::string> paras{"test_space"};
+    JobDescription job(12, cpp2::AdminCmd::STATS, paras);
+    auto rc = jobMgr->addJob(job, adminClient_.get());
+    ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
+    auto result = jobMgr->runJobInternal(job);
+    ASSERT_TRUE(result);
+    // Function runJobInternal does not set the finished status of the job
+    job.setStatus(cpp2::JobStatus::FINISHED);
+    jobMgr->save(job.jobKey(), job.jobVal());
+
+    auto job1 = JobDescription::loadJobDescription(job.id_, kv_.get());
+    ASSERT_TRUE(job1);
+    ASSERT_EQ(job.id_, job1.value().id_);
+    ASSERT_EQ(cpp2::JobStatus::FINISHED, job1.value().status_);
+}
+
+TEST_F(JobManagerTest, JobPriority) {
+    // For preventting job schedule in JobManager
+    jobMgr->status_ = JobManager::Status::STOPPED;
+
+    ASSERT_EQ(0, jobMgr->jobSize());
+
+    std::vector<std::string> paras{"test"};
+    JobDescription job1(13, cpp2::AdminCmd::COMPACT, paras);
+    auto rc1 = jobMgr->addJob(job1, adminClient_.get());
+    ASSERT_EQ(rc1, cpp2::ErrorCode::SUCCEEDED);
+
+    std::vector<std::string> paras1{"test_space"};
+    JobDescription job2(14, cpp2::AdminCmd::STATS, paras1);
+    auto rc2 = jobMgr->addJob(job2, adminClient_.get());
+    ASSERT_EQ(rc2, cpp2::ErrorCode::SUCCEEDED);
+
+    ASSERT_EQ(2, jobMgr->jobSize());
+
+    JobID jobId = 0;
+    auto result = jobMgr->try_dequeue(jobId);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(14, jobId);
+    ASSERT_EQ(1, jobMgr->jobSize());
+
+    result = jobMgr->try_dequeue(jobId);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(13, jobId);
+    ASSERT_EQ(0, jobMgr->jobSize());
+
+    result = jobMgr->try_dequeue(jobId);
+    ASSERT_FALSE(result);
+
+    jobMgr->status_ = JobManager::Status::RUNNING;
+}
+
+TEST_F(JobManagerTest, JobDeduplication) {
+    // For preventting job schedule in JobManager
+    jobMgr->status_ = JobManager::Status::STOPPED;
+
+    ASSERT_EQ(0, jobMgr->jobSize());
+
+    std::vector<std::string> paras{"test"};
+    JobDescription job1(15, cpp2::AdminCmd::COMPACT, paras);
+    auto rc1 = jobMgr->addJob(job1, adminClient_.get());
+    ASSERT_EQ(rc1, cpp2::ErrorCode::SUCCEEDED);
+
+    std::vector<std::string> paras1{"test_space"};
+    JobDescription job2(16, cpp2::AdminCmd::STATS, paras1);
+    auto rc2 = jobMgr->addJob(job2, adminClient_.get());
+    ASSERT_EQ(rc2, cpp2::ErrorCode::SUCCEEDED);
+
+    ASSERT_EQ(2, jobMgr->jobSize());
+
+    JobDescription job3(17, cpp2::AdminCmd::STATS, paras1);
+    JobID jId3 = 0;
+    auto jobExist = jobMgr->checkJobExist(job3.getCmd(), job3.getParas(), jId3);
+    if (!jobExist) {
+        auto rc3 = jobMgr->addJob(job3, adminClient_.get());
+        ASSERT_EQ(rc3, cpp2::ErrorCode::SUCCEEDED);
+    }
+
+    JobDescription job4(18, cpp2::AdminCmd::COMPACT, paras);
+    JobID jId4 = 0;
+    jobExist = jobMgr->checkJobExist(job4.getCmd(), job4.getParas(), jId4);
+    if (!jobExist) {
+        auto rc4 = jobMgr->addJob(job4, adminClient_.get());
+        ASSERT_NE(rc4, cpp2::ErrorCode::SUCCEEDED);
+    }
+
+    ASSERT_EQ(2, jobMgr->jobSize());
+    JobID jobId = 0;
+    auto result = jobMgr->try_dequeue(jobId);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(16, jobId);
+    ASSERT_EQ(1, jobMgr->jobSize());
+
+    result = jobMgr->try_dequeue(jobId);
+    ASSERT_TRUE(result);
+    ASSERT_EQ(15, jobId);
+    ASSERT_EQ(0, jobMgr->jobSize());
+
+    result = jobMgr->try_dequeue(jobId);
+    ASSERT_FALSE(result);
+    jobMgr->status_ = JobManager::Status::RUNNING;
 }
 
 TEST_F(JobManagerTest, loadJobDescription) {
@@ -215,7 +318,7 @@ TEST_F(JobManagerTest, recoverJob) {
     }
 
     auto nJobRecovered = jobMgr->recoverJob();
-    ASSERT_EQ(nebula::value(nJobRecovered), nJob);
+    ASSERT_EQ(nebula::value(nJobRecovered), 1);
 }
 
 TEST(JobDescriptionTest, ctor) {

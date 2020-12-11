@@ -140,10 +140,8 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                             return folly::none;
                         }
                     }
-                    std::vector<Value::Type> colsType;
                     auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
-                                                                       index->get_fields(),
-                                                                       colsType);
+                                                                       index->get_fields());
                     if (!valuesRet.ok()) {
                         continue;
                     }
@@ -152,13 +150,13 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                 srcId,
                                                                 rank,
                                                                 dstId,
-                                                                valuesRet.value(),
-                                                                colsType);
+                                                                std::move(valuesRet).value());
 
-                    if (env_->checkRebuilding(spaceId_, partId, indexId)) {
+                    auto indexState = env_->getIndexState(spaceId_, partId, indexId);
+                    if (env_->checkRebuilding(indexState)) {
                         auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
-                    } else if (env_->checkIndexLocked(spaceId_, partId, indexId)) {
+                    } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                         return folly::none;
                     } else {

@@ -40,7 +40,8 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
     }
 
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto kvRet = env_->kvstore_->rangeWithPrefix(spaceId_, partId_, start, prefix, &iter);
+    auto kvRet = env_->kvstore_->rangeWithPrefix(
+        spaceId_, partId_, start, prefix, &iter, req.get_enable_read_from_follower());
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         pushResultCode(to(kvRet), partId_);
         onFinished();
@@ -57,6 +58,9 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
     }
     RowReaderWrapper reader;
 
+    bool onlyLatestVer = req.get_only_latest_version();
+    // last valid key without version
+    std::string lastValidKey;
     for (int32_t rowCount = 0; iter->valid() && rowCount < rowLimit; iter->next()) {
         auto key = iter->key();
         if (!NebulaKeyUtils::isEdge(spaceVidLen_, key)) {
@@ -84,16 +88,25 @@ void ScanEdgeProcessor::process(const cpp2::ScanEdgeRequest& req) {
             continue;
         }
 
+        if (onlyLatestVer) {
+            auto noVer = NebulaKeyUtils::keyWithNoVersion(key);
+            if (noVer == lastValidKey) {
+                continue;
+            } else {
+                lastValidKey = noVer.str();
+            }
+        }
+
         nebula::List list;
         auto srcId = NebulaKeyUtils::getSrcId(spaceVidLen_, key);
         auto rank = NebulaKeyUtils::getRank(spaceVidLen_, key);
         auto dstId = NebulaKeyUtils::getDstId(spaceVidLen_, key);
         auto src = srcId.subpiece(0, srcId.find_first_of('\0'));
         auto dst = dstId.subpiece(0, dstId.find_first_of('\0'));
-        list.emplace_back(std::move(src));
+        list.emplace_back(src.toString());
         list.emplace_back(edgeType);
         list.emplace_back(rank);
-        list.emplace_back(std::move(dst));
+        list.emplace_back(dst.toString());
 
         if (!returnNoProps_) {
             auto idx = edgeIter->second;
@@ -122,7 +135,7 @@ cpp2::ErrorCode ScanEdgeProcessor::checkAndBuildContexts(const cpp2::ScanEdgeReq
         return ret;
     }
 
-    auto returnProps = std::move(req.return_columns);
+    std::vector<cpp2::EdgeProp> returnProps = {req.return_columns};
     return handleEdgeProps(returnProps, returnNoProps_);
 }
 
