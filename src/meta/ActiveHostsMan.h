@@ -132,16 +132,6 @@ public:
 
     static StatusOr<HostInfo> getHostInfo(kvstore::KVStore* kv, const HostAddr& host);
 
-    static folly::Optional<std::vector<HostAddr>> checkAndGetActiveHosts(
-        kvstore::KVStore* kv,
-        cpp2::HostRole role = cpp2::HostRole::STORAGE);
-    static folly::Optional<std::vector<HostAddr>> getHosts(
-        kvstore::KVStore* kv,
-        int32_t expiredTTL,
-        cpp2::HostRole role,
-        std::function<bool(const HostInfo& info, int64_t threshold, int64_t now)> checkFunc =
-            nullptr);
-
 protected:
     ActiveHostsMan() = default;
 };

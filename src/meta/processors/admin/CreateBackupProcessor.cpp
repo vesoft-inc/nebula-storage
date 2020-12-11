@@ -99,15 +99,13 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     folly::SharedMutex::WriteHolder wHolder(LockUtils::snapshotLock());
 
-    auto hostsOpt = ActiveHostsMan::checkAndGetActiveHosts(kvstore_);
-    if (!hostsOpt.hasValue()) {
+    auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
+    if (hosts.empty()) {
         LOG(ERROR) << "There has some offline hosts";
         handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
         onFinished();
         return;
     }
-
-    auto hosts = NetworkUtils::toHostsStr(hostsOpt.value());
 
     auto spaceIdRet = spaceNameToId(backupSpaces);
     if (spaceIdRet == folly::none) {
@@ -122,7 +120,8 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     auto backupName = folly::format("BACKUP_{}", MetaServiceUtils::genTimestampStr()).str();
 
     data.emplace_back(MetaServiceUtils::snapshotKey(backupName),
-                      MetaServiceUtils::snapshotVal(cpp2::SnapshotStatus::INVALID, hosts));
+                      MetaServiceUtils::snapshotVal(cpp2::SnapshotStatus::INVALID,
+                                                    NetworkUtils::toHostsStr(hosts)));
     Snapshot::instance(kvstore_, client_)->setSpaces(spaces);
 
     // step 1 : Blocking all writes action for storage engines.
@@ -171,7 +170,8 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     // step 6 : update snapshot status from INVALID to VALID.
     data.emplace_back(MetaServiceUtils::snapshotKey(backupName),
-                      MetaServiceUtils::snapshotVal(cpp2::SnapshotStatus::VALID, hosts));
+                      MetaServiceUtils::snapshotVal(cpp2::SnapshotStatus::VALID,
+                                                    NetworkUtils::toHostsStr(hosts)));
 
     auto putRet = doSyncPut(std::move(data));
     if (putRet != kvstore::ResultCode::SUCCEEDED) {
