@@ -1297,7 +1297,7 @@ TEST(BalanceTest, LeaderBalanceWithZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
 
@@ -1373,7 +1373,7 @@ TEST(BalanceTest, LeaderBalanceWithLargerZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
 
@@ -1449,7 +1449,7 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
             ASSERT_EQ(1, resp.get_id().get_space_id());
             showHostLoading(kv.get());
         }
@@ -1465,7 +1465,7 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
             ASSERT_EQ(2, resp.get_id().get_space_id());
             showHostLoading(kv.get());
         }
@@ -1481,7 +1481,7 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
             ASSERT_EQ(3, resp.get_id().get_space_id());
             showHostLoading(kv.get());
         }

@@ -1645,7 +1645,7 @@ public:
         folly::Promise<cpp2::HBResp> pro;
         auto f = pro.getFuture();
         cpp2::HBResp resp;
-        resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+        resp.header.set_code(cpp2::ErrorCode::SUCCEEDED);
         pro.setValue(std::move(resp));
         return f;
     }
@@ -1668,10 +1668,10 @@ public:
         auto f = pro.getFuture();
         cpp2::HBResp resp;
         if (addr_ == leader_) {
-            resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+            resp.header.set_code(cpp2::ErrorCode::SUCCEEDED);
         } else {
-            resp.set_code(cpp2::ErrorCode::E_LEADER_CHANGED);
-            resp.set_leader(leader_);
+            resp.header.set_code(cpp2::ErrorCode::E_LEADER_CHANGED);
+            resp.header.set_leader(leader_);
         }
         pro.setValue(std::move(resp));
         return f;

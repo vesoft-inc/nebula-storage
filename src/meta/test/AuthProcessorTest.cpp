@@ -27,7 +27,7 @@ TEST(AuthProcessorTest, CreateUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
 
         // Check user data has been inserted.
         std::string userVal;
@@ -48,7 +48,7 @@ TEST(AuthProcessorTest, CreateUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     // Test user exists and param 'if_not_exists' == true;
     {
@@ -60,7 +60,7 @@ TEST(AuthProcessorTest, CreateUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
 }
 
@@ -77,7 +77,7 @@ TEST(AuthProcessorTest, AlterUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Simple alter user.
     {
@@ -88,7 +88,7 @@ TEST(AuthProcessorTest, AlterUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // If user not exists
     {
@@ -99,7 +99,7 @@ TEST(AuthProcessorTest, AlterUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
 }
 
@@ -116,7 +116,7 @@ TEST(AuthProcessorTest, DropUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // User not exists and 'if_exists' = false.
     {
@@ -127,7 +127,7 @@ TEST(AuthProcessorTest, DropUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // User not exists and 'if_exists' = true.
     {
@@ -138,7 +138,7 @@ TEST(AuthProcessorTest, DropUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // User exists.
     {
@@ -149,7 +149,7 @@ TEST(AuthProcessorTest, DropUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
 
         // Check user dropped.
         std::string userVal;
@@ -181,7 +181,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         space1 = resp.get_id().get_space_id();
     }
     // create space2
@@ -198,7 +198,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         space2 = resp.get_id().get_space_id();
     }
     // create a user1.
@@ -211,7 +211,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // create a user2.
     {
@@ -223,7 +223,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // create a user3.
     {
@@ -235,7 +235,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // grant role to user for space1, user not exists.
     {
@@ -249,7 +249,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // grant role to user1 for space, space not exists.
     {
@@ -263,7 +263,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // grant role to user1 for space1.
     {
@@ -277,7 +277,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // grant role to user2 for space1.
     {
@@ -291,7 +291,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // grant role to user2 for space2.
     {
@@ -305,7 +305,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // list roles.
     {
@@ -315,7 +315,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         decltype(resp.roles) expectRoles;
         cpp2::RoleItem role;
         role.set_space_id(space1);
@@ -336,7 +336,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         decltype(resp.roles) expectRoles;
         cpp2::RoleItem role;
         role.set_space_id(space2);
@@ -356,7 +356,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // space not exists.
     {
@@ -369,7 +369,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // actual role is GUEST, but revoke role ADMIN, expect error.
     {
@@ -383,7 +383,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_IMPROPER_ROLE, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_IMPROPER_ROLE, resp.header.get_code());
     }
     // actual role is GUEST, but revoke unknown, expect error.
     {
@@ -396,7 +396,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_IMPROPER_ROLE, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_IMPROPER_ROLE, resp.header.get_code());
     }
     // revoke
     {
@@ -410,7 +410,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // list roles.
     {
@@ -420,7 +420,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         decltype(resp.roles) expectRoles;
         cpp2::RoleItem role;
         role.set_space_id(space1);
@@ -437,7 +437,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         decltype(resp.roles) expectRoles;
         cpp2::RoleItem role;
         role.set_space_id(space2);
@@ -457,7 +457,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // list users
     {
@@ -466,7 +466,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(3, resp.get_users().size());
     }
     // role deleted after drop user
@@ -478,7 +478,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // list roles.
     {
@@ -488,7 +488,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(0, resp.get_roles().size());
     }
     // grant role to user2 for space1.
@@ -503,7 +503,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::ListRolesReq req;
@@ -512,7 +512,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(1, resp.get_roles().size());
     }
     {
@@ -523,7 +523,7 @@ TEST(AuthProcessorTest, GrantRevokeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         // check role deleted after drop space
         auto rolePrefix = MetaServiceUtils::roleSpacePrefix(space1);
@@ -552,7 +552,7 @@ TEST(AuthProcessorTest, ChangePasswordTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // change password, user dose not exists.
     {
@@ -564,7 +564,7 @@ TEST(AuthProcessorTest, ChangePasswordTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // change password, old password is not valid.
     {
@@ -576,7 +576,7 @@ TEST(AuthProcessorTest, ChangePasswordTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PASSWORD, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PASSWORD, resp.header.get_code());
     }
     // change password, old password is valid.
     {
@@ -588,7 +588,7 @@ TEST(AuthProcessorTest, ChangePasswordTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // change password, old password is not need check.
     {
@@ -599,7 +599,7 @@ TEST(AuthProcessorTest, ChangePasswordTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PASSWORD, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PASSWORD, resp.header.get_code());
     }
 }
 

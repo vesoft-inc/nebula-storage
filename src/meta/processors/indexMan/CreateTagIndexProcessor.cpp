@@ -62,7 +62,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     std::unique_ptr<kvstore::KVIterator> checkIter;
     auto checkRet = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &checkIter);
     if (checkRet != kvstore::ResultCode::SUCCEEDED) {
-        resp_.set_code(MetaCommon::to(checkRet));
+        resp_.header.set_code(MetaCommon::to(checkRet));
         onFinished();
         return;
     }
@@ -78,7 +78,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
         }
 
         if (checkIndexExist(fields, item)) {
-            resp_.set_code(cpp2::ErrorCode::E_EXISTED);
+            resp_.header.set_code(cpp2::ErrorCode::E_EXISTED);
             onFinished();
             return;
         }

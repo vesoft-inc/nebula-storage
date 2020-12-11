@@ -65,7 +65,7 @@ protected:
      * */
     void onFinished() {
         stats::Stats::addStatsValue(stats_,
-                                    resp_.get_code() == cpp2::ErrorCode::SUCCEEDED,
+                                    resp_.header.get_code() == cpp2::ErrorCode::SUCCEEDED,
                                     this->duration_.elapsedInUSec());
         promise_.setValue(std::move(resp_));
         delete this;
@@ -73,7 +73,7 @@ protected:
 
     void handleErrorCode(cpp2::ErrorCode code, GraphSpaceID spaceId = kDefaultSpaceId,
                          PartitionID partId = kDefaultPartId) {
-        resp_.set_code(code);
+        resp_.header.set_code(code);
         if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
             handleLeaderChanged(spaceId, partId);
         }
@@ -82,9 +82,9 @@ protected:
     void handleLeaderChanged(GraphSpaceID spaceId, PartitionID partId) {
         auto leaderRet = kvstore_->partLeader(spaceId, partId);
         if (ok(leaderRet)) {
-            resp_.set_leader(toThriftHost(nebula::value(leaderRet)));
+            resp_.header.set_leader(toThriftHost(nebula::value(leaderRet)));
         } else {
-            resp_.set_code(MetaCommon::to(nebula::error(leaderRet)));
+            resp_.header.set_code(MetaCommon::to(nebula::error(leaderRet)));
         }
     }
 
