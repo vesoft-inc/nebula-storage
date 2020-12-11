@@ -4106,7 +4106,7 @@ TEST(ProcessorTest, SessionManagerTest) {
     fs::TempDir rootPath("/tmp/SessionTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     TestUtils::createSomeHosts(kv.get());
-    ASSERT_TRUE(TestUtils::assembleSpace(kv.get(), 1, 1));
+    TestUtils::assembleSpace(kv.get(), 1, 1);
     SessionID sessionId = 0;
     {
         cpp2::CreateUserReq req;
