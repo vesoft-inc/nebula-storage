@@ -112,7 +112,7 @@ protected:
                                                       std::string&& encodedProp);
 
     folly::SemiFuture<cpp2::ErrorCode>
-    erasePersistLock(size_t vIdLen, GraphSpaceID spaceId, std::string rawKey);
+    eraseKey(GraphSpaceID spaceId, PartitionID partId, const std::string& key);
 
     void eraseMemoryLock(const std::string& rawKey, int64_t ver);
 

@@ -185,14 +185,18 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                     // steps 4 & 5: multi put local edges & multi remove persist locks
                     kvstore::BatchHolder bat;
                     for (auto& lock : lockData) {
-                        bat.remove(NebulaKeyUtils::toLockKey(lock.first));
+                        bat.remove(std::string(lock.first));
                         LOG_IF(INFO, FLAGS_trace_toss)
-                            << "before bat put key=" << folly::hexlify(lock.first)
+                            << "remove lock, hex=" << folly::hexlify(lock.first)
                             << ", txnId=" << txnId;
                         auto operations = kvstore::decodeBatchValue(lock.second);
                         for (auto& op : operations) {
                             auto opType = op.first;
                             auto& kv = op.second;
+                            LOG_IF(INFO, FLAGS_trace_toss)
+                                        << "bat op=" << static_cast<int32_t>(opType)
+                                        << ", hex=" << folly::hexlify(kv.first)
+                                        << ", txnId=" << txnId;
                             switch (opType) {
                                 case kvstore::BatchLogType::OP_BATCH_PUT:
                                     bat.put(kv.first.str(), kv.second.str());
@@ -246,6 +250,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
                                                                      std::string lockKey,
                                                                      std::string lockVal,
                                                                      ResumedResult result) {
+    LOG_IF(INFO, FLAGS_trace_toss)
+        << "begin resume lock, hex=" << folly::hexlify(lockKey);
     // 1st, set memory lock
     auto localKey = NebulaKeyUtils::toEdgeKey(lockKey);
     CHECK(NebulaKeyUtils::isEdge(vIdLen, localKey));
@@ -255,6 +261,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         return folly::makeFuture(cpp2::ErrorCode::E_MUTATE_EDGE_CONFLICT);
     }
 
+    auto localPart = NebulaKeyUtils::getPart(localKey);
     // 2nd, get values from remote in-edge
     auto spPromiseVal = std::make_shared<cpp2::ErrorCode>(cpp2::ErrorCode::SUCCEEDED);
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
@@ -289,7 +296,6 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
             kv.first = localKey;
             kv.second = nebula::value(errOrVal);
             // 3rd, commit local key(indexes)
-            auto localPart = NebulaKeyUtils::getPart(localKey);
             /*
              * if mvcc enabled, get value will get exactly the same ver in-edge against lock
              *                  which means we can trust the val of lock as the out-edge
@@ -311,9 +317,12 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         })
         .thenValue([=](auto&&) {
             // 4th, remove persist lock
+            LOG_IF(INFO, FLAGS_trace_toss) << "end resume, erase lock " << folly::hexlify(lockKey)
+                << ", *spPromiseVal=" << static_cast<int32_t>(*spPromiseVal);
             if (*spPromiseVal == cpp2::ErrorCode::SUCCEEDED ||
+                *spPromiseVal == cpp2::ErrorCode::E_KEY_NOT_FOUND ||
                 *spPromiseVal == cpp2::ErrorCode::E_OUTDATED_LOCK) {
-                erasePersistLock(vIdLen, spaceId, localKey)
+                eraseKey(spaceId, localPart, lockKey)
                     .via(exec_.get())
                     .thenValue([=](auto&& code) { *spPromiseVal = code; })
                     .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
@@ -440,34 +449,20 @@ folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdge(GraphSpace
     return std::move(c.second);
 }
 
-folly::SemiFuture<cpp2::ErrorCode> TransactionManager::erasePersistLock(size_t vIdLen,
-                                                                        GraphSpaceID spaceId,
-                                                                        std::string rawKey) {
-    LOG_IF(INFO, FLAGS_trace_toss)
-        << "going to erasePersistLock " << TransactionUtils::dumpEdge(vIdLen, rawKey, "");
-    PartitionID partId = NebulaKeyUtils::getPart(rawKey);
-    auto lockKey = NebulaKeyUtils::toLockKey(rawKey);
-#if TOSS_INTRUSIVE_TEST
-    static bool throwNextRequest = false;
-    auto rank = NebulaKeyUtils::getRank(vIdLen, rawKey);
-    if (throwNextRequest) {
-        throwNextRequest = false;
-        throw std::runtime_error(folly::sformat("TOSS_INTRUSIVE_TEST: err={}", kRemoveLockFail));
-    } else if (rank == kRemoveLockFail) {
-        throwNextRequest = true;
-        throw std::runtime_error("erasePersistLock() set throwNextRequest = true");
-    }
-#endif
-    auto contract = folly::makePromiseContract<cpp2::ErrorCode>();
+folly::SemiFuture<cpp2::ErrorCode> TransactionManager::eraseKey(GraphSpaceID spaceId,
+                                                                PartitionID partId,
+                                                                const std::string& key) {
+    LOG_IF(INFO, FLAGS_trace_toss) << "eraseKey: " << folly::hexlify(key);
+    auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     env_->kvstore_->asyncRemove(
         spaceId,
         partId,
-        lockKey,
-        [pro = std::move(contract.first)](kvstore::ResultCode code) mutable {
+        key,
+        [pro = std::move(c.first)](kvstore::ResultCode code) mutable {
             LOG_IF(INFO, FLAGS_trace_toss) << "asyncRemove code=" << static_cast<int>(code);
             pro.setValue(CommonUtils::to(code));
         });
-    return std::move(contract.second);
+    return std::move(c.second);
 }
 
 void TransactionManager::eraseMemoryLock(const std::string& rawKey, int64_t ver) {
