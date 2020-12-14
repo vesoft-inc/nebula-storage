@@ -488,7 +488,7 @@ struct TossEnvironment {
         auto edgeKey = TossTestUtils::toVidKey(e);
         auto partId = getPartId(edgeKey.src.getStr());
 
-        auto ver = 0;
+        auto ver = 1;
         auto rawKey = TransactionUtils::edgeKey(vIdLen_, partId, edgeKey, ver);
         return std::make_pair(rawKey, partId);
     }
@@ -501,30 +501,32 @@ struct TossEnvironment {
         return encodeRowVal(pSchema, propNames, e.props);
     }
 
-    std::string insertValidLock(const cpp2::NewEdge& e) {
-        insertReverseEdge(e);
-        return insertLock2(e);
-    }
-
-    std::string insertInvalidLock(const cpp2::NewEdge& e) {
-        return insertLock2(e);
-    }
-
-    void insertReverseEdge(const cpp2::NewEdge& e) {
-        cpp2::NewEdge _e(e);
-        std::swap(_e.key.src, _e.key.dst);
-        _e.key.edge_type = 0 - _e.key.edge_type;
-
+    std::string insertEdge(const cpp2::NewEdge& e) {
         std::string rawKey;
         int32_t partId = 0;
         std::tie(rawKey, partId) = makeRawKey(e.key);
-
         auto encodedProps = encodeProps(e);
-
         putValue(rawKey, encodedProps, partId);
+        return rawKey;
     }
 
-    std::string insertLock2(const cpp2::NewEdge& e) {
+    std::string insertReverseEdge(const cpp2::NewEdge& _e) {
+        cpp2::NewEdge e(_e);
+        std::swap(e.key.src, e.key.dst);
+        e.key.edge_type = 0 - e.key.edge_type;
+        return insertEdge(e);
+    }
+
+    /**
+     * @brief insert a lock according to the given edge e.
+     *        also insert reverse edge
+     * @return lockKey
+     */
+    std::string insertLock(const cpp2::NewEdge& e, bool insertInEdge) {
+        if (insertInEdge) {
+            insertReverseEdge(e);
+        }
+
         std::string rawKey;
         int32_t lockPartId;
         std::tie(rawKey, lockPartId) = makeRawKey(e.key);
@@ -543,11 +545,11 @@ struct TossEnvironment {
         auto batch = encodeBatchValue(bat.getBatch());
 
         auto txnId = 0;
-        auto sf =
-            interClient_->forwardTransaction(txnId, spaceId_, partId, std::move(batch)).wait();
+        auto sf = interClient_->forwardTransaction(txnId, spaceId_, partId, std::move(batch));
+        sf.wait();
 
-        if (!sf.hasValue() || !sf.value().ok() || !sf.value().value().result.failed_parts.empty()) {
-            LOG(FATAL) << "interClient_->forwardTransaction failed()";
+        if (sf.value() != cpp2::ErrorCode::SUCCEEDED) {
+            LOG(FATAL) << "forward txn return=" << static_cast<int>(sf.value());
         }
     }
 
@@ -590,6 +592,7 @@ struct TossEnvironment {
         return std::move(rowWrite).moveEncodedStr();
     }
 
+public:
     std::shared_ptr<folly::IOThreadPoolExecutor>        executor_;
     std::unique_ptr<meta::MetaClient>                   mClient_;
     std::unique_ptr<StorageClient>                      sClient_;
