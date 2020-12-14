@@ -35,6 +35,8 @@ class TransactionManager {
 public:
     explicit TransactionManager(storage::StorageEnv* env);
 
+    ~TransactionManager() = default;
+
     /**
      * @brief edges have same localPart and remotePart will share
      *        one signle RPC request
@@ -99,8 +101,8 @@ protected:
     folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(size_t vIdLen,
                                                          GraphSpaceID spaceId,
                                                          PartitionID partId,
-                                                         std::string&& key,
-                                                         std::string&& props);
+                                                         const std::string& key,
+                                                         const std::string& props);
 
     folly::SemiFuture<kvstore::ResultCode> multiPut(GraphSpaceID spaceId,
                                                     PartitionID partId,
@@ -121,8 +123,6 @@ protected:
     std::string reverseKey(size_t vIdLen, GraphSpaceID spaceId, std::string& rawKey, int64_t ver);
 
     nebula::meta::cpp2::IsolationLevel getSpaceIsolationLvel(GraphSpaceID spaceId);
-
-    cpp2::ErrorCode extractErrorCode(folly::Try<StatusOr<cpp2::ExecResponse>>& t);
 
     folly::SemiFuture<kvstore::ResultCode> writeLock(size_t vIdLen,
                                                      GraphSpaceID spaceId,

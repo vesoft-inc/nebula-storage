@@ -172,11 +172,12 @@ public:
                     << folly::hexDump(iter_->val().data(), iter_->val().size());
             }
         }   // end while(iter_->valid())
-        LOG_IF(INFO, FLAGS_trace_toss) << "TossEdgeIterator::next(), no more iter to read";
+        LOG_IF(INFO, FLAGS_trace_toss) << "next(), no more iter to read";
 
         // Step 2: return the resumed locks/edges.
         // set recoverEdgesIter_ as begin() at first time. else ++recoverEdgesIter_
         if (needWaitResumeTask_) {
+            LOG_IF(INFO, FLAGS_trace_toss) << "next(), waiting resume finished";
             folly::collectAll(resumeTasks_).wait();
             needWaitResumeTask_ = false;
             recoverEdgesIter_ = recoverEdges_.begin();
@@ -184,11 +185,19 @@ public:
             recoverEdgesIter_++;
         }
 
-        if (recoverEdgesIter_ != recoverEdges_.end()) {
+        while (recoverEdgesIter_ != recoverEdges_.end()) {
             auto data = (*recoverEdgesIter_)->copy();
             if (!data.second.empty()) {
-                setReader(data.second);
+                if (setReader(data.second)) {
+                    LOG_IF(INFO, FLAGS_trace_toss) << "valid lock, break";
+                    break;
+                } else {
+                    LOG_IF(INFO, FLAGS_trace_toss) << "setReader failed, continue";
+                }
+            } else {
+                LOG_IF(INFO, FLAGS_trace_toss) << "invalid lock, data.second.empty(), continue";
             }
+            recoverEdgesIter_++;
         }
     }
 

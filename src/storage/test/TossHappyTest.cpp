@@ -340,23 +340,59 @@ TEST_F(TossTest, lock_test_0) {
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num);
 
     auto edge = TossTestUtils::toVertexIdEdge(edges[0]);
-    // auto lockKey = ;
+
     auto vIdLen = 8;
-    auto partId = 5;
-    auto rawKey = TransactionUtils::edgeKey(vIdLen, partId, edge.key, 0);
+    auto partId = 5;  // just a random number
+    int64_t ver = 0;
+    auto rawKey = TransactionUtils::edgeKey(vIdLen, partId, edge.key, ver);
     auto lockKey = NebulaKeyUtils::toLockKey(rawKey);
 
     ASSERT_TRUE(NebulaKeyUtils::isLock(vIdLen, lockKey));
 }
 
 /**
- * @brief bad lock
+ * @brief good lock
  */
 TEST_F(TossTest, lock_test_1) {
     auto num = 1U;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
-    auto lockKey = env_->insertInvalidLock(edges[0]);
+    auto lockKey = env_->insertLock(edges[0], true);
+    LOG(INFO) << "lock_test_1 lock hexlify = " << folly::hexlify(lockKey);
+
+    auto props = env_->getNeiProps(edges);
+    auto svec = TossTestUtils::splitNeiResults(props);
+    EXPECT_EQ(svec.size(), num);
+
+    ASSERT_FALSE(env_->keyExist(lockKey));
+}
+
+/**
+ * @brief good lock + edge
+ */
+TEST_F(TossTest, lock_test_2) {
+    auto num = 1U;
+    std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
+
+    auto lockKey = env_->insertLock(edges[0], true);
+    LOG(INFO) << "lock_test_1 lock hexlify = " << folly::hexlify(lockKey);
+    auto rawKey = env_->insertEdge(edges[0]);
+
+    auto props = env_->getNeiProps(edges);
+    auto svec = TossTestUtils::splitNeiResults(props);
+    EXPECT_EQ(svec.size(), num);
+
+    ASSERT_FALSE(env_->keyExist(lockKey));
+}
+
+/**
+ * @brief bad lock
+ */
+TEST_F(TossTest, lock_test_3) {
+    auto num = 1U;
+    std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
+
+    auto lockKey = env_->insertLock(edges[0], false);
     ASSERT_TRUE(env_->keyExist(lockKey));
     LOG(INFO) << "lock_test_1 lock hexlify = " << folly::hexlify(lockKey);
 
@@ -366,25 +402,6 @@ TEST_F(TossTest, lock_test_1) {
 
     ASSERT_FALSE(env_->keyExist(lockKey));
 }
-
-/**
- * @brief good lock
- */
-TEST_F(TossTest, lock_test_2) {
-    auto num = 1U;
-    std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
-
-    std::vector<cpp2::NewEdge> search{edges[0]};
-
-    auto lockKey = env_->insertValidLock(edges[0]);
-    ASSERT_TRUE(NebulaKeyUtils::isLock(8, lockKey));
-    LOG(INFO) << "lock_test_1 lock hexlify = " << folly::hexlify(lockKey);
-
-    auto props = env_->getNeiProps(search);
-    auto svec = TossTestUtils::splitNeiResults(props);
-    EXPECT_EQ(svec.size(), num);
-}
-
 
 }  // namespace storage
 }  // namespace nebula
