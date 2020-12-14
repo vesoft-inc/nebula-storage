@@ -336,8 +336,8 @@ TEST_F(TossTest, TEN_EDGES_CASE_2) {
 }
 
 TEST_F(TossTest, lock_test_0) {
-    auto num = 1U;
-    std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num);
+    auto num = 1;
+    std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
     auto edge = TossTestUtils::toVertexIdEdge(edges[0]);
 
@@ -354,7 +354,7 @@ TEST_F(TossTest, lock_test_0) {
  * @brief good lock
  */
 TEST_F(TossTest, lock_test_1) {
-    auto num = 1U;
+    auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
     auto lockKey = env_->insertLock(edges[0], true);
@@ -371,7 +371,7 @@ TEST_F(TossTest, lock_test_1) {
  * @brief good lock + edge
  */
 TEST_F(TossTest, lock_test_2) {
-    auto num = 1U;
+    auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
     auto lockKey = env_->insertLock(edges[0], true);
@@ -389,7 +389,7 @@ TEST_F(TossTest, lock_test_2) {
  * @brief bad lock
  */
 TEST_F(TossTest, lock_test_3) {
-    auto num = 1U;
+    auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
     auto lockKey = env_->insertLock(edges[0], false);

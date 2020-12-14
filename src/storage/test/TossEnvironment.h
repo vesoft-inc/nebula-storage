@@ -456,14 +456,12 @@ struct TossEnvironment {
         return ret;
     }
 
-    std::vector<cpp2::NewEdge> generateMultiEdges(size_t cnt, int64_t src = 0) {
-        if (src == 0) {
-            src = src_;
-        }
+    std::vector<cpp2::NewEdge> generateMultiEdges(int cnt, int64_t src = 0) {
+        LOG_IF(FATAL, cnt <= 0) << "cnt must > 0";
         auto vals = TossTestUtils::genValues(cnt);
         std::vector<cpp2::NewEdge> edges;
-        for (auto i = 0U; i != cnt; ++i) {
-            edges.emplace_back(generateEdge(src, 0, vals[i], src_ + i));
+        for (int i = 1; i <= cnt; ++i) {
+            edges.emplace_back(generateEdge(src, 0, vals[i-1], src + i));
         }
         return edges;
     }
@@ -540,6 +538,7 @@ struct TossEnvironment {
     }
 
     void putValue(std::string key, std::string val, int32_t partId) {
+        LOG(INFO) << "put value, partId=" << partId << ", key=" << folly::hexlify(key);
         kvstore::BatchHolder bat;
         bat.put(std::move(key), std::move(val));
         auto batch = encodeBatchValue(bat.getBatch());
@@ -602,7 +601,6 @@ public:
     int32_t                                             spaceId_{0};
     int32_t                                             edgeType_{0};
     int32_t                                             vIdLen_{0};
-    int64_t                                             src_{0};
 };
 
 }  // namespace storage

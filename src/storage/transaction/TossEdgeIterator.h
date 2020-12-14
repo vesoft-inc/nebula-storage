@@ -178,7 +178,7 @@ public:
         // set recoverEdgesIter_ as begin() at first time. else ++recoverEdgesIter_
         if (needWaitResumeTask_) {
             LOG_IF(INFO, FLAGS_trace_toss) << "next(), waiting resume finished";
-            folly::collectAll(resumeTasks_).wait();
+            folly::collectAll(std::move(resumeTasks_)).wait();
             needWaitResumeTask_ = false;
             recoverEdgesIter_ = recoverEdges_.begin();
         } else {
@@ -199,6 +199,7 @@ public:
             }
             recoverEdgesIter_++;
         }
+        LOG_IF(INFO, FLAGS_trace_toss) << "next(), exit";
     }
 
     bool isEdge(const folly::StringPiece& key) {
