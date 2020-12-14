@@ -269,7 +269,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         << ", according to lock=" << folly::hexlify(lockKey);
     interClient_->getValue(vIdLen, spaceId, remoteKey)
         .via(exec_.get())
-        .thenValue([=, p = std::move(c.first)](auto&& errOrVal) mutable {
+        .thenValue([=](auto&& errOrVal) mutable {
             if (!nebula::ok(errOrVal)) {
                 *spPromiseVal = nebula::error(errOrVal);
                 return;
@@ -310,8 +310,6 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
                     .thenValue([=](auto&& rc) { *spPromiseVal = CommonUtils::to(rc); })
                     .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
             } else {
-                // auto key = kv.first;
-                // auto val = kv.second;
                 commitEdgeOut(
                     vIdLen, spaceId, localPart, std::string(kv.first), std::string(kv.second))
                     .via(exec_.get())
@@ -321,15 +319,15 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         })
         .thenValue([=](auto&&) {
             // 4th, remove persist lock
-            LOG_IF(INFO, FLAGS_trace_toss) << "end resume, erase lock " << folly::hexlify(lockKey)
+            LOG_IF(INFO, FLAGS_trace_toss) << "erase lock " << folly::hexlify(lockKey)
                 << ", *spPromiseVal=" << static_cast<int32_t>(*spPromiseVal);
             if (*spPromiseVal == cpp2::ErrorCode::SUCCEEDED ||
                 *spPromiseVal == cpp2::ErrorCode::E_KEY_NOT_FOUND ||
                 *spPromiseVal == cpp2::ErrorCode::E_OUTDATED_LOCK) {
-                eraseKey(spaceId, localPart, lockKey)
-                    .via(exec_.get())
-                    .thenValue([=](auto&& code) { *spPromiseVal = code; })
-                    .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
+                auto eraseRet = eraseKey(spaceId, localPart, lockKey);
+                eraseRet.wait();
+                auto code = eraseRet.hasValue() ? eraseRet.value() : cpp2::ErrorCode::E_UNKNOWN;
+                *spPromiseVal = code;
             }
         })
         .thenError([=](auto&& ex) {
@@ -338,6 +336,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         })
         .ensure([=, p = std::move(c.first)]() mutable {
             eraseMemoryLock(localKey, ver);
+            LOG_IF(INFO, FLAGS_trace_toss)
+                << "end resume *spPromiseVal=" << static_cast<int32_t>(*spPromiseVal);
             p.setValue(*spPromiseVal);
         });
     return std::move(c.second).via(exec_.get());
