@@ -481,7 +481,7 @@ std::string TransactionManager::reverseKey(size_t vIdLen,
     EdgeType type = NebulaKeyUtils::getEdgeType(vIdLen, rawKey);
     EdgeRanking rank = NebulaKeyUtils::getRank(vIdLen, rawKey);
 
-    auto inPartIdStatus = env_->metaClient_->partId(spaceId, src.str());
+    auto inPartIdStatus = env_->metaClient_->partId(spaceId, dst.str());
     CHECK(inPartIdStatus.ok());
     auto inPartId = inPartIdStatus.value();
 
