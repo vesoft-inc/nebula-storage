@@ -456,12 +456,20 @@ struct TossEnvironment {
         return ret;
     }
 
-    std::vector<cpp2::NewEdge> generateMultiEdges(int cnt, int64_t src = 0) {
-        LOG_IF(FATAL, cnt <= 0) << "cnt must > 0";
-        auto vals = TossTestUtils::genValues(cnt);
+    /**
+     * @brief gen num edges base from src
+     *        dst shoule begin from [src + 1, src + num + 1)
+     * @param extraSameKey
+     *        if set, gen another edge, has the same src & dst will always equal to src + 1
+     */
+    std::vector<cpp2::NewEdge> generateMultiEdges(int num, int64_t src, bool extraSameKey = false) {
+        LOG_IF(FATAL, num <= 0) << "num must > 0";
+        num += static_cast<int>(extraSameKey);
+        auto vals = TossTestUtils::genValues(num);
         std::vector<cpp2::NewEdge> edges;
-        for (int i = 1; i <= cnt; ++i) {
-            edges.emplace_back(generateEdge(src, 0, vals[i-1], src + i));
+        for (int i = 0; i < num; ++i) {
+            auto dst = extraSameKey ? 1 : src + i + 1;
+            edges.emplace_back(generateEdge(src, 0, vals[i], dst));
         }
         return edges;
     }
@@ -508,10 +516,16 @@ struct TossEnvironment {
         return rawKey;
     }
 
+    cpp2::EdgeKey reverseEdgeKey(const cpp2::EdgeKey& input) {
+        cpp2::EdgeKey ret(input);
+        std::swap(ret.src, ret.dst);
+        ret.edge_type = 0 - ret.edge_type;
+        return ret;
+    }
+
     std::string insertReverseEdge(const cpp2::NewEdge& _e) {
         cpp2::NewEdge e(_e);
-        std::swap(e.key.src, e.key.dst);
-        e.key.edge_type = 0 - e.key.edge_type;
+        e.key = reverseEdgeKey(_e.key);
         return insertEdge(e);
     }
 
