@@ -167,6 +167,7 @@ public:
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         CHECK_NOTNULL(planContext_->env_->kvstore_);
+        planContext_->env_->onFlyingRequest_.fetch_add(1);
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
@@ -187,14 +188,14 @@ public:
                     if (filterNode_->valid()) {
                         this->reader_ = filterNode_->reader();
                     }
-                    // reset StorageExpressionContext reader_ to nullptr
+                    // reset StorageExpressionContext reader_, because it contains old value
                     this->expCtx_->reset();
 
                     if (!this->reader_ && this->insertable_) {
                         this->exeResult_ = this->insertTagProps(partId, vId);
                     } else if (this->reader_) {
                         this->key_ = filterNode_->key().str();
-                        this->exeResult_ = this->collTagProp();
+                        this->exeResult_ = this->collTagProp(vId);
                     } else {
                         this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
@@ -209,7 +210,6 @@ public:
                 }
             },
             [&ret, &baton, this] (kvstore::ResultCode code) {
-                planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                     this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                     ret = this->exeResult_;
@@ -219,7 +219,7 @@ public:
                 baton.post();
             });
         baton.wait();
-
+        planContext_->env_->onFlyingRequest_.fetch_sub(1);
         return ret;
     }
 
@@ -259,8 +259,10 @@ public:
             return ret;
         }
 
-        for (auto &e : props_) {
-            expCtx_->setTagProp(tagName_, e.first, e.second);
+        expCtx_->setTagProp(tagName_, kVid, vId);
+        expCtx_->setTagProp(tagName_, kTag, tagId_);
+        for (auto &p : props_) {
+            expCtx_->setTagProp(tagName_, p.first, p.second);
         }
 
         // build key, value is emtpy
@@ -277,7 +279,7 @@ public:
     }
 
     // collect tag prop
-    kvstore::ResultCode collTagProp() {
+    kvstore::ResultCode collTagProp(const VertexID& vId) {
         auto ret = getLatestTagSchemaAndName();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
@@ -299,8 +301,10 @@ public:
             props_[propName] = std::move(retVal.value());
         }
 
-        for (auto &e : props_) {
-            expCtx_->setTagProp(tagName_, e.first, e.second);
+        expCtx_->setTagProp(tagName_, kVid, vId);
+        expCtx_->setTagProp(tagName_, kTag, tagId_);
+        for (auto &p : props_) {
+            expCtx_->setTagProp(tagName_, p.first, p.second);
         }
 
         // After alter tag, the schema get from meta and the schema in RowReader
@@ -313,7 +317,6 @@ public:
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const VertexID vId) {
-        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -460,6 +463,7 @@ public:
 
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         CHECK_NOTNULL(planContext_->env_->kvstore_);
+        planContext_->env_->onFlyingRequest_.fetch_add(1);
 
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
@@ -482,7 +486,7 @@ public:
                 if (filterNode_->valid()) {
                     this->reader_ = filterNode_->reader();
                 }
-                // reset StorageExpressionContext reader_ to nullptr
+                // reset StorageExpressionContext reader_ to clean old value in context
                 this->expCtx_->reset();
 
                 if (!this->reader_ && this->insertable_) {
@@ -505,7 +509,6 @@ public:
         };
 
         kvstore::KVCallback cb = [&ret, &baton, this] (kvstore::ResultCode code) {
-            planContext_->env_->onFlyingRequest_.fetch_sub(1);
             if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                 this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                 ret = this->exeResult_;
@@ -531,6 +534,7 @@ public:
                 planContext_->spaceId_, partId, std::move(op), std::move(cb));
             baton.wait();
         }
+        planContext_->env_->onFlyingRequest_.fetch_sub(1);
         return ret;
     }
 
@@ -571,7 +575,7 @@ public:
         }
 
         // build expression context
-        // add _src, _type, _rank, _dst
+        // add kSrc, kType, kRank, kDst
         expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
         expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
         expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
@@ -643,7 +647,6 @@ public:
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
-        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
