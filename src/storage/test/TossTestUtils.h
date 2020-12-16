@@ -30,6 +30,14 @@ namespace nebula {
 namespace storage {
 
 struct TossTestUtils {
+    static std::vector<nebula::Value> genSingleVal(int n) {
+        boost::uuids::random_generator          gen;
+        std::vector<nebula::Value> ret(2);
+        ret[0].setInt(n);
+        ret[1].setStr(boost::uuids::to_string(gen()));
+        return ret;
+    }
+
     static std::vector<std::vector<nebula::Value>> genValues(size_t num) {
         boost::uuids::random_generator          gen;
         std::vector<std::vector<nebula::Value>> ret(num);
@@ -102,10 +110,12 @@ struct TossTestUtils {
         return ret;
     }
 
-    static void logIfSizeNotAsExpect(const std::vector<std::string>& svec, size_t expect) {
-        if (svec.size() != expect) {
+    static bool compareSize(const std::vector<std::string>& svec, size_t expect) {
+        auto equalSize = svec.size() == expect;
+        if (!equalSize) {
             print_svec(svec);
         }
+        return equalSize;
     }
 
     static std::vector<std::string> splitNeiResult(folly::StringPiece str) {

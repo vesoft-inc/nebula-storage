@@ -456,6 +456,34 @@ struct TossEnvironment {
         return ret;
     }
 
+    std::set<std::string> extractStrVals(const std::vector<std::string>& svec) {
+        auto len = 36;
+        std::set<std::string> strVals;
+        for (auto& e : svec) {
+            strVals.insert(e.substr(e.size() - len));
+        }
+        // std::sort(strVals.begin(), strVals.end());
+        return strVals;
+    }
+
+    std::vector<std::string> diffProps(std::vector<std::string> actual,
+                                       std::vector<std::string> expect) {
+        std::sort(actual.begin(), actual.end());
+        std::sort(expect.begin(), expect.end());
+        std::vector<std::string> diff;
+
+        std::set_difference(actual.begin(), actual.end(), expect.begin(), expect.end(),
+                            std::inserter(diff, diff.begin()));
+        return diff;
+    }
+
+    cpp2::NewEdge dupEdge(const cpp2::NewEdge& e) {
+        cpp2::NewEdge dupEdge{e};
+        int n = e.props[0].getInt() / 1024 + 1;
+        dupEdge.props = TossTestUtils::genSingleVal(n);
+        return dupEdge;
+    }
+
     /**
      * @brief gen num edges base from src
      *        dst shoule begin from [src + 1, src + num + 1)
