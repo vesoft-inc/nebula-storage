@@ -73,9 +73,10 @@ public:
             }
             case PropContext::PropInKeyType::SRC: {
                 auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
-                return isIntId ?
-                    srcId.toString() :
-                    srcId.subpiece(0, srcId.find_first_of('\0')).toString();
+                if (isIntId) {
+                    return *reinterpret_cast<const int64_t*>(srcId.data());
+                }
+                return srcId.subpiece(0, srcId.find_first_of('\0')).toString();
             }
             case PropContext::PropInKeyType::TYPE: {
                 auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen, key);
@@ -109,9 +110,10 @@ public:
             }
             case PropContext::PropInKeyType::VID: {
                 auto srcId = NebulaKeyUtils::getVertexId(vIdLen, key);
-                return isIntId ?
-                    srcId.toString() :
-                    srcId.subpiece(0, srcId.find_first_of('\0')).toString();
+                if (isIntId) {
+                    return *reinterpret_cast<const int64_t*>(srcId.data());
+                }
+                return srcId.subpiece(0, srcId.find_first_of('\0')).toString();
             }
             case PropContext::PropInKeyType::TAG: {
                 auto tag = NebulaKeyUtils::getTagId(vIdLen, key);
