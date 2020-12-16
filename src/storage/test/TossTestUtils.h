@@ -113,6 +113,7 @@ struct TossTestUtils {
     static bool compareSize(const std::vector<std::string>& svec, size_t expect) {
         auto equalSize = svec.size() == expect;
         if (!equalSize) {
+            LOG(INFO) << "compareSize failed: expect=" << expect;
             print_svec(svec);
         }
         return equalSize;

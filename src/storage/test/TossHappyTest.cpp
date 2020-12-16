@@ -355,6 +355,7 @@ TEST_F(TossTest, lock_test_0) {
  */
 TEST_F(TossTest, lock_test_1) {
     auto num = 1;
+    LOG(INFO) << "b_=" << b_;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
 
     auto lockKey = env_->insertLock(edges[0], true);
@@ -362,7 +363,6 @@ TEST_F(TossTest, lock_test_1) {
 
     auto props = env_->getNeiProps(edges);
     auto svec = TossTestUtils::splitNeiResults(props);
-    EXPECT_EQ(svec.size(), num);
 
     ASSERT_FALSE(env_->keyExist(lockKey));
 
@@ -372,12 +372,15 @@ TEST_F(TossTest, lock_test_1) {
     auto reversedEdgeKey = env_->reverseEdgeKey(edges[0].key);
     auto reversedRawKey = env_->makeRawKey(reversedEdgeKey);
     ASSERT_TRUE(env_->keyExist(reversedRawKey.first));
+
+    ASSERT_EQ(svec.size(), num);
 }
 
 /**
  * @brief good lock + edge
  */
 TEST_F(TossTest, lock_test_2) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_, true);
 
@@ -388,7 +391,6 @@ TEST_F(TossTest, lock_test_2) {
 
     auto props = env_->getNeiProps(edges);
     auto svec = TossTestUtils::splitNeiResults(props);
-    EXPECT_EQ(svec.size(), num);
 
     // step 1st: lock key not exist
     ASSERT_FALSE(env_->keyExist(lockKey));
@@ -407,12 +409,15 @@ TEST_F(TossTest, lock_test_2) {
     ASSERT_TRUE(svec.back().size() > lockStrVal.size());
     auto neighborStrVal = svec.back().substr(svec.back().size() - lockStrVal.size());
     ASSERT_EQ(lockStrVal, neighborStrVal);
+
+    ASSERT_EQ(svec.size(), num);
 }
 
 /**
  * @brief bad lock
  */
 TEST_F(TossTest, lock_test_3) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_, true);
 
@@ -432,6 +437,7 @@ TEST_F(TossTest, lock_test_3) {
  * @brief bad lock + edge
  */
 TEST_F(TossTest, lock_test_4) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 1;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_, true);
     ASSERT_EQ(edges.size(), 2);
@@ -470,6 +476,7 @@ TEST_F(TossTest, lock_test_4) {
  *        check normal data(without lock) can be read without err
  */
 TEST_F(TossTest, neighbors_test_1) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 2;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
     ASSERT_EQ(edges.size(), 2);
@@ -486,6 +493,7 @@ TEST_F(TossTest, neighbors_test_1) {
  * @brief neighbor edge + good lock
  */
 TEST_F(TossTest, neighbors_test_2) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 2;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
     ASSERT_EQ(edges.size(), 2);
@@ -516,6 +524,7 @@ TEST_F(TossTest, neighbors_test_2) {
  * @brief neighbor edge + good lock + edge
  */
 TEST_F(TossTest, neighbors_test_3) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 2;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
     ASSERT_EQ(edges.size(), 2);
@@ -559,6 +568,7 @@ TEST_F(TossTest, neighbors_test_3) {
  * @brief neighbor edge + bad lock
  */
 TEST_F(TossTest, neighbors_test_4) {
+    LOG(INFO) << "b_=" << b_;
     auto num = 2;
     std::vector<cpp2::NewEdge> edges = env_->generateMultiEdges(num, b_);
     ASSERT_EQ(edges.size(), 2);

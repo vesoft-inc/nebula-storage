@@ -185,10 +185,10 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                     // steps 4 & 5: multi put local edges & multi remove persist locks
                     kvstore::BatchHolder bat;
                     for (auto& lock : lockData) {
-                        bat.remove(std::string(lock.first));
                         LOG_IF(INFO, FLAGS_trace_toss)
                             << "remove lock, hex=" << folly::hexlify(lock.first)
                             << ", txnId=" << txnId;
+                        bat.remove(std::move(lock.first));
                         auto operations = kvstore::decodeBatchValue(lock.second);
                         for (auto& op : operations) {
                             auto opType = op.first;
@@ -237,11 +237,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdgeAtomic(size_t vIdLe
     auto remotePart = stRemotePart.value();
     auto remoteKey = TransactionUtils::reverseRawKey(spaceId, remotePart, rawKey);
 
-    // auto decodeKV = kvstore::decodeBatchValue(localBatch);
-    // auto remoteVal = decodeKV.back().second.second.str();
-
     std::vector<KV> data{std::make_pair(remoteKey, "")};
-    // folly::Optional<std::string> optBatch = localBatch;
     return addSamePartEdges(vIdLen, spaceId, localPart, remotePart, data, nullptr, batchGetter);
 }
 
@@ -311,7 +307,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
                     .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
             } else {
                 commitEdgeOut(
-                    vIdLen, spaceId, localPart, std::string(kv.first), std::string(kv.second))
+                    spaceId, localPart, std::string(kv.first), std::string(kv.second))
                     .via(exec_.get())
                     .thenValue([=](auto&& rc) { *spPromiseVal = CommonUtils::to(rc); })
                     .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
@@ -376,21 +372,17 @@ folly::SemiFuture<kvstore::ResultCode> TransactionManager::writeLock(size_t vIdL
 /*
  * 1. use rawKey without version as in-memory lock key
  * */
-folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdgeOut(size_t vIdLen,
-                                                                         GraphSpaceID spaceId,
+folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdgeOut(GraphSpaceID spaceId,
                                                                          PartitionID partId,
-                                                                         const std::string& key,
-                                                                         const std::string& props) {
-    UNUSED(vIdLen);
+                                                                         std::string&& key,
+                                                                         std::string&& props) {
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes;
     auto idxRet = env_->indexMan_->getEdgeIndexes(spaceId);
     if (idxRet.ok()) {
         indexes = std::move(idxRet).value();
     }
     if (!indexes.empty()) {
-        std::vector<kvstore::KV> data;
-        data.reserve(32);
-        data.emplace_back(std::string(key), std::string(props));
+        std::vector<kvstore::KV> data{{std::move(key), std::move(props)}};
 
         auto c = folly::makePromiseContract<kvstore::ResultCode>();
 
@@ -406,7 +398,7 @@ folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdgeOut(size_t 
         env_->kvstore_->asyncAtomicOp(spaceId, partId, atomic, std::move(cb));
         return std::move(c.second);
     }
-    return commitEdge(spaceId, partId, std::string(key), std::string(props));
+    return commitEdge(spaceId, partId, key, props);
 }
 
 folly::SemiFuture<kvstore::ResultCode> TransactionManager::multiPut(
@@ -423,8 +415,8 @@ folly::SemiFuture<kvstore::ResultCode> TransactionManager::multiPut(
 
 folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdge(GraphSpaceID spaceId,
                                                                       PartitionID partId,
-                                                                      std::string&& key,
-                                                                      std::string&& props) {
+                                                                      std::string& key,
+                                                                      std::string& props) {
     std::vector<kvstore::KV> data;
     data.emplace_back(std::move(key), std::move(props));
 

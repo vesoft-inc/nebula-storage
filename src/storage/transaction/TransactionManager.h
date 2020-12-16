@@ -98,11 +98,10 @@ public:
     std::unordered_map<std::string, std::list<int64_t>> timer_;
 
 protected:
-    folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(size_t vIdLen,
-                                                         GraphSpaceID spaceId,
+    folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
                                                          PartitionID partId,
-                                                         const std::string& key,
-                                                         const std::string& props);
+                                                         std::string&& key,
+                                                         std::string&& props);
 
     folly::SemiFuture<kvstore::ResultCode> multiPut(GraphSpaceID spaceId,
                                                     PartitionID partId,
@@ -110,8 +109,8 @@ protected:
 
     folly::SemiFuture<kvstore::ResultCode> commitEdge(GraphSpaceID spaceId,
                                                       PartitionID partId,
-                                                      std::string&& key,
-                                                      std::string&& encodedProp);
+                                                      std::string& key,
+                                                      std::string& encodedProp);
 
     folly::SemiFuture<cpp2::ErrorCode>
     eraseKey(GraphSpaceID spaceId, PartitionID partId, const std::string& key);
