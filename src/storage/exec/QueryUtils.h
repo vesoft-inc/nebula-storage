@@ -88,9 +88,10 @@ public:
             }
             case PropContext::PropInKeyType::DST: {
                 auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
-                return isIntId ?
-                    dstId.toString() :
-                    dstId.subpiece(0, dstId.find_first_of('\0')).toString();
+                if (isIntId) {
+                    return *reinterpret_cast<const int64_t*>(dstId.data());
+                }
+                return dstId.subpiece(0, dstId.find_first_of('\0')).toString();
             }
             default:
                 LOG(FATAL) << "Should not read here";
