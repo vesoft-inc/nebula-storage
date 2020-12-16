@@ -12,9 +12,6 @@
 namespace nebula {
 namespace storage {
 
-// EdgeRanking and the third parameter VertexID will not be used when tag index scan
-using ResultMap = std::unordered_map<std::tuple<VertexID, EdgeRanking, VertexID>, Row>;
-
 template<typename T>
 class IndexOutputNode final : public RelNode<T> {
 public:
@@ -31,14 +28,12 @@ public:
         kVertexFromDataFilter,
     };
 
-    IndexOutputNode(ResultMap* result,
-                    const std::vector<std::string>& colNames,
+    IndexOutputNode(DeDupDataSet* result,
                     PlanContext* planCtx,
                     IndexScanNode<T>* indexScanNode,
                     bool hasNullableCol,
                     const std::vector<meta::cpp2::ColumnDef>& fields)
         : result_(result)
-        , colNames_(colNames)
         , planContext_(planCtx)
         , indexScanNode_(indexScanNode)
         , hasNullableCol_(hasNullableCol)
@@ -48,35 +43,29 @@ public:
                 : IndexResultType::kVertexFromIndexScan;
     }
 
-    IndexOutputNode(ResultMap* result,
-                    const std::vector<std::string>& colNames,
+    IndexOutputNode(DeDupDataSet* result,
                     PlanContext* planCtx,
                     IndexEdgeNode<T>* indexEdgeNode)
         : result_(result)
-        , colNames_(colNames)
         , planContext_(planCtx)
         , indexEdgeNode_(indexEdgeNode) {
         type_ = IndexResultType::kEdgeFromDataScan;
     }
 
-    IndexOutputNode(ResultMap* result,
-                    const std::vector<std::string>& colNames,
+    IndexOutputNode(DeDupDataSet* result,
                     PlanContext* planCtx,
                     IndexVertexNode<T>* indexVertexNode)
         : result_(result)
-        , colNames_(colNames)
         , planContext_(planCtx)
         , indexVertexNode_(indexVertexNode) {
         type_ = IndexResultType::kVertexFromDataScan;
     }
 
-    IndexOutputNode(ResultMap* result,
-                    const std::vector<std::string>& colNames,
+    IndexOutputNode(DeDupDataSet* result,
                     PlanContext* planCtx,
                     IndexFilterNode<T>* indexFilterNode,
                     bool indexFilter = false)
         : result_(result)
-        , colNames_(colNames)
         , planContext_(planCtx)
         , indexFilterNode_(indexFilterNode) {
         hasNullableCol_ = indexFilterNode->hasNullableCol();
@@ -171,48 +160,33 @@ private:
             return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
         }
         for (const auto& val : data) {
-            Row row;
+            Row row, dedup;
             auto reader = RowReaderWrapper::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
-            for (const auto& colName : returnCols) {
-                if (colName == kVid) {
-                    auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, val.first);
-                    addVidToRow(vId, row);
-                } else if (colName == kTag) {
-                    row.emplace_back(planContext_->tagId_);
-                } else {
-                    auto v = reader->getValueByName(colName);
-                    row.emplace_back(std::move(v));
+            for (const auto& col : result_->cols) {
+                auto ret = addIndexValue(row, dedup, reader.get(), val, col, schema);
+                if (!ret.ok()) {
+                    return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->emplace(std::make_tuple(vId.toString(), 0, ""), std::move(row));
+            result_->rows.emplace(std::move(dedup), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     kvstore::ResultCode vertexRowsFromIndex(const std::vector<kvstore::KV>& data) {
         for (const auto& val : data) {
-            Row row;
-            for (const auto& colName : returnCols) {
-                if (colName == kVid) {
-                    auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, val.first);
-                    addVidToRow(vId, row);
-                } else if (colName == kTag) {
-                    row.emplace_back(planContext_->tagId_);
-                } else {
-                    auto v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
-                                                                 val.first,
-                                                                 colName,
-                                                                 fields_,
-                                                                 false,
-                                                                 hasNullableCol_);
-                    row.emplace_back(std::move(v));
+            Row row, dedup;
+            for (const auto& col : result_->cols) {
+                auto ret = addIndexValue(row, dedup, val, col);
+                if (!ret.ok()) {
+                    return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->emplace(std::make_tuple(vId.toString(), 0, ""), std::move(row));
+            result_->rows.emplace(std::move(dedup), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -225,73 +199,151 @@ private:
             return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
         }
         for (const auto& val : data) {
-            Row row;
+            Row row, dedup;
             auto reader = RowReaderWrapper::getRowReader(schema, val.second);
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
-            for (const auto& colName : returnCols) {
-                if (colName == kSrc) {
-                    auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, val.first);
-                    addVidToRow(src, row);
-                } else if (colName == kType) {
-                    row.emplace_back(planContext_->edgeType_);
-                } else if (colName == kRank) {
-                    row.emplace_back(NebulaKeyUtils::getRank(planContext_->vIdLen_, val.first));
-                } else if (colName == kDst) {
-                    auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, val.first);
-                    addVidToRow(dst, row);
-                } else {
-                    auto v = reader->getValueByName(colName);
-                    row.emplace_back(std::move(v));
+            for (const auto& col : result_->cols) {
+                auto ret = addIndexValue(row, dedup, reader.get(), val, col, schema);
+                if (!ret.ok()) {
+                    return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->emplace(std::make_tuple(src.toString(), rank, dst.toString()), std::move(row));
+            result_->rows.emplace(std::move(dedup), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
     kvstore::ResultCode edgeRowsFromIndex(const std::vector<kvstore::KV>& data) {
         for (const auto& val : data) {
-            Row row;
-            for (const auto& colName : returnCols) {
-                if (colName == kSrc) {
-                    auto src = IndexKeyUtils::getIndexSrcId(planContext_->vIdLen_, val.first);
-                    addVidToRow(src, row);
-                } else if (colName == kType) {
-                    row.emplace_back(planContext_->edgeType_);
-                } else if (colName == kRank) {
-                    row.emplace_back(IndexKeyUtils::getIndexRank(planContext_->vIdLen_, val.first));
-                } else if (colName == kDst) {
-                    auto dst = IndexKeyUtils::getIndexDstId(planContext_->vIdLen_, val.first);
-                    addVidToRow(dst, row);
-                } else {
-                    auto v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
-                                                                 val.first,
-                                                                 colName,
-                                                                 fields_,
-                                                                 true,
-                                                                 hasNullableCol_);
-                    row.emplace_back(std::move(v));
+            Row row, dedup;
+            for (const auto& col : result_->cols) {
+                auto ret = addIndexValue(row, dedup, val, col);
+                if (!ret.ok()) {
+                    return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->emplace(std::make_tuple(src.toString(), rank, dst.toString()), std::move(row));
+            result_->rows.emplace(std::move(dedup), std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-    void addVidToRow(VertexIDSlice vId, Row& row) {
-        if (planContext_->isIntId_) {
-            row.emplace_back(*reinterpret_cast<const int64_t*>(vId.data()));
-        } else {
-            row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')).toString());
+    Status addIndexValue(Row& row, Row& dedup, RowReader* reader,
+                         const kvstore::KV& data, const std::pair<bool, std::string>& col,
+                         const meta::NebulaSchemaProvider* schema) {
+        nebula::Value v;
+        switch (QueryUtils::toReturnColType(col.second)) {
+            case QueryUtils::ReturnColType::kVid : {
+                auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? vId.toString()
+                    : vId.subpiece(0, vId.find_first_of('\0')).toString();
+                break;
+            }
+            case QueryUtils::ReturnColType::kTag : {
+                v = NebulaKeyUtils::getTagId(planContext_->vIdLen_, data.first);
+                break;
+            }
+            case QueryUtils::ReturnColType::kSrc : {
+                auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? src.toString()
+                    : src.subpiece(0, src.find_first_of('\0')).toString();
+                break;
+            }
+            case QueryUtils::ReturnColType::kType : {
+                v = NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, data.first);
+                break;
+            }
+            case QueryUtils::ReturnColType::kRank : {
+                v = NebulaKeyUtils::getRank(planContext_->vIdLen_, data.first);
+                break;
+            }
+            case QueryUtils::ReturnColType::kDst : {
+                auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? dst.toString()
+                    : dst.subpiece(0, dst.find_first_of('\0')).toString();
+                break;
+            }
+            default: {
+                auto retVal = QueryUtils::readValue(reader, col.second, schema);
+                if (!retVal.ok()) {
+                    VLOG(3) << "Bad value for field : " << col.second;
+                    return retVal.status();
+                }
+                v = std::move(retVal.value());
+            }
         }
+
+        if (col.first) {
+            row.emplace_back(v);
+            dedup.emplace_back(std::move(v));
+        } else {
+            row.emplace_back(std::move(v));
+        }
+        return Status::OK();
+    }
+
+    Status addIndexValue(Row& row, Row& dedup, const kvstore::KV& data,
+                         const std::pair<bool, std::string>& col) {
+        nebula::Value v;
+        switch (QueryUtils::toReturnColType(col.second)) {
+            case QueryUtils::ReturnColType::kVid : {
+                auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? vId.toString()
+                    : vId.subpiece(0, vId.find_first_of('\0')).toString();
+                break;
+            }
+            case QueryUtils::ReturnColType::kTag : {
+                v = planContext_->tagId_;
+                break;
+            }
+            case QueryUtils::ReturnColType::kSrc : {
+                auto src = IndexKeyUtils::getIndexSrcId(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? src.toString()
+                    : src.subpiece(0, src.find_first_of('\0')).toString();
+                break;
+            }
+            case QueryUtils::ReturnColType::kType : {
+                v = planContext_->edgeType_;
+                break;
+            }
+            case QueryUtils::ReturnColType::kRank : {
+                v = IndexKeyUtils::getIndexRank(planContext_->vIdLen_, data.first);
+                break;
+            }
+            case QueryUtils::ReturnColType::kDst : {
+                auto dst = IndexKeyUtils::getIndexDstId(planContext_->vIdLen_, data.first);
+                v = planContext_->isIntId_
+                    ? dst.toString()
+                    : dst.subpiece(0, dst.find_first_of('\0')).toString();
+                break;
+            }
+            default: {
+                v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
+                                                        data.first,
+                                                        col.second,
+                                                        fields_,
+                                                        planContext_->isEdge_,
+                                                        hasNullableCol_);
+            }
+        }
+        if (col.first) {
+            row.emplace_back(v);
+            dedup.emplace_back(std::move(v));
+        } else {
+            row.emplace_back(std::move(v));
+        }
+        return Status::OK();
     }
 
 private:
-    ResultMap*                                        result_;
-    std::vector<std::string>                          colNames_;
+    DeDupDataSet*                                     result_;
     PlanContext*                                      planContext_;
     IndexResultType                                   type_;
     IndexScanNode<T>*                                 indexScanNode_{nullptr};

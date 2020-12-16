@@ -16,10 +16,10 @@
 #include "storage/exec/IndexEdgeNode.h"
 #include "storage/exec/IndexFilterNode.h"
 #include "storage/exec/IndexOutputNode.h"
+#include "storage/exec/DeDupNode.h"
 
 namespace nebula {
 namespace storage {
-
 using IndexFilterItem =
     std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>,
                                           std::unique_ptr<Expression>>>;
@@ -72,12 +72,12 @@ protected:
     std::unique_ptr<PlanContext>                planContext_;
     VertexCache*                                vertexCache_{nullptr};
     nebula::DataSet                             resultDataSet_;
+    DeDupDataSet                                deDupDataSet_;
     std::vector<cpp2::IndexQueryContext>        contexts_{};
     std::vector<std::string>                    yieldCols_{};
     IndexFilterItem                             filterItems_;
     // Save schema when column is out of index, need to read from data
     std::shared_ptr<const meta::NebulaSchemaProvider> schema_;
-    ResultMap                                   resultMap_;
 };
 }  // namespace storage
 }  // namespace nebula
