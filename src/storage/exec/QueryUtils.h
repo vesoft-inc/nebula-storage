@@ -74,7 +74,7 @@ public:
             case PropContext::PropInKeyType::SRC: {
                 auto srcId = NebulaKeyUtils::getSrcId(vIdLen, key);
                 if (isIntId) {
-                    return *reinterpret_cast<const int64_t*>(srcId.data());
+                    return readInt<int64_t>(srcId.data(), sizeof(int64_t));
                 }
                 return srcId.subpiece(0, srcId.find_first_of('\0')).toString();
             }
@@ -89,7 +89,7 @@ public:
             case PropContext::PropInKeyType::DST: {
                 auto dstId = NebulaKeyUtils::getDstId(vIdLen, key);
                 if (isIntId) {
-                    return *reinterpret_cast<const int64_t*>(dstId.data());
+                    return readInt<int64_t>(dstId.data(), sizeof(int64_t));
                 }
                 return dstId.subpiece(0, dstId.find_first_of('\0')).toString();
             }
@@ -112,7 +112,7 @@ public:
             case PropContext::PropInKeyType::VID: {
                 auto srcId = NebulaKeyUtils::getVertexId(vIdLen, key);
                 if (isIntId) {
-                    return *reinterpret_cast<const int64_t*>(srcId.data());
+                    return readInt<int64_t>(srcId.data(), sizeof(int64_t));
                 }
                 return srcId.subpiece(0, srcId.find_first_of('\0')).toString();
             }

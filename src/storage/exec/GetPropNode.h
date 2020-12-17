@@ -45,7 +45,11 @@ public:
 
         List row;
         // vertexId is the first column
-        row.emplace_back(vId);
+        if (planContext_->isIntId_) {
+            row.emplace_back(readInt<int64_t>(vId.data(), sizeof(int64_t)));
+        } else {
+            row.emplace_back(vId);
+        }
         auto vIdLen = planContext_->vIdLen_;
         auto isIntId = planContext_->isIntId_;
         for (auto* tagNode : tagNodes_) {
