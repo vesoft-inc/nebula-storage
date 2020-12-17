@@ -100,8 +100,8 @@ public:
 protected:
     folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
                                                          PartitionID partId,
-                                                         const std::string& key,
-                                                         const std::string& props);
+                                                         std::string&& key,
+                                                         std::string&& props);
 
     folly::SemiFuture<kvstore::ResultCode> multiPut(GraphSpaceID spaceId,
                                                     PartitionID partId,
