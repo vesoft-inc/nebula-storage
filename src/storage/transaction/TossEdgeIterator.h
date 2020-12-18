@@ -55,6 +55,7 @@ public:
     }
 
     bool valid() const override {
+        LOG_IF(INFO, FLAGS_trace_toss) << "TossEdgeIterator::valid()";
         if (!iter_->valid() && recoverEdgesIter_ == recoverEdges_.end()) {
             LOG_IF(INFO, FLAGS_trace_toss) << "TossEdgeIterator::valid() = false";
             return false;
@@ -88,7 +89,8 @@ public:
         LOG_IF(INFO, FLAGS_trace_toss)
             << "TossEdgeIterator::next() iter_->key=" << folly::hexlify(iter_->key())
             << ", iter_->valid()=" << iter_->valid();
-        if (stopSearching_) {
+        if (stopSearch_) {
+            LOG(FATAL) << "messi stopSearching_";
             return;
         }
         reader_.reset();
@@ -97,6 +99,8 @@ public:
         while (iter_->valid()) {
             if (!calledByCtor_) {
                 iter_->next();
+            } else {
+                LOG_IF(INFO, FLAGS_trace_toss) << "skip first move in next()";
             }
             calledByCtor_ = false;
             if (!iter_->valid()) {
@@ -112,7 +116,8 @@ public:
                                     getDstId(planContext_->vIdLen_, iter_->key()).str();
                     lastIsLock_ = false;
                     if (stopAtFirstEdge_) {
-                        stopSearching_ = true;
+                        LOG(INFO) << "messi set stopSearch_ = true";
+                        stopSearch_ = true;
                     }
                     LOG_IF(INFO, FLAGS_trace_toss)
                         << "TossEdgeIterator::next(), return edge hex="
@@ -213,15 +218,18 @@ public:
     }
 
     bool setReader(folly::StringPiece val) {
+        LOG_IF(INFO, FLAGS_trace_toss) << "enter setReader()";
         reader_.reset();
         if (!reader_) {
             reader_.reset(*schemas_, val);
             if (!reader_) {
                 planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
+                LOG_IF(INFO, FLAGS_trace_toss) << "setReader() return false;";
                 return false;
             }
         } else if (!reader_->reset(*schemas_, val)) {
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
+            LOG_IF(INFO, FLAGS_trace_toss) << "setReader() return false;";
             return false;
         }
 
@@ -229,8 +237,10 @@ public:
                                             schemas_->back().get(), reader_.get(),
                                             ttlCol_, ttlDuration_)) {
             reader_.reset();
+            LOG_IF(INFO, FLAGS_trace_toss) << "setReader() return false;";
             return false;
         }
+        LOG_IF(INFO, FLAGS_trace_toss) << "exit setReader() ret true";
         return true;
     }
 
@@ -243,10 +253,10 @@ private:
     /**
      * getNeighbors need to scan all edges, but update will stop at first edge,
      * use stopAtFirstEdge_ to let caller tell if this need to stop early
-     * use stopSearching_ to judge inside.
+     * use stopSearch_ to judge inside.
      */
     bool                                                 stopAtFirstEdge_{false};
-    bool                                                 stopSearching_{false};
+    bool                                                 stopSearch_{false};
     bool                                                 calledByCtor_{true};
     std::list<folly::SemiFuture<cpp2::ErrorCode>>        resumeTasks_;
     std::list<TResultsItem>                              recoverEdges_;

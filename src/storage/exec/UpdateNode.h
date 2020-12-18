@@ -172,7 +172,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
-            [&partId, &vId, this] ()
+            [partId = partId, vId = vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
 
@@ -468,7 +468,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         // folly::Function<folly::Optional<std::string>(void)>
-        auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
+        auto op = [partId = partId, edgeKey = edgeKey, this]() -> folly::Optional<std::string> {
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
                 if (edgeKey.edge_type != this->edgeType_) {
@@ -520,8 +520,10 @@ public:
 
         if (planContext_->env_->txnMan_ &&
             planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
+            LOG(INFO) << "before update edge atomic" << TransactionUtils::dumpKey(edgeKey);
             auto f = planContext_->env_->txnMan_->updateEdgeAtomic(
-                planContext_->vIdLen_, planContext_->spaceId_, key_, std::move(op));
+                // planContext_->vIdLen_, planContext_->spaceId_, key_, std::move(op));
+                planContext_->vIdLen_, planContext_->spaceId_, partId, edgeKey, std::move(op));
             f.wait();
 
             if (f.valid()) {
