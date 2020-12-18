@@ -2916,7 +2916,6 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         columnHint1.set_begin_value(Value(tony));
         columnHint1.set_column_name("player1");
         columnHint1.set_scan_type(cpp2::ScanType::PREFIX);
-        // teammates.player1 == "Yao Ming"
         cpp2::IndexColumnHint columnHint2;
         columnHint2.set_begin_value(Value(tony));
         columnHint2.set_column_name("player1");
@@ -2968,7 +2967,6 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         QueryTestUtils::checkResponse(resp, expectCols, expectRows);
     }
 }
-
 }  // namespace storage
 }  // namespace nebula
 

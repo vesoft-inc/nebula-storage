@@ -72,12 +72,12 @@ protected:
     std::unique_ptr<PlanContext>                planContext_;
     VertexCache*                                vertexCache_{nullptr};
     nebula::DataSet                             resultDataSet_;
-    DeDupDataSet                                deDupDataSet_;
     std::vector<cpp2::IndexQueryContext>        contexts_{};
     std::vector<std::string>                    yieldCols_{};
     IndexFilterItem                             filterItems_;
     // Save schema when column is out of index, need to read from data
     std::shared_ptr<const meta::NebulaSchemaProvider> schema_;
+    std::vector<size_t>                         deDupColPos_;
 };
 }  // namespace storage
 }  // namespace nebula

@@ -20,28 +20,42 @@ class DeDupNode : public IterateNode<T> {
 public:
     using RelNode<T>::execute;
 
-    explicit DeDupNode(nebula::DataSet* resultSet, DeDupDataSet* deDupResultSet)
+    explicit DeDupNode(nebula::DataSet* resultSet, const std::vector<size_t>& pos)
         : resultSet_(resultSet)
-        , deDupResultSet_(deDupResultSet) {}
+        , pos_(pos) {}
 
     kvstore::ResultCode execute(PartitionID partId) override {
         auto ret = RelNode<T>::execute(partId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
-        std::transform(deDupResultSet_->rows.begin(),
-                       deDupResultSet_->rows.end(),
-                       std::back_inserter(resultSet_->rows),
-                       [] (const auto& row) {
-                           return row.second;
-                       });
-        deDupResultSet_->rows.clear();
+        dedup(resultSet_->rows);
         return kvstore::ResultCode::SUCCEEDED;
     }
 
 private:
-    nebula::DataSet* resultSet_;
-    DeDupDataSet*    deDupResultSet_;
+    void dedup(std::vector<Row>& rows) {
+        std::sort(rows.begin(), rows.end(), [this](auto& l, auto& r) {
+            for (auto p : pos_) {
+                if (l.values[p] != r.values[p]) {
+                    return l.values[p] < r.values[p];
+                }
+            }
+            return false;
+        });
+        rows.erase(std::unique(rows.begin(), rows.end(), [this](auto& l, auto& r) {
+            for (auto p : pos_) {
+                if (l.values[p] != r.values[p]) {
+                    return false;
+                }
+            }
+            return true;
+        }), rows.end());
+    }
+
+private:
+    nebula::DataSet*    resultSet_;
+    std::vector<size_t> pos_;
 };
 
 }  // namespace storage
