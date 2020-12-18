@@ -28,7 +28,7 @@ public:
         kVertexFromDataFilter,
     };
 
-    IndexOutputNode(DeDupDataSet* result,
+    IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
                     IndexScanNode<T>* indexScanNode,
                     bool hasNullableCol,
@@ -43,7 +43,7 @@ public:
                 : IndexResultType::kVertexFromIndexScan;
     }
 
-    IndexOutputNode(DeDupDataSet* result,
+    IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
                     IndexEdgeNode<T>* indexEdgeNode)
         : result_(result)
@@ -52,7 +52,7 @@ public:
         type_ = IndexResultType::kEdgeFromDataScan;
     }
 
-    IndexOutputNode(DeDupDataSet* result,
+    IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
                     IndexVertexNode<T>* indexVertexNode)
         : result_(result)
@@ -61,7 +61,7 @@ public:
         type_ = IndexResultType::kVertexFromDataScan;
     }
 
-    IndexOutputNode(DeDupDataSet* result,
+    IndexOutputNode(nebula::DataSet* result,
                     PlanContext* planCtx,
                     IndexFilterNode<T>* indexFilterNode,
                     bool indexFilter = false)
@@ -161,18 +161,26 @@ private:
         }
         for (const auto& val : data) {
             Row row;
+<<<<<<< HEAD
             auto reader = RowReaderWrapper::getRowReader(schemas, val.second);
+=======
+            auto reader = RowReaderWrapper::getRowReader(schema, val.second);
+>>>>>>> improve dedupNode
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
             for (const auto& col : result_->colNames) {
+<<<<<<< HEAD
                 auto ret = addIndexValue(row, reader.get(), val, col, schemas.back().get());
+=======
+                auto ret = addIndexValue(row, reader.get(), val, col, schema);
+>>>>>>> improve dedupNode
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace(std::move(dedup), std::move(row));
+            result_->rows.emplace_back(std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -186,7 +194,7 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace(std::move(dedup), std::move(row));
+            result_->rows.emplace_back(std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -200,18 +208,26 @@ private:
         }
         for (const auto& val : data) {
             Row row;
+<<<<<<< HEAD
             auto reader = RowReaderWrapper::getRowReader(schemas, val.second);
+=======
+            auto reader = RowReaderWrapper::getRowReader(schema, val.second);
+>>>>>>> improve dedupNode
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
             for (const auto& col : result_->colNames) {
+<<<<<<< HEAD
                 auto ret = addIndexValue(row, reader.get(), val, col, schemas.back().get());
+=======
+                auto ret = addIndexValue(row, reader.get(), val, col, schema);
+>>>>>>> improve dedupNode
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace(std::move(dedup), std::move(row));
+            result_->rows.emplace_back(std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
@@ -225,16 +241,23 @@ private:
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
             }
-            result_->rows.emplace(std::move(dedup), std::move(row));
+            result_->rows.emplace_back(std::move(row));
         }
         return kvstore::ResultCode::SUCCEEDED;
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     // Add the value by data val
     Status addIndexValue(Row& row, RowReader* reader,
                          const kvstore::KV& data, const std::string& col,
                          const meta::NebulaSchemaProvider* schema) {
+=======
+    Status addIndexValue(Row& row, RowReader* reader,
+                         const kvstore::KV& data, const std::string& col,
+                         const meta::NebulaSchemaProvider* schema) {
+        nebula::Value v;
+>>>>>>> improve dedupNode
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, data.first);
@@ -278,11 +301,20 @@ private:
                 row.emplace_back(std::move(retVal.value()));
             }
         }
+<<<<<<< HEAD
         return Status::OK();
     }
 
     // Add the value by index key
     Status addIndexValue(Row& row, const kvstore::KV& data, const std::string& col) {
+=======
+        row.emplace_back(std::move(v));
+        return Status::OK();
+    }
+
+    Status addIndexValue(Row& row, const kvstore::KV& data, const std::string& col) {
+        nebula::Value v;
+>>>>>>> improve dedupNode
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, data.first);
@@ -320,18 +352,22 @@ private:
             default: {
                 v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
                                                         data.first,
-                                                        col.second,
+                                                        col,
                                                         fields_,
                                                         planContext_->isEdge_,
                                                         hasNullableCol_);
             }
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> improve dedupNode
         row.emplace_back(std::move(v));
         return Status::OK();
     }
 
 private:
-    DeDupDataSet*                                     result_;
+    nebula::DataSet*                                  result_;
     PlanContext*                                      planContext_;
     IndexResultType                                   type_;
     IndexScanNode<T>*                                 indexScanNode_{nullptr};

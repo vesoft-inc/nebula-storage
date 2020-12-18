@@ -25,12 +25,6 @@ using PropHandler = std::function<kvstore::ResultCode(folly::StringPiece,
                                                       RowReader*,
                                                       const std::vector<PropContext>* props)>;
 
-struct DeDupDataSet {
-    // std::pair<is distinct, column name>
-    std::vector<std::pair<bool, std::string>> cols;
-    std::unordered_map<Row, Row> rows;
-};
-
 template<typename T> class StoragePlan;
 
 // RelNode is shortcut for relational algebra node, each RelNode has an execute method,
