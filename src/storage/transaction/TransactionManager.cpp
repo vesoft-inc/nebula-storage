@@ -88,6 +88,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
         auto addEdgeErrorCode = cpp2::ErrorCode::SUCCEEDED;
         std::transform(lockData.begin(), lockData.end(), lockData.begin(), [&](auto& kv) {
             if (processor) {
+                processor->spaceId_ = spaceId;
+                processor->spaceVidLen_ = vIdLen;
                 std::vector<KV> data{std::make_pair(kv.first, kv.second)};
                 auto optVal = processor->addEdges(localPart, data);
                 if (optVal) {
