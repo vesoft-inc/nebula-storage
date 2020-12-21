@@ -69,7 +69,6 @@ public:
     folly::Future<cpp2::ErrorCode> updateEdgeAtomic(size_t vIdLen,
                                                     GraphSpaceID spaceId,
                                                     PartitionID partId,
-                                                    // const std::string& rawKeyOut,
                                                     const cpp2::EdgeKey& edgeKey,
                                                     GetBatchFunc batchGetter);
 

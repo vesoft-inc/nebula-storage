@@ -90,7 +90,6 @@ public:
             << "TossEdgeIterator::next() iter_->key=" << folly::hexlify(iter_->key())
             << ", iter_->valid()=" << iter_->valid();
         if (stopSearch_) {
-            LOG(FATAL) << "messi stopSearching_";
             return;
         }
         reader_.reset();
@@ -99,8 +98,6 @@ public:
         while (iter_->valid()) {
             if (!calledByCtor_) {
                 iter_->next();
-            } else {
-                LOG_IF(INFO, FLAGS_trace_toss) << "skip first move in next()";
             }
             calledByCtor_ = false;
             if (!iter_->valid()) {
@@ -116,7 +113,6 @@ public:
                                     getDstId(planContext_->vIdLen_, iter_->key()).str();
                     lastIsLock_ = false;
                     if (stopAtFirstEdge_) {
-                        LOG(INFO) << "messi set stopSearch_ = true";
                         stopSearch_ = true;
                     }
                     LOG_IF(INFO, FLAGS_trace_toss)
@@ -218,7 +214,6 @@ public:
     }
 
     bool setReader(folly::StringPiece val) {
-        LOG_IF(INFO, FLAGS_trace_toss) << "enter setReader()";
         reader_.reset();
         if (!reader_) {
             reader_.reset(*schemas_, val);
