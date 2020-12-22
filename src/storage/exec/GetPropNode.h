@@ -34,7 +34,7 @@ public:
         }
 
         // if none of the tag node valid, do not emplace the row
-        if (std::none_of(tagNodes_.begin(), tagNodes_.end(), [] (const auto& tagNode) {
+        if (!std::any_of(tagNodes_.begin(), tagNodes_.end(), [] (const auto& tagNode) {
             return tagNode->valid();
         })) {
             return kvstore::ResultCode::SUCCEEDED;
