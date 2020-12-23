@@ -524,6 +524,9 @@ struct TossEnvironment {
         for (int i = 0; i < num; ++i) {
             auto dst = extraSameKey ? 1 : src + i + 1;
             edges.emplace_back(generateEdge(src, 0, vals[i], dst));
+            auto keyPair = makeRawKey(edges.back().key);
+            LOG(INFO) << "gen key=" << folly::hexlify(keyPair.first)
+                      << ", val=" << edges.back().props.back().toString();
         }
         return edges;
     }

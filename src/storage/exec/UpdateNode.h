@@ -172,7 +172,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
-            [partId = partId, vId = vId, this] ()
+            [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
                 this->exeResult_ = RelNode::execute(partId, vId);
 
@@ -468,7 +468,7 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         // folly::Function<folly::Optional<std::string>(void)>
-        auto op = [partId = partId, edgeKey = edgeKey, this]() -> folly::Optional<std::string> {
+        auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
                 if (edgeKey.edge_type != this->edgeType_) {

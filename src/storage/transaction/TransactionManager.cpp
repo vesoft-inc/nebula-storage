@@ -268,6 +268,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         .via(exec_.get())
         .thenValue([=](auto&& errOrVal) mutable {
             if (!nebula::ok(errOrVal)) {
+                LOG_IF(INFO, FLAGS_trace_toss)
+                    << "get remote key failed, lock=" << folly::hexlify(lockKey);
                 *spPromiseVal = nebula::error(errOrVal);
                 return;
             }
@@ -317,7 +319,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
         .thenValue([=](auto&&) {
             // 4th, remove persist lock
             LOG_IF(INFO, FLAGS_trace_toss) << "erase lock " << folly::hexlify(lockKey)
-                << ", *spPromiseVal=" << static_cast<int32_t>(*spPromiseVal);
+                << ", *spPromiseVal=" << cpp2::_ErrorCode_VALUES_TO_NAMES.at(*spPromiseVal);
             if (*spPromiseVal == cpp2::ErrorCode::SUCCEEDED ||
                 *spPromiseVal == cpp2::ErrorCode::E_KEY_NOT_FOUND ||
                 *spPromiseVal == cpp2::ErrorCode::E_OUTDATED_LOCK) {
