@@ -9,10 +9,13 @@
 #include "mock/MockData.h"
 #include "meta/MetaServiceHandler.h"
 #include "common/meta/ServerBasedSchemaManager.h"
+#include "common/meta/ServerBasedIndexManager.h"
 #include "common/clients/meta/MetaClient.h"
 #include "storage/StorageAdminServiceHandler.h"
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/GeneralStorageServiceHandler.h"
+#include "storage/CompactionFilter.h"
+
 
 DECLARE_int32(heartbeat_interval_secs);
 
@@ -127,7 +130,7 @@ void MockCluster::initListener(const char* dataPath, const HostAddr& addr) {
     KVOpt.listenerPath_ = folly::stringPrintf("%s/listener", dataPath);
     KVOpt.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(addr,
                                                                            lMetaClient_.get());
-    lSchemaMan_ = meta::SchemaManager::create(lMetaClient_.get());
+    lSchemaMan_ = meta::ServerBasedSchemaManager::create(lMetaClient_.get());
     KVOpt.schemaMan_ = lSchemaMan_.get();
     esListener_ = std::make_unique<kvstore::NebulaStore>(std::move(KVOpt),
                                                          ioThreadPool,
@@ -142,7 +145,8 @@ void MockCluster::initStorageKV(const char* dataPath,
                                 SchemaVer schemaVerCount,
                                 bool hasProp,
                                 bool hasListener,
-                                const std::vector<meta::cpp2::FTClient>& clients) {
+                                const std::vector<meta::cpp2::FTClient>& clients,
+                                bool needCffBuilder) {
     FLAGS_heartbeat_interval_secs = 1;
     const std::vector<PartitionID> parts{1, 2, 3, 4, 5, 6};
     totalParts_ = 6;  // don't not delete this...
@@ -188,9 +192,8 @@ void MockCluster::initStorageKV(const char* dataPath,
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,
                                             metaClient_.get());
-        schemaMan_ = meta::SchemaManager::create(metaClient_.get());
-        indexMan_ = meta::IndexManager::create();
-        indexMan_->init(metaClient_.get());
+        schemaMan_ = meta::ServerBasedSchemaManager::create(metaClient_.get());
+        indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
     } else {
         LOG(INFO) << "Use meta in memory!";
         options.partMan_ = memPartMan(1, parts);;
@@ -200,9 +203,15 @@ void MockCluster::initStorageKV(const char* dataPath,
     std::vector<std::string> paths;
     paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
     paths.emplace_back(folly::stringPrintf("%s/disk2", dataPath));
+
     // Prepare KVStore
     options.dataPaths_ = std::move(paths);
-    // options.cffBuilder_ = std::move(cffBuilder);
+    if (needCffBuilder) {
+        std::unique_ptr<kvstore::CompactionFilterFactoryBuilder> cffBuilder(
+                new storage::StorageCompactionFilterFactoryBuilder(schemaMan_.get(),
+                                                                   indexMan_.get()));
+        options.cffBuilder_ = std::move(cffBuilder);
+    }
     storageKV_ = initKV(std::move(options), addr);
     waitUntilAllElected(storageKV_.get(), 1, parts);
 

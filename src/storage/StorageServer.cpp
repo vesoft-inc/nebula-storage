@@ -9,6 +9,7 @@
 #include "common/webservice/WebService.h"
 #include "common/webservice/Router.h"
 #include "common/meta/ServerBasedSchemaManager.h"
+#include "common/meta/ServerBasedIndexManager.h"
 #include "common/hdfs/HdfsCommandHelper.h"
 #include "common/thread/GenericThreadPool.h"
 #include "common/clients/storage/InternalStorageClient.h"
@@ -136,11 +137,10 @@ bool StorageServer::start() {
     }
 
     LOG(INFO) << "Init schema manager";
-    schemaMan_ = meta::SchemaManager::create(metaClient_.get());
+    schemaMan_ = meta::ServerBasedSchemaManager::create(metaClient_.get());
 
     LOG(INFO) << "Init index manager";
-    indexMan_ = meta::IndexManager::create();
-    indexMan_->init(metaClient_.get());
+    indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
 
     LOG(INFO) << "Init kvstore";
     kvstore_ = getStoreInstance();
@@ -264,13 +264,16 @@ bool StorageServer::start() {
 void StorageServer::waitUntilStop() {
     adminThread_->join();
     storageThread_->join();
+    internalStorageThread_->join();
 }
 
 void StorageServer::stop() {
     ServiceStatus adminExpected = ServiceStatus::STATUS_RUNNING;
     ServiceStatus storageExpected = ServiceStatus::STATUS_RUNNING;
+    ServiceStatus interStorageExpected = ServiceStatus::STATUS_RUNNING;
     if (!adminSvcStatus_.compare_exchange_strong(adminExpected, STATUS_STTOPED) &&
-        !storageSvcStatus_.compare_exchange_strong(storageExpected, STATUS_STTOPED)) {
+        !storageSvcStatus_.compare_exchange_strong(storageExpected, STATUS_STTOPED) &&
+        !internalStorageSvcStatus_.compare_exchange_strong(interStorageExpected, STATUS_STTOPED)) {
         LOG(INFO) << "All services has been stopped";
         return;
     }
