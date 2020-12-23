@@ -262,8 +262,8 @@ bool StorageServer::start() {
 }
 
 void StorageServer::waitUntilStop() {
-    adminThread_->join();
     storageThread_->join();
+    adminThread_->join();
     internalStorageThread_->join();
 }
 
@@ -300,6 +300,9 @@ void StorageServer::stop() {
     }
     if (storageServer_) {
         storageServer_->stop();
+    }
+    if (internalStorageServer_) {
+        internalStorageServer_->stop();
     }
 }
 
