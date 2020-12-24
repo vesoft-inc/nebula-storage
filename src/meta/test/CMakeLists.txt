@@ -176,6 +176,7 @@ nebula_add_test(
         ${PROXYGEN_LIBRARIES}
         wangle
         gtest
+        gmock
 )
 
 
@@ -279,6 +280,7 @@ nebula_add_test(
         ${PROXYGEN_LIBRARIES}
         wangle
         gtest
+        gmock
 )
 
 nebula_add_test(
@@ -294,6 +296,7 @@ nebula_add_test(
         ${PROXYGEN_LIBRARIES}
         wangle
         gtest
+        gmock
 )
 
 nebula_add_test(

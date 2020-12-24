@@ -23,19 +23,20 @@
 DECLARE_int32(heartbeat_interval_secs);
 DECLARE_uint32(raft_heartbeat_interval_secs);
 DECLARE_int32(expired_threshold_sec);
-
 namespace nebula {
 namespace meta {
 
 using PriorityThreadManager = apache::thrift::concurrency::PriorityThreadManager;
 
 void startMetaService(const char* rootPath) {
+    const nebula::ClusterID kClusterId = 10;
     auto pool = std::make_shared<folly::IOThreadPoolExecutor>(4);
     auto partMan = std::make_unique<kvstore::MemPartManager>();
     auto workers = PriorityThreadManager::newPriorityThreadManager(1, true);
     workers->setNamePrefix("executor");
     workers->start();
 
+    // GraphSpaceID =>  {PartitionIDs}
     auto& partsMap = partMan->partsMap();
     partsMap[0][0] = PartHosts();
 
@@ -45,9 +46,9 @@ void startMetaService(const char* rootPath) {
     kvstore::KVOptions options;
     options.dataPaths_ = std::move(paths);
     options.partMan_ = std::move(partMan);
+
     auto port = network::NetworkUtils::getAvailablePort();
     HostAddr localhost = HostAddr("127.0.0.1", port);
-
     auto store = std::make_unique<kvstore::NebulaStore>(std::move(options),
                                                         pool,
                                                         localhost,
@@ -64,6 +65,20 @@ void startMetaService(const char* rootPath) {
             }
         }
         usleep(100000);
+    }
+
+    auto server = std::make_unique<apache::thrift::ThriftServer>();
+    auto handler = std::make_shared<nebula::meta::MetaServiceHandler>(store.get(), kClusterId);
+    server->setInterface(std::move(handler));
+    server->setPort(port);
+    auto thread = std::make_unique<thread::NamedThread>("meta", [this] {
+        server->serve();
+        LOG(INFO) << "The meta server has been stopped";
+    });
+
+    while (!server->getServeEventBase() ||
+           !server->getServeEventBase()->isRunning()) {
+        usleep(10000);
     }
 }
 
@@ -95,6 +110,8 @@ void startStorageService(const char* rootPath, meta::MetaClient* metaClient) {
     indexMan->init(metaClient);
 
     storage::StorageEnv env;
+    env.schemaMan_ = schemaMan.get();
+    env.indexMan_ = indexMan.get();
     auto handler = std::make_shared<storage::GraphStorageServiceHandler>(&env);
 
     auto server = std::make_unique<apache::thrift::ThriftServer>();
@@ -113,11 +130,14 @@ void startStorageService(const char* rootPath, meta::MetaClient* metaClient) {
 }
 
 TEST(BalanceIntegrationTest, BalanceTest) {
-    fs::TempDir rootPath("/tmp/balance_integration_test_meta.XXXXXX");
+    fs::TempDir rootPath("/tmp/balance_integration_test.XXXXXX");
     mock::MockCluster cluster;
-    uint32_t metaPort = network::NetworkUtils::getAvailablePort();
-    cluster.startMeta(rootPath.path(), HostAddr("127.0.0.1", metaPort));
-    cluster.initMetaClient();
+    // uint32_t metaPort = network::NetworkUtils::getAvailablePort();
+    // cluster.startMeta(rootPath.path(), HostAddr("127.0.0.1", metaPort));
+    // cluster.initMetaClient();
+
+    auto metaPath = folly::stringPrintf("%s/meta", rootPath.path());
+    startMetaService(metaPath.c_str());
 
     int32_t partition = 1;
     int32_t replica = 3;
@@ -226,7 +246,7 @@ TEST(BalanceIntegrationTest, BalanceTest) {
                    << ": " << static_cast<int32_t>(part.second)
                    << "; ";
             }
-            VLOG(2) << "Failed partitions:: " << ss.str();
+            LOG(ERROR) << "Failed partitions:: " << ss.str();
         }
         ASSERT_TRUE(resp.succeeded());
         auto& results = resp.responses();
@@ -246,7 +266,7 @@ TEST(BalanceIntegrationTest, LeaderBalanceTest) {
     cluster.initMetaClient();
 
     auto adminClient = std::make_unique<AdminClient>(cluster.metaKV_.get());
-    Balancer balancer(cluster.metaKV_.get(), std::move(adminClient));
+    Balancer balancer(cluster.metaKV_.get(), adminClient.get());
 
     int32_t partition = 9;
     int32_t replica = 3;
