@@ -10,6 +10,8 @@
 #include <gmock/gmock.h>
 #include "meta/processors/admin/AdminClient.h"
 
+#pragma GCC diagnostic ignored "-Wsuggest-override"
+
 namespace nebula {
 namespace meta {
 
