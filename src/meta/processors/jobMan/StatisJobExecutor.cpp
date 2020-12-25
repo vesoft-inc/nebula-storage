@@ -131,7 +131,7 @@ std::string StatisJobExecutor::toTempKey(int32_t jobId) {
     return key.append(reinterpret_cast<const char*>(&jobId), sizeof(int32_t));
 }
 
-void StatisJobExecutor::finish(bool ExeSuccessed) {
+void StatisJobExecutor::finish(bool exeSuccessed) {
     auto statisKey = MetaServiceUtils::statisKey(space_);
     auto tempKey = toTempKey(jobId_);
     std::string val;
@@ -141,7 +141,7 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
         return;
     }
     auto statisItem = MetaServiceUtils::parseStatisVal(val);
-    if (ExeSuccessed) {
+    if (exeSuccessed) {
         statisItem.status = cpp2::JobStatus::FINISHED;
     } else {
         statisItem.status = cpp2::JobStatus::FAILED;
