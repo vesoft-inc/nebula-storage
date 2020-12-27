@@ -339,7 +339,6 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
         currJob_->interruptExecution(iJob);
         LOG(INFO) << folly::sformat("end interrupt execution, job={}", iJob);
     }
-    // currJob_->interruptExecution(iJob);
 
     return jobExecutor->stop();
 }
