@@ -9,6 +9,7 @@
 #include "mock/MockData.h"
 #include "meta/MetaServiceHandler.h"
 #include "common/meta/ServerBasedSchemaManager.h"
+#include "common/meta/ServerBasedIndexManager.h"
 #include "common/clients/meta/MetaClient.h"
 #include "storage/StorageAdminServiceHandler.h"
 #include "storage/GraphStorageServiceHandler.h"
@@ -58,7 +59,7 @@ MockCluster::memPartMan(GraphSpaceID spaceId, const std::vector<PartitionID>& pa
 
 // static
 std::string MockCluster::localIP() {
-    return network::NetworkUtils::getHostname();
+    return "127.0.0.1";
 }
 
 // static
@@ -103,7 +104,8 @@ void MockCluster::startMeta(int32_t port,
     metaServer_ = std::make_unique<RpcServer>();
     auto handler = std::make_shared<meta::MetaServiceHandler>(metaKV_.get(),
                                                               clusterId_);
-    metaServer_->start("meta", port, handler);
+    // initKV would replace hostname and port if necessary, so we need to change to the real addr
+    metaServer_->start("meta", metaKV_->address().port, handler);
     LOG(INFO) << "The Meta Daemon started on port " << metaServer_->port_;
 }
 
@@ -129,7 +131,7 @@ void MockCluster::initListener(const char* dataPath, const HostAddr& addr) {
     KVOpt.listenerPath_ = folly::stringPrintf("%s/listener", dataPath);
     KVOpt.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(addr,
                                                                            lMetaClient_.get());
-    lSchemaMan_ = meta::SchemaManager::create(lMetaClient_.get());
+    lSchemaMan_ = meta::ServerBasedSchemaManager::create(lMetaClient_.get());
     KVOpt.schemaMan_ = lSchemaMan_.get();
     esListener_ = std::make_unique<kvstore::NebulaStore>(std::move(KVOpt),
                                                          ioThreadPool,
@@ -191,9 +193,8 @@ void MockCluster::initStorageKV(const char* dataPath,
         options.partMan_ = std::make_unique<kvstore::MetaServerBasedPartManager>(
                                             addr,
                                             metaClient_.get());
-        schemaMan_ = meta::SchemaManager::create(metaClient_.get());
-        indexMan_ = meta::IndexManager::create();
-        indexMan_->init(metaClient_.get());
+        schemaMan_ = meta::ServerBasedSchemaManager::create(metaClient_.get());
+        indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
     } else {
         LOG(INFO) << "Use meta in memory!";
         options.partMan_ = memPartMan(1, parts);;
