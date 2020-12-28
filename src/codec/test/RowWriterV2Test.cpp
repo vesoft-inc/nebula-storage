@@ -621,6 +621,9 @@ TEST(RowWriterV2, NumericLimit) {
         EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<float>::max()));
         EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<double>::lowest()));
         EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<double>::max()));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(4, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(4, std::numeric_limits<double>::max()));
     }
 }
 

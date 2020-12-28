@@ -386,6 +386,10 @@ WriteResult RowWriterV2::write(ssize_t index, double v) noexcept {
             break;
         }
         case meta::cpp2::PropertyType::FLOAT: {
+            if (v > std::numeric_limits<float>::max() ||
+                v < std::numeric_limits<float>::lowest()) {
+                return WriteResult::OUT_OF_RANGE;
+            }
             float fv = v;
             memcpy(&buf_[offset], reinterpret_cast<void*>(&fv), sizeof(float));
             break;
