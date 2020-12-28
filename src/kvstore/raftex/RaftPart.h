@@ -228,6 +228,8 @@ public:
 
     std::set<HostAddr> listeners() const;
 
+    std::pair<LogID, TermID> lastLogInfo() const;
+
 protected:
     // Protected constructor to prevent from instantiating directly
     RaftPart(

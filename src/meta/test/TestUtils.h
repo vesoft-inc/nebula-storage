@@ -96,8 +96,8 @@ public:
         return response(8);
     }
 
-
-    folly::Future<StatusOr<std::string>> createSnapshot() override {
+    folly::Future<StatusOr<std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>>
+    createSnapshot() override {
         return response(9);
     }
 

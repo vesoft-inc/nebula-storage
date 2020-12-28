@@ -13,13 +13,19 @@
 
 namespace nebula {
 namespace meta {
-ErrorOr<cpp2::ErrorCode, std::unordered_map<GraphSpaceID, std::vector<cpp2::CheckpointInfo>>>
+ErrorOr<cpp2::ErrorCode,
+        std::unordered_map<
+            GraphSpaceID,
+            std::pair<nebula::cpp2::PartitionBackupInfo, std::vector<cpp2::CheckpointInfo>>>>
 Snapshot::createSnapshot(const std::string& name) {
     auto retSpacesHosts = getSpacesHosts();
     if (!retSpacesHosts.ok()) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
-    std::unordered_map<GraphSpaceID, std::vector<cpp2::CheckpointInfo>> info;
+    std::unordered_map<
+        GraphSpaceID,
+        std::pair<nebula::cpp2::PartitionBackupInfo, std::vector<cpp2::CheckpointInfo>>>
+        info;
     auto spacesHosts = retSpacesHosts.value();
     for (const auto& spaceHosts : spacesHosts) {
         for (const auto& host : spaceHosts.second) {
@@ -27,8 +33,18 @@ Snapshot::createSnapshot(const std::string& name) {
             if (!status.ok()) {
                 return cpp2::ErrorCode::E_RPC_FAILURE;
             }
-            info[spaceHosts.first].emplace_back(
-                apache::thrift::FRAGILE, host, status.value());
+            auto infoPair = status.value();
+            auto it = info.find(spaceHosts.first);
+            if (it != info.cend()) {
+                it->second.second.emplace_back(
+                    apache::thrift::FRAGILE, host, std::move(infoPair.first));
+            } else {
+                cpp2::CheckpointInfo cpInfo;
+                cpInfo.set_host(host);
+                cpInfo.set_checkpoint_dir(std::move(infoPair.first));
+                std::vector<cpp2::CheckpointInfo> cpV = {std::move(cpInfo)};
+                info[spaceHosts.first] = std::make_pair(std::move(infoPair.second), std::move(cpV));
+            }
         }
     }
     return info;

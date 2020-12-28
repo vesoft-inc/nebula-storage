@@ -135,6 +135,12 @@ TEST(ProcessorTest, CreateBackupTest) {
             ASSERT_EQ(1, s.second.get_cp_dirs().size());
             auto checkInfo = s.second.get_cp_dirs()[0];
             ASSERT_EQ("snapshot_path", checkInfo.get_checkpoint_dir());
+
+            auto partitionInfo = s.second.get_partition_info();
+            ASSERT_EQ(partitionInfo.size(), 1);
+            for (auto p : partitionInfo) {
+                ASSERT_EQ(p.first, 1);
+            }
         }
     }
 }

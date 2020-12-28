@@ -34,7 +34,8 @@ public:
     virtual folly::Future<Status> removePart() = 0;
     virtual folly::Future<Status> checkPeers() = 0;
     virtual folly::Future<Status> getLeaderDist(HostLeaderMap* hostLeaderMap) = 0;
-    virtual folly::Future<StatusOr<std::string>> createSnapshot() = 0;
+    virtual folly::Future<StatusOr<std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>>
+    createSnapshot() = 0;
     virtual folly::Future<Status> dropSnapshot() = 0;
     virtual folly::Future<Status> blockingWrites() = 0;
     virtual folly::Future<Status> rebuildTagIndex() = 0;
@@ -103,9 +104,8 @@ public:
 
     folly::Future<Status> getLeaderDist(HostLeaderMap* result);
 
-    folly::Future<StatusOr<std::string>> createSnapshot(GraphSpaceID spaceId,
-                                         const std::string& name,
-                                         const HostAddr& host);
+    folly::Future<StatusOr<std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>>
+    createSnapshot(GraphSpaceID spaceId, const std::string& name, const HostAddr& host);
 
     folly::Future<Status> dropSnapshot(GraphSpaceID spaceId,
                                        const std::string& name,
