@@ -560,7 +560,7 @@ WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
             if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
-            auto ts = ret.value();
+            auto ts = ret.value().getInt();
             memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
@@ -636,7 +636,7 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
             if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
-            auto ts = ret.value();
+            auto ts = ret.value().getInt();
             memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
