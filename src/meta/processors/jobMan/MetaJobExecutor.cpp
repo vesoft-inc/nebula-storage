@@ -164,7 +164,6 @@ ExecuteRet MetaJobExecutor::execute() {
     for (auto& address : addresses) {
         // transform to the admin host
         auto& host = address.first;
-        ret[host] = nebula::Status::Error();
         auto fut = executeInternal(Utils::getAdminAddrFromStoreAddr(host),
                                       std::move(address.second));
         std::move(fut).thenTry([&](auto&& t) {
@@ -172,6 +171,8 @@ ExecuteRet MetaJobExecutor::execute() {
             --unfinishedTask;
             if (t.hasValue()) {
                 ret[host] = t.value();
+            } else {
+                ret[host] = nebula::Status::Error();
             }
             condInterrupt_.notify_one();
         });
