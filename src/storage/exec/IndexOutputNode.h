@@ -230,42 +230,48 @@ private:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
+    // Add the value by data val
     Status addIndexValue(Row& row, RowReader* reader,
                          const kvstore::KV& data, const std::string& col,
                          const meta::NebulaSchemaProvider* schema) {
-        nebula::Value v;
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? vId.toString()
-                    : vId.subpiece(0, vId.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(vId.data()));
+                } else {
+                    row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')).toString());
+                }
                 break;
             }
             case QueryUtils::ReturnColType::kTag : {
-                v = NebulaKeyUtils::getTagId(planContext_->vIdLen_, data.first);
+                row.emplace_back(NebulaKeyUtils::getTagId(planContext_->vIdLen_, data.first));
                 break;
             }
             case QueryUtils::ReturnColType::kSrc : {
                 auto src = NebulaKeyUtils::getSrcId(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? src.toString()
-                    : src.subpiece(0, src.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(src.data()));
+                } else {
+                    row.emplace_back(src.subpiece(0, src.find_first_of('\0')).toString());
+                }
                 break;
             }
             case QueryUtils::ReturnColType::kType : {
-                v = NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, data.first);
+                row.emplace_back(NebulaKeyUtils::getEdgeType(planContext_->vIdLen_, data.first));
                 break;
             }
             case QueryUtils::ReturnColType::kRank : {
-                v = NebulaKeyUtils::getRank(planContext_->vIdLen_, data.first);
+                row.emplace_back(NebulaKeyUtils::getRank(planContext_->vIdLen_, data.first));
                 break;
             }
             case QueryUtils::ReturnColType::kDst : {
                 auto dst = NebulaKeyUtils::getDstId(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? dst.toString()
-                    : dst.subpiece(0, dst.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(dst.data()));
+                } else {
+                    row.emplace_back(dst.subpiece(0, dst.find_first_of('\0')).toString());
+                }
                 break;
             }
             default: {
@@ -274,60 +280,64 @@ private:
                     VLOG(3) << "Bad value for field : " << col;
                     return retVal.status();
                 }
-                v = std::move(retVal.value());
+                row.emplace_back(std::move(retVal.value()));
             }
         }
-        row.emplace_back(std::move(v));
         return Status::OK();
     }
 
+    // Add the value by index key
     Status addIndexValue(Row& row, const kvstore::KV& data, const std::string& col) {
-        nebula::Value v;
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? vId.toString()
-                    : vId.subpiece(0, vId.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(vId.data()));
+                } else {
+                    row.emplace_back(vId.subpiece(0, vId.find_first_of('\0')).toString());
+                }
                 break;
             }
             case QueryUtils::ReturnColType::kTag : {
-                v = planContext_->tagId_;
+                row.emplace_back(planContext_->tagId_);
                 break;
             }
             case QueryUtils::ReturnColType::kSrc : {
                 auto src = IndexKeyUtils::getIndexSrcId(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? src.toString()
-                    : src.subpiece(0, src.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(src.data()));
+                } else {
+                    row.emplace_back(src.subpiece(0, src.find_first_of('\0')).toString());
+                }
                 break;
             }
             case QueryUtils::ReturnColType::kType : {
-                v = planContext_->edgeType_;
+                row.emplace_back(planContext_->edgeType_);
                 break;
             }
             case QueryUtils::ReturnColType::kRank : {
-                v = IndexKeyUtils::getIndexRank(planContext_->vIdLen_, data.first);
+                row.emplace_back(IndexKeyUtils::getIndexRank(planContext_->vIdLen_, data.first));
                 break;
             }
             case QueryUtils::ReturnColType::kDst : {
                 auto dst = IndexKeyUtils::getIndexDstId(planContext_->vIdLen_, data.first);
-                v = planContext_->isIntId_
-                    ? dst.toString()
-                    : dst.subpiece(0, dst.find_first_of('\0')).toString();
+                if (planContext_->isIntId_) {
+                    row.emplace_back(*reinterpret_cast<const int64_t*>(dst.data()));
+                } else {
+                    row.emplace_back(dst.subpiece(0, dst.find_first_of('\0')).toString());
+                }
                 break;
             }
             default: {
-                v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
-                                                        data.first,
-                                                        col,
-                                                        fields_,
-                                                        planContext_->isEdge_,
-                                                        hasNullableCol_);
+                auto v = IndexKeyUtils::getValueFromIndexKey(planContext_->vIdLen_,
+                                                             data.first,
+                                                             col,
+                                                             fields_,
+                                                             planContext_->isEdge_,
+                                                             hasNullableCol_);
+                row.emplace_back(std::move(v));
             }
         }
-
-        row.emplace_back(std::move(v));
         return Status::OK();
     }
 
