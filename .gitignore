@@ -13,6 +13,7 @@ install_manifest.txt
 .ccls
 .ccls-cache
 compile_commands.json
+.clangd/
 
 src/common/base/Base.h.gch
 gen-*
