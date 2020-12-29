@@ -5,7 +5,7 @@
  */
 
 #include "common/expression/ConstantExpression.h"
-#include "common/function/TimeFunction.h"
+#include "common/time/TimeUtils.h"
 
 #include "meta/processors/schemaMan/SchemaUtil.h"
 #include "utils/DefaultValueContext.h"
@@ -124,7 +124,12 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
                     break;
                 }
                 case cpp2::PropertyType::TIMESTAMP: {
-                    auto ret = TimeFunction::toTimestamp(value);
+                    if (!value.isInt()) {
+                        LOG(ERROR) << "Invalid default value for ` " << name
+                                   << "', value type is " << value.type();
+                        return false;
+                    }
+                    auto ret = time::TimeUtils::toTimestamp(value);
                     if (!ret.ok()) {
                         LOG(ERROR) << ret.status();
                         return false;

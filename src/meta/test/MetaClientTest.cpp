@@ -12,6 +12,7 @@
 #include "common/meta/GflagsManager.h"
 #include "common/conf/Configuration.h"
 #include "common/expression/ArithmeticExpression.h"
+#include "common/expression/FunctionCallExpression.h"
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include "meta/test/TestUtils.h"
@@ -608,12 +609,19 @@ TEST(MetaClientTest, TagTest) {
         auto result = client->getTagSchema(spaceId, "test_tag", version).get();
         ASSERT_FALSE(result.ok());
     }
-    auto genSchema = [] (Value value, PropertyType type) -> cpp2::Schema {
+    auto genSchema = [] (Value value, PropertyType type, bool isFunction = false) -> auto {
         std::vector<cpp2::ColumnDef> columns;
         columns.emplace_back();
         columns.back().set_name("colName");
         ConstantExpression valueExpr(std::move(value));
-        columns.back().set_default_value(Expression::encode(valueExpr));
+        if (isFunction) {
+            ArgumentList *argList = new ArgumentList();
+            argList->addArgument(std::make_unique<ConstantExpression>(std::move(valueExpr)));
+            FunctionCallExpression fExpr(new std::string("timestamp"), argList);
+            columns.back().set_default_value(Expression::encode(fExpr));
+        } else {
+            columns.back().set_default_value(Expression::encode(valueExpr));
+        }
         columns.back().type.set_type(type);
 
         cpp2::Schema schema;
@@ -629,10 +637,17 @@ TEST(MetaClientTest, TagTest) {
     }
     // Test wrong format timestamp in default value
     {
-        cpp2::Schema schema = genSchema("2010-10-10 10:00:00.1", PropertyType::TIMESTAMP);
+        cpp2::Schema schema = genSchema("2010-10-10 10:00:00", PropertyType::TIMESTAMP, true);
         auto result = client->createTagSchema(
                 spaceId, "test_tag_wrong_default_timestamp2", std::move(schema)).get();
         ASSERT_FALSE(result.ok());
+    }
+    // Test right format timestamp in default value
+    {
+        cpp2::Schema schema = genSchema("2010-10-10T10:00:00", PropertyType::TIMESTAMP, true);
+        auto result = client->createTagSchema(
+                spaceId, "test_tag_right_default_timestamp2", std::move(schema)).get();
+        ASSERT_TRUE(result.ok());
     }
     // Test out of range of int8
     {

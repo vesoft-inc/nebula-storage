@@ -4,7 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "common/function/TimeFunction.h"
+#include "common/time/TimeUtils.h"
 
 #include "codec/RowWriterV2.h"
 #include "utils/DefaultValueContext.h"
@@ -556,7 +556,7 @@ WriteResult RowWriterV2::write(ssize_t index, int32_t v) noexcept {
         }
         case meta::cpp2::PropertyType::TIMESTAMP: {
             // 32-bit timestamp can only support upto 2038-01-19
-            auto ret = TimeFunction::toTimestamp(v);
+            auto ret = time::TimeUtils::toTimestamp(v);
             if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
@@ -632,7 +632,7 @@ WriteResult RowWriterV2::write(ssize_t index, int64_t v) noexcept {
         }
         case meta::cpp2::PropertyType::TIMESTAMP: {
             // 64-bit timestamp has way broader time range
-            auto ret = TimeFunction::toTimestamp(v);
+            auto ret = time::TimeUtils::toTimestamp(v);
             if (!ret.ok()) {
                 return WriteResult::OUT_OF_RANGE;
             }
@@ -714,17 +714,6 @@ WriteResult RowWriterV2::write(ssize_t index, folly::StringPiece v) noexcept {
             if (len < field->size()) {
                 memset(&buf_[offset + len], 0, field->size() - len);
             }
-            break;
-        }
-        case meta::cpp2::PropertyType::TIMESTAMP: {
-            // 64-bit timestamp has way broader time range
-            auto ret = TimeFunction::toTimestamp(v.toString());
-            if (!ret.ok()) {
-                return WriteResult::INCORRECT_VALUE;
-            }
-
-            auto ts = ret.value();
-            memcpy(&buf_[offset], reinterpret_cast<void*>(&ts), sizeof(int64_t));
             break;
         }
         default:
