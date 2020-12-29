@@ -36,24 +36,6 @@ public:
 protected:
     folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) override;
-
-private:
-    cpp2::ErrorCode getSpaceInfo(GraphSpaceID spaceId, std::pair<int32_t, bool>& spaceInfo);
-
-    ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
-    genBalanceTasks(GraphSpaceID spaceId,
-                    int32_t spaceReplica,
-                    bool dependentOnGroup,
-                    std::vector<HostAddr>&& hostDel);
-
-    int32_t getHostParts(GraphSpaceID spaceId,
-                         bool dependentOnGroup,
-                         HostParts& hostParts);
-
-private:
-    mutable std::mutex lock_;
-    std::unique_ptr<BalancePlan> plan_;
-    std::unordered_map<HostAddr, ZoneParts> zoneParts_;
 };
 
 }  // namespace meta

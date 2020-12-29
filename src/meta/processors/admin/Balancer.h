@@ -228,6 +228,8 @@ private:
     std::unique_ptr<HostLeaderMap> hostLeaderMap_;
     mutable std::mutex lock_;
 
+    int32_t totalParts_;
+    std::unordered_map<HostAddr, int32_t> partsDistribution_;
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
     std::unordered_map<HostAddr, ZoneNameAndParts> zoneParts_;
 };

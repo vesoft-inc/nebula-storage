@@ -37,8 +37,6 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
-    $<TARGET_OBJECTS:common_time_function_obj>
-    $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
@@ -180,20 +178,26 @@ nebula_add_test(
 )
 
 
-nebula_add_test(
-    NAME
-        balance_integration_test
-    SOURCES
-        BalanceIntegrationTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+#nebula_add_test(
+#    NAME
+#        balance_integration_test
+#    SOURCES
+#        BalanceIntegrationTest.cpp
+#    OBJECTS
+#        $<TARGET_OBJECTS:index_obj>
+#        $<TARGET_OBJECTS:storage_service_handler>
+#        $<TARGET_OBJECTS:storage_client>
+#        $<TARGET_OBJECTS:dataman_obj>
+#        $<TARGET_OBJECTS:filter_obj>
+#        $<TARGET_OBJECTS:adHocSchema_obj>
+#        $<TARGET_OBJECTS:adHocIndex_obj>
+#        ${meta_test_deps}
+#    LIBRARIES
+#        ${ROCKSDB_LIBRARIES}
+#        ${THRIFT_LIBRARIES}
+#        wangle
+#        gtest
+#)
 
 
 nebula_add_test(

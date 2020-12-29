@@ -193,14 +193,22 @@ bool Balancer::getAllSpaces(std::vector<std::tuple<GraphSpaceID, int32_t, bool>>
 }
 
 cpp2::ErrorCode Balancer::buildBalancePlan(std::vector<HostAddr>&& hostDel) {
+    if (plan_ != nullptr) {
+        LOG(ERROR) << "Balance plan should be nullptr now";
+        return cpp2::ErrorCode::E_CONFLICT;
+    }
+
     std::vector<std::tuple<GraphSpaceID, int32_t, bool>> spaces;
     if (!getAllSpaces(spaces)) {
         LOG(ERROR) << "Can't get all spaces";
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
+
     plan_ = std::make_unique<BalancePlan>(time::WallClock::fastNowInSec(), kv_, client_);
     for (const auto& spaceInfo : spaces) {
-        auto taskRet = genTasks(std::get<0>(spaceInfo),
+        auto spaceId = std::get<0>(spaceInfo);
+        LOG(INFO) << "Balance Space " << spaceId;
+        auto taskRet = genTasks(spaceId,
                                 std::get<1>(spaceInfo),
                                 std::get<2>(spaceInfo),
                                 std::move(hostDel));
@@ -339,7 +347,29 @@ bool Balancer::balanceParts(BalanceID balanceId,
     int32_t minLoad = std::floor(avgLoad);
     int32_t maxLoad = std::ceil(avgLoad);
     VLOG(3) << "The min load is " << minLoad << " max load is " << maxLoad;
-    auto hosts = sortedHostsByParts(newHostParts);
+
+    for (auto it = partsDistribution_.begin(); it != partsDistribution_.end(); it++) {
+        LOG(INFO) << "Host " << it->first << " Part Size " << it->second;
+    }
+
+    std::unordered_map<HostAddr, int32_t> hps;
+    for (auto it = newHostParts.begin(); it != newHostParts.end(); it++) {
+        hps.emplace(it->first, it->second.size());
+    }
+
+    for (auto it = partsDistribution_.begin(); it != partsDistribution_.end(); it++) {
+        hps[it->first] += it->second;
+    }
+
+    std::vector<std::pair<HostAddr, int32_t>> hosts;
+    for (auto it = hps.begin(); it != hps.end(); it++) {
+        hosts.emplace_back(it->first, it->second);
+    }
+
+    std::sort(hosts.begin(), hosts.end(), [](const auto& l, const auto& r) {
+        return l.second < r.second;
+    });
+
     if (hosts.size() == 0) {
         LOG(ERROR) << "Host is empty";
         return false;
@@ -347,26 +377,23 @@ bool Balancer::balanceParts(BalanceID balanceId,
 
     auto maxPartsHost = hosts.back();
     auto minPartsHost = hosts.front();
-    auto lastDelta = maxPartsHost.second - minPartsHost.second + 1;
-    while (maxPartsHost.second > maxLoad ||
-           minPartsHost.second < minLoad ||
-           maxPartsHost.second - minPartsHost.second < lastDelta) {
+
+    while (maxPartsHost.second > maxLoad || minPartsHost.second < minLoad) {
         auto& partsFrom = newHostParts[maxPartsHost.first];
         auto& partsTo = newHostParts[minPartsHost.first];
         std::sort(partsFrom.begin(), partsFrom.end());
         std::sort(partsTo.begin(), partsTo.end());
 
-        VLOG(3) << maxPartsHost.first << ":" << partsFrom.size()
-                << " -> " << minPartsHost.first << ":" << partsTo.size()
-                << ", lastDelta = " << lastDelta;
+        LOG(INFO) << maxPartsHost.first << ":" << partsFrom.size()
+                  << " -> " << minPartsHost.first << ":" << partsTo.size();
         std::vector<PartitionID> diff;
         std::set_difference(partsFrom.begin(), partsFrom.end(), partsTo.begin(), partsTo.end(),
                             std::inserter(diff, diff.begin()));
         bool noAction = true;
         for (auto& partId : diff) {
-            VLOG(3) << "partsFrom size " << partsFrom.size()
-                    << " partsTo size " << partsTo.size()
-                    << " minLoad " << minLoad << " maxLoad " << maxLoad;
+            LOG(INFO) << "partsFrom size " << partsFrom.size()
+                      << " partsTo size " << partsTo.size()
+                      << " minLoad " << minLoad << " maxLoad " << maxLoad;
             if (partsFrom.size() == partsTo.size() + 1 ||
                 partsFrom.size() == (size_t)minLoad ||
                 partsTo.size() == (size_t)maxLoad) {
@@ -403,7 +430,6 @@ bool Balancer::balanceParts(BalanceID balanceId,
             LOG(INFO) << "Here is no action";
             break;
         }
-        lastDelta = maxPartsHost.second - minPartsHost.second;
         hosts = sortedHostsByParts(newHostParts);
         maxPartsHost = hosts.back();
         minPartsHost = hosts.front();
@@ -414,6 +440,11 @@ bool Balancer::balanceParts(BalanceID balanceId,
     LOG(INFO) << "Balance tasks num: " << tasks.size();
     for (auto& task : tasks) {
         LOG(INFO) << task.taskIdStr();
+    }
+
+    totalParts_ += totalParts;
+    for (auto it = newHostParts.begin(); it != newHostParts.end(); it++) {
+        partsDistribution_[it->first] += it->second.size();
     }
     return true;
 }
@@ -443,7 +474,7 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
         iter->next();
     }
 
-    LOG(INFO) << "Host parts size: " << hostParts.size();
+    LOG(INFO) << "Host size: " << hostParts.size();
     auto key = MetaServiceUtils::spaceKey(spaceId);
     std::string value;
     code = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &value);

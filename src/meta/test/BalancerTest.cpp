@@ -96,7 +96,7 @@ void showHostLoading(kvstore::KVStore* kv, GraphSpaceID spaceId) {
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
-    std::unordered_map<HostAddr, std::vector<PartitionID>> hostPart;
+    HostParts hostPart;
     while (iter->valid()) {
         auto key = iter->key();
         PartitionID partId;
@@ -115,6 +115,24 @@ void showHostLoading(kvstore::KVStore* kv, GraphSpaceID spaceId) {
         }
         LOG(INFO) << "Host: " << it->first << " parts: " << ss.str();
     }
+}
+
+HostParts assignHostParts(kvstore::KVStore* kv, GraphSpaceID spaceId) {
+    auto prefix = MetaServiceUtils::partPrefix(spaceId);
+    std::unique_ptr<kvstore::KVIterator> iter;
+    kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    HostParts hostPart;
+    while (iter->valid()) {
+        auto key = iter->key();
+        PartitionID partId;
+        memcpy(&partId, key.data() + prefix.size(), sizeof(PartitionID));
+        auto hs = MetaServiceUtils::parsePartVal(iter->val());
+        for (auto h : hs) {
+            hostPart[h].emplace_back(partId);
+        }
+        iter->next();
+    }
+    return hostPart;
 }
 
 TEST(BalanceTest, SimpleTestWithZone) {
@@ -159,7 +177,7 @@ TEST(BalanceTest, SimpleTestWithZone) {
     }
     sleep(1);
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4});
@@ -242,7 +260,7 @@ TEST(BalanceTest, ExpansionZoneTest) {
         TestUtils::assembleGroupAndZone(kv, zoneInfo, groupInfo);
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4});
@@ -322,7 +340,7 @@ TEST(BalanceTest, ExpansionHostIntoZoneTest) {
         TestUtils::assembleGroupAndZone(kv, zoneInfo, groupInfo);
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("1", 1), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("2", 2), std::vector<PartitionID>{1, 2, 3, 4});
@@ -471,7 +489,7 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithComplexZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_expired_threshold_sec = 1;
+    FLAGS_expired_threshold_sec = 10;
     std::vector<HostAddr> hosts;
     for (int i = 0; i < 18; i++) {
         hosts.emplace_back(std::to_string(i), i);
@@ -564,8 +582,21 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
     });
     NiceMock<MockAdminClient> client;
     Balancer balancer(kv, &client);
+
     {
-        auto dump = [](const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
+        int32_t totalParts = 18 * 3;
+        std::vector<BalanceTask> tasks;
+        auto hostParts = assignHostParts(kv, 1);
+        balancer.balanceParts(0, 1, hostParts, totalParts, tasks);
+    }
+    {
+        int32_t totalParts = 64 * 3;
+        std::vector<BalanceTask> tasks;
+        auto hostParts = assignHostParts(kv, 2);
+        balancer.balanceParts(0, 2, hostParts, totalParts, tasks);
+    }
+    {
+        auto dump = [](const HostParts& hostParts,
                        const std::vector<BalanceTask>& tasks) {
             for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
                 std::stringstream ss;
@@ -580,7 +611,7 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
             }
         };
 
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         std::vector<PartitionID> parts;
         for (int32_t i = 0; i< 81; i++) {
             parts.emplace_back(i);
@@ -594,19 +625,21 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
             }
         }
 
+        LOG(INFO) << "=== original map ====";
         int32_t totalParts = 243;
         std::vector<BalanceTask> tasks;
-        LOG(INFO) << "=== original map ====";
         dump(hostParts, tasks);
         balancer.balanceParts(0, 3, hostParts, totalParts, tasks);
+
         LOG(INFO) << "=== new map ====";
         dump(hostParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
-            // EXPECT_GE(it->second.size(), 13);
-            // EXPECT_LE(it->second.size(), 14);
+            EXPECT_GE(it->second.size(), 5);
+            EXPECT_LE(it->second.size(), 24);
 
             LOG(INFO) << "Host " << it->first << " Part Size " << it->second.size();
         }
+        showHostLoading(kv, 3);
     }
 }
 
@@ -620,9 +653,8 @@ TEST(BalanceTest, BalancePartsTest) {
         return folly::Future<Status>(Status::OK());
     });
     NiceMock<MockAdminClient> client;
-    Balancer balancer(kv, &client);
 
-    auto dump = [](const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
+    auto dump = [](const HostParts& hostParts,
                    const std::vector<BalanceTask>& tasks) {
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
             std::stringstream ss;
@@ -637,7 +669,7 @@ TEST(BalanceTest, BalancePartsTest) {
         }
     };
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4});
@@ -646,6 +678,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
+        Balancer balancer(kv, &client);
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
@@ -655,7 +688,7 @@ TEST(BalanceTest, BalancePartsTest) {
         EXPECT_EQ(3, tasks.size());
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4, 5});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 4, 5});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{2, 3, 4, 5});
@@ -664,6 +697,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
+        Balancer balancer(kv, &client);
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
@@ -674,7 +708,7 @@ TEST(BalanceTest, BalancePartsTest) {
         EXPECT_EQ(1, tasks.size());
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 4, 5});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{2, 3, 4, 5});
@@ -683,6 +717,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
+        Balancer balancer(kv, &client);
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
@@ -693,7 +728,7 @@ TEST(BalanceTest, BalancePartsTest) {
         EXPECT_EQ(0, tasks.size());
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -707,6 +742,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
+        Balancer balancer(kv, &client);
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
@@ -716,7 +752,7 @@ TEST(BalanceTest, BalancePartsTest) {
         EXPECT_EQ(18, tasks.size());
     }
     {
-        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        HostParts hostParts;
         hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
         hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
         hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -729,6 +765,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
+        Balancer balancer(kv, &client);
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
@@ -1331,7 +1368,7 @@ TEST(BalanceTest, StopAndRecoverTest) {
 
 TEST(BalanceTest, CleanLastInvalidBalancePlanTest) {
     FLAGS_task_concurrency = 1;
-    fs::TempDir rootPath("/tmp/BalanceTest.XXXXXX");
+    fs::TempDir rootPath("/tmp/CleanLastInvalidBalancePlanTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
     FLAGS_expired_threshold_sec = 1;
