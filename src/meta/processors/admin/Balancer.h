@@ -67,6 +67,7 @@ class Balancer {
     FRIEND_TEST(BalanceTest, ExpansionHostIntoZoneTest);
     FRIEND_TEST(BalanceTest, ShrinkZoneTest);
     FRIEND_TEST(BalanceTest, ShrinkHostFromZoneTest);
+    FRIEND_TEST(BalanceTest, BalanceWithComplexZoneTest);
     FRIEND_TEST(BalanceIntegrationTest, LeaderBalanceTest);
     FRIEND_TEST(BalanceIntegrationTest, BalanceTest);
 

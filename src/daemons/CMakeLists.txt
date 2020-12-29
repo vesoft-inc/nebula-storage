@@ -52,10 +52,10 @@ nebula_add_executable(
         $<TARGET_OBJECTS:storage_common_obj>
         ${common_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
 )
 
 
@@ -69,10 +69,10 @@ nebula_add_executable(
         $<TARGET_OBJECTS:meta_http_handler>
         ${common_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
 )
 
 install(

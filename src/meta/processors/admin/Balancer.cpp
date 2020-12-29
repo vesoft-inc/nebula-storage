@@ -338,7 +338,7 @@ bool Balancer::balanceParts(BalanceID balanceId,
     VLOG(3) << "The expect avg load is " << avgLoad;
     int32_t minLoad = std::floor(avgLoad);
     int32_t maxLoad = std::ceil(avgLoad);
-    LOG(INFO) << "The min load is " << minLoad << " max load is " << maxLoad;
+    VLOG(3) << "The min load is " << minLoad << " max load is " << maxLoad;
     auto hosts = sortedHostsByParts(newHostParts);
     if (hosts.size() == 0) {
         LOG(ERROR) << "Host is empty";
@@ -358,7 +358,7 @@ bool Balancer::balanceParts(BalanceID balanceId,
 
         VLOG(3) << maxPartsHost.first << ":" << partsFrom.size()
                 << " -> " << minPartsHost.first << ":" << partsTo.size()
-                << ", lastDelta=" << lastDelta;
+                << ", lastDelta = " << lastDelta;
         std::vector<PartitionID> diff;
         std::set_difference(partsFrom.begin(), partsFrom.end(), partsTo.begin(), partsTo.end(),
                             std::inserter(diff, diff.begin()));

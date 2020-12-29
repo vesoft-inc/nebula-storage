@@ -39,7 +39,6 @@ TEST(KVClientTest, SimpleTest) {
     auto storagePort = network::NetworkUtils::getAvailablePort();
     HostAddr storageAddr{storageName, storagePort};
 
-    auto metaName = network::NetworkUtils::getHostname();
     cluster.startMeta(metaPath.path());
     meta::MetaClientOptions options;
     options.localHost_ = storageAddr;

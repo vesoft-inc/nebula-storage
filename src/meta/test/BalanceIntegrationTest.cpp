@@ -71,7 +71,7 @@ void startMetaService(const char* rootPath) {
     auto handler = std::make_shared<nebula::meta::MetaServiceHandler>(store.get(), kClusterId);
     server->setInterface(std::move(handler));
     server->setPort(port);
-    auto thread = std::make_unique<thread::NamedThread>("meta", [this] {
+    auto thread = std::make_unique<thread::NamedThread>("meta", [&server] {
         server->serve();
         LOG(INFO) << "The meta server has been stopped";
     });

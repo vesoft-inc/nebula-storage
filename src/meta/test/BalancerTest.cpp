@@ -166,10 +166,8 @@ TEST(BalanceTest, SimpleTestWithZone) {
         hostParts.emplace(HostAddr("3", 0), std::vector<PartitionID>{});
         int32_t totalParts = 12;
         std::vector<BalanceTask> tasks;
-        // std::unique_ptr<AdminClient> client(new AdminClient(kv));
         NiceMock<MockAdminClient> client;
         Balancer balancer(kv, &client);
-        // std::unique_ptr<Balancer> balancer(new Balancer(kv, client));
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
             EXPECT_EQ(3, it->second.size());
@@ -469,7 +467,6 @@ TEST(BalanceTest, ShrinkHostFromZoneTest) {
     ASSERT_TRUE(ok(ret));
 }
 
-// TODO (darion):
 TEST(BalanceTest, BalanceWithComplexZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithComplexZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
@@ -512,7 +509,7 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
         {
             cpp2::SpaceDesc properties;
             properties.set_space_name("default_space");
-            properties.set_partition_num(9);
+            properties.set_partition_num(18);
             properties.set_replica_factor(3);
             cpp2::CreateSpaceReq req;
             req.set_properties(std::move(properties));
@@ -522,6 +519,8 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
             auto resp = std::move(f).get();
             ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
             ASSERT_EQ(1, resp.get_id().get_space_id());
+            LOG(INFO) << "Show host about space " << resp.get_id().get_space_id();
+            showHostLoading(kv, resp.get_id().get_space_id());
         }
         {
             cpp2::SpaceDesc properties;
@@ -537,6 +536,8 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
             auto resp = std::move(f).get();
             ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
             ASSERT_EQ(2, resp.get_id().get_space_id());
+            LOG(INFO) << "Show host about space " << resp.get_id().get_space_id();
+            showHostLoading(kv, resp.get_id().get_space_id());
         }
         {
             cpp2::SpaceDesc properties;
@@ -552,17 +553,75 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
             auto resp = std::move(f).get();
             ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
             ASSERT_EQ(3, resp.get_id().get_space_id());
+            LOG(INFO) << "Show host about space " << resp.get_id().get_space_id();
+            showHostLoading(kv, resp.get_id().get_space_id());
         }
     }
-    showHostLoading(kv, 3);
     sleep(1);
-    // std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    // std::unique_ptr<Balancer> balancer(new Balancer(kv, std::move(client)));
+
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+    {
+        auto dump = [](const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
+                       const std::vector<BalanceTask>& tasks) {
+            for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
+                std::stringstream ss;
+                ss << it->first << ": ";
+                for (auto partId : it->second) {
+                    ss << partId << ", ";
+                }
+                LOG(INFO) << ss.str() << " size " << it->second.size();
+            }
+            for (const auto& task : tasks) {
+                LOG(INFO) << task.taskIdStr();
+            }
+        };
+
+        std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
+        std::vector<PartitionID> parts;
+        for (int32_t i = 0; i< 81; i++) {
+            parts.emplace_back(i);
+        }
+
+        for (int32_t i = 0; i< 18; i++) {
+            if (i == 10 || i == 12 || i == 14) {
+                hostParts.emplace(HostAddr(std::to_string(i), i), parts);
+            } else {
+                hostParts.emplace(HostAddr(std::to_string(i), i), std::vector<PartitionID>{});
+            }
+        }
+
+        int32_t totalParts = 243;
+        std::vector<BalanceTask> tasks;
+        LOG(INFO) << "=== original map ====";
+        dump(hostParts, tasks);
+        balancer.balanceParts(0, 3, hostParts, totalParts, tasks);
+        LOG(INFO) << "=== new map ====";
+        dump(hostParts, tasks);
+        for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
+            // EXPECT_GE(it->second.size(), 13);
+            // EXPECT_LE(it->second.size(), 14);
+
+            LOG(INFO) << "Host " << it->first << " Part Size " << it->second.size();
+        }
+    }
 }
 
 
 TEST(BalanceTest, BalancePartsTest) {
-    std::unique_ptr<Balancer> balancer(new Balancer(nullptr, nullptr));
+    fs::TempDir rootPath("/tmp/BalancePartsTest.XXXXXX");
+    auto store = MockCluster::initMetaKV(rootPath.path());
+    auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
+
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+
     auto dump = [](const std::unordered_map<HostAddr, std::vector<PartitionID>>& hostParts,
                    const std::vector<BalanceTask>& tasks) {
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
@@ -587,7 +646,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
-        balancer->balanceParts(0, 0, hostParts, totalParts, tasks);
+        balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
@@ -605,7 +664,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
-        balancer->balanceParts(0, 0, hostParts, totalParts, tasks);
+        balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
         EXPECT_EQ(4, hostParts[HostAddr("0", 0)].size());
@@ -624,7 +683,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
-        balancer->balanceParts(0, 0, hostParts, totalParts, tasks);
+        balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
         EXPECT_EQ(4, hostParts[HostAddr("0", 0)].size());
@@ -648,7 +707,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
-        balancer->balanceParts(0, 0, hostParts, totalParts, tasks);
+        balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
@@ -670,7 +729,7 @@ TEST(BalanceTest, BalancePartsTest) {
         std::vector<BalanceTask> tasks;
         VLOG(1) << "=== original map ====";
         dump(hostParts, tasks);
-        balancer->balanceParts(0, 0, hostParts, totalParts, tasks);
+        balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         VLOG(1) << "=== new map ====";
         dump(hostParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
@@ -1369,8 +1428,11 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
     // 9 partition in space 1, 3 replica, 3 hosts
     TestUtils::assembleSpace(kv, 1, 9, 3, 3);
 
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
     {
         HostLeaderMap hostLeaderMap;
         hostLeaderMap[HostAddr("0", 0)][1] = {1, 2, 3, 4, 5};
@@ -1379,15 +1441,15 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         auto tempMap = hostLeaderMap;
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
 
         // check two plan build are same
         LeaderBalancePlan tempPlan;
-        auto tempLeaderBalanceResult = balancer->buildLeaderBalancePlan(&tempMap, 1, 3, false,
-                                                                        tempPlan, false);
+        auto tempLeaderBalanceResult = balancer.buildLeaderBalancePlan(&tempMap, 1, 3, false,
+                                                                       tempPlan, false);
         ASSERT_TRUE(tempLeaderBalanceResult);
         verifyLeaderBalancePlan(tempMap, tempPlan, 3, 3);
 
@@ -1403,8 +1465,8 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {9};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
     }
@@ -1415,8 +1477,8 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
     }
@@ -1427,8 +1489,8 @@ TEST(BalanceTest, SimpleLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("2", 2)][1] = {7, 8, 9};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 3, 3);
     }
@@ -1443,8 +1505,12 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
     // 7 partition in space 1, 3 replica, 6 hosts, so not all hosts have intersection parts
     TestUtils::assembleSpace(kv, 1, 7, 3, 6);
 
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+
     {
         HostLeaderMap hostLeaderMap;
         hostLeaderMap[HostAddr("0", 0)][1] = {4, 5, 6};
@@ -1456,8 +1522,8 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         showHostLoading(kv, 1);
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1471,8 +1537,8 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {3, 4};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1486,8 +1552,8 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1501,8 +1567,8 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1516,8 +1582,8 @@ TEST(BalanceTest, IntersectHostsLeaderBalancePlanTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {5};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan, false);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan, false);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1543,8 +1609,12 @@ TEST(BalanceTest, ManyHostsLeaderBalancePlanTest) {
     int32_t minLoad = std::floor(avgLoad * (1 - FLAGS_leader_balance_deviation));
     int32_t maxLoad = std::ceil(avgLoad * (1 + FLAGS_leader_balance_deviation));
 
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+
     // chcek several times if they are balanced
     for (int count = 0; count < 1; count++) {
         HostLeaderMap hostLeaderMap;
@@ -1561,8 +1631,8 @@ TEST(BalanceTest, ManyHostsLeaderBalancePlanTest) {
         }
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    false, plan);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   false, plan);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, minLoad, maxLoad);
     }
@@ -1634,8 +1704,12 @@ TEST(BalanceTest, LeaderBalanceWithZoneTest) {
     }
 
     sleep(1);
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+
     {
         HostLeaderMap hostLeaderMap;
         hostLeaderMap[HostAddr("0", 0)][1] = {1, 3, 5, 7};
@@ -1646,8 +1720,8 @@ TEST(BalanceTest, LeaderBalanceWithZoneTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    true, plan, true);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   true, plan, true);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1661,8 +1735,8 @@ TEST(BalanceTest, LeaderBalanceWithZoneTest) {
         hostLeaderMap[HostAddr("5", 5)][1] = {};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    true, plan, true);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   true, plan, true);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 2);
     }
@@ -1711,8 +1785,11 @@ TEST(BalanceTest, LeaderBalanceWithLargerZoneTest) {
     }
 
     sleep(1);
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
     {
         HostLeaderMap hostLeaderMap;
         hostLeaderMap[HostAddr("0", 0)][1] = {1, 5, 8};
@@ -1726,8 +1803,8 @@ TEST(BalanceTest, LeaderBalanceWithLargerZoneTest) {
         hostLeaderMap[HostAddr("8", 8)][1] = {};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
-                                                                    true, plan, true);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   true, plan, true);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 0, 1);
     }
@@ -1822,8 +1899,12 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
     }
     showHostLoading(kv, 3);
     sleep(1);
-    std::unique_ptr<AdminClient> client(new AdminClient(kv));
-    std::unique_ptr<Balancer> balancer(new Balancer(kv, client.get()));
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+
     {
         HostLeaderMap hostLeaderMap;
         hostLeaderMap[HostAddr("0", 0)][3] = {};
@@ -1849,8 +1930,8 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
         hostLeaderMap[HostAddr("17", 17)][3] = {36, 38};
 
         LeaderBalancePlan plan;
-        auto leaderBalanceResult = balancer->buildLeaderBalancePlan(&hostLeaderMap, 3, 3,
-                                                                    true, plan, true);
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 3, 3,
+                                                                   true, plan, true);
         ASSERT_TRUE(leaderBalanceResult);
         verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 9);
     }
