@@ -1092,7 +1092,7 @@ TEST(BalanceTest, StopAndRecoverTest) {
             BalanceTask task;
             // PartitionID partId = std::get<2>(BalanceTask::MetaServiceUtils(iter->key()));
             {
-                auto tup = MetaServiceUtils::parseBalancePlanVal(iter->val());
+                auto tup = MetaServiceUtils::parseBalanceTaskVal(iter->val());
                 task.status_ = std::get<0>(tup);
                 task.ret_ = std::get<1>(tup);
                 task.startTimeMs_ = std::get<2>(tup);
@@ -1131,7 +1131,7 @@ TEST(BalanceTest, StopAndRecoverTest) {
         while (iter->valid()) {
             BalanceTask task;
             {
-                auto tup = MetaServiceUtils::parseBalancePlanVal(iter->val());
+                auto tup = MetaServiceUtils::parseBalanceTaskVal(iter->val());
                 task.status_ = std::get<0>(tup);
                 ASSERT_EQ(BalanceTaskStatus::END, task.status_);
                 task.ret_ = std::get<1>(tup);
