@@ -46,10 +46,10 @@ jobs:
       env:
         TOOLSET_DIR: /opt/vesoft/toolset/clang/9.0.0
         CCACHE_DIR: /tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}
-        CCACHE_MAXSIZE: 1G
+        CCACHE_MAXSIZE: 6G
       volumes:
         - /tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}:/tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}
-      options: --mount type=tmpfs,destination=/tmp/ccache/nebula-storage,tmpfs-size=1073741824 --cap-add=SYS_PTRACE
+      options: --cap-add=SYS_PTRACE
     steps:
       - uses: actions/checkout@v2
         with:
