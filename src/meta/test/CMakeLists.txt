@@ -185,28 +185,20 @@ nebula_add_test(
         gmock
 )
 
-
-#nebula_add_test(
-#    NAME
-#        balance_integration_test
-#    SOURCES
-#        BalanceIntegrationTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:index_obj>
-#        $<TARGET_OBJECTS:storage_service_handler>
-#        $<TARGET_OBJECTS:storage_client>
-#        $<TARGET_OBJECTS:dataman_obj>
-#        $<TARGET_OBJECTS:filter_obj>
-#        $<TARGET_OBJECTS:adHocSchema_obj>
-#        $<TARGET_OBJECTS:adHocIndex_obj>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        wangle
-#        gtest
-#)
-
+nebula_add_test(
+    NAME
+        balance_integration_test
+    SOURCES
+        BalanceIntegrationTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+)
 
 nebula_add_test(
     NAME
