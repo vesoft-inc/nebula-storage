@@ -4,6 +4,9 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#ifndef VERSION_VERSION_H_
+#define VERSION_VERSION_H_
+
 #include <string>
 
 namespace nebula {
@@ -14,3 +17,5 @@ std::string versionString();
 
 }   // namespace storage
 }   // namespace nebula
+
+#endif   // VERSION_VERSION_H_
