@@ -126,7 +126,9 @@ bool StorageServer::start() {
     if (!listenerPath_.empty()) {
         options.role_ = nebula::meta::cpp2::HostRole::LISTENER;
     }
+#if defined(GIT_INFO_SHA)
     options.gitInfoSHA_ = NEBULA_STRINGIFY(GIT_INFO_SHA);
+#endif
 
     metaClient_ = std::make_unique<meta::MetaClient>(ioThreadPool_,
                                                      metaAddrs_,
