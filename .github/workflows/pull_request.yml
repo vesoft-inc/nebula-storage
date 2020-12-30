@@ -107,7 +107,7 @@ jobs:
             ;;
           esac
       - name: Make storage
-        run: cmake --build build/ -j $(nproc)
+        run: cmake --build build/ -j $(($(nproc)/2+1))
       - name: CTest
         env:
           ASAN_OPTIONS: fast_unwind_on_malloc=1
