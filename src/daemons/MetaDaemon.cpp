@@ -26,6 +26,7 @@
 #include "meta/processors/jobMan/JobManager.h"
 #include "meta/RootUserMan.h"
 #include "meta/MetaServiceUtils.h"
+#include "version/Version.h"
 
 using nebula::operator<<;
 using nebula::ProcessUtils;
@@ -180,7 +181,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    google::SetVersionString(nebula::versionString());
+    google::SetVersionString(nebula::storage::versionString());
     folly::init(&argc, &argv, true);
     if (FLAGS_data_path.empty()) {
         LOG(ERROR) << "Meta Data Path should not empty";
