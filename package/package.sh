@@ -79,7 +79,6 @@ function build {
     build_type=$3
     branch=$4
     build_dir=$PROJECT_DIR/build
-    git_info_sha=$(git rev-parse --short HEAD)
     if [[ -d $build_dir ]]; then
         rm -rf ${build_dir}/*
     else
@@ -91,7 +90,6 @@ function build {
     cmake \
         -DCMAKE_BUILD_TYPE=${build_type} \
         -DNEBULA_BUILD_VERSION=${version} \
-        -DGIT_INFO_SHA=${git_info_sha} \
         -DNEBULA_COMMON_REPO_TAG=${branch} \
         -DENABLE_ASAN=${san} \
         -DENABLE_UBSAN=${san} \
