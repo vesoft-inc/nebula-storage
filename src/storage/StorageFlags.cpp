@@ -45,7 +45,3 @@ DEFINE_uint64(default_mvcc_ver, 0L, "vertex/edge version if enable_multi_version
 DEFINE_string(reader_handlers_type, "cpu", "Type of reader handlers, options: cpu,io");
 
 DEFINE_bool(trace_toss, false, "output verbose log of toss");
-
-DEFINE_bool(redirect_stdout, true, "Whether to redirect stdout and stderr to separate files");
-DEFINE_string(stdout_log_file, "stdout.log", "Destination filename of stdout");
-DEFINE_string(stderr_log_file, "stderr.log", "Destination filename of stderr");

@@ -39,8 +39,4 @@ DECLARE_string(reader_handlers_type);
 
 DECLARE_bool(trace_toss);
 
-DECLARE_bool(redirect_stdout);
-DECLARE_string(stdout_log_file);
-DECLARE_string(stderr_log_file);
-
 #endif  // STORAGE_STORAGEFLAGS_H_

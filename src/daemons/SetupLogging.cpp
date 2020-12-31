@@ -6,11 +6,16 @@
 
 #include "common/base/Base.h"
 #include "common/base/Status.h"
-#include "storage/StorageFlags.h"
+
+DECLARE_string(log_dir);
+
+DEFINE_bool(redirect_stdout, true, "Whether to redirect stdout and stderr to separate files");
+DEFINE_string(stdout_log_file, "stdout.log", "Destination filename of stdout");
+DEFINE_string(stderr_log_file, "stderr.log", "Destination filename of stderr");
 
 using nebula::Status;
 
-static Status setupLogging() {
+Status setupLogging() {
     if (!FLAGS_redirect_stdout) {
         return Status::OK();
     }
