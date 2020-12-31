@@ -1864,7 +1864,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_header().get_code());
     }
     // Add col with out of range of fixed string
     {
@@ -1889,7 +1889,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
 
         // check result
         cpp2::GetTagReq getReq;
@@ -1901,7 +1901,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto resp1 = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_header().get_code());
         std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
         bool expected = false;
         for (const auto &col : cols) {
@@ -2361,7 +2361,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_header().get_code());
     }
     // Add col with out of range of fixed string
     {
@@ -2386,7 +2386,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
 
         // check result
         cpp2::GetEdgeReq getReq;
@@ -2398,7 +2398,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto resp1 = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_header().get_code());
         std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
         bool expected = false;
         for (const auto &col : cols) {

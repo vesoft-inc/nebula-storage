@@ -212,7 +212,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     backup.set_backup_info(std::move(backupInfo));
     backup.set_backup_name(std::move(backupName));
 
-    resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
+    resp_.header.set_code(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_meta(std::move(backup));
     LOG(INFO) << "backup done";
 

@@ -122,8 +122,8 @@ TEST(ProcessorTest, CreateBackupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        LOG(INFO) << folly::to<int>(resp.get_code());
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        LOG(INFO) << folly::to<int>(resp.get_header().get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
         auto meta = resp.get_meta();
         for (auto m : meta.get_meta_files()) {
             LOG(INFO) << "meta files name:" << m;

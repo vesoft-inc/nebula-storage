@@ -110,7 +110,7 @@ TEST(RestoreProcessorTest, RestoreTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
 
         kvstore::ResultCode result;
         std::unique_ptr<kvstore::KVIterator> iter;

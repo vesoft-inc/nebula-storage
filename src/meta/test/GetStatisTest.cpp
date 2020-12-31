@@ -314,7 +314,7 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -353,7 +353,7 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -435,7 +435,7 @@ TEST_F(GetStatisTest, MockMultiMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
