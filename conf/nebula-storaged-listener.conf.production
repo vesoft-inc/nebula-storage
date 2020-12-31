@@ -14,6 +14,11 @@
 --v=0
 # Maximum seconds to buffer the log messages
 --logbufsecs=0
+# Whether to redirect stdout and stderr to separate output files
+--redirect_stdout=true
+# Destination filename of stdout and stderr, which will also reside in log_dir.
+--stdout_log_file=storaged-stdout.log
+--stderr_log_file=storaged-stderr.log
 
 ########## networking ##########
 # Meta server address
@@ -42,4 +47,3 @@
 --engine_type=rocksdb
 # The type of part, `simple', `consensus'...
 --part_type=simple
-
