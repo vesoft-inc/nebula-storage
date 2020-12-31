@@ -6,8 +6,9 @@
 
 #include "common/base/Base.h"
 #include "common/base/Status.h"
-
 #include "storage/StorageFlags.h"
+
+using nebula::Status;
 
 static Status setupLogging() {
     if (!FLAGS_redirect_stdout) {
@@ -29,17 +30,7 @@ static Status setupLogging() {
         return Status::OK();
     };
 
-    Status status = Status::OK();
-    do {
-        status = dup(FLAGS_stdout_log_file, stdout);
-        if (!status.ok()) {
-            break;
-        }
-        status = dup(FLAGS_stderr_log_file, stderr);
-        if (!status.ok()) {
-            break;
-        }
-    } while (false);
-
-    return status;
+    NG_RETURN_IF_ERROR(dup(FLAGS_stdout_log_file, stdout));
+    NG_RETURN_IF_ERROR(dup(FLAGS_stderr_log_file, stderr));
+    return Status::OK();
 }
