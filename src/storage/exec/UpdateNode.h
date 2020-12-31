@@ -173,6 +173,7 @@ public:
         planContext_->env_->kvstore_->asyncAtomicOp(planContext_->spaceId_, partId,
             [&partId, &vId, this] ()
             -> folly::Optional<std::string> {
+                IndexCountWrapper wrapper(planContext_->env_);
                 this->exeResult_ = RelNode::execute(partId, vId);
 
                 if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
@@ -187,14 +188,14 @@ public:
                     if (filterNode_->valid()) {
                         this->reader_ = filterNode_->reader();
                     }
-                    // reset StorageExpressionContext reader_ to nullptr
+                    // reset StorageExpressionContext reader_, because it contains old value
                     this->expCtx_->reset();
 
                     if (!this->reader_ && this->insertable_) {
                         this->exeResult_ = this->insertTagProps(partId, vId);
                     } else if (this->reader_) {
                         this->key_ = filterNode_->key().str();
-                        this->exeResult_ = this->collTagProp();
+                        this->exeResult_ = this->collTagProp(vId);
                     } else {
                         this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     }
@@ -209,7 +210,6 @@ public:
                 }
             },
             [&ret, &baton, this] (kvstore::ResultCode code) {
-                planContext_->env_->onFlyingRequest_.fetch_sub(1);
                 if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                     this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                     ret = this->exeResult_;
@@ -219,7 +219,6 @@ public:
                 baton.post();
             });
         baton.wait();
-
         return ret;
     }
 
@@ -259,8 +258,10 @@ public:
             return ret;
         }
 
-        for (auto &e : props_) {
-            expCtx_->setTagProp(tagName_, e.first, e.second);
+        expCtx_->setTagProp(tagName_, kVid, vId);
+        expCtx_->setTagProp(tagName_, kTag, tagId_);
+        for (auto &p : props_) {
+            expCtx_->setTagProp(tagName_, p.first, p.second);
         }
 
         // build key, value is emtpy
@@ -277,7 +278,7 @@ public:
     }
 
     // collect tag prop
-    kvstore::ResultCode collTagProp() {
+    kvstore::ResultCode collTagProp(const VertexID& vId) {
         auto ret = getLatestTagSchemaAndName();
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
@@ -299,8 +300,10 @@ public:
             props_[propName] = std::move(retVal.value());
         }
 
-        for (auto &e : props_) {
-            expCtx_->setTagProp(tagName_, e.first, e.second);
+        expCtx_->setTagProp(tagName_, kVid, vId);
+        expCtx_->setTagProp(tagName_, kTag, tagId_);
+        for (auto &p : props_) {
+            expCtx_->setTagProp(tagName_, p.first, p.second);
         }
 
         // After alter tag, the schema get from meta and the schema in RowReader
@@ -313,7 +316,6 @@ public:
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const VertexID vId) {
-        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -355,7 +357,6 @@ public:
         if (!indexes_.empty()) {
             RowReaderWrapper nReader;
             for (auto& index : indexes_) {
-                auto indexId = index->get_index_id();
                 if (tagId_ == index->get_schema_id().get_tag_id()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -366,8 +367,7 @@ public:
                         auto oi = indexKey(partId, vId, reader_, index);
                         if (!oi.empty()) {
                             auto iState = planContext_->env_->getIndexState(planContext_->spaceId_,
-                                                                            partId,
-                                                                            indexId);
+                                                                            partId);
                             if (planContext_->env_->checkRebuilding(iState)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                                 batchHolder->put(std::move(deleteOpKey), std::move(oi));
@@ -393,8 +393,7 @@ public:
                     auto ni = indexKey(partId, vId, nReader.get(), index);
                     if (!ni.empty()) {
                         auto indexState = planContext_->env_->getIndexState(planContext_->spaceId_,
-                                                                            partId,
-                                                                            indexId);
+                                                                            partId);
                         if (planContext_->env_->checkRebuilding(indexState)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                    std::move(ni));
@@ -465,6 +464,7 @@ public:
         auto ret = kvstore::ResultCode::SUCCEEDED;
         // folly::Function<folly::Optional<std::string>(void)>
         auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
+            IndexCountWrapper wrapper(planContext_->env_);
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
                 if (edgeKey.edge_type != this->edgeType_) {
@@ -482,7 +482,7 @@ public:
                 if (filterNode_->valid()) {
                     this->reader_ = filterNode_->reader();
                 }
-                // reset StorageExpressionContext reader_ to nullptr
+                // reset StorageExpressionContext reader_ to clean old value in context
                 this->expCtx_->reset();
 
                 if (!this->reader_ && this->insertable_) {
@@ -505,7 +505,6 @@ public:
         };
 
         kvstore::KVCallback cb = [&ret, &baton, this] (kvstore::ResultCode code) {
-            planContext_->env_->onFlyingRequest_.fetch_sub(1);
             if (code == kvstore::ResultCode::ERR_ATOMIC_OP_FAILED &&
                 this->exeResult_ != kvstore::ResultCode::SUCCEEDED) {
                 ret = this->exeResult_;
@@ -517,8 +516,9 @@ public:
 
         if (planContext_->env_->txnMan_ &&
             planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
+            LOG(INFO) << "before update edge atomic" << TransactionUtils::dumpKey(edgeKey);
             auto f = planContext_->env_->txnMan_->updateEdgeAtomic(
-                planContext_->vIdLen_, planContext_->spaceId_, key_, std::move(op));
+                planContext_->vIdLen_, planContext_->spaceId_, partId, edgeKey, std::move(op));
             f.wait();
 
             if (f.valid()) {
@@ -571,7 +571,7 @@ public:
         }
 
         // build expression context
-        // add _src, _type, _rank, _dst
+        // add kSrc, kType, kRank, kDst
         expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
         expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
         expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
@@ -643,7 +643,6 @@ public:
 
     folly::Optional<std::string>
     updateAndWriteBack(const PartitionID partId, const cpp2::EdgeKey& edgeKey) {
-        planContext_->env_->onFlyingRequest_.fetch_add(1);
         for (auto& updateProp : updatedProps_) {
             auto propName = updateProp.get_name();
             auto updateExp = Expression::decode(updateProp.get_value());
@@ -683,7 +682,6 @@ public:
         if (!indexes_.empty()) {
             RowReaderWrapper nReader;
             for (auto& index : indexes_) {
-                auto indexId = index->get_index_id();
                 if (edgeType_ == index->get_schema_id().get_edge_type()) {
                     // step 1, delete old version index if exists.
                     if (!val_.empty()) {
@@ -694,8 +692,7 @@ public:
                         auto oi = indexKey(partId, reader_, edgeKey, index);
                         if (!oi.empty()) {
                             auto iState = planContext_->env_->getIndexState(planContext_->spaceId_,
-                                                                            partId,
-                                                                            indexId);
+                                                                            partId);
                             if (planContext_->env_->checkRebuilding(iState)) {
                                 auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
                                 batchHolder->put(std::move(deleteOpKey), std::move(oi));
@@ -722,8 +719,7 @@ public:
                     auto ni = indexKey(partId, nReader.get(), edgeKey, index);
                     if (!ni.empty()) {
                         auto indexState = planContext_->env_->getIndexState(planContext_->spaceId_,
-                                                                            partId,
-                                                                            indexId);
+                                                                            partId);
                         if (planContext_->env_->checkRebuilding(indexState)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                    std::move(ni));

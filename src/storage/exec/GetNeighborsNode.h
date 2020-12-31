@@ -49,7 +49,11 @@ public:
 
         std::vector<Value> row;
         // vertexId is the first column
-        row.emplace_back(vId);
+        if (planContext_->isIntId_) {
+            row.emplace_back(*reinterpret_cast<const int64_t*>(vId.data()));
+        } else {
+            row.emplace_back(vId);
+        }
         // second column is reserved for stat
         row.emplace_back(Value());
 
@@ -95,14 +99,9 @@ protected:
 
             list.reserve(props->size());
             // collect props need to return
-            auto ret = collectEdgeProps(reader,
-                                        key,
-                                        planContext_->vIdLen_,
-                                        planContext_->isIntId_,
-                                        props,
-                                        list);
-            if (ret != kvstore::ResultCode::SUCCEEDED) {
-                return ret;
+            if (!QueryUtils::collectEdgeProps(key, planContext_->vIdLen_, planContext_->isIntId_,
+                                              reader, props, list).ok()) {
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
             }
 
             // add edge prop value to the target column
@@ -163,7 +162,7 @@ private:
             }
 
             auto edgeType = std::get<0>(sample);
-            auto val = std::get<1>(sample);
+            const auto& val = std::get<1>(sample);
             reader = RowReaderWrapper::getEdgePropReader(planContext_->env_->schemaMan_,
                                                          planContext_->spaceId_,
                                                          std::abs(edgeType),
@@ -172,14 +171,11 @@ private:
                 continue;
             }
 
-            auto ret = collectEdgeProps(reader.get(),
-                                        std::get<2>(sample),
-                                        planContext_->vIdLen_,
-                                        planContext_->isIntId_,
-                                        std::get<3>(sample),
-                                        list);
-            if (ret != kvstore::ResultCode::SUCCEEDED) {
-                continue;
+            const auto& key = std::get<2>(sample);
+            const auto& props = std::get<3>(sample);
+            if (!QueryUtils::collectEdgeProps(key, planContext_->vIdLen_, planContext_->isIntId_,
+                                              reader.get(), props, list).ok()) {
+                return kvstore::ResultCode::ERR_EDGE_PROP_NOT_FOUND;
             }
             auto& cell = row[columnIdx].mutableList();
             cell.values.emplace_back(std::move(list));

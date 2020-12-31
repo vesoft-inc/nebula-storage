@@ -52,7 +52,7 @@ public:
 
     void startAll();
 
-    void startMeta(int32_t port, const std::string& rootPath, std::string hostname = "");
+    void startMeta(int32_t port, const std::string& rootPath, std::string hostname = "127.0.0.1");
 
     void startStorage(HostAddr addr,
                       const std::string& rootPath,
@@ -98,7 +98,8 @@ public:
                        SchemaVer schemaVerCount = 1,
                        bool hasProp = true,
                        bool hasListener = false,
-                       const std::vector<meta::cpp2::FTClient>& clients = {});
+                       const std::vector<meta::cpp2::FTClient>& clients = {},
+                       bool needCffBuilder = false);
 
     std::shared_ptr<apache::thrift::concurrency::PriorityThreadManager> getWorkers();
 

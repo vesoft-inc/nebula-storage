@@ -52,8 +52,9 @@ public:
 
     Status checkEdgeIndexed(GraphSpaceID space, EdgeType edgeType) override;
 
-    void init(nebula::meta::MetaClient *) override {
-    }
+    void init(nebula::meta::MetaClient *) {}
+
+    void removeTagIndex(GraphSpaceID space, IndexID indexID);
 
 protected:
     folly::RWSpinLock tagIndexLock_;

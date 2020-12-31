@@ -9,6 +9,7 @@
 #include "common/webservice/WebService.h"
 #include "common/webservice/Router.h"
 #include "common/meta/ServerBasedSchemaManager.h"
+#include "common/meta/ServerBasedIndexManager.h"
 #include "common/hdfs/HdfsCommandHelper.h"
 #include "common/thread/GenericThreadPool.h"
 #include "common/clients/storage/InternalStorageClient.h"
@@ -136,11 +137,10 @@ bool StorageServer::start() {
     }
 
     LOG(INFO) << "Init schema manager";
-    schemaMan_ = meta::SchemaManager::create(metaClient_.get());
+    schemaMan_ = meta::ServerBasedSchemaManager::create(metaClient_.get());
 
     LOG(INFO) << "Init index manager";
-    indexMan_ = meta::IndexManager::create();
-    indexMan_->init(metaClient_.get());
+    indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
 
     LOG(INFO) << "Init kvstore";
     kvstore_ = getStoreInstance();
@@ -264,18 +264,27 @@ bool StorageServer::start() {
 void StorageServer::waitUntilStop() {
     adminThread_->join();
     storageThread_->join();
+    internalStorageThread_->join();
 }
 
 void StorageServer::stop() {
-    ServiceStatus adminExpected = ServiceStatus::STATUS_RUNNING;
-    ServiceStatus storageExpected = ServiceStatus::STATUS_RUNNING;
-    if (!adminSvcStatus_.compare_exchange_strong(adminExpected, STATUS_STTOPED) &&
-        !storageSvcStatus_.compare_exchange_strong(storageExpected, STATUS_STTOPED)) {
+    if (adminSvcStatus_.load() == ServiceStatus::STATUS_STTOPED &&
+        storageSvcStatus_.load() == ServiceStatus::STATUS_STTOPED &&
+        internalStorageSvcStatus_.load() == ServiceStatus::STATUS_STTOPED) {
         LOG(INFO) << "All services has been stopped";
         return;
     }
-    stopped_ = true;
 
+    ServiceStatus adminExpected = ServiceStatus::STATUS_RUNNING;
+    adminSvcStatus_.compare_exchange_strong(adminExpected, STATUS_STTOPED);
+
+    ServiceStatus storageExpected = ServiceStatus::STATUS_RUNNING;
+    storageSvcStatus_.compare_exchange_strong(storageExpected, STATUS_STTOPED);
+
+    ServiceStatus interStorageExpected = ServiceStatus::STATUS_RUNNING;
+    internalStorageSvcStatus_.compare_exchange_strong(interStorageExpected, STATUS_STTOPED);
+
+    // kvstore need to stop back ground job before http server dctor
     if (kvstore_) {
         kvstore_->stop();
     }
@@ -285,7 +294,6 @@ void StorageServer::stop() {
     if (taskMgr_) {
         taskMgr_->shutdown();
     }
-
     if (metaClient_) {
         metaClient_->stop();
     }
@@ -294,6 +302,9 @@ void StorageServer::stop() {
     }
     if (adminServer_) {
         adminServer_->stop();
+    }
+    if (internalStorageServer_) {
+        internalStorageServer_->stop();
     }
     if (storageServer_) {
         storageServer_->stop();

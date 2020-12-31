@@ -51,6 +51,7 @@ DECLARE_int32(max_retry_times_admin_op);
 namespace nebula {
 namespace meta {
 
+// todo(doodle): replace with gmock
 class TestStorageService : public storage::cpp2::StorageAdminServiceSvIf {
 public:
     folly::Future<storage::cpp2::AdminExecResp>
@@ -83,9 +84,19 @@ public:
         RETURN_OK(req);
     }
 
-    folly::Future<storage::cpp2::AdminExecResp>
-    future_createCheckpoint(const storage::cpp2::CreateCPRequest& req) override {
-        RETURN_OK(req);
+    folly::Future<storage::cpp2::CreateCPResp> future_createCheckpoint(
+        const storage::cpp2::CreateCPRequest& req) override {
+        UNUSED(req);
+        folly::Promise<storage::cpp2::CreateCPResp> pro;
+        auto f = pro.getFuture();
+        storage::cpp2::CreateCPResp resp;
+        storage::cpp2::ResponseCommon result;
+        std::vector<storage::cpp2::PartitionResult> partRetCode;
+        result.set_failed_parts(partRetCode);
+        resp.set_result(result);
+        resp.set_path("snapshot_path");
+        pro.setValue(std::move(resp));
+        return f;
     }
 
     folly::Future<storage::cpp2::AdminExecResp>
@@ -111,12 +122,9 @@ public:
 
 class TestStorageServiceRetry : public TestStorageService {
 public:
-    TestStorageServiceRetry(int ip, Port port) {
-        leader_ = HostAddr(std::to_string(ip), port);
-    }
-
-    TestStorageServiceRetry(std::string addr, Port port) {
-        leader_ = HostAddr(addr, port);
+    TestStorageServiceRetry(std::string addr, Port adminPort) {
+        // when leader change returned, the port is always data port
+        leader_ = Utils::getStoreAddrFromAdminAddr(HostAddr(addr, adminPort));
     }
 
     folly::Future<storage::cpp2::AdminExecResp>

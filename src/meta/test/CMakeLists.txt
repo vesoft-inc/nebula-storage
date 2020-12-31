@@ -35,7 +35,6 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
-    $<TARGET_OBJECTS:common_time_function_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
@@ -183,6 +182,7 @@ nebula_add_test(
         proxygenlib
         wangle
         gtest
+        gmock
 )
 
 
@@ -291,6 +291,7 @@ nebula_add_test(
         proxygenlib
         wangle
         gtest
+        gmock
 )
 
 nebula_add_test(
@@ -308,6 +309,7 @@ nebula_add_test(
         proxygenlib
         wangle
         gtest
+        gmock
 )
 
 nebula_add_test(
@@ -315,6 +317,38 @@ nebula_add_test(
         group_zone_test
     SOURCES
         GroupZoneTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        proxygenhttpserver
+        proxygenlib
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        create_backup_test
+    SOURCES
+        CreateBackupProcessorTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        proxygenhttpserver
+        proxygenlib
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        restore_test
+    SOURCES
+        RestoreProcessorTest.cpp
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
