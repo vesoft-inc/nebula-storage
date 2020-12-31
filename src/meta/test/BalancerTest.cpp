@@ -1117,6 +1117,7 @@ TEST(BalanceTest, StopPlanTest) {
     ret = balancer.balance();
     CHECK(ok(ret));
     ASSERT_NE(value(ret), balanceId);
+    sleep(1);
 }
 
 TEST(BalanceTest, CleanLastInvalidBalancePlanTest) {
