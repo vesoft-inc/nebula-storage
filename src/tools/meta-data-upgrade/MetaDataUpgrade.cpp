@@ -5,6 +5,7 @@
  */
 
 
+#include "common/base/Base.h"
 #include "common/datatypes/Value.h"
 #include "common/datatypes/Map.h"
 #include "common/conf/Configuration.h"
