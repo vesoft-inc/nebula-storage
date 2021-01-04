@@ -33,7 +33,7 @@ static const std::unordered_map<
         {"parts", {"__parts__", MetaServiceUtils::parsePartKeySpaceId}},
         {"tags", {"__tags__", MetaServiceUtils::parseTagsKeySpaceID}},
         {"edges", {"__edges__", MetaServiceUtils::parseEdgesKeySpaceID}},
-        {"indexes", {"__indexes__", nullptr}},
+        {"indexes", {"__indexes__", MetaServiceUtils::parseIndexesKeySpaceID}},
         // Index tables are handled separately.
         {"index", {"__index__", nullptr}},
         {"index_status", {"__index_status__", MetaServiceUtils::parseIndexStatusKeySpaceID}},
