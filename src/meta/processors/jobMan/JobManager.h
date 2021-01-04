@@ -17,6 +17,7 @@
 #include "kvstore/NebulaStore.h"
 #include "meta/processors/jobMan/JobStatus.h"
 #include "meta/processors/jobMan/JobDescription.h"
+#include "meta/processors/jobMan/MetaJobExecutor.h"
 
 namespace nebula {
 namespace meta {
@@ -38,6 +39,8 @@ class JobManager : public nebula::cpp::NonCopyable, public nebula::cpp::NonMovab
     FRIEND_TEST(JobManagerTest, AddRebuildTagIndexJob);
     FRIEND_TEST(JobManagerTest, AddRebuildEdgeIndexJob);
     FRIEND_TEST(GetStatisTest, StatisJob);
+    FRIEND_TEST(GetStatisTest, MockSingleMachineTest);
+    FRIEND_TEST(GetStatisTest, MockMultiMachineTest);
 
 public:
     ~JobManager();
@@ -116,6 +119,7 @@ private:
     nebula::kvstore::KVStore*                          kvStore_{nullptr};
     std::unique_ptr<nebula::thread::GenericThreadPool> pool_{nullptr};
     AdminClient*                                       adminClient_{nullptr};
+    std::unique_ptr<meta::MetaJobExecutor>             currJob_{nullptr};
 };
 
 }  // namespace meta

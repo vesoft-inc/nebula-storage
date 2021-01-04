@@ -63,7 +63,7 @@ private:
     std::unique_ptr<apache::thrift::ThriftServer> adminServer_;
 
     std::unique_ptr<std::thread> internalStorageThread_;
-    std::atomic_int internalStorageSvcStatus_{STATUS_UNINITIALIZED};
+    std::atomic<ServiceStatus> internalStorageSvcStatus_{STATUS_UNINITIALIZED};
     std::unique_ptr<apache::thrift::ThriftServer> internalStorageServer_;
 
     std::unique_ptr<nebula::WebService> webSvc_;
@@ -76,7 +76,6 @@ private:
     std::unique_ptr<meta::IndexManager> indexMan_;
     std::unique_ptr<storage::StorageEnv> env_;
 
-    std::atomic_bool stopped_{false};
     HostAddr localHost_;
     std::vector<HostAddr> metaAddrs_;
     std::vector<std::string> dataPaths_;

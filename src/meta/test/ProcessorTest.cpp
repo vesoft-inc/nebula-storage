@@ -45,6 +45,7 @@
 #include "meta/processors/zoneMan/AddZoneProcessor.h"
 #include "meta/processors/zoneMan/ListZonesProcessor.h"
 #include "meta/processors/admin/CreateBackupProcessor.h"
+#include "version/Version.h"
 
 
 DECLARE_int32(expired_threshold_sec);
@@ -189,7 +190,7 @@ TEST(ProcessorTest, ListPartsTest) {
     // register HB with leader distribution
     {
         auto now = time::WallClock::fastNowInMilliSec();
-        HostInfo info(now, cpp2::HostRole::STORAGE, NEBULA_STRINGIFY(GIT_INFO_SHA));
+        HostInfo info(now, cpp2::HostRole::STORAGE, nebula::storage::gitInfoSha());
 
         LeaderParts leaderParts;
         leaderParts[1] = {1, 2, 3, 4, 5};
@@ -1842,6 +1843,81 @@ TEST(ProcessorTest, AlterTagTest) {
         auto resp = std::move(f).get();
         ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
     }
+    // Add col with wrong default value type
+    {
+        cpp2::AlterTagReq req;
+        std::vector<cpp2::AlterSchemaItem> items;
+        cpp2::Schema schema;
+        cpp2::ColumnDef column;
+        column.name = "add_col_mismatch_type";
+        column.type.set_type(PropertyType::INT64);
+        ConstantExpression strValue("default value");
+        column.set_default_value(Expression::encode(strValue));
+        schema.columns.emplace_back(std::move(column));
+
+        items.emplace_back();
+        items.back().set_op(cpp2::AlterSchemaOp::ADD);
+        items.back().set_schema(std::move(schema));
+        req.set_space_id(1);
+        req.set_tag_name("tag_0");
+        req.set_tag_items(items);
+        auto* processor = AlterTagProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+    }
+    // Add col with out of range of fixed string
+    {
+        cpp2::AlterTagReq req;
+        std::vector<cpp2::AlterSchemaItem> items;
+        cpp2::Schema schema;
+        cpp2::ColumnDef column;
+        column.name = "add_col_fixed_string_type";
+        column.type.set_type(PropertyType::FIXED_STRING);
+        column.type.set_type_length(5);;
+        ConstantExpression strValue("Hello world!");
+        column.set_default_value(Expression::encode(strValue));
+        schema.columns.emplace_back(std::move(column));
+
+        items.emplace_back();
+        items.back().set_op(cpp2::AlterSchemaOp::ADD);
+        items.back().set_schema(std::move(schema));
+        req.set_space_id(1);
+        req.set_tag_name("tag_0");
+        req.set_tag_items(items);
+        auto* processor = AlterTagProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+
+        // check result
+        cpp2::GetTagReq getReq;
+        getReq.set_space_id(1);
+        getReq.set_tag_name("tag_0");
+        getReq.set_version(-1);
+
+        auto* getProcessor = GetTagProcessor::instance(kv.get());
+        auto getFut = getProcessor->getFuture();
+        getProcessor->process(getReq);
+        auto resp1 = std::move(getFut).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
+        bool expected = false;
+        for (const auto &col : cols) {
+            if (col.get_name() == "add_col_fixed_string_type") {
+                ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
+                auto defaultValueExpr = Expression::decode(*col.get_default_value());
+                DefaultValueContext mContext;
+                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                ASSERT_TRUE(value.isStr());
+                ASSERT_EQ("Hello", value.getStr());
+                expected = true;
+            }
+        }
+        ASSERT_TRUE(expected);
+    }
 }
 
 
@@ -2263,6 +2339,81 @@ TEST(ProcessorTest, AlterEdgeTest) {
         processor->process(req);
         auto resp = std::move(f).get();
         ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+    }
+    // Add col with wrong default value type
+    {
+        cpp2::AlterEdgeReq req;
+        std::vector<cpp2::AlterSchemaItem> items;
+        cpp2::Schema schema;
+        cpp2::ColumnDef column;
+        column.name = "add_col_mismatch_type";
+        column.type.set_type(PropertyType::INT64);
+        ConstantExpression strValue("default value");
+        column.set_default_value(Expression::encode(strValue));
+        schema.columns.emplace_back(std::move(column));
+
+        items.emplace_back();
+        items.back().set_op(cpp2::AlterSchemaOp::ADD);
+        items.back().set_schema(std::move(schema));
+        req.set_space_id(1);
+        req.set_edge_name("edge_0");
+        req.set_edge_items(items);
+        auto* processor = AlterEdgeProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+    }
+    // Add col with out of range of fixed string
+    {
+        cpp2::AlterEdgeReq req;
+        std::vector<cpp2::AlterSchemaItem> items;
+        cpp2::Schema schema;
+        cpp2::ColumnDef column;
+        column.name = "add_col_fixed_string_type";
+        column.type.set_type(PropertyType::FIXED_STRING);
+        column.type.set_type_length(5);;
+        ConstantExpression strValue("Hello world!");
+        column.set_default_value(Expression::encode(strValue));
+        schema.columns.emplace_back(std::move(column));
+
+        items.emplace_back();
+        items.back().set_op(cpp2::AlterSchemaOp::ADD);
+        items.back().set_schema(std::move(schema));
+        req.set_space_id(1);
+        req.set_edge_name("edge_0");
+        req.set_edge_items(items);
+        auto* processor = AlterEdgeProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+
+        // check result
+        cpp2::GetEdgeReq getReq;
+        getReq.set_space_id(1);
+        getReq.set_edge_name("edge_0");
+        getReq.set_version(-1);
+
+        auto* getProcessor = GetEdgeProcessor::instance(kv.get());
+        auto getFut = getProcessor->getFuture();
+        getProcessor->process(getReq);
+        auto resp1 = std::move(getFut).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
+        bool expected = false;
+        for (const auto &col : cols) {
+            if (col.get_name() == "add_col_fixed_string_type") {
+                ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
+                auto defaultValueExpr = Expression::decode(*col.get_default_value());
+                DefaultValueContext mContext;
+                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                ASSERT_TRUE(value.isStr());
+                ASSERT_EQ("Hello", value.getStr());
+                expected = true;
+            }
+        }
+        ASSERT_TRUE(expected);
     }
 }
 

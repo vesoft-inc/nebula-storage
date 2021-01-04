@@ -10,6 +10,7 @@
 #include "common/process/ProcessUtils.h"
 #include "common/time/TimeUtils.h"
 #include "storage/StorageServer.h"
+#include "version/Version.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 
 
@@ -36,6 +37,7 @@ static Status setupSignalHandler();
 std::unique_ptr<nebula::storage::StorageServer> gStorageServer;
 
 int main(int argc, char *argv[]) {
+    google::SetVersionString(nebula::storage::versionString());
     // Detect if the server has already been started
     // Check pid before glog init, in case of user may start daemon twice
     // the 2nd will make the 1st failed to output log anymore
@@ -47,7 +49,6 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    google::SetVersionString(nebula::versionString());
     folly::init(&argc, &argv, true);
     if (FLAGS_daemonize) {
         google::SetStderrLogging(google::FATAL);

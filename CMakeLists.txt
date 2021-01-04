@@ -19,7 +19,6 @@
 #   NEBULA_COMMON_REPO_TAG         -- Tag/branch of the nebula-common repo
 #
 #   ENABLE_JEMALLOC                -- Link jemalloc into all executables
-#   ENABLE_NATIVE                  -- Build native client
 #   ENABLE_TESTING                 -- Build unit test
 #   ENABLE_PACK_ONE                -- Package to one or multi packages
 #
@@ -32,11 +31,6 @@ option(ENABLE_MODULE_UPDATE "Automatically update module" OFF)
 
 message(STATUS "ENABLE_PACK_ONE         : ${ENABLE_PACK_ONE}")
 message(STATUS "ENABLE_MODULE_UPDATE    : ${ENABLE_MODULE_UPDATE}")
-
-if (ENABLE_NATIVE)
-    message(STATUS "ENABLE_NATIVE is ${ENABLE_NATIVE}")
-    add_compile_options(-fPIC)
-endif()
 
 add_definitions(-DNEBULA_HOME=${CMAKE_SOURCE_DIR})
 
@@ -65,6 +59,7 @@ if(NOT NEBULA_COMMON_SOURCE_DIR)
     set(nebula_common_source_dir ${CMAKE_SOURCE_DIR}/modules/common)
     set(nebula_common_build_dir ${CMAKE_BINARY_DIR}/modules/common)
 else()
+    message(STATUS "NEBULA_COMMON_SOURCE_DIR: " ${NEBULA_COMMON_SOURCE_DIR})
     set(nebula_common_source_dir ${NEBULA_COMMON_SOURCE_DIR})
     if(NOT NEBULA_COMMON_BUILD_DIR)
         set(nebula_common_build_dir ${CMAKE_BINARY_DIR}/modules/common)

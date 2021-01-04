@@ -28,12 +28,16 @@ public:
         , vertexCache_(vertexCache) {}
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
+        // todo(doodle): revert to previous behavior, here is an extra io, will be deleted asap
         // check is vertex exists
         std::unique_ptr<kvstore::KVIterator> iter;
         auto prefix = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId, vId);
         auto ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_,
                                                         partId, prefix, &iter);
-        if (ret != kvstore::ResultCode::SUCCEEDED || iter == nullptr || !iter->valid()) {
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
+        }
+        if (iter == nullptr || !iter->valid()) {
             // not emplace row when vertex not exists
             return kvstore::ResultCode::SUCCEEDED;
         }
@@ -45,7 +49,11 @@ public:
 
         List row;
         // vertexId is the first column
-        row.emplace_back(vId);
+        if (planContext_->isIntId_) {
+            row.emplace_back(*reinterpret_cast<const int64_t*>(vId.data()));
+        } else {
+            row.emplace_back(vId);
+        }
         auto vIdLen = planContext_->vIdLen_;
         auto isIntId = planContext_->isIntId_;
         for (auto* tagNode : tagNodes_) {
