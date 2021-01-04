@@ -94,8 +94,8 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         return;
     }
 
-    auto hostDel = *req.get_host_del();
-    auto ret = Balancer::instance(kvstore_)->balance(std::move(hostDel));
+    auto lostHosts = *req.get_host_del();
+    auto ret = Balancer::instance(kvstore_)->balance(std::move(lostHosts));
     if (!ok(ret)) {
         LOG(ERROR) << "Balance Failed: " << static_cast<int32_t>(ret.left());
         handleErrorCode(error(ret));

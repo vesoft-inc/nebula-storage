@@ -145,10 +145,6 @@ std::string MetaServiceUtils::spaceName(folly::StringPiece rawVal) {
     return parseSpace(rawVal).get_space_name();
 }
 
-std::string MetaServiceUtils::spaceDependentGroupName(folly::StringPiece rawVal) {
-    return parseSpace(rawVal).group_name;
-}
-
 std::string MetaServiceUtils::partKey(GraphSpaceID spaceId, PartitionID partId) {
     std::string key;
     key.reserve(kPartsTable.size() + sizeof(GraphSpaceID) + sizeof(PartitionID));

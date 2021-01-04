@@ -44,10 +44,6 @@ public:
         tasks_.emplace_back(std::move(task));
     }
 
-    void addTasks(std::vector<BalanceTask>&& tasks) {
-        tasks_ = std::move(tasks);
-    }
-
     void invoke();
 
     /**

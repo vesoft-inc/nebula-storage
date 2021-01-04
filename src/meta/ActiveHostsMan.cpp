@@ -39,8 +39,8 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
 }
 
 std::vector<HostAddr> ActiveHostsMan::getActiveHosts(kvstore::KVStore* kv,
-                                                                      int32_t expiredTTL,
-                                                                      cpp2::HostRole role) {
+                                                     int32_t expiredTTL,
+                                                     cpp2::HostRole role) {
     std::vector<HostAddr> hosts;
     const auto& prefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -95,9 +95,9 @@ std::vector<HostAddr> ActiveHostsMan::getActiveHostsInZone(kvstore::KVStore* kv,
     return activeHosts;
 }
 
-std::vector<HostAddr> ActiveHostsMan::getActiveHostsBySpace(kvstore::KVStore* kv,
-                                                            GraphSpaceID spaceId,
-                                                            int32_t expiredTTL) {
+std::vector<HostAddr> ActiveHostsMan::getActiveHostsWithGroup(kvstore::KVStore* kv,
+                                                              GraphSpaceID spaceId,
+                                                              int32_t expiredTTL) {
     std::string spaceValue;
     std::vector<HostAddr> activeHosts;
     auto spaceKey = MetaServiceUtils::spaceKey(spaceId);

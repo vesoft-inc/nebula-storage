@@ -83,7 +83,7 @@ public:
     /*
      * Return Error if reject the balance request, otherwise return balance id.
      * */
-    ErrorOr<cpp2::ErrorCode, BalanceID> balance(std::vector<HostAddr>&& hostDel = {});
+    ErrorOr<cpp2::ErrorCode, BalanceID> balance(std::vector<HostAddr>&& lostHosts = {});
 
     /**
      * Show balance plan id status.
@@ -150,19 +150,26 @@ private:
     /**
      * Build balance plan and save it in kvstore.
      * */
-    cpp2::ErrorCode buildBalancePlan(std::vector<HostAddr>&& hostDel);
+    cpp2::ErrorCode buildBalancePlan(std::vector<HostAddr>&& lostHosts);
 
     ErrorOr<cpp2::ErrorCode, std::vector<BalanceTask>>
     genTasks(GraphSpaceID spaceId,
              int32_t spaceReplica,
              bool dependentOnGroup,
-             std::vector<HostAddr>&& hostDel);
+             std::vector<HostAddr>&& lostHosts);
+
+    ErrorOr<cpp2::ErrorCode, std::pair<HostParts, std::vector<HostAddr>>>
+    resetHostParts(GraphSpaceID spaceId,
+                   bool dependentOnGroup,
+                   HostParts& hostParts,
+                   std::vector<HostAddr>& lostHosts);
 
     bool getHostParts(GraphSpaceID spaceId,
                       bool dependentOnGroup,
                       HostParts& hostParts,
                       int32_t& totalParts);
 
+    bool assembleZoneParts(const std::string& groupName, HostParts& hostParts);
 
     void calDiff(const HostParts& hostParts,
                  const std::vector<HostAddr>& activeHosts,
@@ -174,8 +181,8 @@ private:
                         int32_t replica,
                         PartitionID partId);
 
-    StatusOr<std::vector<HostAddr>> hostWithMinimalParts(const HostParts& hostParts,
-                                                         PartitionID partId);
+    StatusOr<HostAddr> hostWithMinimalParts(const HostParts& hostParts,
+                                            PartitionID partId);
 
     bool balanceParts(BalanceID balanceId,
                       GraphSpaceID spaceId,
@@ -183,6 +190,12 @@ private:
                       int32_t totalParts,
                       std::vector<BalanceTask>& tasks);
 
+    bool transferLostHost(std::vector<BalanceTask>& tasks,
+                          HostParts& newHostParts,
+                          const HostAddr& source,
+                          GraphSpaceID spaceId,
+                          PartitionID partId,
+                          bool dependentOnGroup);
 
     std::vector<std::pair<HostAddr, int32_t>>
     sortedHostsByParts(const HostParts& hostParts);
@@ -213,6 +226,8 @@ private:
                           LeaderBalancePlan& plan,
                           GraphSpaceID spaceId);
 
+    bool collectZoneParts(const std::string& groupName, HostParts& hostParts);
+
     bool checkZoneLegal(const HostAddr& source, const HostAddr& destination, PartitionID part);
 
 private:
@@ -224,12 +239,13 @@ private:
     std::unique_ptr<folly::Executor> executor_;
     std::atomic_bool inLeaderBalance_{false};
 
+    // int32_t totalParts_;
+    // std::unordered_map<HostAddr, int32_t> partsDistribution_;
+
     // Host => Graph => Partitions
     std::unique_ptr<HostLeaderMap> hostLeaderMap_;
     mutable std::mutex lock_;
 
-    int32_t totalParts_;
-    std::unordered_map<HostAddr, int32_t> partsDistribution_;
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
     std::unordered_map<HostAddr, ZoneNameAndParts> zoneParts_;
 };
