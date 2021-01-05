@@ -240,6 +240,7 @@ func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) e
 			return err
 		}
 		i := 0
+		//We need to limit the number of ssh connections per storage node
 		for id2, cp := range idMap {
 			cmd := b.backendStorage.BackupStorageCommand(cp, k, id2)
 			if i >= len(clients) {
