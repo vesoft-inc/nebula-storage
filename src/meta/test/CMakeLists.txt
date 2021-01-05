@@ -1,4 +1,5 @@
 set(meta_test_deps
+    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:mock_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:general_storage_service_handler>
@@ -27,7 +28,6 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_meta_obj>
     $<TARGET_OBJECTS:common_stats_obj>
     $<TARGET_OBJECTS:common_fs_obj>
-    $<TARGET_OBJECTS:common_hdfs_helper_obj>
     $<TARGET_OBJECTS:common_time_obj>
     $<TARGET_OBJECTS:common_network_obj>
     $<TARGET_OBJECTS:common_thread_obj>

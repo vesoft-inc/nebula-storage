@@ -158,10 +158,10 @@ private:
              bool dependentOnGroup,
              std::vector<HostAddr>&& lostHosts);
 
-    ErrorOr<cpp2::ErrorCode, std::pair<HostParts, std::vector<HostAddr>>>
-    resetHostParts(GraphSpaceID spaceId,
+    std::pair<HostParts, std::vector<HostAddr>>
+    fetchHostParts(GraphSpaceID spaceId,
                    bool dependentOnGroup,
-                   HostParts& hostParts,
+                   const HostParts& hostParts,
                    std::vector<HostAddr>& lostHosts);
 
     bool getHostParts(GraphSpaceID spaceId,
@@ -184,6 +184,9 @@ private:
     StatusOr<HostAddr> hostWithMinimalParts(const HostParts& hostParts,
                                             PartitionID partId);
 
+    StatusOr<HostAddr> hostWithMinimalPartsForZone(const HostAddr& source,
+                                                   const HostParts& hostParts,
+                                                   PartitionID partId);
     bool balanceParts(BalanceID balanceId,
                       GraphSpaceID spaceId,
                       HostParts& newHostParts,
@@ -228,7 +231,7 @@ private:
 
     bool collectZoneParts(const std::string& groupName, HostParts& hostParts);
 
-    bool checkZoneLegal(const HostAddr& source, const HostAddr& destination, PartitionID part);
+    bool checkZoneLegal(const HostAddr& source, const HostAddr& target, PartitionID part);
 
 private:
     std::atomic_bool running_{false};
@@ -238,9 +241,6 @@ private:
     std::shared_ptr<BalancePlan> plan_{nullptr};
     std::unique_ptr<folly::Executor> executor_;
     std::atomic_bool inLeaderBalance_{false};
-
-    // int32_t totalParts_;
-    // std::unordered_map<HostAddr, int32_t> partsDistribution_;
 
     // Host => Graph => Partitions
     std::unique_ptr<HostLeaderMap> hostLeaderMap_;

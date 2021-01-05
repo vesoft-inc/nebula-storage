@@ -98,7 +98,7 @@ void BalanceTask::invoke() {
             SAVE_STATE();
             client_->addLearner(spaceId_, partId_, dst_).thenValue([this](auto&& resp) {
                 if (!resp.ok()) {
-                    LOG(ERROR) << taskIdStr_ << "Add learner failed, status " << resp;
+                    LOG(ERROR) << taskIdStr_ << " Add learner failed, status " << resp;
                     ret_ = BalanceTaskResult::FAILED;
                 } else {
                     status_ = BalanceTaskStatus::CATCH_UP_DATA;

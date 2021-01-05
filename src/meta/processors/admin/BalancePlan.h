@@ -72,10 +72,6 @@ public:
         return tasks_.size();
     }
 
-    void setFinishCallback(std::function<void()>&& function) {
-        onFinished_ = function;
-    }
-
     void stop() {
         std::lock_guard<std::mutex> lg(lock_);
         stopped_ = true;

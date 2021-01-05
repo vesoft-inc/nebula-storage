@@ -1,4 +1,5 @@
 set(common_deps
+    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>

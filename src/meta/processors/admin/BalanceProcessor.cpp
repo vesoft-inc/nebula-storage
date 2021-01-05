@@ -18,6 +18,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
+
     if (req.get_stop() != nullptr) {
         if (!(*req.get_stop())) {
             handleErrorCode(cpp2::ErrorCode::E_UNKNOWN);
@@ -35,6 +36,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
+
     if (req.get_reset() != nullptr) {
         if (!(*req.get_reset())) {
             handleErrorCode(cpp2::ErrorCode::E_UNKNOWN);
@@ -52,6 +54,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         onFinished();
         return;
     }
+
     if (req.get_id() != nullptr) {
         auto ret = Balancer::instance(kvstore_)->show(*req.get_id());
         if (!ret.ok()) {
@@ -94,7 +97,11 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
         return;
     }
 
-    auto lostHosts = *req.get_host_del();
+    std::vector<HostAddr> lostHosts;
+    if (req.__isset.host_del) {
+        lostHosts = *req.get_host_del();
+    }
+
     auto ret = Balancer::instance(kvstore_)->balance(std::move(lostHosts));
     if (!ok(ret)) {
         LOG(ERROR) << "Balance Failed: " << static_cast<int32_t>(ret.left());
