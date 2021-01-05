@@ -17,6 +17,7 @@ nebula_add_executable(
         $<TARGET_OBJECTS:wal_obj>
         $<TARGET_OBJECTS:codec_obj>
         $<TARGET_OBJECTS:keyutils_obj>
+        $<TARGET_OBJECTS:version_obj>
         $<TARGET_OBJECTS:common_internal_storage_client_obj>
         $<TARGET_OBJECTS:common_graph_storage_client_obj>
         $<TARGET_OBJECTS:common_storage_client_base_obj>
