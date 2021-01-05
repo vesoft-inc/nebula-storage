@@ -40,6 +40,7 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
+    $<TARGET_OBJECTS:common_index_utils_obj>
 )
 
 nebula_add_test(

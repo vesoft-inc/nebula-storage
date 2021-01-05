@@ -32,7 +32,7 @@ std::string IndexKeyUtils::encodeValues(std::vector<Value>&& values,
             }
         } else {
             nullableBitSet |= 0x8000 >> i;
-            auto type = IndexKeyUtils::toValueType(cols[i].type.get_type());
+            auto type = IndexUtils::toValueType(cols[i].type.get_type());
             index.append(encodeNullValue(type, cols[i].type.get_type_length()));
         }
     }
