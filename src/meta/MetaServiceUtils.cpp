@@ -33,16 +33,15 @@ static const std::unordered_map<
         {"parts", {"__parts__", MetaServiceUtils::parsePartKeySpaceId}},
         {"tags", {"__tags__", MetaServiceUtils::parseTagsKeySpaceID}},
         {"edges", {"__edges__", MetaServiceUtils::parseEdgesKeySpaceID}},
-        {"indexes", {"__indexes__", nullptr}},
+        {"indexes", {"__indexes__", MetaServiceUtils::parseIndexesKeySpaceID}},
         // Index tables are handled separately.
         {"index", {"__index__", nullptr}},
         {"index_status", {"__index_status__", MetaServiceUtils::parseIndexStatusKeySpaceID}},
         {"roles", {"__roles__", MetaServiceUtils::parseRoleSpace}},
-        {"default", {"__default__", MetaServiceUtils::parseDefaultKeySpaceID}},
         {"last_update_time", {"__last_update_time__", nullptr}},
         {"leaders", {"__leaders__", nullptr}},
         {"listener", {"__listener__", nullptr}},
-        {"statis", {"__statis__", nullptr}},
+        {"statis", {"__statis__", MetaServiceUtils::parseStatisSpace}},
         {"balance_task", {"__balance_task__", nullptr}},
         {"balance_plan", {"__balance_plan__", nullptr}},
         {"ft_index", {"__ft_index__", nullptr}}};
@@ -58,7 +57,6 @@ static const std::string kIndexStatusTable    = tableMaps.at("index_status").fir
 static const std::string kUsersTable          = systemTableMaps.at("users").first;          // NOLINT
 static const std::string kRolesTable          = tableMaps.at("roles").first;          // NOLINT
 static const std::string kConfigsTable        = systemTableMaps.at("configs").first;        // NOLINT
-static const std::string kDefaultTable        = tableMaps.at("default").first;        // NOLINT
 static const std::string kSnapshotsTable      = systemTableMaps.at("snapshots").first;      // NOLINT
 static const std::string kLastUpdateTimeTable = tableMaps.at("last_update_time").first; // NOLINT
 static const std::string kLeadersTable        = tableMaps.at("leaders").first;          // NOLINT
@@ -786,38 +784,6 @@ std::string MetaServiceUtils::parseRoleStr(folly::StringPiece key) {
     return role;
 }
 
-std::string MetaServiceUtils::tagDefaultKey(GraphSpaceID spaceId,
-                                            TagID tag,
-                                            const std::string& field) {
-    std::string key;
-    key.reserve(kDefaultTable.size() + sizeof(GraphSpaceID) + sizeof(TagID));
-    key.append(kDefaultTable.data(), kDefaultTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-        .append(reinterpret_cast<const char*>(&tag), sizeof(TagID))
-        .append(field);
-    return key;
-}
-
-std::string MetaServiceUtils::edgeDefaultKey(GraphSpaceID spaceId,
-                                             EdgeType edge,
-                                             const std::string& field) {
-    std::string key;
-    key.reserve(kDefaultTable.size() + sizeof(GraphSpaceID) + sizeof(EdgeType));
-    key.append(kDefaultTable.data(), kDefaultTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
-        .append(reinterpret_cast<const char*>(&edge), sizeof(EdgeType))
-        .append(field);
-    return key;
-}
-
-const std::string& MetaServiceUtils::defaultPrefix() {
-    return kDefaultTable;
-}
-
-GraphSpaceID MetaServiceUtils::parseDefaultKeySpaceID(folly::StringPiece key) {
-    return *reinterpret_cast<const GraphSpaceID*>(key.data() + kDefaultTable.size());
-}
-
 std::string MetaServiceUtils::configKey(const cpp2::ConfigModule& module, const std::string& name) {
     int32_t nSize = name.size();
     std::string key;
@@ -1508,6 +1474,11 @@ cpp2::StatisItem MetaServiceUtils::parseStatisVal(folly::StringPiece rawData) {
     cpp2::StatisItem statisItem;
     apache::thrift::CompactSerializer::deserialize(rawData, statisItem);
     return statisItem;
+}
+
+GraphSpaceID MetaServiceUtils::parseStatisSpace(folly::StringPiece rawData) {
+    auto offset = kStatisTable.size();
+    return *reinterpret_cast<const GraphSpaceID*>(rawData.data() + offset);
 }
 
 const std::string& MetaServiceUtils::statisKeyPrefix() {

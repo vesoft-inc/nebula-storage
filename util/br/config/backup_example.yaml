@@ -27,5 +27,5 @@ storage_nodes:
     user: "nebula"
 max_concurrent: 10
 backend: "s3://nebulabackup"
-SpaceNames: ["nba"]
+space_names: ["nba"]
 
