@@ -79,6 +79,9 @@ public:
     // get all version of all tags
     StatusOr<TagSchemas> getAllVerTagSchema(GraphSpaceID space) override;
 
+    // get latest version of all tags
+    StatusOr<TagSchemas> getAllLatestVerTagSchema(GraphSpaceID space) override;
+
     // get all version of all edges
     StatusOr<EdgeSchemas> getAllVerEdgeSchema(GraphSpaceID space) override;
 
