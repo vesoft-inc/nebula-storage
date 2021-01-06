@@ -19,6 +19,11 @@ namespace mock {
 // the different version of tag schema, from oldest to newest
 using TagSchemas =
     std::unordered_map<TagID, std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>;
+
+// Mapping of tags and corresponding *latest* tag schema
+using TagLatestSchema =
+    std::unordered_map<TagID, std::shared_ptr<const meta::NebulaSchemaProvider>>;
+
 // the different version of edge schema, from oldest to newest
 using EdgeSchemas =
     std::unordered_map<EdgeType, std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>;
@@ -80,7 +85,7 @@ public:
     StatusOr<TagSchemas> getAllVerTagSchema(GraphSpaceID space) override;
 
     // get latest version of all tags
-    StatusOr<TagSchemas> getAllLatestVerTagSchema(GraphSpaceID space) override;
+    StatusOr<TagLatestSchema> getAllLatestVerTagSchema(GraphSpaceID space) override;
 
     // get all version of all edges
     StatusOr<EdgeSchemas> getAllVerEdgeSchema(GraphSpaceID space) override;
