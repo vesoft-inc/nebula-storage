@@ -17,17 +17,18 @@ namespace meta {
 /**
  * This class manages the version of meta's data.
  * */
-class MetaVersionMan {
+class MetaVersionMan final {
 public:
-    static int32_t getMetaVersionFromKV(kvstore::KVStore* kv);
+    MetaVersionMan() = delete;
 
-    static bool isV1(kvstore::KVStore* kv);
+    static int32_t getMetaVersionFromKV(kvstore::KVStore* kv);
 
     static bool setMetaVersionToKV(kvstore::KVStore* kv);
 
     static Status updateMetaV1ToV2(kvstore::KVStore* kv);
 
 private:
+    static bool isV1(kvstore::KVStore* kv);
     static Status doUpgrade(kvstore::KVStore* kv);
 };
 

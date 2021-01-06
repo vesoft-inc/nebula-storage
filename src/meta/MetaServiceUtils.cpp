@@ -784,10 +784,6 @@ std::string MetaServiceUtils::parseRoleStr(folly::StringPiece key) {
     return role;
 }
 
-std::string MetaServiceUtils::configsPrefix() {
-    return kConfigsTable;
-}
-
 std::string MetaServiceUtils::configKey(const cpp2::ConfigModule& module, const std::string& name) {
     int32_t nSize = name.size();
     std::string key;

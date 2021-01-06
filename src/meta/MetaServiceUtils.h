@@ -198,8 +198,6 @@ public:
 
     static std::string parseRoleStr(folly::StringPiece key);
 
-    static std::string configsPrefix();
-
     static std::string configKey(const cpp2::ConfigModule& module, const std::string& name);
 
     static std::string configKeyPrefix(const cpp2::ConfigModule& module);

@@ -51,8 +51,6 @@ DEFINE_int32(num_worker_threads, 32, "Number of workers");
 DEFINE_string(pid_file, "pids/nebula-metad.pid", "File to hold the process id");
 DEFINE_bool(daemonize, true, "Whether run as a daemon process");
 DECLARE_bool(check_leader);
-DEFINE_bool(upgrade_meta_data, false, "old stored meta data may have different format "
-                                      " set to true to do meta data upgrade");
 
 static std::unique_ptr<apache::thrift::ThriftServer> gServer;
 static std::unique_ptr<nebula::kvstore::KVStore> gKVStore;

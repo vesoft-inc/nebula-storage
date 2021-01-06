@@ -95,5 +95,6 @@ nebula_add_library(
     meta_version_man_obj OBJECT
     MetaVersionMan.cpp
 )
+
 nebula_add_subdirectory(test)
 nebula_add_subdirectory(upgradeData)
