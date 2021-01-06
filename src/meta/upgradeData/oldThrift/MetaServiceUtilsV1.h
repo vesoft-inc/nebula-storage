@@ -12,7 +12,7 @@
 #include "common/thrift/ThriftTypes.h"
 #include "common/interface/gen-cpp2/meta_types.h"
 
-#include "tools/meta-data-upgrade/oldThrift/gen-cpp2/old_meta_types.h"
+#include "meta/upgradeData/oldThrift/gen-cpp2/old_meta_types.h"
 #include "kvstore/Common.h"
 
 

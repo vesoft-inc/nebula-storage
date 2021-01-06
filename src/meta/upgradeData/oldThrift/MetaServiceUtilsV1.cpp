@@ -4,7 +4,7 @@
 * attached with Common Clause Condition 1.0, found in the LICENSES directory.
 */
 
-#include "tools/meta-data-upgrade/oldThrift/MetaServiceUtilsV1.h"
+#include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
 #include "meta/processors/jobMan/JobUtils.h"
 
 #include <thrift/lib/cpp2/protocol/Serializer.h>
@@ -109,7 +109,6 @@ std::tuple<std::string,
            int64_t,
            int64_t>
 MetaServiceUtilsV1::parseJobDesc(const folly::StringPiece& rawVal) {
-    LOG(INFO) << "parseJobDesc: " << rawVal;
     size_t offset = 0;
 
     std::string cmd = nebula::meta::JobUtil::parseString(rawVal, offset);

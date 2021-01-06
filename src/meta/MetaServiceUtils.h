@@ -198,6 +198,8 @@ public:
 
     static std::string parseRoleStr(folly::StringPiece key);
 
+    static std::string configsPrefix();
+
     static std::string configKey(const cpp2::ConfigModule& module, const std::string& name);
 
     static std::string configKeyPrefix(const cpp2::ConfigModule& module);
@@ -219,8 +221,6 @@ public:
     static std::string parseSnapshotName(folly::StringPiece rawData);
 
     static const std::string& snapshotPrefix();
-
-    static void upgradeMetaDataV1toV2(nebula::kvstore::KVStore* kv);
 
     static std::string serializeHostAddr(const HostAddr& host);
 

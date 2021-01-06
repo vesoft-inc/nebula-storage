@@ -11,20 +11,17 @@
 #include "common/base/Base.h"
 #include "common/base/Status.h"
 #include "common/interface/gen-cpp2/meta_types.h"
-#include "tools/meta-data-upgrade/oldThrift/gen-cpp2/old_meta_types.h"
+#include "meta/upgradeData/oldThrift/gen-cpp2/old_meta_types.h"
 
 
 namespace nebula {
 namespace meta {
 
-class MetaDataUpgrade {
+class MetaDataUpgrade final {
 public:
-    Status initDB(const std::string &dataPath);
+    explicit MetaDataUpgrade(kvstore::KVStore* kv) : kv_(kv) {}
 
-    rocksdb::Iterator* getDbIter() const {
-        rocksdb::ReadOptions options;
-        return db_->NewIterator(options);
-    }
+    ~MetaDataUpgrade() = default;
 
     Status rewriteHosts(const folly::StringPiece &key, const folly::StringPiece &val);
 
@@ -62,42 +59,53 @@ public:
 
 private:
     Status put(const folly::StringPiece &key, const folly::StringPiece &val) {
-        rocksdb::WriteOptions options;
-        options.disableWAL = false;
-        rocksdb::Status status = db_->Put(options, key.str(), val.str());
-        if (!status.ok()) {
-            return Status::Error("Rocksdb put failed");
-        }
-
-        rocksdb::FlushOptions fOptions;
-        status = db_->Flush(fOptions);
-        if (!status.ok()) {
-            return Status::Error("Rocksdb flush failed");
+        std::vector<kvstore::KV> data;
+        data.emplace_back(key.str(), val.str());
+        folly::Baton<true, std::atomic> baton;
+        auto ret = kvstore::ResultCode::SUCCEEDED;
+        kv_->asyncMultiPut(kDefaultSpaceId,
+                           kDefaultPartId,
+                           std::move(data),
+                           [&ret, &baton] (kvstore::ResultCode code) {
+                               if (kvstore::ResultCode::SUCCEEDED != code) {
+                                   ret = code;
+                                   LOG(INFO) << "Put data error on meta server";
+                               }
+                               baton.post();
+                           });
+        baton.wait();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return Status::Error("Put data failed");
         }
         return Status::OK();
     }
 
     Status remove(const folly::StringPiece& key) {
-        rocksdb::WriteOptions options;
-        options.disableWAL = false;;
-        auto status = db_->Delete(options, key.str());
-        if (!status.ok()) {
-            return Status::Error("Rocksdb delete failed");
+        std::vector<std::string> keys{key.str()};
+        folly::Baton<true, std::atomic> baton;
+        auto ret = kvstore::ResultCode::SUCCEEDED;
+        kv_->asyncMultiRemove(kDefaultSpaceId,
+                              kDefaultPartId,
+                              std::move(keys),
+                              [&ret, &baton] (kvstore::ResultCode code) {
+                                  if (kvstore::ResultCode::SUCCEEDED != code) {
+                                      ret = code;
+                                      LOG(INFO) << "Remove data error on meta server";
+                                  }
+                                  baton.post();
+                              });
+        baton.wait();
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return Status::Error("Remove data failed");
         }
-        rocksdb::FlushOptions fOptions;
-        status = db_->Flush(fOptions);
-        if (!status.ok()) {
-            return Status::Error("Rocksdb flush failed");
-        }
-        return Status::OK();
+        return Status::OK();;
     }
 
     Status convertToNewColumns(const std::vector<oldmeta::cpp2::ColumnDef> &oldCols,
                                std::vector<cpp2::ColumnDef> &newCols);
 
 private:
-    std::unique_ptr<rocksdb::DB> db_;
-    rocksdb::Options options_;
+    kvstore::KVStore*        kv_ = nullptr;
 };
 
 }  // namespace meta

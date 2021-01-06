@@ -15,27 +15,16 @@
 #include "kvstore/Common.h"
 #include "meta/MetaServiceUtils.h"
 #include "meta/ActiveHostsMan.h"
-#include "tools/meta-data-upgrade/MetaDataUpgrade.h"
-#include "tools/meta-data-upgrade/oldThrift/MetaServiceUtilsV1.h"
+#include "meta/upgradeData/MetaDataUpgrade.h"
+#include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
 
 DECLARE_bool(null_type);
 
 namespace nebula {
 namespace meta {
 
-Status MetaDataUpgrade::initDB(const std::string& dataPath) {
-    rocksdb::Options options;
-    rocksdb::DB* db = nullptr;
-    auto status = rocksdb::DB::Open(options, dataPath, &db);
-    if (!status.ok()) {
-        return Status::Error("Open rocksdb failed: %s", status.ToString().c_str());
-    }
-    db_.reset(db);
-    return Status::OK();
-}
-
 Status MetaDataUpgrade::rewriteHosts(const folly::StringPiece &key,
-                                    const folly::StringPiece &val) {
+                                     const folly::StringPiece &val) {
     auto host = oldmeta::MetaServiceUtilsV1::parseHostKey(key);
     auto info = HostInfo::decodeV1(val);
     auto newVal = HostInfo::encodeV2(info);
@@ -47,7 +36,7 @@ Status MetaDataUpgrade::rewriteHosts(const folly::StringPiece &key,
 }
 
 Status MetaDataUpgrade::rewriteLeaders(const folly::StringPiece &key,
-                                      const folly::StringPiece &val) {
+                                       const folly::StringPiece &val) {
     auto host = oldmeta::MetaServiceUtilsV1::parseLeaderKey(key);
     auto newKey = MetaServiceUtils::leaderKey(
             network::NetworkUtils::intToIPv4(host.ip), host.port);
@@ -57,7 +46,7 @@ Status MetaDataUpgrade::rewriteLeaders(const folly::StringPiece &key,
 }
 
 Status MetaDataUpgrade::rewriteSpaces(const folly::StringPiece &key,
-                                     const folly::StringPiece &val) {
+                                      const folly::StringPiece &val) {
     auto oldProps = oldmeta::MetaServiceUtilsV1::parseSpace(val);
     cpp2::SpaceDesc spaceDesc;
     spaceDesc.set_space_name(oldProps.get_space_name());
@@ -86,7 +75,7 @@ Status MetaDataUpgrade::rewriteParts(const folly::StringPiece &key,
 }
 
 Status MetaDataUpgrade::rewriteSchemas(const folly::StringPiece &key,
-                                      const folly::StringPiece &val) {
+                                       const folly::StringPiece &val) {
     auto oldSchema = oldmeta::MetaServiceUtilsV1::parseSchema(val);
     cpp2::Schema newSchema;
     cpp2::SchemaProp newSchemaProps;
@@ -108,7 +97,7 @@ Status MetaDataUpgrade::rewriteSchemas(const folly::StringPiece &key,
 }
 
 Status MetaDataUpgrade::rewriteIndexes(const folly::StringPiece &key,
-                                      const folly::StringPiece &val) {
+                                       const folly::StringPiece &val) {
     auto oldItem = oldmeta::MetaServiceUtilsV1::parseIndex(val);
     cpp2::IndexItem newItem;
     newItem.set_index_id(oldItem.get_index_id());
@@ -126,7 +115,7 @@ Status MetaDataUpgrade::rewriteIndexes(const folly::StringPiece &key,
 }
 
 Status MetaDataUpgrade::rewriteConfigs(const folly::StringPiece &key,
-                                      const folly::StringPiece &val) {
+                                       const folly::StringPiece &val) {
     auto item = oldmeta::MetaServiceUtilsV1::parseConfigValue(val);
 
     Value configVal;
