@@ -26,6 +26,7 @@
 #include "meta/processors/jobMan/JobManager.h"
 #include "meta/RootUserMan.h"
 #include "meta/MetaServiceUtils.h"
+#include "version/Version.h"
 
 using nebula::operator<<;
 using nebula::ProcessUtils;
@@ -56,6 +57,7 @@ static std::unique_ptr<apache::thrift::ThriftServer> gServer;
 static std::unique_ptr<nebula::kvstore::KVStore> gKVStore;
 static void signalHandler(int sig);
 static Status setupSignalHandler();
+extern Status setupLogging();
 
 namespace nebula {
 namespace meta {
@@ -169,18 +171,26 @@ Status initWebService(nebula::WebService* svc,
 }
 
 int main(int argc, char *argv[]) {
+    google::SetVersionString(nebula::storage::versionString());
     // Detect if the server has already been started
     // Check pid before glog init, in case of user may start daemon twice
     // the 2nd will make the 1st failed to output log anymore
     gflags::ParseCommandLineFlags(&argc, &argv, false);
-    auto pidPath = FLAGS_pid_file;
-    auto status = ProcessUtils::isPidAvailable(pidPath);
+
+    // Setup logging
+    auto status = setupLogging();
     if (!status.ok()) {
         LOG(ERROR) << status;
         return EXIT_FAILURE;
     }
 
-    google::SetVersionString(nebula::versionString());
+    auto pidPath = FLAGS_pid_file;
+    status = ProcessUtils::isPidAvailable(pidPath);
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
     folly::init(&argc, &argv, true);
     if (FLAGS_data_path.empty()) {
         LOG(ERROR) << "Meta Data Path should not empty";
