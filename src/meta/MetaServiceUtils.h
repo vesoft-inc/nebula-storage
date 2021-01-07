@@ -255,12 +255,6 @@ public:
     static std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
     parseBalanceTaskVal(const folly::StringPiece& rawVal);
 
-    static std::tuple<BalanceID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
-    parseBalancePlanKey(const folly::StringPiece& rawKey);
-
-    static std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
-    parseBalancePlanVal(const folly::StringPiece& rawVal);
-
     static std::string groupKey(const std::string& group);
 
     static std::string groupVal(const std::vector<std::string>& zones);
@@ -303,6 +297,8 @@ public:
     static cpp2::StatisItem parseStatisVal(folly::StringPiece rawData);
 
     static const std::string& statisKeyPrefix();
+
+    static GraphSpaceID parseStatisSpace(folly::StringPiece rawData);
 
     static std::string fulltextServiceKey();
 
