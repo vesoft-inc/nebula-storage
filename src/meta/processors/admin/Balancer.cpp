@@ -492,8 +492,6 @@ bool Balancer::getHostParts(GraphSpaceID spaceId,
 }
 
 bool Balancer::assembleZoneParts(const std::string& groupName, HostParts& hostParts) {
-    // auto groupName = *properties.get_group_name();
-    LOG(INFO) << "Group Name: " << groupName;
     auto groupKey = MetaServiceUtils::groupKey(groupName);
     std::string groupValue;
     auto code = kv_->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
