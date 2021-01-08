@@ -40,7 +40,7 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
         return false;
     }
     std::lock_guard<std::mutex> lk(statusGuard_);
-    if (status_ != Status::NOT_START) {
+    if (status_ != JbmgrStatus::NOT_START) {
         return false;
     }
     kvStore_ = store;
@@ -53,7 +53,7 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     bgThread_ = std::make_unique<thread::GenericWorker>();
     CHECK(bgThread_->start());
 
-    status_ = Status::RUNNING;
+    status_ = JbmgrStatus::IDLE;
     bgThread_->addTask(&JobManager::scheduleThread, this);
     LOG(INFO) << "JobManager initialized";
     return true;
@@ -66,23 +66,23 @@ JobManager::~JobManager() {
 void JobManager::shutDown() {
     LOG(INFO) << "JobManager::shutDown() begin";
     std::lock_guard<std::mutex> lk(statusGuard_);
-    if (status_ != Status::RUNNING) {  // in case of shutdown more than once
+    if (status_ != JbmgrStatus::RUNNING) {  // in case of shutdown more than once
         LOG(INFO) << "JobManager not running, exit";
         return;
     }
-    status_ = Status::STOPPED;
+    status_ = JbmgrStatus::STOPPED;
     pool_->stop();
     bgThread_->stop();
     bgThread_->wait();
     LOG(INFO) << "JobManager::shutDown() end";
 }
 
-void JobManager::scheduleThread() {
+void JobManager::scheduleThreadOld() {
     LOG(INFO) << "JobManager::runJobBackground() enter";
-    while (status_ == Status::RUNNING) {
+    while (status_ == JbmgrStatus::RUNNING) {
         int32_t iJob = 0;
         while (!try_dequeue(iJob)) {
-            if (status_ == Status::STOPPED) {
+            if (status_ == JbmgrStatus::STOPPED) {
                 LOG(INFO) << "[JobManager] detect shutdown called, exit";
                 break;
             }
@@ -116,8 +116,38 @@ void JobManager::scheduleThread() {
     LOG(INFO) << "[JobManager] exit";
 }
 
-// @return: true if succeed, false if any task failed
-bool JobManager::runJobInternal(const JobDescription& jobDesc) {
+void JobManager::scheduleThread() {
+    LOG(INFO) << "JobManager::runJobBackground() enter";
+    while (status_ == JbmgrStatus::IDLE || status_ == JbmgrStatus::RUNNING) {
+        int32_t iJob = 0;
+        while (!try_dequeue(iJob)) {
+            if (status_ == JbmgrStatus::STOPPED) {
+                LOG(INFO) << "[JobManager] detect shutdown called, exit";
+                break;
+            }
+            usleep(FLAGS_job_check_intervals);
+        }
+
+        auto jobDesc = JobDescription::loadJobDescription(iJob, kvStore_);
+        if (jobDesc == folly::none) {
+            LOG(ERROR) << "[JobManager] load an invalid job from queue " << iJob;
+            continue;   // leader change or archive happend
+        }
+        if (!jobDesc->setStatus(cpp2::JobStatus::RUNNING)) {
+            LOG(INFO) << "[JobManager] skip job " << iJob;
+            continue;
+        }
+        save(jobDesc->jobKey(), jobDesc->jobVal());
+
+        if (!runJobInternal(*jobDesc)) {
+            stopJob(iJob);
+        }
+    }
+    LOG(INFO) << "[JobManager] exit";
+}
+
+// @return: true if all task dispatched, else false
+bool JobManager::runJobInternalOld(const JobDescription& jobDesc) {
     currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
 
     if (currJob_ == nullptr) {
@@ -163,6 +193,126 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
     currJob_->finish(jobSuccess);
 
     return jobSuccess;
+}
+
+// @return: true if all task dispatched, else false
+bool JobManager::runJobInternal(const JobDescription& jobDesc) {
+    currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
+
+    if (currJob_ == nullptr) {
+        LOG(ERROR) << "unreconized job cmd " << static_cast<int>(jobDesc.getCmd());
+        return false;
+    }
+    if (jobDesc.getStatus() == cpp2::JobStatus::STOPPED) {
+        currJob_->stop();
+        return true;
+    }
+
+    if (!currJob_->check()) {
+        LOG(ERROR) << "Job Executor check failed";
+        return false;
+    }
+
+    if (currJob_->prepare() != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Job Executor prepare failed";
+        return false;
+    }
+
+    auto results = currJob_->execute();
+    if (!nebula::ok(results)) {
+        LOG(ERROR) << "Job executor running failed";
+        return false;
+    }
+    return true;
+}
+
+void JobManager::cleanJob(JobID jobId) {
+    // Delete the job after job finished or failed
+    auto it = inFlightJobs_.find(jobId);
+    if (it != inFlightJobs_.end()) {
+        inFlightJobs_.erase(it);
+    }
+}
+
+cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
+    auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
+    if (!optJobDesc) {
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
+    auto jobStatus = suc ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
+
+    optJobDesc->setStatus(jobStatus);
+
+    auto rc = save(optJobDesc->jobKey(), optJobDesc->jobVal());
+    if (rc == nebula::kvstore::ResultCode::ERR_LEADER_CHANGED) {
+        return cpp2::ErrorCode::E_LEADER_CHANGED;
+    } else {
+        return cpp2::ErrorCode::E_UNKNOWN;
+    }
+    status_ = JbmgrStatus::IDLE;
+
+    cleanJob(jobId);
+}
+
+// cpp2::ErrorCode JobManager::reportTaskFinish(JobID jobId, int32_t taskId, cpp2::ErrorCode code) {
+cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
+    auto jobId = req.get_job_id();
+    auto taskId = req.get_task_id();
+    auto code = req.get_code();
+    // only an active job manager will accept task finish report
+    if (!(status_ == JbmgrStatus::IDLE || status_ == JbmgrStatus::RUNNING)) {
+        LOG(INFO) << folly::sformat(
+            "report to an in-active job manager, job={}, task={}", jobId, taskId);
+        return cpp2::ErrorCode::E_UNKNOWN;
+    }
+    // bacause the last task will update the job's status
+    // tasks shoule report once a time
+    std::lock_guard<std::mutex> lk(muReportFinish_);
+    auto tasks = getAllTasks(jobId);
+    auto task = std::find_if(tasks.begin(), tasks.end(), [&](auto& it){
+        return it.getJobId() == jobId && it.getTaskId() == taskId;
+    });
+    if (task == tasks.end()) {
+        LOG(WARNING) << folly::sformat(
+            "report an invalid or outdate task, will ignore this report, job={}, task={}",
+            jobId,
+            taskId);
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
+    auto taskStatus =
+        code == cpp2::ErrorCode::SUCCEEDED ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
+    task->setStatus(taskStatus);
+
+    auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& task){
+        return task.status_ == cpp2::JobStatus::RUNNING;
+    });
+
+    if (allTaskFinished) {
+        auto jobSucceeded = std::all_of(tasks.begin(), tasks.end(), [](auto& task) {
+            return task.status_ == cpp2::JobStatus::FINISHED;
+        });
+        return jobFinished(jobId, jobSucceeded);
+    }
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+std::list<TaskDescription> JobManager::getAllTasks(JobID jobId) {
+    std::list<TaskDescription> taskDescriptions;
+    auto jobKey = JobDescription::makeJobKey(jobId);
+    std::unique_ptr<kvstore::KVIterator> iter;
+    ResultCode rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, jobKey, &iter);
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+        return taskDescriptions;
+    }
+    for (; iter->valid(); iter->next()) {
+        if (JobDescription::isJobKey(iter->key())) {
+            continue;
+        }
+        taskDescriptions.emplace_back(TaskDescription(iter->key(), iter->val()));
+    }
+    return taskDescriptions;
 }
 
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {

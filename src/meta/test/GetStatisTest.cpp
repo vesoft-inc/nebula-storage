@@ -39,7 +39,7 @@ protected:
         });
 
         jobMgr = JobManager::getInstance();
-        jobMgr->status_ = JobManager::Status::NOT_START;
+        jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
         jobMgr->init(kv_.get());
     }
 

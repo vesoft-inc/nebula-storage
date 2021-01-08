@@ -49,7 +49,7 @@ protected:
         });
 
         jobMgr = JobManager::getInstance();
-        jobMgr->status_ = JobManager::Status::NOT_START;
+        jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
         jobMgr->init(kv_.get());
     }
 
@@ -76,7 +76,7 @@ TEST_F(JobManagerTest, addJob) {
 
 TEST_F(JobManagerTest, AddRebuildTagIndexJob) {
     // For preventting job schedule in JobManager
-    jobMgr->status_ = JobManager::Status::STOPPED;
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
 
     std::vector<std::string> paras{"tag_index_name", "test_space"};
     JobDescription job(11, cpp2::AdminCmd::REBUILD_TAG_INDEX, paras);
@@ -89,7 +89,7 @@ TEST_F(JobManagerTest, AddRebuildTagIndexJob) {
 
 TEST_F(JobManagerTest, AddRebuildEdgeIndexJob) {
     // For preventting job schedule in JobManager
-    jobMgr->status_ = JobManager::Status::STOPPED;
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
 
     std::vector<std::string> paras{"edge_index_name", "test_space"};
     JobDescription job(11, cpp2::AdminCmd::REBUILD_EDGE_INDEX, paras);
@@ -101,7 +101,7 @@ TEST_F(JobManagerTest, AddRebuildEdgeIndexJob) {
 
 TEST_F(JobManagerTest, StatisJob) {
     // For preventting job schedule in JobManager
-    jobMgr->status_ = JobManager::Status::STOPPED;
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
 
     std::vector<std::string> paras{"test_space"};
     JobDescription job(12, cpp2::AdminCmd::STATS, paras);
@@ -121,7 +121,7 @@ TEST_F(JobManagerTest, StatisJob) {
 
 TEST_F(JobManagerTest, JobPriority) {
     // For preventting job schedule in JobManager
-    jobMgr->status_ = JobManager::Status::STOPPED;
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
 
     ASSERT_EQ(0, jobMgr->jobSize());
 
@@ -151,12 +151,12 @@ TEST_F(JobManagerTest, JobPriority) {
     result = jobMgr->try_dequeue(jobId);
     ASSERT_FALSE(result);
 
-    jobMgr->status_ = JobManager::Status::RUNNING;
+    jobMgr->status_ = JobManager::JbmgrStatus::RUNNING;
 }
 
 TEST_F(JobManagerTest, JobDeduplication) {
     // For preventting job schedule in JobManager
-    jobMgr->status_ = JobManager::Status::STOPPED;
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
 
     ASSERT_EQ(0, jobMgr->jobSize());
 
@@ -202,7 +202,7 @@ TEST_F(JobManagerTest, JobDeduplication) {
 
     result = jobMgr->try_dequeue(jobId);
     ASSERT_FALSE(result);
-    jobMgr->status_ = JobManager::Status::RUNNING;
+    jobMgr->status_ = JobManager::JbmgrStatus::RUNNING;
 }
 
 TEST_F(JobManagerTest, loadJobDescription) {
@@ -324,7 +324,7 @@ TEST_F(JobManagerTest, showJob) {
 
 TEST_F(JobManagerTest, recoverJob) {
     // set status to prevent running the job since AdminClient is a injector
-    jobMgr->status_ = JobManager::Status::NOT_START;
+    jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
     int32_t nJob = 3;
     for (auto i = 0; i != nJob; ++i) {
         JobDescription jd(i, cpp2::AdminCmd::FLUSH, {"test_space"});

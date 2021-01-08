@@ -24,6 +24,8 @@ public:
     }
 
     void process(const cpp2::AddAdminTaskRequest& req);
+    void process1(const cpp2::AddAdminTaskRequest& req);
+    void process2(const cpp2::AddAdminTaskRequest& req);
 
 private:
     explicit AdminTaskProcessor(StorageEnv* env)

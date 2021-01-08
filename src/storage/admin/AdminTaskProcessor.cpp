@@ -11,7 +11,53 @@
 namespace nebula {
 namespace storage {
 
-void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
+void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {\
+    process2(req);
+}
+
+void AdminTaskProcessor::process2(const cpp2::AddAdminTaskRequest& req) {
+    auto taskManager = AdminTaskManager::instance();
+
+    auto toMetaErrCode = [](storage::cpp2::ErrorCode storageCode) {
+        switch (storageCode) {
+            case storage::cpp2::ErrorCode::SUCCEEDED:
+                return meta::cpp2::ErrorCode::SUCCEEDED;
+            case storage::cpp2::ErrorCode::E_UNKNOWN:
+                return meta::cpp2::ErrorCode::E_UNKNOWN;
+            default:
+                LOG(FATAL) << "unsupported conversion of code "
+                           << cpp2::_ErrorCode_VALUES_TO_NAMES.at(storageCode);
+        }
+    };
+
+    auto cb = [=, jobId = req.get_job_id(), taskId = req.get_task_id()](
+                  nebula::storage::cpp2::ErrorCode errCode,
+                  nebula::meta::cpp2::StatisItem& result) {
+        meta::cpp2::StatisItem* pStatis = nullptr;
+        if (errCode == cpp2::ErrorCode::SUCCEEDED) {
+            if (result.status == nebula::meta::cpp2::JobStatus::FINISHED) {
+                pStatis = &result;
+            }
+        }
+
+        auto metaCode = toMetaErrCode(errCode);
+        auto fut = env_->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
+        UNUSED(fut);
+    };
+
+    TaskContext ctx(req, cb);
+    auto task = AdminTaskFactory::createAdminTask(env_, std::move(ctx));
+    if (task) {
+        taskManager->addAsyncTask(task);
+    } else {
+        cpp2::PartitionResult thriftRet;
+        thriftRet.set_code(cpp2::ErrorCode::E_INVALID_TASK_PARA);
+        codes_.emplace_back(std::move(thriftRet));
+    }
+    onFinished();
+}
+
+void AdminTaskProcessor::process1(const cpp2::AddAdminTaskRequest& req) {
     bool runDirectly = true;
     auto rc = cpp2::ErrorCode::SUCCEEDED;
     auto taskManager = AdminTaskManager::instance();
