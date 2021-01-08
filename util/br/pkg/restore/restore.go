@@ -108,14 +108,16 @@ func (r *Restore) downloadMeta(g *errgroup.Group, file []string) map[string][][]
 	for _, n := range r.config.MetaNodes {
 		cmd, files := r.backend.RestoreMetaCommand(file, n.DataDir)
 		ipAddr := strings.Split(n.Addrs, ":")
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr[0], n.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr[0], n.User, r.log)
 		var byteFile [][]byte
 		for _, f := range files {
 			byteFile = append(byteFile, []byte(f))
@@ -142,14 +144,16 @@ func (r *Restore) downloadStorage(g *errgroup.Group, info map[nebula.GraphSpaceI
 		cmd := r.backend.RestoreStorageCommand(ip, ids, sNode.DataDir+"/nebula")
 		addr := strings.Split(sNode.Addrs, ":")
 		storageIPmap[ip] = sNode.Addrs
-		g.Go(func() error {
-			client, err := remote.NewClient(addr[0], sNode.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(addr[0], sNode.User, r.log)
 		i++
 	}
 
@@ -235,7 +239,9 @@ func (r *Restore) restoreMeta(sstFiles map[string][][]byte, storageIDMap map[str
 	for _, n := range r.config.MetaNodes {
 		r.log.Info("will restore meta", zap.String("addr", n.Addrs))
 		addr := n.Addrs
-		g.Go(func() error { return sendRestoreMeta(addr, sstFiles[n.Addrs], hostMap, r.log) })
+		func(addr string, files [][]byte, hostMap []*meta.HostPair, log *zap.Logger) {
+			g.Go(func() error { return sendRestoreMeta(addr, files, hostMap, r.log) })
+		}(addr, sstFiles[n.Addrs], hostMap, r.log)
 	}
 
 	err := g.Wait()
@@ -250,27 +256,31 @@ func (r *Restore) cleanupOriginal() error {
 	for _, node := range r.config.StorageNodes {
 		cmd := r.backend.RestoreStoragePreCommand(node.DataDir + "/nebula")
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	for _, node := range r.config.MetaNodes {
 		cmd := r.backend.RestoreMetaPreCommand(node.DataDir + "/nebula")
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	err := g.Wait()
@@ -286,27 +296,32 @@ func (r *Restore) stopCluster() error {
 	for _, node := range r.config.StorageNodes {
 		cmd := "cd " + node.RootDir + " && scripts/nebula.service stop storaged"
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	for _, node := range r.config.MetaNodes {
 		cmd := "cd " + node.RootDir + " && scripts/nebula.service stop metad"
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	err := g.Wait()
@@ -322,14 +337,16 @@ func (r *Restore) startMetaService() error {
 	for _, node := range r.config.MetaNodes {
 		cmd := "cd " + node.RootDir + " && scripts/nebula.service start metad &>/dev/null &"
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	err := g.Wait()
@@ -345,14 +362,16 @@ func (r *Restore) startStorageService() error {
 	for _, node := range r.config.StorageNodes {
 		cmd := "cd " + node.RootDir + " && scripts/nebula.service start storaged &>/dev/null &"
 		ipAddr := strings.Split(node.Addrs, ":")[0]
-		g.Go(func() error {
-			client, err := remote.NewClient(ipAddr, node.User, r.log)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
-			return client.ExecCommandBySSH(cmd)
-		})
+		func(addr string, user string, log *zap.Logger) {
+			g.Go(func() error {
+				client, err := remote.NewClient(addr, user, log)
+				if err != nil {
+					return err
+				}
+				defer client.Close()
+				return client.ExecCommandBySSH(cmd)
+			})
+		}(ipAddr, node.User, r.log)
 	}
 
 	err := g.Wait()
