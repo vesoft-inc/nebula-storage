@@ -143,7 +143,9 @@ func (r *Restore) downloadStorage(g *errgroup.Group, info map[nebula.GraphSpaceI
 		r.log.Info("download", zap.String("ip", ip), zap.String("storage", sNode.Addrs))
 		cmd := r.backend.RestoreStorageCommand(ip, ids, sNode.DataDir+"/nebula")
 		addr := strings.Split(sNode.Addrs, ":")
-		storageIPmap[ip] = sNode.Addrs
+		if ip != sNode.Addrs {
+			storageIPmap[ip] = sNode.Addrs
+		}
 		func(addr string, user string, log *zap.Logger) {
 			g.Go(func() error {
 				client, err := remote.NewClient(addr, user, log)
@@ -156,16 +158,9 @@ func (r *Restore) downloadStorage(g *errgroup.Group, info map[nebula.GraphSpaceI
 		}(addr[0], sNode.User, r.log)
 		i++
 	}
-
-	for _, s := range r.config.StorageNodes {
-		if _, ok := storageIPmap[s.Addrs]; ok {
-			delete(storageIPmap, s.Addrs)
-			continue
-		}
-	}
-
 	return storageIPmap
 }
+
 func stringToHostAddr(host string) (*nebula.HostAddr, error) {
 	ipAddr := strings.Split(host, ":")
 	port, err := strconv.ParseInt(ipAddr[1], 10, 32)
@@ -220,21 +215,21 @@ func (r *Restore) restoreMeta(sstFiles map[string][][]byte, storageIDMap map[str
 	r.log.Info("restoreMeta")
 	var hostMap []*meta.HostPair
 
-	if len(storageIDMap) != 0 {
-		for k, v := range storageIDMap {
-			fromAddr, err := stringToHostAddr(k)
-			if err != nil {
-				return err
-			}
-			toAddr, err := stringToHostAddr(v)
-			if err != nil {
-				return err
-			}
-
-			pair := &meta.HostPair{fromAddr, toAddr}
-			hostMap = append(hostMap, pair)
+	for k, v := range storageIDMap {
+		fromAddr, err := stringToHostAddr(k)
+		if err != nil {
+			return err
 		}
+		toAddr, err := stringToHostAddr(v)
+		if err != nil {
+			return err
+		}
+
+		r.log.Info("restoreMeta host mapping", zap.String("fromAddr", fromAddr.String()), zap.String("toAddr", toAddr.String()))
+		pair := &meta.HostPair{fromAddr, toAddr}
+		hostMap = append(hostMap, pair)
 	}
+
 	g, _ := errgroup.WithContext(context.Background())
 	for _, n := range r.config.MetaNodes {
 		r.log.Info("will restore meta", zap.String("addr", n.Addrs))
@@ -447,10 +442,12 @@ func (r *Restore) RestoreCluster() error {
 
 	time.Sleep(time.Second * 3)
 
-	err = r.restoreMeta(sstFiles, storageIDMap)
-	if err != nil {
-		r.log.Error("restore meta file failed", zap.Error(err))
-		return err
+	if len(storageIDMap) > 0 {
+		err = r.restoreMeta(sstFiles, storageIDMap)
+		if err != nil {
+			r.log.Error("restore meta file failed", zap.Error(err))
+			return err
+		}
 	}
 
 	err = r.startStorageService()
