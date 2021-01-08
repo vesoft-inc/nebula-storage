@@ -5,6 +5,7 @@
  */
 
 #include "meta/processors/schemaMan/AlterEdgeProcessor.h"
+#include "meta/processors/schemaMan/SchemaUtil.h"
 
 namespace nebula {
 namespace meta {
@@ -63,7 +64,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     }
 
     for (auto& edgeItem : edgeItems) {
-        auto& cols = edgeItem.get_schema().get_columns();
+        auto &cols = edgeItem.get_schema().get_columns();
         for (auto& col : cols) {
             auto retCode = MetaServiceUtils::alterColumnDefs(columns, prop, col, edgeItem.op);
             if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -75,6 +76,11 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
         }
     }
 
+    if (!SchemaUtil::checkType(columns)) {
+        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+        onFinished();
+        return;
+    }
     // Update schema property if edge not index
     auto& alterSchemaProp = req.get_schema_prop();
     auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
