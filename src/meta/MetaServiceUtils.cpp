@@ -1171,18 +1171,13 @@ bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
         }
     }
 
-    bool updateSucceed{false};
-    folly::Baton<true, std::atomic> baton;
-    kvstore->asyncMultiPut(
-        kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
-            updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
-            if (!updateSucceed) {
-                LOG(ERROR) << folly::stringPrintf("write to kvstore failed");
-            }
-            baton.post();
-        });
-    baton.wait();
-    return updateSucceed;
+    kvRet = kvstore->multiPutWitoutReplicator(kDefaultSpaceId, std::move(data));
+    if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "multiPutWitoutReplicator failed kvRet=" << kvRet;
+        return false;
+    }
+
+    return true;
 }
 
 bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
