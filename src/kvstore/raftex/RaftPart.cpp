@@ -1697,6 +1697,8 @@ void RaftPart::processAppendLogRequest(
         }
     }
 
+    // Reset the timeout timer again in case wal and commit takes longer time than expected
+    lastMsgRecvDur_.reset();
     resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
 }
 
