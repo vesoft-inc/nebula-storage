@@ -18,16 +18,23 @@ RebuildIndexTask::genSubTasks() {
     space_ = ctx_.parameters_.space_id;
     auto parts = ctx_.parameters_.parts;
 
-    auto itemsRet = getIndexes(space_);
-    if (!itemsRet.ok()) {
-        LOG(ERROR) << "Indexes Not Found";
+    if (ctx_.parameters_.task_specfic_paras.empty()) {
+        LOG(INFO) << "Index is empty";
         return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
     }
 
-    auto items = itemsRet.value();
-    if (items.empty()) {
-        LOG(INFO) << "Index is empty";
-        return cpp2::ErrorCode::SUCCEEDED;
+    std::vector<std::string> indexes;
+    folly::split(",", ctx_.parameters_.task_specfic_paras[0], indexes, true);
+
+    IndexItems items;
+    for (const auto& index : indexes) {
+        auto indexID = folly::to<IndexID>(index);
+        auto indexRet = env_->indexMan_->getTagIndex(space_, indexID);
+        if (!indexRet.ok()) {
+            LOG(INFO) << "Index not found";
+            return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
+        }
+        items.emplace_back(indexRet.value());
     }
 
     std::vector<AdminSubTask> tasks;

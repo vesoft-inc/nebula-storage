@@ -12,11 +12,6 @@
 namespace nebula {
 namespace storage {
 
-StatusOr<IndexItems>
-RebuildEdgeIndexTask::getIndexes(GraphSpaceID space) {
-    return env_->indexMan_->getEdgeIndexes(space);
-}
-
 kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                            PartitionID part,
                                                            const IndexItems& items) {
