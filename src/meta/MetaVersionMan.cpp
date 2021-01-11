@@ -244,27 +244,6 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
     }
 
     {
-        // kIndexesTable
-        auto prefix = nebula::oldmeta::kIndexesTable;
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            Status status = Status::OK();
-            while (iter->valid()) {
-                if (FLAGS_print_info) {
-                    upgrader.printIndexes(iter->val());
-                }
-                status = upgrader.rewriteIndexes(iter->key(), iter->val());
-                if (!status.ok()) {
-                    LOG(ERROR) << status;
-                    return status;
-                }
-                iter->next();
-            }
-        }
-    }
-
-    {
         // kConfigsTable
         auto prefix = nebula::oldmeta::kConfigsTable;
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -314,56 +293,29 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
             }
         }
     }
-    {
-        // need to delete kDefaultTable
-        auto prefix = nebula::oldmeta::kDefaultTable;
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            Status status = Status::OK();
-            while (iter->valid()) {
-                status = upgrader.deleteKeyVal(iter->key());
-                if (!status.ok()) {
-                    LOG(ERROR) << status;
-                    return status;
-                }
-                iter->next();
-            }
-        }
-    }
 
+    // delete
     {
-        // need to delete kCurrJob
-        auto prefix = nebula::oldmeta::kCurrJob;
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            Status status = Status::OK();
-            while (iter->valid()) {
-                status = upgrader.deleteKeyVal(iter->key());
-                if (!status.ok()) {
-                    LOG(ERROR) << status;
-                    return status;
+        std::vector<std::string> prefixes({nebula::oldmeta::kIndexesTable,
+                                           nebula::oldmeta::kDefaultTable,
+                                           nebula::oldmeta::kCurrJob,
+                                           nebula::oldmeta::kJobArchive});
+        std::unique_ptr <kvstore::KVIterator> iter;
+        for (auto &prefix : prefixes) {
+            auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+            if (ret == kvstore::ResultCode::SUCCEEDED) {
+                Status status = Status::OK();
+                while (iter->valid()) {
+                    if (FLAGS_print_info) {
+                        upgrader.printIndexes(iter->val());
+                    }
+                    status = upgrader.deleteKeyVal(iter->key());
+                    if (!status.ok()) {
+                        LOG(ERROR) << status;
+                        return status;
+                    }
+                    iter->next();
                 }
-                iter->next();
-            }
-        }
-    }
-
-    {
-        // need to delete kJobArchive
-        auto prefix = nebula::oldmeta::kJobArchive;
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-        if (ret == kvstore::ResultCode::SUCCEEDED) {
-            Status status = Status::OK();
-            while (iter->valid()) {
-                status = upgrader.deleteKeyVal(iter->key());
-                if (!status.ok()) {
-                    LOG(ERROR) << status;
-                    return status;
-                }
-                iter->next();
             }
         }
     }
