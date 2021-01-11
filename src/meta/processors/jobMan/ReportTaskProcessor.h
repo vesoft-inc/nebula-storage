@@ -8,11 +8,9 @@
 #define META_REPORTTASKPROCESSOR_H_
 
 #include "meta/processors/BaseProcessor.h"
-#include "meta/processors/admin/AdminClient.h"
 
 namespace nebula {
 namespace meta {
-
 class ReportTaskProcessor : public BaseProcessor<cpp2::ExecResp> {
 public:
     static ReportTaskProcessor* instance(kvstore::KVStore* kvstore) {
@@ -22,7 +20,7 @@ public:
     void process(const cpp2::ReportTaskReq& req);
 
 protected:
-    explicit ReportTaskProcessor(kvstore::KVStore* kvstore, AdminClient* adminClient)
+    explicit ReportTaskProcessor(kvstore::KVStore* kvstore)
         : BaseProcessor<cpp2::ExecResp>(kvstore) {}
 };
 

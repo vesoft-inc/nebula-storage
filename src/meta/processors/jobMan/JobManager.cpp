@@ -255,7 +255,6 @@ cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
     cleanJob(jobId);
 }
 
-// cpp2::ErrorCode JobManager::reportTaskFinish(JobID jobId, int32_t taskId, cpp2::ErrorCode code) {
 cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
     auto jobId = req.get_job_id();
     auto taskId = req.get_task_id();
@@ -284,6 +283,7 @@ cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
     auto taskStatus =
         code == cpp2::ErrorCode::SUCCEEDED ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
     task->setStatus(taskStatus);
+    save(task->taskKey(), task->taskVal());
 
     auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& task){
         return task.status_ == cpp2::JobStatus::RUNNING;

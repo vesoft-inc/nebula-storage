@@ -18,6 +18,7 @@
 #include "meta/processors/jobMan/RebuildTagJobExecutor.h"
 #include "meta/processors/jobMan/RebuildEdgeJobExecutor.h"
 #include "meta/processors/jobMan/StatisJobExecutor.h"
+#include "meta/processors/jobMan/TaskDescription.h"
 #include "utils/Utils.h"
 
 DECLARE_int32(heartbeat_interval_secs);
@@ -159,6 +160,24 @@ ExecuteRet MetaJobExecutor::execute() {
 
     auto addresses = nebula::value(addressesRet);
     auto unfinishedTask = addresses.size();
+
+    for (auto i = 0U; i != addresses.size(); ++i) {
+        TaskDescription task(jobId_, i, addresses[i].first);
+        std::vector<kvstore::KV> data{{task.taskKey(), task.taskVal()}};
+        folly::Baton<true, std::atomic> baton;
+        auto rc = nebula::kvstore::ResultCode::SUCCEEDED;
+        kvstore_->asyncMultiPut(kDefaultSpaceId,
+                                kDefaultPartId,
+                                std::move(data),
+                                [&](nebula::kvstore::ResultCode code) {
+                                    rc = code;
+                                    baton.post();
+                                });
+        baton.wait();
+        if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+            return cpp2::ErrorCode::E_UNKNOWN;
+        }
+    }
 
     std::unordered_map<HostAddr, Status> ret;
     for (auto& address : addresses) {

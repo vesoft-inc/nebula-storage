@@ -5,6 +5,7 @@
  */
 
 #include "meta/processors/jobMan/ReportTaskProcessor.h"
+#include "meta/processors/jobMan/JobManager.h"
 
 namespace nebula {
 namespace meta {
@@ -13,10 +14,6 @@ namespace meta {
 
 void ReportTaskProcessor::process(const cpp2::ReportTaskReq& req) {
     JobManager* jobMgr = JobManager::getInstance();
-    // auto rc = jobMgr->reportTaskFinish(req.get_job_id(),
-    //                                    req.get_task_id(),
-    //                                    req.get_code(),
-    //                                    req.);
     auto rc = jobMgr->reportTaskFinish(req);
     if (rc != cpp2::ErrorCode::SUCCEEDED) {
         handleErrorCode(rc);
