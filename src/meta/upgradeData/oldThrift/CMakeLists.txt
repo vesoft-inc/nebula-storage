@@ -16,3 +16,6 @@ nebula_add_library(
     gen-cpp2/old_meta_data.cpp
     gen-cpp2/old_meta_types.cpp
 )
+
+target_compile_options(old_meta_thrift_obj PRIVATE "-Wno-pedantic")
+target_compile_options(old_meta_thrift_obj PRIVATE "-Wno-extra")
