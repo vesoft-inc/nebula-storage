@@ -94,7 +94,7 @@ ErrorOr<cpp2::ErrorCode, BalanceID> Balancer::cleanLastInValidPlan() {
         return MetaCommon::to(ret);
     }
     // There should be at most one invalid plan, and it must be the latest one
-    while (iter->valid()) {
+    if (iter->valid()) {
         auto status = MetaServiceUtils::parseBalanceStatus(iter->val());
         if (status == BalanceStatus::FAILED) {
             auto balanceId = MetaServiceUtils::parseBalanceID(iter->key());
@@ -114,7 +114,6 @@ ErrorOr<cpp2::ErrorCode, BalanceID> Balancer::cleanLastInValidPlan() {
             }
             return balanceId;
         }
-        break;
     }
     return cpp2::ErrorCode::E_NO_INVALID_BALANCE_PLAN;
 }
@@ -136,14 +135,15 @@ cpp2::ErrorCode Balancer::recovery() {
             return MetaCommon::to(ret);
         }
         std::vector<int64_t> corruptedPlans;
-        while (iter->valid()) {
+        // The balance plan is stored with balance id desc order, there should be at most one
+        // failed or in_progress plan, and it must be the latest one
+        if (iter->valid()) {
             auto status = MetaServiceUtils::parseBalanceStatus(iter->val());
             if (status == BalanceStatus::IN_PROGRESS ||
                 status == BalanceStatus::FAILED) {
                 auto balanceId = MetaServiceUtils::parseBalanceID(iter->key());
                 corruptedPlans.emplace_back(balanceId);
             }
-            iter->next();
         }
         if (corruptedPlans.empty()) {
             LOG(INFO) << "No corrupted plan need to recovery!";
@@ -738,11 +738,13 @@ int32_t Balancer::giveupLeaders(HostParts& leaderParts,
     int32_t taskCount = 0;
     auto& sourceLeaders = leaderParts[source];
     size_t maxLoad = hostBounds_[source].second;
+
     // host will try to transfer the extra leaders to other peers
-    for (auto it = sourceLeaders.begin(); it != sourceLeaders.end(); it++) {
+    for (auto it = sourceLeaders.begin(); it != sourceLeaders.end();) {
         // find the leader of partId
         auto partId = *it;
         const auto& targets = peersMap[partId];
+        bool isErase = false;
 
         // leader should move to the peer with lowest loading
         auto target = std::min_element(targets.begin(), targets.end(),
@@ -752,24 +754,32 @@ int32_t Balancer::giveupLeaders(HostParts& leaderParts,
                                            }
                                            return leaderParts[l].size() < leaderParts[r].size();
                                        });
+
         // If peer can accept this partition leader, than host will transfer to the peer
-        auto& targetLeaders = leaderParts[*target];
-        int32_t targetLeaderSize = targetLeaders.size();
-        if (targetLeaderSize < hostBounds_[*target].second) {
-            it = sourceLeaders.erase(it);
-            targetLeaders.emplace_back(partId);
-            plan.emplace_back(spaceId, partId, source, *target);
-            LOG(INFO) << "giveup plan trans leader space: " << spaceId
-                      << " part: " << partId
-                      << " from " << source.host << ":" << source.port
-                      << " to " << target->host << ":" << target->port;
-            ++taskCount;
+        if (target != targets.end()) {
+            auto& targetLeaders = leaderParts[*target];
+            int32_t targetLeaderSize = targetLeaders.size();
+            if (targetLeaderSize < hostBounds_[*target].second) {
+                it = sourceLeaders.erase(it);
+                targetLeaders.emplace_back(partId);
+                plan.emplace_back(spaceId, partId, source, *target);
+                LOG(INFO) << "giveup plan trans leader space: " << spaceId
+                          << " part: " << partId
+                          << " from " << source.host << ":" << source.port
+                          << " to " << target->host << ":" << target->port;
+                ++taskCount;
+                isErase = true;
+            }
         }
 
         // if host has enough leader, just return
         if (sourceLeaders.size() == maxLoad) {
             LOG(INFO) << "Host: " << source  << "'s leader reach " << maxLoad;
             break;
+        }
+
+        if (!isErase) {
+            ++it;
         }
     }
     return taskCount;
