@@ -147,55 +147,6 @@ void JobManager::scheduleThread() {
 }
 
 // @return: true if all task dispatched, else false
-bool JobManager::runJobInternalOld(const JobDescription& jobDesc) {
-    currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
-
-    if (currJob_ == nullptr) {
-        LOG(ERROR) << "unreconized job cmd " << static_cast<int>(jobDesc.getCmd());
-        return false;
-    }
-    if (jobDesc.getStatus() == cpp2::JobStatus::STOPPED) {
-        currJob_->stop();
-        return true;
-    }
-
-    if (!currJob_->check()) {
-        LOG(ERROR) << "Job Executor check failed";
-        return false;
-    }
-
-    if (currJob_->prepare() != cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Job Executor prepare failed";
-        return false;
-    }
-
-    auto results = currJob_->execute();
-    if (!nebula::ok(results)) {
-        LOG(ERROR) << "Job executor running failed";
-        return false;
-    }
-
-    size_t taskId = 0;
-    bool jobSuccess = true;
-    for (auto& hostAndStatus : nebula::value(results)) {
-        auto& host = hostAndStatus.first;
-        TaskDescription task(jobDesc.getJobId(), taskId, host.host, host.port);
-        bool taskSuccess = hostAndStatus.second.ok();
-        auto taskStatus = taskSuccess ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
-        if (!taskSuccess) {
-            jobSuccess = false;
-        }
-        task.setStatus(taskStatus);
-        save(task.taskKey(), task.taskVal());
-        ++taskId;
-    }
-
-    currJob_->finish(jobSuccess);
-
-    return jobSuccess;
-}
-
-// @return: true if all task dispatched, else false
 bool JobManager::runJobInternal(const JobDescription& jobDesc) {
     currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
     if (currJob_ == nullptr) {

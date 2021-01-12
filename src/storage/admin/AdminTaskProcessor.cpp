@@ -11,11 +11,7 @@
 namespace nebula {
 namespace storage {
 
-void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {\
-    process2(req);
-}
-
-void AdminTaskProcessor::process2(const cpp2::AddAdminTaskRequest& req) {
+void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     auto taskManager = AdminTaskManager::instance();
 
     auto toMetaErrCode = [](storage::cpp2::ErrorCode storageCode) {
@@ -55,43 +51,6 @@ void AdminTaskProcessor::process2(const cpp2::AddAdminTaskRequest& req) {
         codes_.emplace_back(std::move(thriftRet));
     }
     onFinished();
-}
-
-void AdminTaskProcessor::process1(const cpp2::AddAdminTaskRequest& req) {
-    bool runDirectly = true;
-    auto rc = cpp2::ErrorCode::SUCCEEDED;
-    auto taskManager = AdminTaskManager::instance();
-
-    auto cb = [&](cpp2::ErrorCode ret, nebula::meta::cpp2::StatisItem& result) {
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
-            cpp2::PartitionResult thriftRet;
-            thriftRet.set_code(ret);
-            codes_.emplace_back(std::move(thriftRet));
-        } else {
-            if (result.status == nebula::meta::cpp2::JobStatus::FINISHED) {
-                onProcessFinished(result);
-            }
-        }
-        onFinished();
-    };
-
-    TaskContext ctx(req, cb);
-    auto task = AdminTaskFactory::createAdminTask(env_, std::move(ctx));
-    if (task) {
-        runDirectly = false;
-        taskManager->addAsyncTask(task);
-    } else {
-        rc = cpp2::ErrorCode::E_INVALID_TASK_PARA;
-    }
-
-    if (runDirectly) {
-        if (rc != cpp2::ErrorCode::SUCCEEDED) {
-            cpp2::PartitionResult thriftRet;
-            thriftRet.set_code(rc);
-            codes_.emplace_back(std::move(thriftRet));
-        }
-        onFinished();
-    }
 }
 
 void AdminTaskProcessor::onProcessFinished(nebula::meta::cpp2::StatisItem& result) {
