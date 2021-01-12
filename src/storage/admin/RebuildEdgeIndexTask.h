@@ -19,6 +19,9 @@ public:
         : RebuildIndexTask(env, std::move(ctx)) {}
 
 private:
+    StatusOr<IndexItems>
+    getIndexes(GraphSpaceID space) override;
+
     kvstore::ResultCode buildIndexGlobal(GraphSpaceID space,
                                          PartitionID part,
                                          const IndexItems& items) override;

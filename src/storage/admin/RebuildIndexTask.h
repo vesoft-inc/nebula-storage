@@ -29,6 +29,9 @@ public:
     ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
 protected:
+    virtual StatusOr<IndexItems>
+    getIndexes(GraphSpaceID space) = 0;
+
     virtual kvstore::ResultCode
     buildIndexGlobal(GraphSpaceID space,
                      PartitionID part,

@@ -18,23 +18,33 @@ RebuildIndexTask::genSubTasks() {
     space_ = ctx_.parameters_.space_id;
     auto parts = ctx_.parameters_.parts;
 
-    if (ctx_.parameters_.task_specfic_paras.empty()) {
-        LOG(INFO) << "Index is empty";
-        return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
-    }
-
-    std::vector<std::string> indexes;
-    folly::split(",", ctx_.parameters_.task_specfic_paras[0], indexes, true);
-
     IndexItems items;
-    for (const auto& index : indexes) {
-        auto indexID = folly::to<IndexID>(index);
-        auto indexRet = env_->indexMan_->getTagIndex(space_, indexID);
-        if (!indexRet.ok()) {
-            LOG(INFO) << "Index not found";
+    if (ctx_.parameters_.task_specfic_paras.empty()) {
+        auto itemsRet = getIndexes(space_);
+        if (!itemsRet.ok()) {
+            LOG(ERROR) << "Indexes not found";
             return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
         }
-        items.emplace_back(indexRet.value());
+
+        items = std::move(itemsRet).value();
+    } else {
+        std::vector<std::string> indexes;
+        folly::split(",", ctx_.parameters_.task_specfic_paras[0], indexes, true);
+
+        for (const auto& index : indexes) {
+            auto indexID = folly::to<IndexID>(index);
+            auto indexRet = env_->indexMan_->getTagIndex(space_, indexID);
+            if (!indexRet.ok()) {
+                LOG(ERROR) << "Index not found";
+                return cpp2::ErrorCode::E_INDEX_NOT_FOUND;
+            }
+            items.emplace_back(indexRet.value());
+        }
+    }
+
+    if (items.empty()) {
+        LOG(ERROR) << "Index is empty";
+        return cpp2::ErrorCode::SUCCEEDED;
     }
 
     std::vector<AdminSubTask> tasks;
