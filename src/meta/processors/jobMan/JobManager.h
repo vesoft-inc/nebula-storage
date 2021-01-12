@@ -122,6 +122,8 @@ private:
 
     void cleanJob(JobID jobId);
 
+    cpp2::ErrorCode saveTaskStatus(TaskDescription& td, const cpp2::ReportTaskReq& req);
+
 private:
     // Todo(pandasheep)
     // When folly is upgraded, PriorityUMPSCQueueSet can be used

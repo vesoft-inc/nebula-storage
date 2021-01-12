@@ -50,6 +50,12 @@ public:
 
     virtual void finish(bool) {}
 
+    void setSpaceId(GraphSpaceID spaceId) { space_ = spaceId; }
+
+    virtual cpp2::ErrorCode saveSpecialTaskStatus(const cpp2::ReportTaskReq&) {
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
 protected:
     ErrorOr<cpp2::ErrorCode, GraphSpaceID>
     getSpaceIdFromName(const std::string& spaceName);

@@ -198,11 +198,11 @@ bool JobManager::runJobInternalOld(const JobDescription& jobDesc) {
 // @return: true if all task dispatched, else false
 bool JobManager::runJobInternal(const JobDescription& jobDesc) {
     currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
-
     if (currJob_ == nullptr) {
         LOG(ERROR) << "unreconized job cmd " << static_cast<int>(jobDesc.getCmd());
         return false;
     }
+
     if (jobDesc.getStatus() == cpp2::JobStatus::STOPPED) {
         currJob_->stop();
         return true;
@@ -235,14 +235,33 @@ void JobManager::cleanJob(JobID jobId) {
 }
 
 cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
+    LOG(INFO) << folly::sformat("{}, jobId={}, suc={}", __func__, jobId, suc);
     auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
     if (!optJobDesc) {
+        LOG(WARNING) << folly::sformat("can't load job, jobId={}", jobId);
         return cpp2::ErrorCode::SUCCEEDED;
     }
 
     auto jobStatus = suc ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
 
     optJobDesc->setStatus(jobStatus);
+
+    auto jobExec =
+        MetaJobExecutorFactory::createMetaJobExecutor(*optJobDesc, kvStore_, adminClient_);
+
+    if (jobExec) {
+        if (!optJobDesc->getParas().empty()) {
+            auto spaceName = optJobDesc->getParas().front();
+            auto spaceId = getSpaceId(spaceName);
+            LOG(INFO) << folly::sformat("spaceName={}, spaceId={}", spaceName, spaceId);
+            if (spaceId != -1) {
+                jobExec->setSpaceId(spaceId);
+            }
+        }
+        jobExec->finish(suc);
+    } else {
+        LOG(WARNING) << folly::sformat("unable to create jobExecutor, jobId={}", jobId);
+    }
 
     auto rc = save(optJobDesc->jobKey(), optJobDesc->jobVal());
     if (rc == nebula::kvstore::ResultCode::ERR_LEADER_CHANGED) {
@@ -255,10 +274,54 @@ cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
     cleanJob(jobId);
 }
 
+cpp2::ErrorCode JobManager::saveTaskStatus(TaskDescription& td,
+                                           const cpp2::ReportTaskReq& req) {
+    auto code = req.get_code();
+    auto status =
+        code == cpp2::ErrorCode::SUCCEEDED ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
+    td.setStatus(status);
+
+    auto jobId = req.get_job_id();
+    auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
+    if (!optJobDesc) {
+        LOG(WARNING) << folly::sformat("{}() loadJobDesc failed, jobId={}", __func__, jobId);
+        return cpp2::ErrorCode::E_TASK_REPORT_OUT_DATE;
+    }
+
+    auto jobExec =
+        MetaJobExecutorFactory::createMetaJobExecutor(*optJobDesc, kvStore_, adminClient_);
+
+    if (!jobExec) {
+        LOG(WARNING) << folly::sformat("createMetaJobExecutor failed(), jobId={}", jobId);
+        return cpp2::ErrorCode::E_TASK_REPORT_OUT_DATE;
+    } else {
+        if (!optJobDesc->getParas().empty()) {
+            auto spaceName = optJobDesc->getParas().front();
+            auto spaceId = getSpaceId(spaceName);
+            LOG(INFO) << folly::sformat("spaceName={}, spaceId={}", spaceName, spaceId);
+            if (spaceId != -1) {
+                jobExec->setSpaceId(spaceId);
+            }
+        }
+    }
+
+    auto rcSave = save(td.taskKey(), td.taskVal());
+    if (rcSave != kvstore::ResultCode::SUCCEEDED) {
+        return cpp2::ErrorCode::E_STORE_FAILURE;
+    }
+    return jobExec->saveSpecialTaskStatus(req);
+}
+
+/**
+ * @brief
+ *      client should retry if any persist attempt
+ *      for example leader change / store failure.
+ *      else, may log then ignore error
+ * @return cpp2::ErrorCode
+ */
 cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
     auto jobId = req.get_job_id();
     auto taskId = req.get_task_id();
-    auto code = req.get_code();
     // only an active job manager will accept task finish report
     if (!(status_ == JbmgrStatus::IDLE || status_ == JbmgrStatus::RUNNING)) {
         LOG(INFO) << folly::sformat(
@@ -280,10 +343,10 @@ cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
         return cpp2::ErrorCode::SUCCEEDED;
     }
 
-    auto taskStatus =
-        code == cpp2::ErrorCode::SUCCEEDED ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
-    task->setStatus(taskStatus);
-    save(task->taskKey(), task->taskVal());
+    auto rc = saveTaskStatus(*task, req);
+    if (rc != cpp2::ErrorCode::SUCCEEDED) {
+        return rc;
+    }
 
     auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& task){
         return task.status_ == cpp2::JobStatus::RUNNING;
