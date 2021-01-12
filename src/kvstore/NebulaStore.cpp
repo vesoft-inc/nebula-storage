@@ -1105,7 +1105,7 @@ ResultCode NebulaStore::restoreFromFiles(GraphSpaceID spaceId,
     return ResultCode::SUCCEEDED;
 }
 
-ResultCode NebulaStore::multiPutWitoutReplicator(GraphSpaceID spaceId, std::vector<KV> keyValues) {
+ResultCode NebulaStore::multiPutWithoutReplicator(GraphSpaceID spaceId, std::vector<KV> keyValues) {
     auto spaceRet = space(spaceId);
     if (!ok(spaceRet)) {
         LOG(ERROR) << "Get Space " << spaceId << " Failed";

@@ -208,7 +208,7 @@ public:
     virtual ResultCode restoreFromFiles(GraphSpaceID spaceId,
                                         const std::vector<std::string>& files) = 0;
 
-    virtual ResultCode multiPutWitoutReplicator(GraphSpaceID spaceId,
+    virtual ResultCode multiPutWithoutReplicator(GraphSpaceID spaceId,
                                                 std::vector<KV> keyValues) = 0;
 
 protected:

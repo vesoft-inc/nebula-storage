@@ -1171,9 +1171,9 @@ bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
         }
     }
 
-    kvRet = kvstore->multiPutWitoutReplicator(kDefaultSpaceId, std::move(data));
+    kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "multiPutWitoutReplicator failed kvRet=" << kvRet;
+        LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
         return false;
     }
 
@@ -1211,9 +1211,9 @@ bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
         iter->next();
     }
 
-    kvRet = kvstore->multiPutWitoutReplicator(kDefaultSpaceId, std::move(data));
+    kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "multiPutWitoutReplicator failed kvRet=" << kvRet;
+        LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
         return false;
     }
     return true;

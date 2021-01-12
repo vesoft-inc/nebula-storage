@@ -274,7 +274,7 @@ public:
                               PartitionID partId,
                               const std::vector<HostAddr>& remoteListeners) override;
 
-    ResultCode multiPutWitoutReplicator(GraphSpaceID spaceId,
+    ResultCode multiPutWithoutReplicator(GraphSpaceID spaceId,
                                         std::vector<KV> keyValues) override;
 
 private:
