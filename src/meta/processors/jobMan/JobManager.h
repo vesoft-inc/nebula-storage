@@ -50,7 +50,7 @@ public:
     enum class JbmgrStatus {
         NOT_START,
         IDLE,       // Job manager started, no running any job
-        RUNNING,    // Job manager is running job
+        BUSY,       // Job manager is running job
         STOPPED,
     };
 

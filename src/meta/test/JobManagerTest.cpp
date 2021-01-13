@@ -151,7 +151,7 @@ TEST_F(JobManagerTest, JobPriority) {
     result = jobMgr->try_dequeue(jobId);
     ASSERT_FALSE(result);
 
-    jobMgr->status_ = JobManager::JbmgrStatus::RUNNING;
+    jobMgr->status_ = JobManager::JbmgrStatus::IDLE;
 }
 
 TEST_F(JobManagerTest, JobDeduplication) {
@@ -202,7 +202,7 @@ TEST_F(JobManagerTest, JobDeduplication) {
 
     result = jobMgr->try_dequeue(jobId);
     ASSERT_FALSE(result);
-    jobMgr->status_ = JobManager::JbmgrStatus::RUNNING;
+    jobMgr->status_ = JobManager::JbmgrStatus::IDLE;
 }
 
 TEST_F(JobManagerTest, loadJobDescription) {

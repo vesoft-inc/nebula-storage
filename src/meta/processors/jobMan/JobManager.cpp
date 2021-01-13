@@ -66,7 +66,7 @@ JobManager::~JobManager() {
 void JobManager::shutDown() {
     LOG(INFO) << "JobManager::shutDown() begin";
     std::lock_guard<std::mutex> lk(statusGuard_);
-    if (status_ != JbmgrStatus::RUNNING) {  // in case of shutdown more than once
+    if (status_ == JbmgrStatus::STOPPED) {  // in case of shutdown more than once
         LOG(INFO) << "JobManager not running, exit";
         return;
     }
@@ -77,50 +77,11 @@ void JobManager::shutDown() {
     LOG(INFO) << "JobManager::shutDown() end";
 }
 
-void JobManager::scheduleThreadOld() {
-    LOG(INFO) << "JobManager::runJobBackground() enter";
-    while (status_ == JbmgrStatus::RUNNING) {
-        int32_t iJob = 0;
-        while (!try_dequeue(iJob)) {
-            if (status_ == JbmgrStatus::STOPPED) {
-                LOG(INFO) << "[JobManager] detect shutdown called, exit";
-                break;
-            }
-            usleep(FLAGS_job_check_intervals);
-        }
-
-        auto jobDesc = JobDescription::loadJobDescription(iJob, kvStore_);
-        if (jobDesc == folly::none) {
-            LOG(ERROR) << "[JobManager] load a invalid job from queue " << iJob;
-            continue;   // leader change or archive happend
-        }
-        if (!jobDesc->setStatus(cpp2::JobStatus::RUNNING)) {
-            LOG(INFO) << "[JobManager] skip job " << iJob;
-            continue;
-        }
-        save(jobDesc->jobKey(), jobDesc->jobVal());
-
-        if (runJobInternal(*jobDesc)) {
-            jobDesc->setStatus(cpp2::JobStatus::FINISHED);
-        } else {
-            jobDesc->setStatus(cpp2::JobStatus::FAILED);
-        }
-        save(jobDesc->jobKey(), jobDesc->jobVal());
-
-        // Delete the job after job finished or failed
-        auto it = inFlightJobs_.find(jobDesc->getJobId());
-        if (it != inFlightJobs_.end()) {
-            inFlightJobs_.erase(it);
-        }
-    }
-    LOG(INFO) << "[JobManager] exit";
-}
-
 void JobManager::scheduleThread() {
     LOG(INFO) << "JobManager::runJobBackground() enter";
-    while (status_ == JbmgrStatus::IDLE || status_ == JbmgrStatus::RUNNING) {
+    while (status_ != JbmgrStatus::STOPPED) {
         int32_t iJob = 0;
-        while (!try_dequeue(iJob)) {
+        while (status_ == JbmgrStatus::BUSY || !try_dequeue(iJob)) {
             if (status_ == JbmgrStatus::STOPPED) {
                 LOG(INFO) << "[JobManager] detect shutdown called, exit";
                 break;
@@ -139,6 +100,7 @@ void JobManager::scheduleThread() {
         }
         save(jobDesc->jobKey(), jobDesc->jobVal());
 
+        status_ = JbmgrStatus::BUSY;
         if (!runJobInternal(*jobDesc)) {
             stopJob(iJob);
         }
@@ -179,6 +141,7 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
 
 void JobManager::cleanJob(JobID jobId) {
     // Delete the job after job finished or failed
+    LOG(INFO) << "[task] cleanJob " << jobId;
     auto it = inFlightJobs_.find(jobId);
     if (it != inFlightJobs_.end()) {
         inFlightJobs_.erase(it);
@@ -187,6 +150,10 @@ void JobManager::cleanJob(JobID jobId) {
 
 cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
     LOG(INFO) << folly::sformat("{}, jobId={}, suc={}", __func__, jobId, suc);
+    SCOPE_EXIT {
+        cleanJob(jobId);
+        status_ = JbmgrStatus::IDLE;
+    };
     auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
     if (!optJobDesc) {
         LOG(WARNING) << folly::sformat("can't load job, jobId={}", jobId);
@@ -220,9 +187,6 @@ cpp2::ErrorCode JobManager::jobFinished(JobID jobId, bool suc) {
     } else {
         return cpp2::ErrorCode::E_UNKNOWN;
     }
-    status_ = JbmgrStatus::IDLE;
-
-    cleanJob(jobId);
 }
 
 cpp2::ErrorCode JobManager::saveTaskStatus(TaskDescription& td,
@@ -274,7 +238,7 @@ cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
     auto jobId = req.get_job_id();
     auto taskId = req.get_task_id();
     // only an active job manager will accept task finish report
-    if (!(status_ == JbmgrStatus::IDLE || status_ == JbmgrStatus::RUNNING)) {
+    if (status_ == JbmgrStatus::STOPPED || status_ == JbmgrStatus::NOT_START) {
         LOG(INFO) << folly::sformat(
             "report to an in-active job manager, job={}, task={}", jobId, taskId);
         return cpp2::ErrorCode::E_UNKNOWN;

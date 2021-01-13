@@ -30,18 +30,32 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
                   nebula::storage::cpp2::ErrorCode errCode,
                   nebula::meta::cpp2::StatisItem& result) {
         meta::cpp2::StatisItem* pStatis = nullptr;
-        if (errCode == cpp2::ErrorCode::SUCCEEDED) {
-            if (result.status == nebula::meta::cpp2::JobStatus::FINISHED) {
-                pStatis = &result;
-            }
+        if (errCode == cpp2::ErrorCode::SUCCEEDED &&
+            result.status == nebula::meta::cpp2::JobStatus::FINISHED) {
+            pStatis = &result;
         }
 
+        LOG(INFO) << folly::sformat("report task finish, job={}, task={}", jobId, taskId);
         auto metaCode = toMetaErrCode(errCode);
-        auto fut = env_->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
-        UNUSED(fut);
+        auto maxRetry = 5;
+        auto retry = 0;
+        while (retry++ < maxRetry) {
+            auto fut = env_->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
+            fut.wait();
+            if (!fut.hasValue()) {
+                continue;
+            }
+            auto rc = fut.value();
+            if (rc == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
+                rc == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
+                continue;
+            } else {
+                break;
+            }
+        }
     };
 
-    TaskContext ctx(req, cb);
+    TaskContext ctx(req, std::move(cb));
     auto task = AdminTaskFactory::createAdminTask(env_, std::move(ctx));
     if (task) {
         taskManager->addAsyncTask(task);
