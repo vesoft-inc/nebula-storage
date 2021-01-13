@@ -1127,7 +1127,8 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
 
 bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
                                               const HostAddr& ipv4From,
-                                              const HostAddr& ipv4To) {
+                                              const HostAddr& ipv4To,
+                                              bool direct) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& spacePrefix = MetaServiceUtils::spacePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -1171,18 +1172,31 @@ bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
         }
     }
 
-    kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
-    if (kvRet != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
-        return false;
+    if (direct) {
+        kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
+        if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
+            return false;
+        }
+        return true;
     }
+    bool updateSucceed{false};
+    folly::Baton<true, std::atomic> baton;
+    kvstore->asyncMultiPut(
+        kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
+            updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << code;
+            baton.post();
+        });
+    baton.wait();
 
-    return true;
+    return updateSucceed;
 }
 
 bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
                                          const HostAddr& ipv4From,
-                                         const HostAddr& ipv4To) {
+                                         const HostAddr& ipv4To,
+                                         bool direct) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& zonePrefix = MetaServiceUtils::zonePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -1211,12 +1225,25 @@ bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
         iter->next();
     }
 
-    kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
-    if (kvRet != kvstore::ResultCode::SUCCEEDED) {
-        LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
-        return false;
+    if (direct) {
+        kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
+        if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
+            return false;
+        }
+        return true;
     }
-    return true;
+    bool updateSucceed{false};
+    folly::Baton<true, std::atomic> baton;
+    kvstore->asyncMultiPut(
+        kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
+            updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << code;
+            baton.post();
+        });
+    baton.wait();
+
+    return updateSucceed;
 }
 
 std::string MetaServiceUtils::balanceTaskKey(BalanceID balanceId,
