@@ -8,7 +8,6 @@ set(common_deps
     $<TARGET_OBJECTS:common_meta_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>
     $<TARGET_OBJECTS:common_file_based_cluster_id_man_obj>
-    $<TARGET_OBJECTS:common_ws_common_obj>
     $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_raftex_thrift_obj>
     $<TARGET_OBJECTS:common_storage_thrift_obj>
