@@ -46,8 +46,8 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
                 continue;
             }
             auto rc = fut.value();
-            if (rc == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
-                rc == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
+            if (rc.value() == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
+                rc.value() == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
                 continue;
             } else {
                 break;
