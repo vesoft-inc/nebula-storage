@@ -40,12 +40,13 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         auto maxRetry = 5;
         auto retry = 0;
         while (retry++ < maxRetry) {
+            auto rc = meta::cpp2::ErrorCode::SUCCEEDED;
             auto fut = env_->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
             fut.wait();
             if (!fut.hasValue()) {
                 continue;
             }
-            auto rc = fut.value();
+            rc = fut.value();
             if (rc.value() == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
                 rc.value() == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
                 continue;
