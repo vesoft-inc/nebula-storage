@@ -46,6 +46,10 @@ private:
 
     void addStatis(cpp2::StatisItem& lhs, const cpp2::StatisItem& rhs);
 
+    std::string toTempKey(int32_t jobId);
+
+    void doRemove(const std::string& key);
+
 private:
     // Statis results
     std::unordered_map<HostAddr, cpp2::StatisItem>  statisItem_;

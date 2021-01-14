@@ -47,11 +47,8 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
     lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
     highPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
 
-    bgThread_ = std::make_unique<thread::GenericWorker>();
-    CHECK(bgThread_->start());
-
     status_ = JbmgrStatus::IDLE;
-    bgThread_->addTask(&JobManager::scheduleThread, this);
+    bgThread_ = std::thread(&JobManager::scheduleThread, this);
     LOG(INFO) << "JobManager initialized";
     return true;
 }
@@ -70,8 +67,7 @@ void JobManager::shutDown() {
         std::lock_guard<std::mutex> lk(statusGuard_);
         status_ = JbmgrStatus::STOPPED;
     }
-    bgThread_->stop();
-    bgThread_->wait();
+    bgThread_.join();
     LOG(INFO) << "JobManager::shutDown() end";
 }
 

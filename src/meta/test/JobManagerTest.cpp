@@ -26,6 +26,8 @@ namespace meta {
 using ::testing::DefaultValue;
 using ::testing::NiceMock;
 
+bool gInitialized = false;
+
 class JobManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -50,11 +52,21 @@ protected:
 
         jobMgr = JobManager::getInstance();
         jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
-        jobMgr->init(kv_.get());
+        if (!gInitialized) {
+            jobMgr->init(kv_.get());
+            gInitialized = true;
+        }
     }
 
     void TearDown() override {
-        jobMgr->shutDown();
+        auto cleanUnboundQueue = [](auto& q) {
+            int32_t jobId = 0;
+            while (!q.empty()) {
+                q.dequeue(jobId);
+            }
+        };
+        cleanUnboundQueue(*jobMgr->lowPriorityQueue_);
+        cleanUnboundQueue(*jobMgr->highPriorityQueue_);
         kv_.reset();
         rootPath_.reset();
     }

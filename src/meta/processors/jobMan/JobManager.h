@@ -134,7 +134,7 @@ private:
     // The job in running or queue
     folly::ConcurrentHashMap<JobID, JobDescription>    inFlightJobs_;
 
-    std::unique_ptr<thread::GenericWorker>             bgThread_;
+    std::thread                                        bgThread_;
     std::mutex                                         statusGuard_;
     JbmgrStatus                                        status_{JbmgrStatus::NOT_START};
     nebula::kvstore::KVStore*                          kvStore_{nullptr};

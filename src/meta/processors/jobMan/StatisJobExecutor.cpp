@@ -31,6 +31,13 @@ StatisJobExecutor::save(const std::string& key, const std::string& val) {
     return rc;
 }
 
+void StatisJobExecutor::doRemove(const std::string& key) {
+    folly::Baton<true, std::atomic> baton;
+    kvstore_->asyncRemove(
+        kDefaultSpaceId, kDefaultPartId, key, [&](nebula::kvstore::ResultCode) { baton.post(); });
+    baton.wait();
+}
+
 cpp2::ErrorCode StatisJobExecutor::prepare() {
     auto spaceRet = getSpaceIdFromName(paras_[0]);
     if (!nebula::ok(spaceRet)) {
@@ -96,21 +103,31 @@ cpp2::ErrorCode StatisJobExecutor::saveSpecialTaskStatus(const cpp2::ReportTaskR
     }
     cpp2::StatisItem statisItem;
     auto statisKey = MetaServiceUtils::statisKey(space_);
+    auto tempKey = toTempKey(req.get_job_id());
     std::string val;
-    auto ret = kvstore_->get(kDefaultSpaceId, kDefaultPartId, statisKey, &val);
+    auto ret = kvstore_->get(kDefaultSpaceId, kDefaultPartId, tempKey, &val);
+    if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+        ret = kvstore_->get(kDefaultSpaceId, kDefaultPartId, statisKey, &val);
+    }
     if (ret == kvstore::ResultCode::SUCCEEDED) {
         statisItem = MetaServiceUtils::parseStatisVal(val);
     }
     addStatis(statisItem, *req.get_statis());
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
-    save(statisKey, statisVal);
+    save(tempKey, statisVal);
     return cpp2::ErrorCode::SUCCEEDED;
+}
+
+std::string StatisJobExecutor::toTempKey(int32_t jobId) {
+    std::string key = MetaServiceUtils::statisKey(space_);;
+    return key.append(reinterpret_cast<const char*>(&jobId), sizeof(int32_t));
 }
 
 void StatisJobExecutor::finish(bool ExeSuccessed) {
     auto statisKey = MetaServiceUtils::statisKey(space_);
+    auto tempKey = toTempKey(jobId_);
     std::string val;
-    auto ret = kvstore_->get(kDefaultSpaceId, kDefaultPartId, statisKey, &val);
+    auto ret = kvstore_->get(kDefaultSpaceId, kDefaultPartId, tempKey, &val);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Can't find the statis data, spaceId : " << space_;
         return;
@@ -123,6 +140,7 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
     }
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
     save(statisKey, statisVal);
+    doRemove(tempKey);
     return;
 }
 
