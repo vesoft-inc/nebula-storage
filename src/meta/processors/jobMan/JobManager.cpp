@@ -263,13 +263,13 @@ cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
         return rc;
     }
 
-    auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& task){
-        return task.status_ == cpp2::JobStatus::RUNNING;
+    auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& tsk){
+        return tsk.status_ == cpp2::JobStatus::RUNNING;
     });
 
     if (allTaskFinished) {
-        auto jobSucceeded = std::all_of(tasks.begin(), tasks.end(), [](auto& task) {
-            return task.status_ == cpp2::JobStatus::FINISHED;
+        auto jobSucceeded = std::all_of(tasks.begin(), tasks.end(), [](auto& tsk) {
+            return tsk.status_ == cpp2::JobStatus::FINISHED;
         });
         return jobFinished(jobId, jobSucceeded);
     }

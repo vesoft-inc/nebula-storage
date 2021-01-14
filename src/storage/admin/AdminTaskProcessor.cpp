@@ -21,8 +21,9 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
             case storage::cpp2::ErrorCode::E_UNKNOWN:
                 return meta::cpp2::ErrorCode::E_UNKNOWN;
             default:
-                LOG(FATAL) << "unsupported conversion of code "
+                LOG(ERROR) << "unsupported conversion of code "
                            << cpp2::_ErrorCode_VALUES_TO_NAMES.at(storageCode);
+                return meta::cpp2::ErrorCode::SUCCEEDED;
         }
     };
 
@@ -46,9 +47,9 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
             if (!fut.hasValue()) {
                 continue;
             }
-            rc = fut.value();
-            if (rc.value() == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
-                rc.value() == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
+            rc = fut.value().value();
+            if (rc == meta::cpp2::ErrorCode::E_LEADER_CHANGED ||
+                rc == meta::cpp2::ErrorCode::E_STORE_FAILURE) {
                 continue;
             } else {
                 break;
