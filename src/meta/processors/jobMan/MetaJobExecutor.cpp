@@ -132,18 +132,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     return hosts;
 }
 
-void MetaJobExecutor::interruptExecution(JobID jobId) {
-    if (jobId == jobId_) {
-        std::unique_lock<std::mutex> lk(muInterrupt_);
-        stopped_ = true;
-        condInterrupt_.notify_one();
-        lk.unlock();
-
-        LOG(INFO) << folly::sformat("cancel job {}", jobId);
-    }
-}
-
-ExecuteRet MetaJobExecutor::execute() {
+cpp2::ErrorCode MetaJobExecutor::execute() {
     ErrOrHosts addressesRet;
     if (toLeader_) {
         addressesRet = getLeaderHost(space_);
@@ -157,10 +146,9 @@ ExecuteRet MetaJobExecutor::execute() {
     }
 
     std::vector<PartitionID> parts;
-
     auto addresses = nebula::value(addressesRet);
-    auto unfinishedTask = addresses.size();
 
+    // write all tasks first.
     for (auto i = 0U; i != addresses.size(); ++i) {
         TaskDescription task(jobId_, i, addresses[i].first);
         std::vector<kvstore::KV> data{{task.taskKey(), task.taskVal()}};
@@ -179,30 +167,29 @@ ExecuteRet MetaJobExecutor::execute() {
         }
     }
 
-    std::unordered_map<HostAddr, Status> ret;
+    std::vector<folly::SemiFuture<Status>> futs;
     for (auto& address : addresses) {
         // transform to the admin host
-        auto& host = address.first;
-        auto fut = executeInternal(Utils::getAdminAddrFromStoreAddr(host),
-                                      std::move(address.second));
-        std::move(fut).thenTry([&](auto&& t) {
-            std::lock_guard<std::mutex> lk(muInterrupt_);
-            --unfinishedTask;
-            if (t.hasValue()) {
-                ret[host] = t.value();
-            } else {
-                ret[host] = nebula::Status::Error();
+        auto h = Utils::getAdminAddrFromStoreAddr(address.first);
+        futs.emplace_back(executeInternal(std::move(h), std::move(address.second)));
+    }
+
+    auto rc = cpp2::ErrorCode::SUCCEEDED;
+    folly::collectAll(std::move(futs))
+        .thenValue([&](const std::vector<folly::Try<Status>>& tries) {
+            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
+                    return t.hasException() || !t.value().ok();
+                })) {
+                rc = cpp2::ErrorCode::E_RPC_FAILURE;
             }
-            condInterrupt_.notify_one();
-        });
-    }
+        })
+        .thenError([&](auto&& e) {
+            LOG(ERROR) << "MetaJobExecutor::execute() except: " << e.what();
+            rc = cpp2::ErrorCode::E_UNKNOWN;
+        })
+        .wait();
 
-    {
-        std::unique_lock<std::mutex> lk(muInterrupt_);
-        condInterrupt_.wait(lk, [&]{ return unfinishedTask == 0 || stopped_; });
-    }
-
-    return ret;
+    return rc;
 }
 
 }  // namespace meta

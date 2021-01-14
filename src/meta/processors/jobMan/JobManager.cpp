@@ -20,7 +20,6 @@
 #include "meta/processors/jobMan/JobStatus.h"
 #include "meta/MetaServiceUtils.h"
 
-DEFINE_int32(dispatch_thread_num, 10, "Number of job dispatch http thread");
 DEFINE_int32(job_check_intervals, 5000, "job intervals in us");
 DEFINE_double(job_expired_secs, 7*24*60*60, "job expired intervals in sec");
 
@@ -44,8 +43,6 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
         return false;
     }
     kvStore_ = store;
-    pool_ = std::make_unique<nebula::thread::GenericThreadPool>();
-    pool_->start(FLAGS_dispatch_thread_num);
 
     lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
     highPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
@@ -65,13 +62,14 @@ JobManager::~JobManager() {
 
 void JobManager::shutDown() {
     LOG(INFO) << "JobManager::shutDown() begin";
-    std::lock_guard<std::mutex> lk(statusGuard_);
     if (status_ == JbmgrStatus::STOPPED) {  // in case of shutdown more than once
         LOG(INFO) << "JobManager not running, exit";
         return;
     }
-    status_ = JbmgrStatus::STOPPED;
-    pool_->stop();
+    {
+        std::lock_guard<std::mutex> lk(statusGuard_);
+        status_ = JbmgrStatus::STOPPED;
+    }
     bgThread_->stop();
     bgThread_->wait();
     LOG(INFO) << "JobManager::shutDown() end";
@@ -99,8 +97,13 @@ void JobManager::scheduleThread() {
             continue;
         }
         save(jobDesc->jobKey(), jobDesc->jobVal());
+        {
+            std::lock_guard<std::mutex> lk(statusGuard_);
+            if (status_ == JbmgrStatus::IDLE) {
+                status_ = JbmgrStatus::BUSY;
+            }
+        }
 
-        status_ = JbmgrStatus::BUSY;
         if (!runJobInternal(*jobDesc)) {
             stopJob(iJob);
         }
@@ -110,30 +113,29 @@ void JobManager::scheduleThread() {
 
 // @return: true if all task dispatched, else false
 bool JobManager::runJobInternal(const JobDescription& jobDesc) {
-    currJob_ = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
-    if (currJob_ == nullptr) {
+    auto jobExec = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
+    if (jobExec == nullptr) {
         LOG(ERROR) << "unreconized job cmd " << static_cast<int>(jobDesc.getCmd());
         return false;
     }
 
     if (jobDesc.getStatus() == cpp2::JobStatus::STOPPED) {
-        currJob_->stop();
+        jobExec->stop();
         return true;
     }
 
-    if (!currJob_->check()) {
+    if (!jobExec->check()) {
         LOG(ERROR) << "Job Executor check failed";
         return false;
     }
 
-    if (currJob_->prepare() != cpp2::ErrorCode::SUCCEEDED) {
+    if (jobExec->prepare() != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Job Executor prepare failed";
         return false;
     }
 
-    auto results = currJob_->execute();
-    if (!nebula::ok(results)) {
-        LOG(ERROR) << "Job executor running failed";
+    if (jobExec->execute() != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Job dispatch failed";
         return false;
     }
     return true;
@@ -437,15 +439,15 @@ JobManager::showJob(JobID iJob) {
 }
 
 cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
+    LOG(INFO) << "try to stop job " << iJob;
     auto jobDesc = JobDescription::loadJobDescription(iJob, kvStore_);
     if (jobDesc == folly::none) {
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
 
-    auto jobExecutor = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc.value(),
-                                                                     kvStore_,
-                                                                     adminClient_);
-    if (jobExecutor == nullptr) {
+    auto jobExec =
+        MetaJobExecutorFactory::createMetaJobExecutor(jobDesc.value(), kvStore_, adminClient_);
+    if (jobExec == nullptr) {
         LOG(ERROR) << "Unknown Job";
         return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
     }
@@ -456,19 +458,9 @@ cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
         return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
 
-    // Stop job remove form JobMap
-    auto it = inFlightJobs_.find(jobDesc->getJobId());
-    if (it != inFlightJobs_.end()) {
-        inFlightJobs_.erase(it);
-    }
+    cleanJob(iJob);
 
-    if (currJob_) {
-        LOG(INFO) << folly::sformat("begin interrupt execution, job={}", iJob);
-        currJob_->interruptExecution(iJob);
-        LOG(INFO) << folly::sformat("end interrupt execution, job={}", iJob);
-    }
-
-    return jobExecutor->stop();
+    return jobExec->stop();
 }
 
 /*

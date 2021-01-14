@@ -138,9 +138,7 @@ private:
     std::mutex                                         statusGuard_;
     JbmgrStatus                                        status_{JbmgrStatus::NOT_START};
     nebula::kvstore::KVStore*                          kvStore_{nullptr};
-    std::unique_ptr<nebula::thread::GenericThreadPool> pool_{nullptr};
     AdminClient*                                       adminClient_{nullptr};
-    std::unique_ptr<meta::MetaJobExecutor>             currJob_{nullptr};
 
     std::mutex                                         muReportFinish_;
 };
