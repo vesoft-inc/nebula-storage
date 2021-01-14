@@ -22,12 +22,14 @@ public:
                     VertexCache* vertexCache,
                     IndexScanNode<T>* indexScanNode,
                     std::shared_ptr<const meta::NebulaSchemaProvider> schema,
-                    const std::string& schemaName)
+                    const std::string& schemaName,
+                    TagID tagId)
         : planContext_(planCtx)
         , vertexCache_(vertexCache)
         , indexScanNode_(indexScanNode)
         , schema_(schema)
-        , schemaName_(schemaName) {}
+        , schemaName_(schemaName)
+        , tagId_(tagId) {}
 
     kvstore::ResultCode execute(PartitionID partId) override {
         auto ret = RelNode<T>::execute(partId);
@@ -42,25 +44,25 @@ public:
             iter->next();
         }
         for (const auto& vId : vids) {
-            VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << planContext_->tagId_;
+            VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tagId_;
             if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                auto result = vertexCache_->get(std::make_pair(vId, planContext_->tagId_));
+                auto result = vertexCache_->get(std::make_pair(vId, tagId_));
                 if (result.ok()) {
                     auto vertexKey = NebulaKeyUtils::vertexKey(planContext_->vIdLen_,
                                                                partId,
                                                                vId,
-                                                               planContext_->tagId_,
+                                                               tagId_,
                                                                0);
                     data_.emplace_back(std::move(vertexKey), std::move(result).value());
                     continue;
                 } else {
-                    VLOG(1) << "Miss cache for vId " << vId << ", tagId " << planContext_->tagId_;
+                    VLOG(1) << "Miss cache for vId " << vId << ", tagId " << tagId_;
                 }
             }
 
             std::unique_ptr<kvstore::KVIterator> vIter;
             auto prefix = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId,
-                                                       vId, planContext_->tagId_);
+                                                       vId, tagId_);
             ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_,
                                                        partId, prefix, &vIter);
             if (ret == kvstore::ResultCode::SUCCEEDED && vIter && vIter->valid()) {
@@ -84,6 +86,10 @@ public:
         return schemaName_;
     }
 
+    TagID tagId() {
+        return tagId_;
+    }
+
 private:
     PlanContext*                                      planContext_;
     VertexCache*                                      vertexCache_;
@@ -91,6 +97,7 @@ private:
     std::vector<kvstore::KV>                          data_;
     std::shared_ptr<const meta::NebulaSchemaProvider> schema_{nullptr};
     const std::string&                                schemaName_;
+    TagID                                             tagId_;
 };
 
 }  // namespace storage

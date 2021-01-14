@@ -17,6 +17,7 @@
 #include "storage/exec/IndexFilterNode.h"
 #include "storage/exec/IndexOutputNode.h"
 #include "storage/exec/DeDupNode.h"
+#include "storage/exec/IntersectNode.h"
 
 namespace nebula {
 namespace storage {
@@ -46,26 +47,43 @@ protected:
 
     StatusOr<StoragePlan<IndexID>> buildPlan();
 
+    Status buildSubPlan(int32_t& filterId,
+                        StoragePlan<IndexID>& plan,
+                        nebula::DataSet* resultSet,
+                        const cpp2::IndexQueryContext& ctx,
+                        std::unique_ptr<IndexOutputNode<IndexID>>& out);
+
+    StatusOr<StoragePlan<IndexID>> buildUnionPlan();
+
+    StatusOr<StoragePlan<IndexID>> buildIntersectPlan();
+
+    StatusOr<StoragePlan<IndexID>> buildExceptPlan();
+
     std::unique_ptr<IndexOutputNode<IndexID>>
     buildPlanBasic(const cpp2::IndexQueryContext& ctx,
                    StoragePlan<IndexID>& plan,
                    bool hasNullableCol,
-                   const std::vector<meta::cpp2::ColumnDef>& fields);
+                   const std::vector<meta::cpp2::ColumnDef>& fields,
+                   nebula::DataSet* resultSet);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
-    buildPlanWithData(const cpp2::IndexQueryContext& ctx, StoragePlan<IndexID>& plan);
+    buildPlanWithData(const cpp2::IndexQueryContext& ctx,
+                      StoragePlan<IndexID>& plan,
+                      nebula::DataSet* resultSet);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
     buildPlanWithFilter(const cpp2::IndexQueryContext& ctx,
                         StoragePlan<IndexID>& plan,
                         StorageExpressionContext* exprCtx,
-                        Expression* exp);
+                        Expression* exp,
+                        nebula::DataSet* resultSet);
 
     std::unique_ptr<IndexOutputNode<IndexID>>
     buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx,
                                StoragePlan<IndexID>& plan,
                                StorageExpressionContext* exprCtx,
-                               Expression* exp);
+                               Expression* exp,
+                               nebula::DataSet* resultSet);
 
 protected:
     GraphSpaceID                                spaceId_;
@@ -73,11 +91,14 @@ protected:
     VertexCache*                                vertexCache_{nullptr};
     nebula::DataSet                             resultDataSet_;
     std::vector<cpp2::IndexQueryContext>        contexts_{};
-    std::vector<std::string>                    yieldCols_{};
+    std::vector<cpp2::IndexReturnColumn>        yieldCols_{};
     IndexFilterItem                             filterItems_;
     // Save schema when column is out of index, need to read from data
-    std::shared_ptr<const meta::NebulaSchemaProvider> schema_;
+    std::map<int32_t, std::shared_ptr<const meta::NebulaSchemaProvider>> schemas_;
     std::vector<size_t>                         deDupColPos_;
+    cpp2::AggregateType                         aggrType_{cpp2::AggregateType::UNION};
+    // used intersect set
+    std::vector<nebula::DataSet>                resultDataSets_;
 };
 }  // namespace storage
 }  // namespace nebula

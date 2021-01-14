@@ -20,11 +20,13 @@ public:
     IndexEdgeNode(PlanContext* planCtx,
                   IndexScanNode<T>* indexScanNode,
                   std::shared_ptr<const meta::NebulaSchemaProvider> schema,
-                  const std::string& schemaName)
+                  const std::string& schemaName,
+                  EdgeType edgeType)
         : planContext_(planCtx)
         , indexScanNode_(indexScanNode)
         , schema_(schema)
-        , schemaName_(schemaName) {}
+        , schemaName_(schemaName)
+        , edgeType_(edgeType) {}
 
     kvstore::ResultCode execute(PartitionID partId) override {
         auto ret = RelNode<T>::execute(partId);
@@ -37,7 +39,7 @@ public:
         while (iter && iter->valid()) {
             storage::cpp2::EdgeKey edge;
             edge.set_src(iter->srcId());
-            edge.set_edge_type(planContext_->edgeType_);
+            edge.set_edge_type(edgeType_);
             edge.set_ranking(iter->ranking());
             edge.set_dst(iter->dstId());
             edges.emplace_back(std::move(edge));
@@ -47,7 +49,7 @@ public:
             auto prefix = NebulaKeyUtils::edgePrefix(planContext_->vIdLen_,
                                                      partId,
                                                      edge.src.getStr(),
-                                                     planContext_->edgeType_,
+                                                     edgeType_,
                                                      edge.get_ranking(),
                                                      edge.dst.getStr());
             std::unique_ptr<kvstore::KVIterator> eIter;
@@ -74,12 +76,17 @@ public:
         return schemaName_;
     }
 
+    EdgeType edgeType() {
+        return edgeType_;
+    }
+
 private:
     PlanContext*                                      planContext_;
     IndexScanNode<T>*                                 indexScanNode_;
     std::vector<kvstore::KV>                          data_;
     std::shared_ptr<const meta::NebulaSchemaProvider> schema_{nullptr};
     const std::string&                                schemaName_;
+    EdgeType                                          edgeType_;
 };
 
 }  // namespace storage
