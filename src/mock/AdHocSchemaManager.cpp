@@ -269,7 +269,7 @@ StatusOr<TagSchemas> AdHocSchemaManager::getAllVerTagSchema(GraphSpaceID space) 
     return iter->second;
 }
 
-StatusOr<TagLatestSchema> AdHocSchemaManager::getAllLatestVerTagSchema(GraphSpaceID space) {
+StatusOr<TagSchema> AdHocSchemaManager::getAllLatestVerTagSchema(GraphSpaceID space) {
     folly::RWSpinLock::ReadHolder rh(tagLock_);
     auto iter = tagSchemasInVector_.find(space);
     if (iter == tagSchemasInVector_.end()) {
