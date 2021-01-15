@@ -31,28 +31,26 @@ bool gInitialized = false;
 class JobManagerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        rootPath_ = std::make_unique<fs::TempDir>("/tmp/JobManager.XXXXXX");
-        mock::MockCluster cluster;
-        kv_ = cluster.initMetaKV(rootPath_->path());
-
-        ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
-        TestUtils::assembleSpace(kv_.get(), 1, 1);
-
-        // Make sure the rebuild job could find the index name.
-        std::vector<cpp2::ColumnDef> columns;
-        TestUtils::mockTagIndex(kv_.get(), 1, "tag_name", 11,
-                                "tag_index_name", columns);
-        TestUtils::mockEdgeIndex(kv_.get(), 1, "edge_name", 21,
-                                 "edge_index_name", columns);
-
-        adminClient_ = std::make_unique<NiceMock<MockAdminClient>>();
-        DefaultValue<folly::Future<Status>>::SetFactory([] {
-            return folly::Future<Status>(Status::OK());
-        });
-
-        jobMgr = JobManager::getInstance();
-        jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
         if (!gInitialized) {
+            rootPath_ = std::make_unique<fs::TempDir>("/tmp/JobManager.XXXXXX");
+            mock::MockCluster cluster;
+            kv_ = cluster.initMetaKV(rootPath_->path());
+
+            ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
+            TestUtils::assembleSpace(kv_.get(), 1, 1);
+
+            // Make sure the rebuild job could find the index name.
+            std::vector<cpp2::ColumnDef> columns;
+            TestUtils::mockTagIndex(kv_.get(), 1, "tag_name", 11, "tag_index_name", columns);
+            TestUtils::mockEdgeIndex(kv_.get(), 1, "edge_name", 21, "edge_index_name", columns);
+
+            adminClient_ = std::make_unique<NiceMock<MockAdminClient>>();
+            DefaultValue<folly::Future<Status>>::SetFactory(
+                [] { return folly::Future<Status>(Status::OK()); });
+
+            jobMgr = JobManager::getInstance();
+            jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
+
             jobMgr->init(kv_.get());
             gInitialized = true;
         }

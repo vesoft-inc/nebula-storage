@@ -118,6 +118,14 @@ cpp2::ErrorCode StatisJobExecutor::saveSpecialTaskStatus(const cpp2::ReportTaskR
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+/**
+ * @brief
+ *      if two stats job run at the same time.
+ *      (this may happens if leader changed)
+ *      they will write to the same kv data
+ *      so separate the partial result by job
+ * @return std::string
+ */
 std::string StatisJobExecutor::toTempKey(int32_t jobId) {
     std::string key = MetaServiceUtils::statisKey(space_);;
     return key.append(reinterpret_cast<const char*>(&jobId), sizeof(int32_t));
