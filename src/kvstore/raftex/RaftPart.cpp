@@ -420,7 +420,7 @@ void RaftPart::preProcessTransLeader(const HostAddr& target) {
 }
 
 void RaftPart::commitTransLeader(const HostAddr& target) {
-    CHECK(!raftLock_.try_lock());
+    bool needToUnlock = raftLock_.try_lock();
     LOG(INFO) << idStr_ << "Commit transfer leader to " << target;
     switch (role_) {
         case Role::LEADER: {
@@ -448,6 +448,9 @@ void RaftPart::commitTransLeader(const HostAddr& target) {
             LOG(INFO) << idStr_ << "I am learner, not in the raft group, skip the log";
             break;
         }
+    }
+    if (needToUnlock) {
+        raftLock_.unlock();
     }
 }
 
@@ -577,7 +580,12 @@ void RaftPart::preProcessRemovePeer(const HostAddr& peer) {
 }
 
 void RaftPart::commitRemovePeer(const HostAddr& peer) {
-    CHECK(!raftLock_.try_lock());
+    bool needToUnlock = raftLock_.try_lock();
+    SCOPE_EXIT {
+        if (needToUnlock) {
+            raftLock_.unlock();
+        }
+    };
     if (role_ == Role::FOLLOWER || role_ == Role::LEARNER) {
         LOG(INFO) << idStr_ << "I am " << roleStr(role_)
                   << ", skip remove peer in commit";
@@ -938,11 +946,19 @@ void RaftPart::processAppendLogResponses(
             }
             lastLogId_ = lastLogId;
             lastLogTerm_ = currTerm;
+        } while (false);
 
+        if (!checkAppendLogResult(res)) {
+            LOG(ERROR) << idStr_ << "processAppendLogResponses failed!";
+            return;
+        }
+
+        {
             auto walIt = wal_->iterator(committedId + 1, lastLogId);
             SlowOpTracker tracker;
             // Step 3: Commit the batch
             if (commitLogs(std::move(walIt))) {
+                std::lock_guard<std::mutex> g(raftLock_);
                 committedLogId_ = lastLogId;
                 firstLogId = lastLogId_ + 1;
                 lastMsgAcceptedCostMs_ = lastMsgSentDur_.elapsedInMSec();
@@ -957,15 +973,8 @@ void RaftPart::processAppendLogResponses(
             }
             VLOG(2) << idStr_ << "Leader succeeded in committing the logs "
                               << committedId + 1 << " to " << lastLogId;
-
-            lastMsgAcceptedCostMs_ = lastMsgSentDur_.elapsedInMSec();
-            lastMsgAcceptedTime_ = time::WallClock::fastNowInMilliSec();
-        } while (false);
-
-        if (!checkAppendLogResult(res)) {
-            LOG(ERROR) << idStr_ << "processAppendLogResponses failed!";
-            return;
         }
+
         // Step 4: Fulfill the promise
         if (iter.hasNonAtomicOpLogs()) {
             sendingPromise_.setOneSharedValue(AppendLogResult::SUCCEEDED);
@@ -2041,7 +2050,7 @@ bool RaftPart::checkAppendLogResult(AppendLogResult res) {
         }
         sendingPromise_.setValue(res);
         replicatingLogs_ = false;
-        return false;;
+        return false;
     }
     return true;
 }
