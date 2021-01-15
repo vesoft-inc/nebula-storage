@@ -92,7 +92,7 @@ protected:
         nebula::List list;
         for (; upstream_->valid(); upstream_->next(), ++edgeRowCount) {
             if ((limit_ > 0 && edgeRowCount >= limit_) ||
-                (limit_ == 0 && edgeRowCount >= FLAGS_max_edge_returned_per_vertex)) {
+                (limit_ <= 0 && edgeRowCount >= FLAGS_max_edge_returned_per_vertex)) {
                 return kvstore::ResultCode::SUCCEEDED;
             }
             auto key = upstream_->key();
