@@ -60,7 +60,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -74,7 +74,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -88,7 +88,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         // Host have overlap
         {
@@ -103,7 +103,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
         }
     }
     // Add Zone with empty node list
@@ -116,7 +116,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Add Zone with duplicate node
     {
@@ -131,7 +131,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.code);
     }
     // Add Zone which node not exist
     {
@@ -143,7 +143,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Add Zone already existed
     {
@@ -159,7 +159,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     // Get Zone
     {
@@ -169,7 +169,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         std::vector<HostAddr> nodes = {{"0", 0}, {"1", 1}, {"2", 2}};
         ASSERT_EQ(nodes, resp.hosts);
     }
@@ -181,7 +181,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // List Zones
     {
@@ -190,7 +190,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.zones.size());
         ASSERT_EQ("zone_0", resp.zones[0].zone_name);
         ASSERT_EQ("zone_1", resp.zones[1].zone_name);
@@ -206,7 +206,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Add host into zone which zone is not exist
     {
@@ -218,7 +218,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Add host into zone which the node have existed
     {
@@ -230,7 +230,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     // Add host into zone which the node not existed
     {
@@ -242,7 +242,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Drop host from zone
     {
@@ -254,7 +254,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop host from zone which zone is not exist
     {
@@ -266,7 +266,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Drop host from zone which the node not exist
     {
@@ -278,7 +278,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Add Group
     {
@@ -290,7 +290,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Group already existed
     {
@@ -302,7 +302,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Group already existed although the order is different
     {
@@ -314,7 +314,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Add Group with empty zone name list
     {
@@ -326,7 +326,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Add Group with duplicate zone name
     {
@@ -338,7 +338,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.code);
     }
     // Add Group name already existed
     {
@@ -350,7 +350,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     {
         cpp2::AddGroupReq req;
@@ -361,7 +361,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Get Group
     {
@@ -371,7 +371,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.zone_names.size());
         std::vector<std::string> zones = {"zone_0", "zone_1", "zone_2"};
         ASSERT_EQ(zones, resp.zone_names);
@@ -384,7 +384,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // List Groups
     {
@@ -393,7 +393,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.groups.size());
         ASSERT_EQ("group_0", resp.groups[0].group_name);
         ASSERT_EQ("group_1", resp.groups[1].group_name);
@@ -410,7 +410,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Add zone into group
     {
@@ -421,7 +421,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Add zone into group which group not exist
     {
@@ -432,7 +432,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Add zone into group which zone already exist
     {
@@ -443,7 +443,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     // Add zone into group which zone not exist
     {
@@ -454,7 +454,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Drop zone from group
     {
@@ -465,7 +465,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop zone from group which group not exist
     {
@@ -476,7 +476,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Drop zone from group which zone not exist
     {
@@ -487,7 +487,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Drop Group
     {
@@ -497,7 +497,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop Group which is not exist
     {
@@ -507,7 +507,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     // Drop Zone belong to a group
     {
@@ -517,7 +517,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_DROP, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_DROP, resp.header.code);
     }
     {
         cpp2::DropGroupReq req;
@@ -526,7 +526,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop Zone
     {
@@ -536,7 +536,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop Zone which is not exist
     {
@@ -546,7 +546,7 @@ TEST(GroupAndZoneTest, GroupAndZoneTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
 }
 

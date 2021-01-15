@@ -289,7 +289,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     {
@@ -299,7 +299,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ("default_space", resp.item.properties.space_name);
         ASSERT_EQ(8, resp.item.properties.partition_num);
         ASSERT_EQ(3, resp.item.properties.replica_factor);
@@ -315,7 +315,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.spaces.size());
         ASSERT_EQ(1, resp.spaces[0].id.get_space_id());
         ASSERT_EQ("default_space", resp.spaces[0].name);
@@ -328,7 +328,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         std::unordered_map<HostAddr, std::set<PartitionID>> hostsParts;
         for (auto& p : resp.get_parts()) {
             for (auto& h : p.second) {
@@ -348,7 +348,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         cpp2::ListSpacesReq req;
@@ -356,7 +356,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(0, resp.spaces.size());
     }
     // With IF EXISTS
@@ -368,7 +368,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         constexpr char spaceName[] = "exist_space";
@@ -380,7 +380,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         cpp2::DropSpaceReq req1;
         req1.set_space_name(spaceName);
@@ -389,7 +389,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto f1 = processor1->getFuture();
         processor1->process(req1);
         auto resp1 = std::move(f1).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.header.code);
     }
     // Test default value
     {
@@ -401,7 +401,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto cf = cprocessor->getFuture();
         cprocessor->process(creq);
         auto cresp = std::move(cf).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, cresp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, cresp.header.code);
 
         cpp2::GetSpaceReq greq;
         greq.set_space_name("space_with_no_option");
@@ -409,7 +409,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto gf = gprocessor->getFuture();
         gprocessor->process(greq);
         auto gresp = std::move(gf).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, gresp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, gresp.header.code);
         ASSERT_EQ("space_with_no_option", gresp.item.properties.space_name);
         ASSERT_EQ(100, gresp.item.properties.partition_num);
         ASSERT_EQ(1, gresp.item.properties.replica_factor);
@@ -423,7 +423,7 @@ TEST(ProcessorTest, SpaceTest) {
         auto df = dprocessor->getFuture();
         dprocessor->process(dreq);
         auto dresp = std::move(df).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, dresp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, dresp.header.code);
     }
 }
 
@@ -450,7 +450,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -464,7 +464,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -478,7 +478,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -492,7 +492,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
         {
             std::vector<HostAddr> nodes;
@@ -506,7 +506,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
             auto f = processor->getFuture();
             processor->process(req);
             auto resp = std::move(f).get();
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         }
     }
     // List Zones
@@ -516,7 +516,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(5, resp.zones.size());
         ASSERT_EQ("zone_0", resp.zones[0].zone_name);
         ASSERT_EQ("zone_1", resp.zones[1].zone_name);
@@ -535,7 +535,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         cpp2::AddGroupReq req;
@@ -546,7 +546,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // List Groups
     {
@@ -555,7 +555,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.groups.size());
         ASSERT_EQ("group_0", resp.groups[0].group_name);
         ASSERT_EQ("group_1", resp.groups[1].group_name);
@@ -573,7 +573,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Create Space on group_0, replica factor is equal with zone size
     {
@@ -588,7 +588,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Drop Group should failed
     {
@@ -598,7 +598,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_DROP, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_DROP, resp.header.code);
     }
     // Create Space on group_0, replica factor is less than zone size
     {
@@ -613,7 +613,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Create Space on group_0, replica factor is larger than zone size
     {
@@ -628,7 +628,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     {
         cpp2::AddZoneIntoGroupReq req;
@@ -638,7 +638,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         cpp2::SpaceDesc properties;
@@ -652,7 +652,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     // Create Space on a group which is not exist
     {
@@ -667,7 +667,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
 }
 
@@ -688,7 +688,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     {
@@ -703,7 +703,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.get_id().get_space_id());
     }
     cpp2::Schema schema;
@@ -722,7 +722,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     {
         // Succeeded
@@ -734,7 +734,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.get_id().get_tag_id());
     }
     {
@@ -747,7 +747,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     {
         // Create same name tag in diff spaces
@@ -759,7 +759,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(4, resp.get_id().get_tag_id());
     }
     {
@@ -772,7 +772,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.code);
     }
     {
         // Set schema ttl property
@@ -790,7 +790,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(5, resp.get_id().get_tag_id());
     }
     // Wrong default value type
@@ -815,7 +815,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     // Wrong default value
     {
@@ -839,7 +839,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     {
         cpp2::CreateTagReq req;
@@ -851,7 +851,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         cpp2::GetTagReq getReq;
         getReq.set_space_id(1);
@@ -861,7 +861,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto getResp = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.header.code);
         TestUtils::checkSchemaWithAllType(getResp.get_schema());
     }
 }
@@ -884,7 +884,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
    }
    {
@@ -900,7 +900,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.get_id().get_space_id());
     }
 
@@ -919,7 +919,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.code);
     }
     {
         // Succeeded
@@ -931,7 +931,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.get_id().get_edge_type());
     }
     {
@@ -944,7 +944,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.code);
     }
     {
         // Create same name edge in diff spaces
@@ -956,7 +956,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(4, resp.get_id().get_edge_type());
     }
     {
@@ -969,7 +969,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.code);
     }
 
     // Set schema ttl property
@@ -987,7 +987,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(5, resp.get_id().get_edge_type());
     }
     {
@@ -1007,7 +1007,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(6, resp.get_id().get_edge_type());
     }
     {
@@ -1025,7 +1025,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.header.code);
     }
     {
         cpp2::CreateTagReq req;
@@ -1037,7 +1037,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         cpp2::GetTagReq getReq;
         getReq.set_space_id(1);
@@ -1047,7 +1047,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto getResp = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, getResp.header.code);
         TestUtils::checkSchemaWithAllType(getResp.get_schema());
     }
 }
@@ -1069,7 +1069,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     {
@@ -1088,7 +1088,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         // Get Test
@@ -1100,7 +1100,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ("value_0", resp.value);
 
         cpp2::GetReq missedReq;
@@ -1111,7 +1111,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto missedFuture = missedProcessor->getFuture();
         missedProcessor->process(missedReq);
         auto missedResp = std::move(missedFuture).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, missedResp.code);
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, missedResp.header.code);
     }
     {
         // Multi Get Test
@@ -1128,7 +1128,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.values.size());
         ASSERT_EQ("value_0", resp.values[0]);
         ASSERT_EQ("value_1", resp.values[1]);
@@ -1144,7 +1144,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.values.size());
         ASSERT_EQ("value_1", resp.values[0]);
         ASSERT_EQ("value_2", resp.values[1]);
@@ -1160,7 +1160,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
     {
         // Remove Range Test
@@ -1173,7 +1173,7 @@ TEST(ProcessorTest, KVOperationTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
 }
 
@@ -1193,7 +1193,7 @@ TEST(ProcessorTest, ListOrGetTagsTest) {
         auto resp = std::move(f).get();
         decltype(resp.tags) tags;
         tags = resp.get_tags();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(10, tags.size());
 
         for (auto t = 0; t < 10; t++) {
@@ -1267,7 +1267,7 @@ TEST(ProcessorTest, ListOrGetEdgesTest) {
         auto resp = std::move(f).get();
         decltype(resp.edges) edges;
         edges = resp.get_edges();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(10, edges.size());
 
         for (auto t = 0; t < 10; t++) {
@@ -1341,7 +1341,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Tag not exist
     {
@@ -1352,7 +1352,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Succeeded
     {
@@ -1363,7 +1363,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
 
     // Check tag data has been deleted.
@@ -1390,7 +1390,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         constexpr GraphSpaceID spaceId = 1;
@@ -1402,7 +1402,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         cpp2::DropTagReq req1;
         req1.set_space_id(spaceId);
@@ -1412,7 +1412,7 @@ TEST(ProcessorTest, DropTagTest) {
         auto f1 = processor1->getFuture();
         processor1->process(req1);
         auto resp1 = std::move(f1).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.header.get_code());
     }
 }
 
@@ -1431,7 +1431,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Edge not exist
     {
@@ -1442,7 +1442,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Succeeded
     {
@@ -1453,7 +1453,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Check edge data has been deleted.
     {
@@ -1479,7 +1479,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         constexpr GraphSpaceID spaceId = 1;
@@ -1491,7 +1491,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         cpp2::DropEdgeReq req1;
         req1.set_space_id(spaceId);
@@ -1501,7 +1501,7 @@ TEST(ProcessorTest, DropEdgeTest) {
         auto f1 = processor1->getFuture();
         processor1->process(req1);
         auto resp1 = std::move(f1).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.header.get_code());
     }
 }
 
@@ -1551,7 +1551,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter result.
     {
@@ -1561,7 +1561,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto tags = resp.get_tags();
         ASSERT_EQ(2, tags.size());
         // TagItems in vector are unordered.So need to get the latest one by comparing the versions.
@@ -1603,7 +1603,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Succeeded
     {
@@ -1619,7 +1619,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter result.
     {
@@ -1629,7 +1629,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto tags = resp.get_tags();
         ASSERT_EQ(3, tags.size());
         // TagItems in vector are unordered.So need to get the latest one by comparing the versions.
@@ -1689,7 +1689,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Set ttl col on illegal column type, failed
     {
@@ -1705,7 +1705,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop ttl_col column
     {
@@ -1726,7 +1726,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter drop ttl col result.
     {
@@ -1736,7 +1736,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto tags = resp.get_tags();
         ASSERT_EQ(4, tags.size());
         // TagItems in vector are unordered.So need to get the latest one by comparing the versions.
@@ -1797,7 +1797,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -1819,7 +1819,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -1841,7 +1841,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Add col with wrong default value type
     {
@@ -1865,7 +1865,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_header().get_code());
     }
     // Add col with out of range of fixed string
     {
@@ -1890,7 +1890,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
 
         // check result
         cpp2::GetTagReq getReq;
@@ -1902,7 +1902,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto resp1 = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_header().get_code());
         std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
         bool expected = false;
         for (const auto &col : cols) {
@@ -1948,7 +1948,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::ListEdgesReq req;
@@ -1957,7 +1957,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto edges = resp.get_edges();
         ASSERT_EQ(2, edges.size());
         auto edge = edges[0].version > 0 ? edges[0] : edges[1];
@@ -1987,7 +1987,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -2030,7 +2030,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter result.
     {
@@ -2040,7 +2040,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto edges = resp.get_edges();
         ASSERT_EQ(4, edges.size());
         // Get the latest one by comparing the versions.
@@ -2089,7 +2089,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Succeed
     {
@@ -2105,7 +2105,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter result.
     {
@@ -2115,7 +2115,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto edges = resp.get_edges();
         ASSERT_EQ(5, edges.size());
         // EdgeItems in vector are unordered.So get the latest one by comparing the versions.
@@ -2182,7 +2182,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Set ttl col on illegal column type, failed
     {
@@ -2198,7 +2198,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop ttl_col column
     {
@@ -2219,7 +2219,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify alter drop ttl col result
     {
@@ -2229,7 +2229,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto edges = resp.get_edges();
         ASSERT_EQ(6, edges.size());
         // EdgeItems in vector are unordered.So get the latest one by comparing the versions.
@@ -2292,7 +2292,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -2315,7 +2315,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -2338,7 +2338,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Add col with wrong default value type
     {
@@ -2362,7 +2362,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_INVALID_PARM, resp.get_header().get_code());
     }
     // Add col with out of range of fixed string
     {
@@ -2387,7 +2387,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_header().get_code());
 
         // check result
         cpp2::GetEdgeReq getReq;
@@ -2399,7 +2399,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto getFut = getProcessor->getFuture();
         getProcessor->process(getReq);
         auto resp1 = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp1.get_header().get_code());
         std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
         bool expected = false;
         for (const auto &col : cols) {
@@ -2433,7 +2433,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(1, resp.get_id().get_space_id());
     }
     {
@@ -2447,7 +2447,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(2, resp.get_id().get_space_id());
     }
 
@@ -2467,7 +2467,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(3, resp.get_id().get_tag_id());
     }
     {
@@ -2479,7 +2479,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
         ASSERT_EQ(4, resp.get_id().get_tag_id());
     }
 
@@ -2492,7 +2492,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
 
     // List Test
@@ -2505,7 +2505,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto resp = std::move(f).get();
         decltype(resp.tags) tags;
         tags = resp.get_tags();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(0, tags.size());
     }
     {
@@ -2517,7 +2517,7 @@ TEST(ProcessorTest, SameNameTagsTest) {
         auto resp = std::move(f).get();
         decltype(resp.tags) tags;
         tags = resp.get_tags();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         ASSERT_EQ(1, tags.size());
 
         ASSERT_EQ(4, tags[0].get_tag_id());
@@ -2543,7 +2543,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         // Duplicate tag index on no fields
@@ -2557,7 +2557,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2571,7 +2571,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2585,7 +2585,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -2595,7 +2595,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         // Allow to create tag index on no fields
@@ -2609,7 +2609,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2627,7 +2627,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2645,7 +2645,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2659,7 +2659,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2677,7 +2677,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2695,7 +2695,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2709,7 +2709,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -2723,7 +2723,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         // Test index have exist
@@ -2738,7 +2738,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::ListTagIndexesReq req;
@@ -2747,7 +2747,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto items = resp.get_items();
 
         ASSERT_EQ(3, items.size());
@@ -2807,7 +2807,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(2, item.get_index_id());
@@ -2829,7 +2829,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::GetTagIndexReq req;
@@ -2840,7 +2840,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -2851,7 +2851,7 @@ TEST(ProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
 }
 
@@ -2873,7 +2873,7 @@ TEST(ProcessorTest, TagIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::GetTagIndexReq req;
@@ -2884,7 +2884,7 @@ TEST(ProcessorTest, TagIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(1, item.get_index_id());
@@ -2918,7 +2918,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         // Duplicate edge index on no fields
@@ -2932,7 +2932,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -2946,7 +2946,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -2960,7 +2960,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -2970,7 +2970,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         // Allow to create edge index on no fields
@@ -2984,7 +2984,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3002,7 +3002,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3020,7 +3020,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3034,7 +3034,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3052,7 +3052,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3070,7 +3070,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3084,7 +3084,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3098,7 +3098,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3112,7 +3112,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.header.get_code());
     }
     {
         cpp2::ListEdgeIndexesReq req;
@@ -3121,7 +3121,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto items = resp.get_items();
         ASSERT_EQ(3, items.size());
         {
@@ -3179,7 +3179,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto item = resp.get_item();
         auto properties = item.get_fields();
         ASSERT_EQ(2, item.get_index_id());
@@ -3193,7 +3193,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::GetEdgeIndexReq req;
@@ -3204,7 +3204,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -3215,7 +3215,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.header.get_code());
     }
     // Test the maximum limit for index columns
     std::vector<cpp2::IndexFieldDef> bigFields;
@@ -3236,7 +3236,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -3248,7 +3248,7 @@ TEST(ProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
 }
 
@@ -3270,7 +3270,7 @@ TEST(ProcessorTest, EdgeIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::GetEdgeIndexReq req;
@@ -3280,7 +3280,7 @@ TEST(ProcessorTest, EdgeIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(1, item.get_index_id());
@@ -3312,7 +3312,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -3334,7 +3334,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -3356,7 +3356,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -3379,7 +3379,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -3402,7 +3402,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -3425,7 +3425,7 @@ TEST(ProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
 }
 
@@ -3447,7 +3447,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3468,7 +3468,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3488,7 +3488,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3509,7 +3509,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3529,7 +3529,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3550,7 +3550,7 @@ TEST(ProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
 }
 
@@ -3572,7 +3572,7 @@ TEST(ProcessorTest, IndexCheckDropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropEdgeReq req;
@@ -3582,7 +3582,7 @@ TEST(ProcessorTest, IndexCheckDropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
 }
 
@@ -3605,7 +3605,7 @@ TEST(ProcessorTest, IndexCheckDropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropTagReq req;
@@ -3615,7 +3615,7 @@ TEST(ProcessorTest, IndexCheckDropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.header.get_code());
     }
 }
 
@@ -3638,7 +3638,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -3661,7 +3661,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Tag with index add ttl property on index col, failed
     {
@@ -3677,7 +3677,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Tag with index add ttl property on no index col, failed
     {
@@ -3693,7 +3693,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop index
     {
@@ -3705,7 +3705,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Add ttl property, succeed
     {
@@ -3721,7 +3721,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Tag with ttl to creat index on ttl col, failed
     {
@@ -3737,7 +3737,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Tag with ttl to creat index on no ttl col, failed
     {
@@ -3753,7 +3753,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop ttl property
     {
@@ -3769,7 +3769,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Tag without ttl to creat index, succeed
     {
@@ -3784,7 +3784,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -3798,7 +3798,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -3809,7 +3809,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -3820,7 +3820,7 @@ TEST(ProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
 }
 
@@ -3844,7 +3844,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -3867,7 +3867,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Edge with index add ttl property on index col, failed
     {
@@ -3883,7 +3883,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Edge with index add ttl property on no index col, failed
     {
@@ -3899,7 +3899,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop index
     {
@@ -3911,7 +3911,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop index, then add ttl property, succeed
     {
@@ -3927,7 +3927,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Edge with ttl to creat index on ttl col, failed
     {
@@ -3943,7 +3943,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Edge with ttl to creat index on no ttl col, failed
     {
@@ -3959,7 +3959,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Drop ttl property
     {
@@ -3975,7 +3975,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     // Edge without ttl to create index, succeed
     {
@@ -3991,7 +3991,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -4006,7 +4006,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -4017,7 +4017,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -4028,7 +4028,7 @@ TEST(ProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.get_code());
     }
 }
 

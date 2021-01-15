@@ -61,7 +61,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         replicaFactor = FLAGS_default_replica_factor;
         if (replicaFactor <= 0) {
             LOG(ERROR) << "Create Space Failed : replicaFactor is illegal: " << replicaFactor;
-            resp_.set_code(cpp2::ErrorCode::E_INVALID_PARM);
+            resp_.header.set_code(cpp2::ErrorCode::E_INVALID_PARM);
             onFinished();
             return;
         }

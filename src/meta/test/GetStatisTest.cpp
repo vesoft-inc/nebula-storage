@@ -80,7 +80,7 @@ TEST_F(GetStatisTest, StatisJob) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         // Directly find statis data in kvstore, statis data does not exist.
         auto key = MetaServiceUtils::statisKey(spaceId);
@@ -116,7 +116,7 @@ TEST_F(GetStatisTest, StatisJob) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -159,7 +159,7 @@ TEST_F(GetStatisTest, StatisJob) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -211,7 +211,7 @@ TEST_F(GetStatisTest, StatisJob) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
     }
 
     // Run statis job.
@@ -236,7 +236,7 @@ TEST_F(GetStatisTest, StatisJob) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -315,7 +315,7 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -354,7 +354,7 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
@@ -436,7 +436,7 @@ TEST_F(GetStatisTest, MockMultiMachineTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.code);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.header.code);
 
         auto statisItem = resp.statis;
         ASSERT_EQ(cpp2::JobStatus::FINISHED, statisItem.status);
