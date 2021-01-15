@@ -49,6 +49,7 @@ protected:
 
         jobMgr = JobManager::getInstance();
         jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
+        jobMgr->kvStore_ = kv_.get();
         if (!gInitialized) {
             jobMgr->init(kv_.get());
             gInitialized = true;
@@ -70,7 +71,6 @@ protected:
 
     std::unique_ptr<fs::TempDir> rootPath_{nullptr};
     std::unique_ptr<kvstore::KVStore> kv_{nullptr};
-    std::unique_ptr<nebula::thread::GenericThreadPool> pool_{nullptr};
     std::unique_ptr<AdminClient> adminClient_{nullptr};
     JobManager* jobMgr{nullptr};
 };
