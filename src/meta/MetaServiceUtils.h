@@ -220,8 +220,6 @@ public:
 
     static const std::string& snapshotPrefix();
 
-    static void upgradeMetaDataV1toV2(nebula::kvstore::KVStore* kv);
-
     static std::string serializeHostAddr(const HostAddr& host);
 
     static HostAddr deserializeHostAddr(folly::StringPiece str);
@@ -318,12 +316,16 @@ public:
     static GraphSpaceID parseIndexKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
+    // A direct value of true means that data will not be written to follow via the raft protocol,
+    // but will be written directly to local disk
     static bool replaceHostInPartition(kvstore::KVStore* kvstore,
                                        const HostAddr& ipv4From,
-                                       const HostAddr& ipv4To);
+                                       const HostAddr& ipv4To,
+                                       bool direct = false);
     static bool replaceHostInZone(kvstore::KVStore* kvstore,
                                   const HostAddr& ipv4From,
-                                  const HostAddr& ipv4To);
+                                  const HostAddr& ipv4To,
+                                  bool direct = false);
     // backup
     static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
         kvstore::KVStore* kvstore,
