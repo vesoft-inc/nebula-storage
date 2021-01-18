@@ -161,16 +161,24 @@ cpp2::ErrorCode JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) 
             // there is a rare condition, that when job finished,
             // the job description is deleted(default more than a week)
             // but stop an invalid job should not set status to idle.
-            status_ = JbmgrStatus::IDLE;
+            std::lock_guard<std::mutex> statusLk(statusGuard_);
+            if (status_ == JbmgrStatus::BUSY) {
+                status_ = JbmgrStatus::IDLE;
+            }
         }
         return cpp2::ErrorCode::E_NOT_FOUND;
     }
 
     if (!optJobDesc->setStatus(jobStatus)) {
+        // job already been set as finished, failed or stopped
         return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
-
-    status_ = JbmgrStatus::IDLE;
+    {
+        std::lock_guard<std::mutex> statusLk(statusGuard_);
+        if (status_ == JbmgrStatus::BUSY) {
+            status_ = JbmgrStatus::IDLE;
+        }
+    }
     auto rc = save(optJobDesc->jobKey(), optJobDesc->jobVal());
     if (rc == nebula::kvstore::ResultCode::ERR_LEADER_CHANGED) {
         return cpp2::ErrorCode::E_LEADER_CHANGED;
