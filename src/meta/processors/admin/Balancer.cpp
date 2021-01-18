@@ -254,15 +254,15 @@ Balancer::genTasks(GraphSpaceID spaceId,
     }
 
     auto hostPartsRet = fetchHostParts(spaceId, dependentOnGroup, hostParts, lostHosts);
-    auto newHostParts = hostPartsRet.first;
+    auto confirmedHostParts = hostPartsRet.first;
     auto activeHosts = hostPartsRet.second;
-    LOG(INFO) << "Now, try to balance the newHostParts";
+    LOG(INFO) << "Now, try to balance the confirmedHostParts";
 
     // We have two parts need to balance, the first one is parts on lost hosts and deleted hosts
-    // The seconds one is parts on unbalanced host in newHostParts.
+    // The seconds one is parts on unbalanced host in confirmedHostParts.
     std::vector<BalanceTask> tasks;
-    // 1. Iterate through all hosts that would not be included in newHostParts,
-    //    move all parts in them to host with minimum part in newHostParts
+    // 1. Iterate through all hosts that would not be included in confirmedHostParts,
+    //    move all parts in them to host with minimum part in confirmedHostParts
     for (auto& lostHost : lostHosts) {
         auto& lostParts = hostParts[lostHost];
         for (auto& partId : lostParts) {
@@ -275,19 +275,20 @@ Balancer::genTasks(GraphSpaceID spaceId,
                 return cpp2::ErrorCode::E_NO_VALID_HOST;
             }
 
-            if (transferLostHost(tasks, newHostParts, lostHost,
-                                 spaceId, partId, dependentOnGroup)) {
-                LOG(ERROR) << "";
+            if (!transferLostHost(tasks, confirmedHostParts, lostHost,
+                                  spaceId, partId, dependentOnGroup)) {
+                LOG(ERROR) << "Transfer lost host " << lostHost << " failed";
+                return cpp2::ErrorCode::E_NO_VALID_HOST;
             }
         }
     }
 
-    if (newHostParts.size() < 2) {
+    if (confirmedHostParts.size() < 2) {
         LOG(INFO) << "Too few hosts, no need for balance!";
         return cpp2::ErrorCode::E_NO_VALID_HOST;
     }
-    // 2. Make all hosts in newHostParts balanced
-    if (balanceParts(plan_->id_, spaceId, newHostParts, totalParts, tasks)) {
+    // 2. Make all hosts in confirmedHostParts balanced
+    if (balanceParts(plan_->id_, spaceId, confirmedHostParts, totalParts, tasks)) {
         return tasks;
     } else {
         return cpp2::ErrorCode::E_BAD_BALANCE_PLAN;
@@ -295,7 +296,7 @@ Balancer::genTasks(GraphSpaceID spaceId,
 }
 
 bool Balancer::transferLostHost(std::vector<BalanceTask>& tasks,
-                                HostParts& newHostParts,
+                                HostParts& confirmedHostParts,
                                 const HostAddr& source,
                                 GraphSpaceID spaceId,
                                 PartitionID partId,
@@ -303,17 +304,17 @@ bool Balancer::transferLostHost(std::vector<BalanceTask>& tasks,
     // find a host with minimum parts which doesn't have this part
     StatusOr<HostAddr> result;
     if (dependentOnGroup) {
-        result = hostWithMinimalPartsForZone(source, newHostParts, partId);
+        result = hostWithMinimalPartsForZone(source, confirmedHostParts, partId);
     } else {
-        result = hostWithMinimalParts(newHostParts, partId);
+        result = hostWithMinimalParts(confirmedHostParts, partId);
     }
 
     if (!result.ok()) {
-        LOG(ERROR) << "Can't find a host which doesn't have part:" << partId;
+        LOG(ERROR) << "Can't find a host which doesn't have part: " << partId;
         return false;
     }
     const auto& targetHost = result.value();
-    newHostParts[targetHost].emplace_back(partId);
+    confirmedHostParts[targetHost].emplace_back(partId);
     tasks.emplace_back(plan_->id_,
                        spaceId,
                        partId,
@@ -338,32 +339,32 @@ Balancer::fetchHostParts(GraphSpaceID spaceId,
 
     std::vector<HostAddr> expand;
     calDiff(hostParts, activeHosts, expand, lostHosts);
-    // newHostParts is new part allocation map after balance, it would include newlyAdded
+    // confirmedHostParts is new part allocation map after balance, it would include newlyAdded
     // and exclude lostHosts
-    HostParts newHostParts(hostParts);
+    HostParts confirmedHostParts(hostParts);
     for (const auto& h : expand) {
         LOG(INFO) << "Found new host " << h;
-        newHostParts.emplace(h, std::vector<PartitionID>());
+        confirmedHostParts.emplace(h, std::vector<PartitionID>());
     }
     for (const auto& h : lostHosts) {
         LOG(INFO) << "Lost host " << h;
-        newHostParts.erase(h);
+        confirmedHostParts.erase(h);
     }
-    return std::make_pair(newHostParts, activeHosts);
+    return std::make_pair(confirmedHostParts, activeHosts);
 }
 
 bool Balancer::balanceParts(BalanceID balanceId,
                             GraphSpaceID spaceId,
-                            HostParts& newHostParts,
+                            HostParts& confirmedHostParts,
                             int32_t totalParts,
                             std::vector<BalanceTask>& tasks) {
-    auto avgLoad = static_cast<float>(totalParts) / newHostParts.size();
+    auto avgLoad = static_cast<float>(totalParts) / confirmedHostParts.size();
     VLOG(3) << "The expect avg load is " << avgLoad;
     int32_t minLoad = std::floor(avgLoad);
     int32_t maxLoad = std::ceil(avgLoad);
     VLOG(3) << "The min load is " << minLoad << " max load is " << maxLoad;
 
-    auto sortedHosts = sortedHostsByParts(newHostParts);
+    auto sortedHosts = sortedHostsByParts(confirmedHostParts);
     if (sortedHosts.empty()) {
         LOG(ERROR) << "Host is empty";
         return false;
@@ -373,8 +374,8 @@ bool Balancer::balanceParts(BalanceID balanceId,
     auto minPartsHost = sortedHosts.front();
 
     while (maxPartsHost.second > maxLoad || minPartsHost.second < minLoad) {
-        auto& partsFrom = newHostParts[maxPartsHost.first];
-        auto& partsTo = newHostParts[minPartsHost.first];
+        auto& partsFrom = confirmedHostParts[maxPartsHost.first];
+        auto& partsTo = confirmedHostParts[minPartsHost.first];
         std::sort(partsFrom.begin(), partsFrom.end());
         std::sort(partsTo.begin(), partsTo.end());
 
@@ -424,7 +425,7 @@ bool Balancer::balanceParts(BalanceID balanceId,
             LOG(INFO) << "Here is no action";
             break;
         }
-        sortedHosts = sortedHostsByParts(newHostParts);
+        sortedHosts = sortedHostsByParts(confirmedHostParts);
         maxPartsHost = sortedHosts.back();
         minPartsHost = sortedHosts.front();
     }
@@ -580,8 +581,8 @@ Status Balancer::checkReplica(const HostParts& hostParts,
                               PartitionID partId) {
     // check host hold the part and alive
     auto checkPart = [&] (const auto& entry) {
-        const auto& host = entry.first;
-        const auto& parts = entry.second;
+        auto& host = entry.first;
+        auto& parts = entry.second;
         return std::find(parts.begin(), parts.end(), partId) != parts.end() &&
                std::find(activeHosts.begin(), activeHosts.end(), host) != activeHosts.end();
     };
@@ -996,16 +997,10 @@ bool Balancer::collectZoneParts(const std::string& groupName,
 bool Balancer::checkZoneLegal(const HostAddr& source,
                               const HostAddr& target,
                               PartitionID part) {
-    LOG(INFO) << "Check " << source << " : " << target
-            << " with part " << part;
+    VLOG(3) << "Check " << source << " : " << target << " with part " << part;
     auto sourceIter = std::find_if(zoneParts_.begin(), zoneParts_.end(),
                                    [&source](const auto& pair) {
         return source == pair.first;
-    });
-
-    auto targetIter = std::find_if(zoneParts_.begin(), zoneParts_.end(),
-                                   [&target](const auto& pair) {
-        return target == pair.first;
     });
 
     if (sourceIter == zoneParts_.end()) {
@@ -1013,20 +1008,23 @@ bool Balancer::checkZoneLegal(const HostAddr& source,
         return false;
     }
 
+    auto targetIter = std::find_if(zoneParts_.begin(), zoneParts_.end(),
+                                   [&target](const auto& pair) {
+        return target == pair.first;
+    });
+
     if (targetIter == zoneParts_.end()) {
         LOG(INFO) << "Target " << target << " not found";
         return false;
     }
 
     if (sourceIter->second.first == targetIter->second.first) {
-        LOG(INFO) << source << " --> " << target
-                  << " transfer in the same zone";
+        LOG(INFO) << source << " --> " << target << " transfer in the same zone";
         return true;
     }
 
     auto& parts = targetIter->second.second;
-    auto it = std::find(parts.begin(), parts.end(), part);
-    return it == parts.end();
+    return std::find(parts.begin(), parts.end(), part) == parts.end();
 }
 
 }  // namespace meta

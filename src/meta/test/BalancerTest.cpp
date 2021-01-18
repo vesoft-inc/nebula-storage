@@ -1202,64 +1202,11 @@ TEST(BalanceTest, TryToRecoveryTest) {
     CHECK(ok(ret));
     balanceId = value(ret);
     sleep(1);
-// <<<<<<< HEAD
     ASSERT_EQ(1, verifyBalancePlan(kv, balanceId, BalanceStatus::SUCCEEDED));
     verifyBalanceTask(kv, balanceId,
                       BalanceTaskStatus::START,
                       BalanceTaskResult::INVALID,
                       partCount, 6);
-// =======
-//     {
-//         const auto& prefix = MetaServiceUtils::balancePlanPrefix();
-//         std::unique_ptr<kvstore::KVIterator> iter;
-//         auto retcode = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-//         ASSERT_EQ(retcode, kvstore::ResultCode::SUCCEEDED);
-//         int num = 0;
-//         while (iter->valid()) {
-//             auto id = MetaServiceUtils::parseBalanceID(iter->key());
-//             auto status = MetaServiceUtils::parseBalanceStatus(iter->val());
-//             ASSERT_EQ(balanceId, id);
-//             ASSERT_EQ(BalanceStatus::SUCCEEDED, status);
-//             num++;
-//             iter->next();
-//         }
-//         ASSERT_EQ(1, num);
-//     }
-//     {
-//         const auto& prefix = MetaServiceUtils::balanceTaskPrefix(balanceId);
-//         std::unique_ptr<kvstore::KVIterator> iter;
-//         auto retcode = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-//         ASSERT_EQ(retcode, kvstore::ResultCode::SUCCEEDED);
-//         int32_t num = 0;
-//         while (iter->valid()) {
-//             BalanceTask task;
-//             {
-//                 auto tup = MetaServiceUtils::parseBalanceTaskKey(iter->key());
-//                 task.balanceId_ = std::get<0>(tup);
-//                 ASSERT_EQ(balanceId, task.balanceId_);
-//                 task.spaceId_ = std::get<1>(tup);
-//                 ASSERT_EQ(1, task.spaceId_);
-//                 task.src_ = std::get<3>(tup);
-//                 ASSERT_EQ(HostAddr("3", 3), task.src_);
-//             }
-//             {
-//                 auto tup = MetaServiceUtils::parseBalanceTaskVal(iter->val());
-//                 task.status_ = std::get<0>(tup);
-//                 ASSERT_EQ(BalanceTaskStatus::START, task.status_);
-//                 task.ret_ = std::get<1>(tup);
-//                 // all task is invalid because dst is offline
-//                 ASSERT_EQ(BalanceTaskResult::INVALID, task.ret_);
-//                 task.startTimeMs_ = std::get<2>(tup);
-//                 ASSERT_GT(task.startTimeMs_, 0);
-//                 task.endTimeMs_ = std::get<3>(tup);
-//                 ASSERT_GT(task.endTimeMs_, 0);
-//             }
-//             num++;
-//             iter->next();
-//         }
-//         ASSERT_EQ(6, num);
-//     }
-// >>>>>>> master
 }
 
 TEST(BalanceTest, RecoveryTest) {
