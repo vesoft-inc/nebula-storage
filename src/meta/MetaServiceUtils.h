@@ -253,12 +253,6 @@ public:
     static std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
     parseBalanceTaskVal(const folly::StringPiece& rawVal);
 
-    static std::tuple<BalanceID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
-    parseBalancePlanKey(const folly::StringPiece& rawKey);
-
-    static std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
-    parseBalancePlanVal(const folly::StringPiece& rawVal);
-
     static std::string groupKey(const std::string& group);
 
     static std::string groupVal(const std::vector<std::string>& zones);
@@ -302,6 +296,8 @@ public:
 
     static const std::string& statisKeyPrefix();
 
+    static GraphSpaceID parseStatisSpace(folly::StringPiece rawData);
+
     static std::string fulltextServiceKey();
 
     static std::string fulltextServiceVal(cpp2::FTServiceType type,
@@ -320,12 +316,16 @@ public:
     static GraphSpaceID parseIndexKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
+    // A direct value of true means that data will not be written to follow via the raft protocol,
+    // but will be written directly to local disk
     static bool replaceHostInPartition(kvstore::KVStore* kvstore,
                                        const HostAddr& ipv4From,
-                                       const HostAddr& ipv4To);
+                                       const HostAddr& ipv4To,
+                                       bool direct = false);
     static bool replaceHostInZone(kvstore::KVStore* kvstore,
                                   const HostAddr& ipv4From,
-                                  const HostAddr& ipv4To);
+                                  const HostAddr& ipv4To,
+                                  bool direct = false);
     // backup
     static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
         kvstore::KVStore* kvstore,

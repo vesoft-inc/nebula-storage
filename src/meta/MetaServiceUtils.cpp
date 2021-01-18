@@ -33,7 +33,7 @@ static const std::unordered_map<
         {"parts", {"__parts__", MetaServiceUtils::parsePartKeySpaceId}},
         {"tags", {"__tags__", MetaServiceUtils::parseTagsKeySpaceID}},
         {"edges", {"__edges__", MetaServiceUtils::parseEdgesKeySpaceID}},
-        {"indexes", {"__indexes__", nullptr}},
+        {"indexes", {"__indexes__", MetaServiceUtils::parseIndexesKeySpaceID}},
         // Index tables are handled separately.
         {"index", {"__index__", nullptr}},
         {"index_status", {"__index_status__", MetaServiceUtils::parseIndexStatusKeySpaceID}},
@@ -41,7 +41,7 @@ static const std::unordered_map<
         {"last_update_time", {"__last_update_time__", nullptr}},
         {"leaders", {"__leaders__", nullptr}},
         {"listener", {"__listener__", nullptr}},
-        {"statis", {"__statis__", nullptr}},
+        {"statis", {"__statis__", MetaServiceUtils::parseStatisSpace}},
         {"balance_task", {"__balance_task__", nullptr}},
         {"balance_plan", {"__balance_plan__", nullptr}},
         {"ft_index", {"__ft_index__", nullptr}}};
@@ -1034,7 +1034,8 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
 
 bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
                                               const HostAddr& ipv4From,
-                                              const HostAddr& ipv4To) {
+                                              const HostAddr& ipv4To,
+                                              bool direct) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& spacePrefix = MetaServiceUtils::spacePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -1078,23 +1079,31 @@ bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
         }
     }
 
+    if (direct) {
+        kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
+        if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
+            return false;
+        }
+        return true;
+    }
     bool updateSucceed{false};
     folly::Baton<true, std::atomic> baton;
     kvstore->asyncMultiPut(
         kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
             updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
-            if (!updateSucceed) {
-                LOG(ERROR) << folly::stringPrintf("write to kvstore failed");
-            }
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << code;
             baton.post();
         });
     baton.wait();
+
     return updateSucceed;
 }
 
 bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
                                          const HostAddr& ipv4From,
-                                         const HostAddr& ipv4To) {
+                                         const HostAddr& ipv4To,
+                                         bool direct) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& zonePrefix = MetaServiceUtils::zonePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -1123,17 +1132,24 @@ bool MetaServiceUtils::replaceHostInZone(kvstore::KVStore* kvstore,
         iter->next();
     }
 
+    if (direct) {
+        kvRet = kvstore->multiPutWithoutReplicator(kDefaultSpaceId, std::move(data));
+        if (kvRet != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << kvRet;
+            return false;
+        }
+        return true;
+    }
     bool updateSucceed{false};
     folly::Baton<true, std::atomic> baton;
     kvstore->asyncMultiPut(
         kDefaultSpaceId, kDefaultPartId, std::move(data), [&](kvstore::ResultCode code) {
             updateSucceed = (code == kvstore::ResultCode::SUCCEEDED);
-            if (!updateSucceed) {
-                LOG(ERROR) << folly::stringPrintf("write to kvstore failed");
-            }
+            LOG(ERROR) << "multiPutWithoutReplicator failed kvRet=" << code;
             baton.post();
         });
     baton.wait();
+
     return updateSucceed;
 }
 
@@ -1176,10 +1192,13 @@ std::string MetaServiceUtils::balanceTaskPrefix(BalanceID balanceId) {
 }
 
 std::string MetaServiceUtils::balancePlanKey(BalanceID id) {
+    CHECK_GE(id, 0);
+    // make the balance id is stored in decend order
+    auto encode = folly::Endian::big(std::numeric_limits<BalanceID>::max() - id);
     std::string key;
     key.reserve(sizeof(BalanceID) + kBalancePlanTable.size());
     key.append(reinterpret_cast<const char*>(kBalancePlanTable.data()), kBalancePlanTable.size())
-       .append(reinterpret_cast<const char*>(&id), sizeof(BalanceID));
+       .append(reinterpret_cast<const char*>(&encode), sizeof(BalanceID));
     return key;
 }
 
@@ -1222,34 +1241,6 @@ MetaServiceUtils::parseBalanceTaskVal(const folly::StringPiece& rawVal) {
     return std::make_tuple(status, ret, start, end);
 }
 
-std::tuple<BalanceID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
-MetaServiceUtils::parseBalancePlanKey(const folly::StringPiece& rawKey) {
-    uint32_t offset = 0;
-    auto balanceId = *reinterpret_cast<const BalanceID*>(rawKey.begin() + offset);
-    offset += sizeof(balanceId);
-    auto spaceId = *reinterpret_cast<const GraphSpaceID*>(rawKey.begin() + offset);
-    offset += sizeof(GraphSpaceID);
-    auto partId = *reinterpret_cast<const PartitionID*>(rawKey.begin() + offset);
-    offset += sizeof(PartitionID);
-    auto src = deserializeHostAddr({rawKey, offset});
-    offset += src.host.size() + sizeof(size_t) + sizeof(uint32_t);
-    auto dst = deserializeHostAddr({rawKey, offset});
-    return std::make_tuple(balanceId, spaceId, partId, src, dst);
-}
-
-std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
-MetaServiceUtils::parseBalancePlanVal(const folly::StringPiece& rawVal) {
-    int32_t offset = 0;
-    auto status = *reinterpret_cast<const BalanceTaskStatus*>(rawVal.begin() + offset);
-    offset += sizeof(BalanceTaskStatus);
-    auto ret = *reinterpret_cast<const BalanceTaskResult*>(rawVal.begin() + offset);
-    offset += sizeof(BalanceTaskResult);
-    auto start = *reinterpret_cast<const int64_t*>(rawVal.begin() + offset);
-    offset += sizeof(int64_t);
-    auto end = *reinterpret_cast<const int64_t*>(rawVal.begin() + offset);
-    return std::make_tuple(status, ret, start, end);
-}
-
 std::string MetaServiceUtils::groupKey(const std::string& group) {
     std::string key;
     key.reserve(kGroupsTable.size() + group.size());
@@ -1259,7 +1250,10 @@ std::string MetaServiceUtils::groupKey(const std::string& group) {
 }
 
 BalanceID MetaServiceUtils::parseBalanceID(const folly::StringPiece& rawKey) {
-    return *reinterpret_cast<const BalanceID*>(rawKey.begin() + kBalancePlanTable.size());
+    auto decode = *reinterpret_cast<const BalanceID*>(rawKey.begin() + kBalancePlanTable.size());
+    auto id = std::numeric_limits<BalanceID>::max() - folly::Endian::big(decode);
+    CHECK_GE(id, 0);
+    return id;
 }
 
 BalanceStatus MetaServiceUtils::parseBalanceStatus(const folly::StringPiece& rawVal) {
@@ -1381,6 +1375,11 @@ cpp2::StatisItem MetaServiceUtils::parseStatisVal(folly::StringPiece rawData) {
     cpp2::StatisItem statisItem;
     apache::thrift::CompactSerializer::deserialize(rawData, statisItem);
     return statisItem;
+}
+
+GraphSpaceID MetaServiceUtils::parseStatisSpace(folly::StringPiece rawData) {
+    auto offset = kStatisTable.size();
+    return *reinterpret_cast<const GraphSpaceID*>(rawData.data() + offset);
 }
 
 const std::string& MetaServiceUtils::statisKeyPrefix() {
