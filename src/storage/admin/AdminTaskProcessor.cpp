@@ -27,7 +27,8 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         }
     };
 
-    auto cb = [env = env_, jobId = req.get_job_id(), taskId = req.get_task_id()](
+    auto cb = [env = env_, toMetaErrCode = std::move(toMetaErrCode),
+               jobId = req.get_job_id(), taskId = req.get_task_id()](
                   nebula::storage::cpp2::ErrorCode errCode,
                   nebula::meta::cpp2::StatisItem& result) {
         meta::cpp2::StatisItem* pStatis = nullptr;
