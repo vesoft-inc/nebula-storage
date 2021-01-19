@@ -27,7 +27,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         }
     };
 
-    auto cb = [=, jobId = req.get_job_id(), taskId = req.get_task_id()](
+    auto cb = [env = env_, jobId = req.get_job_id(), taskId = req.get_task_id()](
                   nebula::storage::cpp2::ErrorCode errCode,
                   nebula::meta::cpp2::StatisItem& result) {
         meta::cpp2::StatisItem* pStatis = nullptr;
@@ -45,7 +45,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         auto retry = 0;
         while (retry++ < maxRetry) {
             auto rc = meta::cpp2::ErrorCode::SUCCEEDED;
-            auto fut = env_->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
+            auto fut = env->metaClient_->reportTaskFinish(jobId, taskId, metaCode, pStatis);
             fut.wait();
             if (!fut.hasValue()) {
                 LOG(INFO) << folly::sformat(
