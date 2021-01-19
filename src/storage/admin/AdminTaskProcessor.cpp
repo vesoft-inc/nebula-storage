@@ -30,6 +30,9 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
     auto cb = [=, jobId = req.get_job_id(), taskId = req.get_task_id()](
                   nebula::storage::cpp2::ErrorCode errCode,
                   nebula::meta::cpp2::StatisItem& result) {
+        SCOPE_EXIT {
+            onFinished();
+        };
         meta::cpp2::StatisItem* pStatis = nullptr;
         if (errCode == cpp2::ErrorCode::SUCCEEDED &&
             result.status == nebula::meta::cpp2::JobStatus::FINISHED) {
@@ -84,8 +87,8 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(cpp2::ErrorCode::E_INVALID_TASK_PARA);
         codes_.emplace_back(std::move(thriftRet));
+        onFinished();
     }
-    onFinished();
 }
 
 void AdminTaskProcessor::onProcessFinished(nebula::meta::cpp2::StatisItem& result) {
