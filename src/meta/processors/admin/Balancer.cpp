@@ -390,10 +390,10 @@ bool Balancer::balanceParts(BalanceID balanceId,
                       << " partsTo size " << partsTo.size()
                       << " minLoad " << minLoad << " maxLoad " << maxLoad;
             if (partsFrom.size() == partsTo.size() + 1 ||
-                partsFrom.size() == (size_t)minLoad ||
-                partsTo.size() == (size_t)maxLoad) {
-                LOG(INFO) << "No need to move any parts from "
-                          << maxPartsHost.first << " to " << minPartsHost.first;
+                partsFrom.size() == static_cast<size_t>(minLoad) ||
+                partsTo.size() == static_cast<size_t>(maxLoad)) {
+                VLOG(3) << "No need to move any parts from "
+                        << maxPartsHost.first << " to " << minPartsHost.first;
                 break;
             }
 

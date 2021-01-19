@@ -68,6 +68,9 @@ nebula_add_executable(
     OBJECTS
         $<TARGET_OBJECTS:meta_service_handler>
         $<TARGET_OBJECTS:meta_http_handler>
+        $<TARGET_OBJECTS:meta_version_man_obj>
+        $<TARGET_OBJECTS:meta_data_upgrade_obj>
+        $<TARGET_OBJECTS:old_meta_thrift_obj>
         ${common_deps}
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
