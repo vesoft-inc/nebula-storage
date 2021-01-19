@@ -6,6 +6,9 @@ set(KVSTORE_TEST_LIBS
     $<TARGET_OBJECTS:codec_obj>
     $<TARGET_OBJECTS:common_meta_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>
+    $<TARGET_OBJECTS:common_ws_obj>
+    $<TARGET_OBJECTS:common_ws_common_obj>
+    $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_meta_thrift_obj>
     $<TARGET_OBJECTS:common_common_thrift_obj>
     $<TARGET_OBJECTS:common_raftex_thrift_obj>
@@ -38,7 +41,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -52,7 +57,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -66,7 +73,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -80,7 +89,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -94,6 +105,7 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
         wangle
         gtest
@@ -110,7 +122,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -124,7 +138,9 @@ nebula_add_test(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         gtest
 )
 
@@ -138,7 +154,9 @@ nebula_add_executable(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         follybenchmark
         boost_regex
 )
@@ -153,7 +171,9 @@ nebula_add_executable(
     LIBRARIES
         ${THRIFT_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
+        wangle
         follybenchmark
         gtest
         boost_regex

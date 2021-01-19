@@ -98,6 +98,32 @@ TEST(ProcessorTest, CreateBackupTest) {
                       std::string(reinterpret_cast<const char*>(&id), sizeof(GraphSpaceID)));
     data.emplace_back(MetaServiceUtils::spaceKey(id), MetaServiceUtils::spaceVal(properties));
 
+    cpp2::SpaceDesc properties2;
+    GraphSpaceID id2 = 2;
+    properties2.set_space_name("test_space2");
+    properties2.set_partition_num(1);
+    properties2.set_replica_factor(1);
+    spaceVal = MetaServiceUtils::spaceVal(properties2);
+    data.emplace_back(MetaServiceUtils::indexSpaceKey("test_space2"),
+                      std::string(reinterpret_cast<const char*>(&id), sizeof(GraphSpaceID)));
+    data.emplace_back(MetaServiceUtils::spaceKey(id2), MetaServiceUtils::spaceVal(properties2));
+
+    std::string indexName = "test_space_index";
+    int32_t tagIndex = 2;
+
+    cpp2::IndexItem item;
+    item.set_index_id(tagIndex);
+    item.set_index_name(indexName);
+    cpp2::SchemaID schemaID;
+    TagID tagID = 3;
+    std::string tagName = "test_space_tag1";
+    schemaID.set_tag_id(tagID);
+    item.set_schema_id(schemaID);
+    item.set_schema_name(tagName);
+    data.emplace_back(MetaServiceUtils::indexIndexKey(id, indexName),
+                      std::string(reinterpret_cast<const char*>(&tagIndex), sizeof(IndexID)));
+    data.emplace_back(MetaServiceUtils::indexKey(id, tagIndex), MetaServiceUtils::indexVal(item));
+
     std::vector<HostAddr> allHosts;
     allHosts.emplace_back(storageHost);
 
@@ -108,6 +134,8 @@ TEST(ProcessorTest, CreateBackupTest) {
             hosts2.emplace_back(allHosts[idx % 1]);
         }
         data.emplace_back(MetaServiceUtils::partKey(id, partId), MetaServiceUtils::partVal(hosts2));
+        data.emplace_back(MetaServiceUtils::partKey(id2, partId),
+                          MetaServiceUtils::partVal(hosts2));
     }
     folly::Baton<true, std::atomic> baton;
     kv->asyncMultiPut(0, 0, std::move(data), [&](kvstore::ResultCode code) {
@@ -118,6 +146,8 @@ TEST(ProcessorTest, CreateBackupTest) {
 
     {
         cpp2::CreateBackupReq req;
+        std::vector<std::string> spaces = {"test_space"};
+        req.set_spaces(std::move(spaces));
         auto* processor = CreateBackupProcessor::instance(kv.get(), client.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -125,9 +155,22 @@ TEST(ProcessorTest, CreateBackupTest) {
         LOG(INFO) << folly::to<int>(resp.get_code());
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto meta = resp.get_meta();
-        for (auto m : meta.get_meta_files()) {
+
+        auto metaFiles = meta.get_meta_files();
+        for (auto m : metaFiles) {
             LOG(INFO) << "meta files name:" << m;
         }
+
+        auto it = std::find_if(metaFiles.cbegin(), metaFiles.cend(), [](auto const& m) {
+            auto name = m.substr(m.size() - sizeof("__indexes__.sst") + 1);
+
+            if (name == "__indexes__.sst") {
+                return true;
+            }
+            return false;
+        });
+
+        ASSERT_NE(it, metaFiles.cend());
 
         ASSERT_EQ(1, meta.get_backup_info().size());
         for (auto s : meta.get_backup_info()) {
