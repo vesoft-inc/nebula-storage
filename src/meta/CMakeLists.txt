@@ -59,6 +59,7 @@ nebula_add_library(
     processors/jobMan/TaskDescription.cpp
     processors/jobMan/JobStatus.cpp
     processors/jobMan/AdminJobProcessor.cpp
+    processors/jobMan/ReportTaskProcessor.cpp
     processors/jobMan/JobUtils.cpp
     processors/jobMan/MetaJobExecutor.cpp
     processors/jobMan/SimpleConcurrentJobExecutor.cpp
@@ -91,4 +92,15 @@ nebula_add_library(
     MetaHttpReplaceHostHandler.cpp
 )
 
+nebula_add_library(
+    meta_version_man_obj OBJECT
+    MetaVersionMan.cpp
+)
+
+add_dependencies(
+    meta_version_man_obj
+    old_meta_thrift_obj
+)
+
 nebula_add_subdirectory(test)
+nebula_add_subdirectory(upgradeData)

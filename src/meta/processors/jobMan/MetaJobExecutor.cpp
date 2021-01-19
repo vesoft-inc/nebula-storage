@@ -18,6 +18,7 @@
 #include "meta/processors/jobMan/RebuildTagJobExecutor.h"
 #include "meta/processors/jobMan/RebuildEdgeJobExecutor.h"
 #include "meta/processors/jobMan/StatisJobExecutor.h"
+#include "meta/processors/jobMan/TaskDescription.h"
 #include "utils/Utils.h"
 
 DECLARE_int32(heartbeat_interval_secs);
@@ -131,7 +132,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     return hosts;
 }
 
-ExecuteRet MetaJobExecutor::execute() {
+cpp2::ErrorCode MetaJobExecutor::execute() {
     ErrOrHosts addressesRet;
     if (toLeader_) {
         addressesRet = getLeaderHost(space_);
@@ -145,43 +146,50 @@ ExecuteRet MetaJobExecutor::execute() {
     }
 
     std::vector<PartitionID> parts;
-    std::vector<folly::SemiFuture<Status>> futures;
     auto addresses = nebula::value(addressesRet);
+
+    // write all tasks first.
+    for (auto i = 0U; i != addresses.size(); ++i) {
+        TaskDescription task(jobId_, i, addresses[i].first);
+        std::vector<kvstore::KV> data{{task.taskKey(), task.taskVal()}};
+        folly::Baton<true, std::atomic> baton;
+        auto rc = nebula::kvstore::ResultCode::SUCCEEDED;
+        kvstore_->asyncMultiPut(kDefaultSpaceId,
+                                kDefaultPartId,
+                                std::move(data),
+                                [&](nebula::kvstore::ResultCode code) {
+                                    rc = code;
+                                    baton.post();
+                                });
+        baton.wait();
+        if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+            return cpp2::ErrorCode::E_UNKNOWN;
+        }
+    }
+
+    std::vector<folly::SemiFuture<Status>> futs;
     for (auto& address : addresses) {
         // transform to the admin host
-        auto future = executeInternal(Utils::getAdminAddrFromStoreAddr(address.first),
-                                      std::move(address.second));
-        futures.emplace_back(std::move(future));
+        auto h = Utils::getAdminAddrFromStoreAddr(address.first);
+        futs.emplace_back(executeInternal(std::move(h), std::move(address.second)));
     }
 
-    std::vector<Status> results;
-    nebula::Status errorStatus;
-    folly::collectAll(std::move(futures))
+    auto rc = cpp2::ErrorCode::SUCCEEDED;
+    folly::collectAll(std::move(futs))
         .thenValue([&](const std::vector<folly::Try<Status>>& tries) {
-            for (const auto& t : tries) {
-                if (t.hasException()) {
-                    LOG(ERROR) << "Admin Failed: " << t.exception();
-                    results.emplace_back(nebula::Status::Error());
-                } else {
-                    results.emplace_back(t.value());
-                }
+            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
+                    return t.hasException() || !t.value().ok();
+                })) {
+                rc = cpp2::ErrorCode::E_RPC_FAILURE;
             }
-        }).thenError([&](auto&& e) {
-            LOG(ERROR) << "Admin Failed: " << e.what();
-            errorStatus = Status::Error(e.what());
-        }).wait();
+        })
+        .thenError([&](auto&& e) {
+            LOG(ERROR) << "MetaJobExecutor::execute() except: " << e.what();
+            rc = cpp2::ErrorCode::E_UNKNOWN;
+        })
+        .wait();
 
-    if (addresses.size() != results.size()) {
-        LOG(ERROR) << "hosts.size: " << addresses.size()
-                   << ", results.size: " << results.size();
-        return cpp2::ErrorCode::E_INVALID_PARM;
-    }
-
-    std::unordered_map<HostAddr, Status> ret;
-    for (size_t i = 0; i != addresses.size(); ++i) {
-        ret.emplace(addresses[i].first, results[i]);
-    }
-    return ret;
+    return rc;
 }
 
 }  // namespace meta

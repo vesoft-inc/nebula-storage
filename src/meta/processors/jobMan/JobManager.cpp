@@ -18,10 +18,8 @@
 #include "meta/processors/jobMan/JobUtils.h"
 #include "meta/processors/jobMan/TaskDescription.h"
 #include "meta/processors/jobMan/JobStatus.h"
-#include "meta/processors/jobMan/MetaJobExecutor.h"
 #include "meta/MetaServiceUtils.h"
 
-DEFINE_int32(dispatch_thread_num, 10, "Number of job dispatch http thread");
 DEFINE_int32(job_check_intervals, 5000, "job intervals in us");
 DEFINE_double(job_expired_secs, 7*24*60*60, "job expired intervals in sec");
 
@@ -41,21 +39,16 @@ bool JobManager::init(nebula::kvstore::KVStore* store) {
         return false;
     }
     std::lock_guard<std::mutex> lk(statusGuard_);
-    if (status_ != Status::NOT_START) {
+    if (status_ != JbmgrStatus::NOT_START) {
         return false;
     }
     kvStore_ = store;
-    pool_ = std::make_unique<nebula::thread::GenericThreadPool>();
-    pool_->start(FLAGS_dispatch_thread_num);
 
     lowPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
     highPriorityQueue_ = std::make_unique<folly::UMPSCQueue<JobID, true>>();
 
-    bgThread_ = std::make_unique<thread::GenericWorker>();
-    CHECK(bgThread_->start());
-
-    status_ = Status::RUNNING;
-    bgThread_->addTask(&JobManager::scheduleThread, this);
+    status_ = JbmgrStatus::IDLE;
+    bgThread_ = std::thread(&JobManager::scheduleThread, this);
     LOG(INFO) << "JobManager initialized";
     return true;
 }
@@ -66,24 +59,24 @@ JobManager::~JobManager() {
 
 void JobManager::shutDown() {
     LOG(INFO) << "JobManager::shutDown() begin";
-    std::lock_guard<std::mutex> lk(statusGuard_);
-    if (status_ != Status::RUNNING) {  // in case of shutdown more than once
+    if (status_ == JbmgrStatus::STOPPED) {  // in case of shutdown more than once
         LOG(INFO) << "JobManager not running, exit";
         return;
     }
-    status_ = Status::STOPPED;
-    pool_->stop();
-    bgThread_->stop();
-    bgThread_->wait();
+    {
+        std::lock_guard<std::mutex> lk(statusGuard_);
+        status_ = JbmgrStatus::STOPPED;
+    }
+    bgThread_.join();
     LOG(INFO) << "JobManager::shutDown() end";
 }
 
 void JobManager::scheduleThread() {
     LOG(INFO) << "JobManager::runJobBackground() enter";
-    while (status_ == Status::RUNNING) {
+    while (status_ != JbmgrStatus::STOPPED) {
         int32_t iJob = 0;
-        while (!try_dequeue(iJob)) {
-            if (status_ == Status::STOPPED) {
+        while (status_ == JbmgrStatus::BUSY || !try_dequeue(iJob)) {
+            if (status_ == JbmgrStatus::STOPPED) {
                 LOG(INFO) << "[JobManager] detect shutdown called, exit";
                 break;
             }
@@ -92,7 +85,7 @@ void JobManager::scheduleThread() {
 
         auto jobDesc = JobDescription::loadJobDescription(iJob, kvStore_);
         if (jobDesc == folly::none) {
-            LOG(ERROR) << "[JobManager] load a invalid job from queue " << iJob;
+            LOG(ERROR) << "[JobManager] load an invalid job from queue " << iJob;
             continue;   // leader change or archive happend
         }
         if (!jobDesc->setStatus(cpp2::JobStatus::RUNNING)) {
@@ -100,70 +93,226 @@ void JobManager::scheduleThread() {
             continue;
         }
         save(jobDesc->jobKey(), jobDesc->jobVal());
-
-        if (runJobInternal(*jobDesc)) {
-            jobDesc->setStatus(cpp2::JobStatus::FINISHED);
-        } else {
-            jobDesc->setStatus(cpp2::JobStatus::FAILED);
+        {
+            std::lock_guard<std::mutex> lk(statusGuard_);
+            if (status_ == JbmgrStatus::IDLE) {
+                status_ = JbmgrStatus::BUSY;
+            }
         }
-        save(jobDesc->jobKey(), jobDesc->jobVal());
 
-        // Delete the job after job finished or failed
-        auto it = inFlightJobs_.find(jobDesc->getJobId());
-        if (it != inFlightJobs_.end()) {
-            inFlightJobs_.erase(it);
+        if (!runJobInternal(*jobDesc)) {
+            jobFinished(iJob, cpp2::JobStatus::FAILED);
         }
     }
     LOG(INFO) << "[JobManager] exit";
 }
 
-// @return: true if succeed, false if any task failed
+// @return: true if all task dispatched, else false
 bool JobManager::runJobInternal(const JobDescription& jobDesc) {
-    auto jobExecutor = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc,
-                                                                     kvStore_,
-                                                                     adminClient_);
-    if (jobExecutor == nullptr) {
+    auto jobExec = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc, kvStore_, adminClient_);
+    if (jobExec == nullptr) {
         LOG(ERROR) << "unreconized job cmd " << static_cast<int>(jobDesc.getCmd());
         return false;
     }
+
     if (jobDesc.getStatus() == cpp2::JobStatus::STOPPED) {
-        jobExecutor->stop();
+        jobExec->stop();
         return true;
     }
 
-    if (!jobExecutor->check()) {
+    if (!jobExec->check()) {
         LOG(ERROR) << "Job Executor check failed";
         return false;
     }
 
-    if (jobExecutor->prepare() != cpp2::ErrorCode::SUCCEEDED) {
+    if (jobExec->prepare() != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Job Executor prepare failed";
         return false;
     }
 
-    auto results = jobExecutor->execute();
-    if (!nebula::ok(results)) {
-        LOG(ERROR) << "Job executor running failed";
+    if (jobExec->execute() != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Job dispatch failed";
         return false;
     }
+    return true;
+}
 
-    size_t taskId = 0;
-    bool jobSuccess = true;
-    for (auto& hostAndStatus : nebula::value(results)) {
-        auto& host = hostAndStatus.first;
-        TaskDescription task(jobDesc.getJobId(), taskId, host.host, host.port);
-        bool taskSuccess = hostAndStatus.second.ok();
-        auto taskStatus = taskSuccess ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
-        if (!taskSuccess) {
-            jobSuccess = false;
+void JobManager::cleanJob(JobID jobId) {
+    // Delete the job after job finished or failed
+    LOG(INFO) << "[task] cleanJob " << jobId;
+    auto it = inFlightJobs_.find(jobId);
+    if (it != inFlightJobs_.end()) {
+        inFlightJobs_.erase(it);
+    }
+}
+
+cpp2::ErrorCode JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) {
+    LOG(INFO) << folly::sformat("{}, jobId={}, result={}", __func__, jobId,
+                                cpp2::_JobStatus_VALUES_TO_NAMES.at(jobStatus));
+    // normal job finish may race to job stop
+    std::lock_guard<std::mutex> lk(muJobFinished_);
+    SCOPE_EXIT {
+        cleanJob(jobId);
+    };
+    auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
+    if (!optJobDesc) {
+        LOG(WARNING) << folly::sformat("can't load job, jobId={}", jobId);
+        if (jobStatus != cpp2::JobStatus::STOPPED) {
+            // there is a rare condition, that when job finished,
+            // the job description is deleted(default more than a week)
+            // but stop an invalid job should not set status to idle.
+            std::lock_guard<std::mutex> statusLk(statusGuard_);
+            if (status_ == JbmgrStatus::BUSY) {
+                status_ = JbmgrStatus::IDLE;
+            }
         }
-        task.setStatus(taskStatus);
-        save(task.taskKey(), task.taskVal());
-        ++taskId;
+        return cpp2::ErrorCode::E_NOT_FOUND;
     }
 
-    jobExecutor->finish(jobSuccess);
-    return jobSuccess;
+    if (!optJobDesc->setStatus(jobStatus)) {
+        // job already been set as finished, failed or stopped
+        return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
+    }
+    {
+        std::lock_guard<std::mutex> statusLk(statusGuard_);
+        if (status_ == JbmgrStatus::BUSY) {
+            status_ = JbmgrStatus::IDLE;
+        }
+    }
+    auto rc = save(optJobDesc->jobKey(), optJobDesc->jobVal());
+    if (rc == nebula::kvstore::ResultCode::ERR_LEADER_CHANGED) {
+        return cpp2::ErrorCode::E_LEADER_CHANGED;
+    } else if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+        return cpp2::ErrorCode::E_UNKNOWN;
+    }
+
+    auto jobExec =
+        MetaJobExecutorFactory::createMetaJobExecutor(*optJobDesc, kvStore_, adminClient_);
+
+    if (!jobExec) {
+        LOG(WARNING) << folly::sformat("unable to create jobExecutor, jobId={}", jobId);
+        return cpp2::ErrorCode::E_UNKNOWN;
+    }
+    if (!optJobDesc->getParas().empty()) {
+        auto spaceName = optJobDesc->getParas().front();
+        auto spaceId = getSpaceId(spaceName);
+        LOG(INFO) << folly::sformat("spaceName={}, spaceId={}", spaceName, spaceId);
+        if (spaceId == -1) {
+            return cpp2::ErrorCode::E_STORE_FAILURE;
+        }
+        jobExec->setSpaceId(spaceId);
+    }
+    if (jobStatus == cpp2::JobStatus::STOPPED) {
+        return jobExec->stop();
+    } else {
+        jobExec->finish(jobStatus == cpp2::JobStatus::FINISHED);
+    }
+
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+cpp2::ErrorCode JobManager::saveTaskStatus(TaskDescription& td,
+                                           const cpp2::ReportTaskReq& req) {
+    auto code = req.get_code();
+    auto status =
+        code == cpp2::ErrorCode::SUCCEEDED ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
+    td.setStatus(status);
+
+    auto jobId = req.get_job_id();
+    auto optJobDesc = JobDescription::loadJobDescription(jobId, kvStore_);
+    if (!optJobDesc) {
+        LOG(WARNING) << folly::sformat("{}() loadJobDesc failed, jobId={}", __func__, jobId);
+        return cpp2::ErrorCode::E_TASK_REPORT_OUT_DATE;
+    }
+
+    auto jobExec =
+        MetaJobExecutorFactory::createMetaJobExecutor(*optJobDesc, kvStore_, adminClient_);
+
+    if (!jobExec) {
+        LOG(WARNING) << folly::sformat("createMetaJobExecutor failed(), jobId={}", jobId);
+        return cpp2::ErrorCode::E_TASK_REPORT_OUT_DATE;
+    } else {
+        if (!optJobDesc->getParas().empty()) {
+            auto spaceName = optJobDesc->getParas().front();
+            auto spaceId = getSpaceId(spaceName);
+            LOG(INFO) << folly::sformat("spaceName={}, spaceId={}", spaceName, spaceId);
+            if (spaceId != -1) {
+                jobExec->setSpaceId(spaceId);
+            }
+        }
+    }
+
+    auto rcSave = save(td.taskKey(), td.taskVal());
+    if (rcSave != kvstore::ResultCode::SUCCEEDED) {
+        return cpp2::ErrorCode::E_STORE_FAILURE;
+    }
+    return jobExec->saveSpecialTaskStatus(req);
+}
+
+/**
+ * @brief
+ *      client should retry if any persist attempt
+ *      for example leader change / store failure.
+ *      else, may log then ignore error
+ * @return cpp2::ErrorCode
+ */
+cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& req) {
+    auto jobId = req.get_job_id();
+    auto taskId = req.get_task_id();
+    // only an active job manager will accept task finish report
+    if (status_ == JbmgrStatus::STOPPED || status_ == JbmgrStatus::NOT_START) {
+        LOG(INFO) << folly::sformat(
+            "report to an in-active job manager, job={}, task={}", jobId, taskId);
+        return cpp2::ErrorCode::E_UNKNOWN;
+    }
+    // bacause the last task will update the job's status
+    // tasks shoule report once a time
+    std::lock_guard<std::mutex> lk(muReportFinish_);
+    auto tasks = getAllTasks(jobId);
+    auto task = std::find_if(tasks.begin(), tasks.end(), [&](auto& it){
+        return it.getJobId() == jobId && it.getTaskId() == taskId;
+    });
+    if (task == tasks.end()) {
+        LOG(WARNING) << folly::sformat(
+            "report an invalid or outdate task, will ignore this report, job={}, task={}",
+            jobId,
+            taskId);
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
+    auto rc = saveTaskStatus(*task, req);
+    if (rc != cpp2::ErrorCode::SUCCEEDED) {
+        return rc;
+    }
+
+    auto allTaskFinished = std::none_of(tasks.begin(), tasks.end(), [](auto& tsk){
+        return tsk.status_ == cpp2::JobStatus::RUNNING;
+    });
+
+    if (allTaskFinished) {
+        auto jobStatus = std::all_of(tasks.begin(), tasks.end(), [](auto& tsk) {
+            return tsk.status_ == cpp2::JobStatus::FINISHED;
+        }) ? cpp2::JobStatus::FINISHED : cpp2::JobStatus::FAILED;
+        return jobFinished(jobId, jobStatus);
+    }
+    return cpp2::ErrorCode::SUCCEEDED;
+}
+
+std::list<TaskDescription> JobManager::getAllTasks(JobID jobId) {
+    std::list<TaskDescription> taskDescriptions;
+    auto jobKey = JobDescription::makeJobKey(jobId);
+    std::unique_ptr<kvstore::KVIterator> iter;
+    ResultCode rc = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, jobKey, &iter);
+    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
+        return taskDescriptions;
+    }
+    for (; iter->valid(); iter->next()) {
+        if (JobDescription::isJobKey(iter->key())) {
+            continue;
+        }
+        taskDescriptions.emplace_back(TaskDescription(iter->key(), iter->val()));
+    }
+    return taskDescriptions;
 }
 
 cpp2::ErrorCode JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
@@ -310,32 +459,8 @@ JobManager::showJob(JobID iJob) {
 }
 
 cpp2::ErrorCode JobManager::stopJob(JobID iJob) {
-    auto jobDesc = JobDescription::loadJobDescription(iJob, kvStore_);
-    if (jobDesc == folly::none) {
-        return cpp2::ErrorCode::E_NOT_FOUND;
-    }
-
-    auto jobExecutor = MetaJobExecutorFactory::createMetaJobExecutor(jobDesc.value(),
-                                                                     kvStore_,
-                                                                     adminClient_);
-    if (jobExecutor == nullptr) {
-        LOG(ERROR) << "Unknown Job";
-        return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
-    }
-
-    jobDesc->setStatus(cpp2::JobStatus::STOPPED);
-    auto rc = save(jobDesc->jobKey(), jobDesc->jobVal());
-    if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
-        return cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
-    }
-
-    // Stop job remove form JobMap
-    auto it = inFlightJobs_.find(jobDesc->getJobId());
-    if (it != inFlightJobs_.end()) {
-        inFlightJobs_.erase(it);
-    }
-
-    return jobExecutor->stop();
+    LOG(INFO) << "try to stop job " << iJob;
+    return jobFinished(iJob, cpp2::JobStatus::STOPPED);
 }
 
 /*

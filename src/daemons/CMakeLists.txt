@@ -1,4 +1,5 @@
 set(common_deps
+    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
@@ -7,7 +8,6 @@ set(common_deps
     $<TARGET_OBJECTS:common_meta_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>
     $<TARGET_OBJECTS:common_file_based_cluster_id_man_obj>
-    $<TARGET_OBJECTS:common_ws_common_obj>
     $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_raftex_thrift_obj>
     $<TARGET_OBJECTS:common_storage_thrift_obj>
@@ -29,7 +29,6 @@ set(common_deps
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
-    $<TARGET_OBJECTS:common_time_function_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
 )
@@ -39,6 +38,7 @@ nebula_add_executable(
         nebula-storaged
     SOURCES
         StorageDaemon.cpp
+        SetupLogging.cpp
     OBJECTS
         $<TARGET_OBJECTS:storage_server>
         $<TARGET_OBJECTS:internal_storage_service_handler>
@@ -64,9 +64,13 @@ nebula_add_executable(
         nebula-metad
     SOURCES
         MetaDaemon.cpp
+        SetupLogging.cpp
     OBJECTS
         $<TARGET_OBJECTS:meta_service_handler>
         $<TARGET_OBJECTS:meta_http_handler>
+        $<TARGET_OBJECTS:meta_version_man_obj>
+        $<TARGET_OBJECTS:meta_data_upgrade_obj>
+        $<TARGET_OBJECTS:old_meta_thrift_obj>
         ${common_deps}
     LIBRARIES
         proxygenhttpserver

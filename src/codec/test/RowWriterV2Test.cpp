@@ -21,7 +21,6 @@ const std::string str = "Hello world!";    // NOLINT
 const std::string fixed = "Nebula Graph";  // NOLINT
 const Timestamp now = 1582183355;
 // Convert timestamp now to datetime string
-const std::string nowStr = "2020-02-20 15:22:35";  // NOLINT
 const Date date = {2020, 2, 20};
 const DateTime dt = {2020, 2, 20, 10, 30, 45, 0};
 const Value sVal("Hello world!");
@@ -378,11 +377,9 @@ TEST(RowWriterV2, Update) {
 TEST(RowWriterV2, Timestamp) {
     SchemaWriter schema(20 /*Schema version*/);
     schema.appendCol("Col01", PropertyType::TIMESTAMP);
-    schema.appendCol("Col02", PropertyType::TIMESTAMP);
 
     RowWriterV2 writer(&schema);
     EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", 1582183355));
-    EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, nowStr));
     ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish());
 
     std::string encoded1 = writer.moveEncodedStr();
@@ -393,16 +390,13 @@ TEST(RowWriterV2, Timestamp) {
     EXPECT_EQ(Value::Type::INT, v1.type());
     EXPECT_EQ(now, v1.getInt());
 
-    // Col02
-    v1 = reader1->getValueByName("Col02");
-    EXPECT_EQ(Value::Type::INT, v1.type());
-    EXPECT_EQ(now, v1.getInt());
-
     // Invalid value test
     RowWriterV2 writer2(&schema);
     EXPECT_NE(WriteResult::SUCCEEDED, writer2.set("Col01", 9223372037));
 
     EXPECT_NE(WriteResult::SUCCEEDED, writer2.set("Col01", -1));
+
+    EXPECT_NE(WriteResult::SUCCEEDED, writer2.set("Col01", "2020-02-20 15:22:35"));
 
     std::string dateStr = "3220-02-20 15:22:35";  // NOLINT
     EXPECT_NE(WriteResult::SUCCEEDED, writer2.set(1, dateStr));
@@ -424,6 +418,207 @@ TEST(RowWriterV2, EmptyString) {
     Value v2 = reader->getValueByIndex(0);
     EXPECT_EQ("", v1.getStr());
     EXPECT_EQ("", v2.getStr());
+}
+
+TEST(RowWriterV2, NumericLimit) {
+    SchemaWriter schema(1 /*Schema version*/);
+    schema.appendCol("Col01", PropertyType::INT8);
+    schema.appendCol("Col03", PropertyType::INT16);
+    schema.appendCol("Col06", PropertyType::INT32);
+    schema.appendCol("Col07", PropertyType::INT64);
+    schema.appendCol("Col09", PropertyType::FLOAT);
+    schema.appendCol("Col11", PropertyType::DOUBLE);
+
+    {
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int8_t>(std::numeric_limits<int8_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int16_t>(std::numeric_limits<int8_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int32_t>(std::numeric_limits<int8_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int64_t>(std::numeric_limits<int8_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<float>(std::numeric_limits<int8_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<double>(std::numeric_limits<int8_t>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int8_t>(std::numeric_limits<int8_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int16_t>(std::numeric_limits<int8_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int32_t>(std::numeric_limits<int8_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<int64_t>(std::numeric_limits<int8_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<float>(std::numeric_limits<int8_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(0, static_cast<double>(std::numeric_limits<int8_t>::max())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int16_t>(std::numeric_limits<int16_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int32_t>(std::numeric_limits<int16_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int64_t>(std::numeric_limits<int16_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<float>(std::numeric_limits<int16_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<double>(std::numeric_limits<int16_t>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int16_t>(std::numeric_limits<int16_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int32_t>(std::numeric_limits<int16_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<int64_t>(std::numeric_limits<int16_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<float>(std::numeric_limits<int16_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(1, static_cast<double>(std::numeric_limits<int16_t>::max())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<int32_t>(std::numeric_limits<int32_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<int64_t>(std::numeric_limits<int32_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<float>(std::numeric_limits<int32_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<double>(std::numeric_limits<int32_t>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<int32_t>(std::numeric_limits<int32_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<int64_t>(std::numeric_limits<int32_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<float>(std::numeric_limits<int32_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(2, static_cast<double>(std::numeric_limits<int32_t>::max())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(3, static_cast<int64_t>(std::numeric_limits<int64_t>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(3, static_cast<double>(std::numeric_limits<int64_t>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(3, static_cast<int64_t>(std::numeric_limits<int64_t>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(3, static_cast<double>(std::numeric_limits<int64_t>::max())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<int32_t>(std::numeric_limits<float>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<int64_t>(std::numeric_limits<float>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<float>(std::numeric_limits<float>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<double>(std::numeric_limits<float>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<int32_t>(std::numeric_limits<float>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<int64_t>(std::numeric_limits<float>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<float>(std::numeric_limits<float>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(4, static_cast<double>(std::numeric_limits<float>::max())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(5, static_cast<int64_t>(std::numeric_limits<double>::min())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(5, static_cast<double>(std::numeric_limits<double>::min())));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(5, static_cast<int64_t>(std::numeric_limits<double>::max())));
+        EXPECT_EQ(WriteResult::SUCCEEDED,
+                  writer.set(5, static_cast<double>(std::numeric_limits<double>::max())));
+    }
+    {
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(0, static_cast<double>(0)));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(1, static_cast<double>(0)));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(2, static_cast<double>(0)));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(3, static_cast<double>(0)));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(4, static_cast<double>(0)));
+
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<int8_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<int16_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<int32_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<int64_t>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<float>(0)));
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set(5, static_cast<double>(0)));
+    }
+    {
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int16_t>(-0x81)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int16_t>(0x80)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int32_t>(-0x81)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int32_t>(0x80)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int64_t>(-0x81)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, static_cast<int64_t>(0x80)));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, std::numeric_limits<float>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, std::numeric_limits<float>::max()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(0, std::numeric_limits<double>::max()));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, static_cast<int32_t>(-0x8001)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, static_cast<int32_t>(0x8000)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, static_cast<int64_t>(-0x8001)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, static_cast<int64_t>(0x8000)));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, std::numeric_limits<float>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, std::numeric_limits<float>::max()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(1, std::numeric_limits<double>::max()));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, static_cast<int64_t>(-0x80000001L)));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, static_cast<int64_t>(0x80000000L)));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, std::numeric_limits<float>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, std::numeric_limits<float>::max()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(2, std::numeric_limits<double>::max()));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<float>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<float>::max()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(3, std::numeric_limits<double>::max()));
+
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(4, std::numeric_limits<double>::lowest()));
+        EXPECT_EQ(WriteResult::OUT_OF_RANGE, writer.set(4, std::numeric_limits<double>::max()));
+    }
 }
 
 }  // namespace nebula

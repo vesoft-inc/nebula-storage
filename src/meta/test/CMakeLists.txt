@@ -1,4 +1,5 @@
 set(meta_test_deps
+    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:mock_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:general_storage_service_handler>
@@ -35,7 +36,6 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
-    $<TARGET_OBJECTS:common_time_function_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
@@ -91,6 +91,7 @@ nebula_add_test(
     LIBRARIES
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        proxygenhttpserver
         proxygenlib
         wangle
         gtest

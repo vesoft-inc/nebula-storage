@@ -10,6 +10,7 @@
 #include "common/process/ProcessUtils.h"
 #include "common/time/TimeUtils.h"
 #include "storage/StorageServer.h"
+#include "version/Version.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 
 
@@ -32,22 +33,31 @@ using nebula::ProcessUtils;
 
 static void signalHandler(int sig);
 static Status setupSignalHandler();
+extern Status setupLogging();
 
 std::unique_ptr<nebula::storage::StorageServer> gStorageServer;
 
 int main(int argc, char *argv[]) {
+    google::SetVersionString(nebula::storage::versionString());
     // Detect if the server has already been started
     // Check pid before glog init, in case of user may start daemon twice
     // the 2nd will make the 1st failed to output log anymore
     gflags::ParseCommandLineFlags(&argc, &argv, false);
-    auto pidPath = FLAGS_pid_file;
-    auto status = ProcessUtils::isPidAvailable(pidPath);
+
+    // Setup logging
+    auto status = setupLogging();
     if (!status.ok()) {
         LOG(ERROR) << status;
         return EXIT_FAILURE;
     }
 
-    google::SetVersionString(nebula::versionString());
+    auto pidPath = FLAGS_pid_file;
+    status = ProcessUtils::isPidAvailable(pidPath);
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
     folly::init(&argc, &argv, true);
     if (FLAGS_daemonize) {
         google::SetStderrLogging(google::FATAL);

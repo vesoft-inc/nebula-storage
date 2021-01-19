@@ -15,8 +15,6 @@
 namespace nebula {
 namespace meta {
 
-using ExecuteRet  = ErrorOr<cpp2::ErrorCode, std::unordered_map<HostAddr, Status>>;
-
 using ErrOrHosts  = ErrorOr<cpp2::ErrorCode,
                             std::vector<std::pair<HostAddr, std::vector<PartitionID>>>>;
 
@@ -41,12 +39,20 @@ public:
 
     // The skeleton to run the job.
     // You should rewrite the executeInternal to trigger the calling.
-    ExecuteRet execute();
+    cpp2::ErrorCode  execute();
+
+    void interruptExecution(JobID jobId);
 
     // Stop the job when the user cancel it.
     virtual cpp2::ErrorCode stop() = 0;
 
     virtual void finish(bool) {}
+
+    void setSpaceId(GraphSpaceID spaceId) { space_ = spaceId; }
+
+    virtual cpp2::ErrorCode saveSpecialTaskStatus(const cpp2::ReportTaskReq&) {
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
 
 protected:
     ErrorOr<cpp2::ErrorCode, GraphSpaceID>
@@ -68,6 +74,9 @@ protected:
     std::vector<std::string>    paras_;
     bool                        toLeader_{false};
     int32_t                     concurrency_{INT_MAX};
+    bool                        stopped_{false};
+    std::mutex                  muInterrupt_;
+    std::condition_variable     condInterrupt_;
 };
 
 class MetaJobExecutorFactory {

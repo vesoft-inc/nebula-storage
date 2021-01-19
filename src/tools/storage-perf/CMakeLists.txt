@@ -1,4 +1,5 @@
 set(perf_test_deps
+    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:storage_admin_service_handler>
     $<TARGET_OBJECTS:graph_storage_service_handler>
@@ -34,7 +35,6 @@ set(perf_test_deps
     $<TARGET_OBJECTS:common_base_obj>
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
-    $<TARGET_OBJECTS:common_time_function_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
