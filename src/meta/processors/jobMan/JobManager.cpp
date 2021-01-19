@@ -191,6 +191,7 @@ cpp2::ErrorCode JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) 
 
     if (!jobExec) {
         LOG(WARNING) << folly::sformat("unable to create jobExecutor, jobId={}", jobId);
+        return cpp2::ErrorCode::E_UNKNOWN;
     }
     if (!optJobDesc->getParas().empty()) {
         auto spaceName = optJobDesc->getParas().front();
