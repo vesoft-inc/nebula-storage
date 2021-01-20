@@ -29,55 +29,73 @@ public:
     };
 
     IndexOutputNode(nebula::DataSet* result,
+                    const std::vector<cpp2::IndexReturnColumn>& yieldCols,
                     PlanContext* planCtx,
                     IndexScanNode<T>* indexScanNode,
                     bool hasNullableCol,
-                    const std::vector<meta::cpp2::ColumnDef>& fields)
+                    const std::vector<meta::cpp2::ColumnDef>& fields,
+                    int32_t schemaId)
         : result_(result)
+        , yieldCols_(yieldCols)
         , planContext_(planCtx)
         , indexScanNode_(indexScanNode)
         , hasNullableCol_(hasNullableCol)
         , fields_(fields) {
-        type_ = planContext_->isEdge_
-                ? IndexResultType::kEdgeFromIndexScan
-                : IndexResultType::kVertexFromIndexScan;
+        if (planContext_->isEdge_) {
+            type_ = IndexResultType::kEdgeFromIndexScan;
+            edgeType_ = schemaId;
+        } else {
+            type_ = IndexResultType::kVertexFromIndexScan;
+            tagId_ = schemaId;
+        }
     }
 
     IndexOutputNode(nebula::DataSet* result,
+                    const std::vector<cpp2::IndexReturnColumn>& yieldCols,
                     PlanContext* planCtx,
                     IndexEdgeNode<T>* indexEdgeNode)
         : result_(result)
+        , yieldCols_(yieldCols)
         , planContext_(planCtx)
         , indexEdgeNode_(indexEdgeNode) {
         type_ = IndexResultType::kEdgeFromDataScan;
+        edgeType_ = indexEdgeNode_->edgeType();
     }
 
     IndexOutputNode(nebula::DataSet* result,
+                    const std::vector<cpp2::IndexReturnColumn>& yieldCols,
                     PlanContext* planCtx,
                     IndexVertexNode<T>* indexVertexNode)
         : result_(result)
+        , yieldCols_(yieldCols)
         , planContext_(planCtx)
         , indexVertexNode_(indexVertexNode) {
         type_ = IndexResultType::kVertexFromDataScan;
+        tagId_ = indexVertexNode_->tagId();
     }
 
     IndexOutputNode(nebula::DataSet* result,
+                    const std::vector<cpp2::IndexReturnColumn>& yieldCols,
                     PlanContext* planCtx,
                     IndexFilterNode<T>* indexFilterNode,
+                    int32_t schemaId,
                     bool indexFilter = false)
         : result_(result)
+        , yieldCols_(yieldCols)
         , planContext_(planCtx)
         , indexFilterNode_(indexFilterNode) {
         hasNullableCol_ = indexFilterNode->hasNullableCol();
         fields_ = indexFilterNode_->indexCols();
-        if (indexFilter) {
-            type_ = planContext_->isEdge_
+        if (planContext_->isEdge_) {
+            type_ = indexFilter
                     ? IndexResultType::kEdgeFromIndexFilter
-                    : IndexResultType::kVertexFromIndexFilter;
+                    : IndexResultType::kEdgeFromDataFilter;
+            edgeType_ = schemaId;
         } else {
-            type_ = planContext_->isEdge_
-                    ? IndexResultType::kEdgeFromDataFilter
+            type_ = indexFilter
+                    ? IndexResultType::kVertexFromIndexFilter
                     : IndexResultType::kVertexFromDataFilter;
+            tagId_ = schemaId;
         }
     }
 
@@ -166,8 +184,13 @@ private:
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
-            for (const auto& col : result_->colNames) {
-                auto ret = addIndexValue(row, reader.get(), val, col, schema);
+            for (const auto& col : yieldCols_) {
+                if (QueryUtils::toReturnColType(col.get_prop()) == QueryUtils::ReturnColType::kOther
+                    && col.get_tag_or_edge_id() != tagId_) {
+                    row.emplace_back(Value::kEmpty);
+                    continue;
+                }
+                auto ret = addIndexValue(row, reader.get(), val, col.get_prop(), schema);
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -180,8 +203,12 @@ private:
     kvstore::ResultCode vertexRowsFromIndex(const std::vector<kvstore::KV>& data) {
         for (const auto& val : data) {
             Row row;
-            for (const auto& col : result_->colNames) {
-                auto ret = addIndexValue(row, val, col);
+            for (const auto& col : yieldCols_) {
+                if (col.get_tag_or_edge_id() != tagId_) {
+                    row.emplace_back(Value::kEmpty);
+                    continue;
+                }
+                auto ret = addIndexValue(row, val, col.get_prop());
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -205,8 +232,12 @@ private:
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
-            for (const auto& col : result_->colNames) {
-                auto ret = addIndexValue(row, reader.get(), val, col, schema);
+            for (const auto& col : yieldCols_) {
+                if (col.get_tag_or_edge_id() != edgeType_) {
+                    row.emplace_back(Value::kEmpty);
+                    continue;
+                }
+                auto ret = addIndexValue(row, reader.get(), val, col.get_prop(), schema);
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -219,8 +250,12 @@ private:
     kvstore::ResultCode edgeRowsFromIndex(const std::vector<kvstore::KV>& data) {
         for (const auto& val : data) {
             Row row;
-            for (const auto& col : result_->colNames) {
-                auto ret = addIndexValue(row, val, col);
+            for (const auto& col : yieldCols_) {
+                if (col.get_tag_or_edge_id() != edgeType_) {
+                    row.emplace_back(Value::kEmpty);
+                    continue;
+                }
+                auto ret = addIndexValue(row, val, col.get_prop());
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -299,7 +334,7 @@ private:
                 break;
             }
             case QueryUtils::ReturnColType::kTag : {
-                row.emplace_back(planContext_->tagId_);
+                row.emplace_back(tagId_);
                 break;
             }
             case QueryUtils::ReturnColType::kSrc : {
@@ -312,7 +347,7 @@ private:
                 break;
             }
             case QueryUtils::ReturnColType::kType : {
-                row.emplace_back(planContext_->edgeType_);
+                row.emplace_back(edgeType_);
                 break;
             }
             case QueryUtils::ReturnColType::kRank : {
@@ -343,6 +378,7 @@ private:
 
 private:
     nebula::DataSet*                                  result_;
+    std::vector<cpp2::IndexReturnColumn>              yieldCols_;
     PlanContext*                                      planContext_;
     IndexResultType                                   type_;
     IndexScanNode<T>*                                 indexScanNode_{nullptr};
@@ -351,6 +387,8 @@ private:
     IndexFilterNode<T>*                               indexFilterNode_{nullptr};
     bool                                              hasNullableCol_{};
     std::vector<meta::cpp2::ColumnDef>                fields_;
+    TagID                                             tagId_;
+    EdgeType                                          edgeType_;
 };
 
 }  // namespace storage

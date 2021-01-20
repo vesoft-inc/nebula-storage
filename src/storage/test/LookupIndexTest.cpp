@@ -117,16 +117,22 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(1);
-        indices.set_tag_or_edge_id(3);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
             parts.emplace_back(p);
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back("col_bool");
-        returnCols.emplace_back("col_int");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(3);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("col_bool");
+        col.set_tag_or_edge_id(3);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("col_int");
+        col.set_tag_or_edge_id(3);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         columnHint.set_begin_value(Value(true));
@@ -138,9 +144,11 @@ TEST(LookupIndexTest, LookupIndexTestV1) {
         context1.set_column_hints(std::move(columnHints));
         context1.set_filter("");
         context1.set_index_id(3);
+        context1.set_tag_or_edge_id(3);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         auto fut = processor->getFuture();
@@ -211,7 +219,6 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -219,9 +226,16 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("age");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("age");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         std::string name = "Rudy Gay";
@@ -234,9 +248,11 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         context1.set_column_hints(std::move(columnHints));
         context1.set_filter("");
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -283,7 +299,6 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -291,9 +306,16 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("age");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("age");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         // player.name_ == "Rudy Gay"
         cpp2::IndexColumnHint columnHint1;
@@ -315,14 +337,17 @@ TEST(LookupIndexTest, SimpleTagIndexTest) {
         context1.set_column_hints(std::move(columnHints1));
         context1.set_filter("");
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         cpp2::IndexQueryContext context2;
         context2.set_column_hints(std::move(columnHints2));
         context2.set_filter("");
         context2.set_index_id(1);
+        context2.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -389,7 +414,6 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -399,11 +423,22 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         std::string tony = "Tony Parker";
         std::string manu = "Manu Ginobili";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("teamName");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("teamName");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         columnHint.set_begin_value(Value(tony));
@@ -415,9 +450,11 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         context1.set_column_hints(std::move(columnHints));
         context1.set_filter("");
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -477,7 +514,6 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -489,11 +525,22 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         std::string yao = "Yao Ming";
         std::string tracy = "Tracy McGrady";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("teamName");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("teamName");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         // teammates.player1 == "Tony Parker"
         cpp2::IndexColumnHint columnHint1;
@@ -513,14 +560,17 @@ TEST(LookupIndexTest, SimpleEdgeIndexTest) {
         context1.set_column_hints(std::move(columnHints1));
         context1.set_filter("");
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         cpp2::IndexQueryContext context2;
         context2.set_column_hints(std::move(columnHints2));
         context2.set_filter("");
         context2.set_index_id(102);
+        context2.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -612,7 +662,6 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -620,9 +669,16 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("age");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("age");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         std::string name = "Rudy Gay";
@@ -641,9 +697,11 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
             new ConstantExpression(Value(34L)));
         context1.set_filter(expr.encode());
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -694,7 +752,6 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -702,9 +759,16 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("age");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("age");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         std::string name = "Rudy Gay";
@@ -723,9 +787,11 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
             new ConstantExpression(Value(34L)));
         context1.set_filter(expr.encode());
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -782,7 +848,6 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -792,11 +857,22 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         std::string tony = "Tony Parker";
         std::string manu = "Manu Ginobili";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("teamName");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("teamName");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         columnHint.set_begin_value(Value(tony));
@@ -814,9 +890,11 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             new ConstantExpression(Value("Spurs")));
         context1.set_filter("");
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -881,7 +959,6 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -891,11 +968,22 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         std::string tony = "Tony Parker";
         std::string manu = "Manu Ginobili";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("teamName");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("teamName");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         columnHint.set_begin_value(Value(tony));
@@ -913,9 +1001,11 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
             new ConstantExpression(Value("Spurs")));
         context1.set_filter(expr.encode());
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -972,7 +1062,6 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -980,9 +1069,16 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("games");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("games");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         std::string name = "Rudy Gay";
@@ -995,9 +1091,11 @@ TEST(LookupIndexTest, TagIndexWithDataTest) {
         context1.set_column_hints(std::move(columnHints));
         context1.set_filter("");
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1062,7 +1160,6 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -1072,11 +1169,22 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         std::string tony = "Tony Parker";
         std::string manu = "Manu Ginobili";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("startYear");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("startYear");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         cpp2::IndexColumnHint columnHint;
         columnHint.set_begin_value(Value(tony));
@@ -1088,9 +1196,11 @@ TEST(LookupIndexTest, EdgeIndexWithDataTest) {
         context1.set_column_hints(std::move(columnHints));
         context1.set_filter("");
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1163,7 +1273,6 @@ TEST(LookupIndexTest, TagWithPropStatisVerticesIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -1173,11 +1282,22 @@ TEST(LookupIndexTest, TagWithPropStatisVerticesIndexTest) {
         cpp2::IndexQueryContext context1;
         context1.set_filter("");
         context1.set_index_id(4);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
-        req.set_return_columns({kVid, kTag});
+
+        decltype(req.return_columns) returnCols;
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        req.set_return_columns(std::move(returnCols));
 
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1238,7 +1358,6 @@ TEST(LookupIndexTest, TagWithoutPropStatisVerticesIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -1248,11 +1367,21 @@ TEST(LookupIndexTest, TagWithoutPropStatisVerticesIndexTest) {
         cpp2::IndexQueryContext context1;
         context1.set_filter("");
         context1.set_index_id(4);
+        context1.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
-        req.set_return_columns({kVid, kTag});
+        decltype(req.return_columns) returnCols;
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        req.set_return_columns(std::move(returnCols));
 
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1315,7 +1444,6 @@ TEST(LookupIndexTest, EdgeWithPropStatisVerticesIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(101);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -1325,11 +1453,27 @@ TEST(LookupIndexTest, EdgeWithPropStatisVerticesIndexTest) {
         cpp2::IndexQueryContext context1;
         context1.set_filter("");
         context1.set_index_id(103);
+        context1.set_tag_or_edge_id(101);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
-        req.set_return_columns({kSrc, kType, kRank, kDst});
+        decltype(req.return_columns) returnCols;
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        req.set_return_columns(std::move(returnCols));
 
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1400,7 +1544,6 @@ TEST(LookupIndexTest, EdgeWithoutPropStatisVerticesIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(101);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -1410,11 +1553,27 @@ TEST(LookupIndexTest, EdgeWithoutPropStatisVerticesIndexTest) {
         cpp2::IndexQueryContext context1;
         context1.set_filter("");
         context1.set_index_id(103);
+        context1.set_tag_or_edge_id(101);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
-        req.set_return_columns({kSrc, kType, kRank, kDst});
+        decltype(req.return_columns) returnCols;
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(101);
+        returnCols.emplace_back(std::move(col));
+        req.set_return_columns(std::move(returnCols));
 
         auto fut = processor->getFuture();
         processor->process(req);
@@ -1613,7 +1772,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
     cpp2::LookupIndexRequest req;
     req.set_space_id(spaceId);
     req.set_parts({1, 2, 3, 4, 5, 6});
-    req.set_return_columns({kVid});
+    decltype(req.return_columns) returnCols;
+    cpp2::IndexReturnColumn col;
+    col.set_prop(kVid);
+    col.set_tag_or_edge_id(111);
+    returnCols.emplace_back(std::move(col));
+    req.set_return_columns(std::move(returnCols));
     {
         LOG(INFO) << "lookup on tag where tag.col1 == 0";
         cpp2::IndexColumnHint columnHint;
@@ -1624,12 +1788,13 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         cpp2::IndexQueryContext context;
         context.set_filter("");
         context.set_index_id(222);
+        context.set_tag_or_edge_id(111);
         context.set_column_hints({columnHint});
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1651,11 +1816,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints({columnHint});
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1689,11 +1855,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1717,11 +1884,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints({columnHint});
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1745,11 +1913,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints({columnHint});
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1775,11 +1944,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints({columnHint});
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1822,11 +1992,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter(expr.encode());
         context.set_index_id(222);
         context.set_column_hints(columnHints);
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1868,11 +2039,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter(expr.encode());
         context.set_index_id(222);
         context.set_column_hints(columnHints);
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -1922,11 +2094,12 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
         context.set_filter(expr.encode());
         context.set_index_id(222);
         context.set_column_hints(columnHints);
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2120,7 +2293,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
     cpp2::LookupIndexRequest req;
     req.set_space_id(spaceId);
     req.set_parts({1, 2, 3, 4, 5, 6});
-    req.set_return_columns({kVid});
+    decltype(req.return_columns) returnCols;
+    cpp2::IndexReturnColumn col;
+    col.set_prop(kVid);
+    col.set_tag_or_edge_id(111);
+    returnCols.emplace_back(std::move(col));
+    req.set_return_columns(std::move(returnCols));
 
     // bool range scan will be forbiden in query engine, so only test preix for bool
     {
@@ -2133,11 +2311,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2162,11 +2341,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2194,11 +2374,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2226,11 +2407,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2255,11 +2437,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2284,11 +2467,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2321,11 +2505,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2358,11 +2543,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2389,11 +2575,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2422,11 +2609,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2457,11 +2645,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2490,11 +2679,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2516,11 +2706,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2545,11 +2736,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2576,11 +2768,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2609,11 +2802,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2642,11 +2836,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2675,11 +2870,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2708,11 +2904,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2736,11 +2933,12 @@ TEST(LookupIndexTest, NullablePropertyTest) {
         context.set_filter("");
         context.set_index_id(222);
         context.set_column_hints(std::move(columnHints));
+        context.set_tag_or_edge_id(111);
 
         cpp2::IndexSpec indices;
-        indices.set_tag_or_edge_id(111);
         indices.set_is_edge(false);
         indices.set_contexts({context});
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
 
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
@@ -2794,7 +2992,6 @@ TEST(LookupIndexTest, DeDupTagIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(1);
         indices.set_is_edge(false);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -2802,9 +2999,16 @@ TEST(LookupIndexTest, DeDupTagIndexTest) {
         }
         req.set_parts(std::move(parts));
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kVid);
-        returnCols.emplace_back(kTag);
-        returnCols.emplace_back("age");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kVid);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kTag);
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("age");
+        col.set_tag_or_edge_id(1);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         // player.name_ == "Rudy Gay"
         cpp2::IndexColumnHint columnHint1;
@@ -2826,14 +3030,17 @@ TEST(LookupIndexTest, DeDupTagIndexTest) {
         context1.set_column_hints(std::move(columnHints1));
         context1.set_filter("");
         context1.set_index_id(1);
+        context1.set_tag_or_edge_id(1);
         cpp2::IndexQueryContext context2;
         context2.set_column_hints(std::move(columnHints2));
         context2.set_filter("");
         context2.set_index_id(1);
+        context2.set_tag_or_edge_id(1);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);
@@ -2895,7 +3102,6 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         cpp2::LookupIndexRequest req;
         decltype(req.indices) indices;
         req.set_space_id(spaceId);
-        indices.set_tag_or_edge_id(102);
         indices.set_is_edge(true);
         decltype(req.parts) parts;
         for (int32_t p = 1; p <= totalParts; p++) {
@@ -2905,11 +3111,22 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         std::string tony = "Tony Parker";
         std::string manu = "Manu Ginobili";
         decltype(req.return_columns) returnCols;
-        returnCols.emplace_back(kSrc);
-        returnCols.emplace_back(kType);
-        returnCols.emplace_back(kRank);
-        returnCols.emplace_back(kDst);
-        returnCols.emplace_back("teamName");
+        cpp2::IndexReturnColumn col;
+        col.set_prop(kSrc);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kType);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kRank);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop(kDst);
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
+        col.set_prop("teamName");
+        col.set_tag_or_edge_id(102);
+        returnCols.emplace_back(std::move(col));
         req.set_return_columns(std::move(returnCols));
         // teammates.player1 == "Tony Parker"
         cpp2::IndexColumnHint columnHint1;
@@ -2928,14 +3145,17 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         context1.set_column_hints(std::move(columnHints1));
         context1.set_filter("");
         context1.set_index_id(102);
+        context1.set_tag_or_edge_id(102);
         cpp2::IndexQueryContext context2;
         context2.set_column_hints(std::move(columnHints2));
         context2.set_filter("");
         context2.set_index_id(102);
+        context2.set_tag_or_edge_id(102);
         decltype(indices.contexts) contexts;
         contexts.emplace_back(std::move(context1));
         contexts.emplace_back(std::move(context2));
         indices.set_contexts(std::move(contexts));
+        indices.set_aggr_type(cpp2::AggregateType::UNION);
         req.set_indices(std::move(indices));
         auto fut = processor->getFuture();
         processor->process(req);

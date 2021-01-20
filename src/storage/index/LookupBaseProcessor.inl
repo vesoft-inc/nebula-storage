@@ -20,38 +20,56 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         this->env_, spaceId_, this->spaceVidLen_, this->isIntId_);
     const auto& indices = req.get_indices();
     planContext_->isEdge_ = indices.get_is_edge();
-    if (planContext_->isEdge_) {
-        planContext_->edgeType_ = indices.get_tag_or_edge_id();
-        auto edgeName = this->env_->schemaMan_->toEdgeName(spaceId_, planContext_->edgeType_);
-        if (!edgeName.ok()) {
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
-        }
-        planContext_->edgeName_ = std::move(edgeName.value());
-        schema_ = this->env_->schemaMan_->getEdgeSchema(spaceId_, planContext_->edgeType_);
-    } else {
-        planContext_->tagId_ = indices.get_tag_or_edge_id();
-        auto tagName = this->env_->schemaMan_->toTagName(spaceId_, planContext_->tagId_);
-        if (!tagName.ok()) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
-        }
-        planContext_->tagName_ = std::move(tagName.value());
-        schema_ = this->env_->schemaMan_->getTagSchema(spaceId_, planContext_->tagId_);
-    }
+    aggrType_ = indices.get_aggr_type();
 
     if (indices.get_contexts().empty() || !req.__isset.return_columns ||
         req.get_return_columns()->empty()) {
         return cpp2::ErrorCode::E_INVALID_OPERATION;
     }
     contexts_ = indices.get_contexts();
+    for (const auto& ctx : contexts_) {
+        auto schemaId = ctx.get_tag_or_edge_id();
+        auto schema = planContext_->isEdge_
+                      ? this->env_->schemaMan_->getEdgeSchema(spaceId_, schemaId)
+                      : this->env_->schemaMan_->getTagSchema(spaceId_, schemaId);
+        if (!schema) {
+            LOG(ERROR) << "Space " << spaceId_ << ", schema " << schemaId << " invalid";
+            return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        }
+        schemas_.emplace(schemaId, schema);
 
-    // setup yield columns.
-    if (req.__isset.return_columns) {
-        yieldCols_ = *req.get_return_columns();
+        if (aggrType_ == cpp2::AggregateType::INTERSECT) {
+            resultDataSets_.emplace_back(nebula::DataSet());
+        }
     }
 
+    for (const auto& col : *req.get_return_columns()) {
+        yieldCols_.emplace_back(col);
+    }
+
+    // TODO (sky) : just support return columns(kVid, kTag, kSrc, kType, kRank, kDst)
+    //              when aggr type is AggregateType::INTERSECT
+    if (aggrType_ == cpp2::AggregateType::INTERSECT) {
+        for (const auto& col : yieldCols_) {
+            if (QueryUtils::toReturnColType(col.get_prop())
+                == QueryUtils::ReturnColType::kOther) {
+                    // It should be checked in QE layer
+                    return cpp2::ErrorCode::E_UNKNOWN;
+                }
+        }
+    }
     for (size_t i = 0; i < yieldCols_.size(); i++) {
-        resultDataSet_.colNames.emplace_back(yieldCols_[i]);
-        if (QueryUtils::toReturnColType(yieldCols_[i]) != QueryUtils::ReturnColType::kOther) {
+        auto id = yieldCols_[i].get_tag_or_edge_id();
+        auto schemaName = planContext_->isEdge_
+                          ? this->env_->schemaMan_->toEdgeName(spaceId_, id)
+                          : this->env_->schemaMan_->toTagName(spaceId_, id);
+        if (!schemaName.ok()) {
+            LOG(ERROR) << "Space " << spaceId_ << ", schema " << id << " invalid";
+            return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        }
+        resultDataSet_.colNames.emplace_back(schemaName.value() + "." + yieldCols_[i].get_prop());
+        if (QueryUtils::toReturnColType(yieldCols_[i].get_prop())
+            != QueryUtils::ReturnColType::kOther) {
             deDupColPos_.emplace_back(i);
         }
     }
@@ -119,6 +137,132 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
     return false;
 }
 
+template<typename REQ, typename RESP>
+StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
+    switch (aggrType_) {
+        case cpp2::AggregateType::UNION:
+            return buildUnionPlan();
+        case cpp2::AggregateType::INTERSECT:
+            return buildIntersectPlan();
+        case cpp2::AggregateType::EXCEPT:
+            return buildExceptPlan();
+    }
+    // Only used for compilation error
+    return Status::Error();
+}
+
+template<typename REQ, typename RESP>
+Status
+LookupBaseProcessor<REQ, RESP>::buildSubPlan(int32_t& filterId,
+                                             StoragePlan<IndexID>& plan,
+                                             nebula::DataSet* resultSet,
+                                             const cpp2::IndexQueryContext& ctx,
+                                             std::unique_ptr<IndexOutputNode<IndexID>>& out) {
+    const auto& indexId = ctx.get_index_id();
+    auto needFilter = ctx.__isset.filter && !ctx.get_filter().empty();
+    const auto& schemaId = ctx.get_tag_or_edge_id();
+
+    // Check whether a data node is required.
+    // If a non-indexed column appears in the WHERE clause or YIELD clause,
+    // That means need to query the corresponding data.
+    bool needData = false;
+    auto index = planContext_->isEdge_
+        ? this->env_->indexMan_->getEdgeIndex(spaceId_, indexId)
+        : this->env_->indexMan_->getTagIndex(spaceId_, indexId);
+    if (!index.ok()) {
+        return Status::IndexNotFound();
+    }
+
+    // check nullable column
+    bool hasNullableCol = false;
+
+    auto* indexItem = index.value().get();
+    auto fields = indexItem->get_fields();
+
+    for (const auto& col : fields) {
+        if (!hasNullableCol && col.get_nullable()) {
+            hasNullableCol = true;
+            break;
+        }
+    }
+
+    for (const auto& yieldCol : yieldCols_) {
+        if (yieldCol.get_tag_or_edge_id() != schemaId) {
+            continue;
+        }
+        static const std::set<std::string> propsInKey{kVid, kTag, kSrc, kType, kRank, kDst};
+        if (propsInKey.count(yieldCol.get_prop())) {
+            continue;
+        }
+        auto it = std::find_if(fields.begin(),
+                                fields.end(),
+                                [&yieldCol] (const auto& columnDef) {
+                                    return yieldCol.get_prop() == columnDef.get_name();
+                                });
+        if (it == fields.end()) {
+            needData = true;
+            break;
+        }
+    }
+    auto colHints = ctx.get_column_hints();
+
+    // Check WHERE clause contains columns that ware not indexed
+    if (ctx.__isset.filter && !ctx.get_filter().empty()) {
+        auto filter = Expression::decode(ctx.get_filter());
+        auto isFieldsOutsideIndex = isOutsideIndex(filter.get(), indexItem);
+        if (isFieldsOutsideIndex) {
+            needData = needFilter = true;
+        }
+    }
+
+    if (!needData && !needFilter) {
+        out = buildPlanBasic(ctx, plan, hasNullableCol, fields, resultSet);
+    } else if (needData && !needFilter) {
+        out = buildPlanWithData(ctx, plan, resultSet);
+    } else if (!needData && needFilter) {
+        auto expr = Expression::decode(ctx.get_filter());
+        auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
+                                                                  planContext_->isIntId_,
+                                                                  hasNullableCol,
+                                                                  fields);
+        filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
+        out = buildPlanWithFilter(ctx,
+                                  plan,
+                                  filterItems_[filterId].first.get(),
+                                  filterItems_[filterId].second.get(),
+                                  resultSet);
+        filterId++;
+    } else {
+        auto expr = Expression::decode(ctx.get_filter());
+        if (schemas_.find(schemaId) == schemas_.end()) {
+            return Status::Error("Schema not found");
+        }
+        // Need to get columns in data, expr ctx need to be aware of schema
+        auto schemaName = planContext_->isEdge_
+                        ? this->env_->schemaMan_->toEdgeName(spaceId_, schemaId)
+                        : this->env_->schemaMan_->toTagName(spaceId_, schemaId);
+        if (!schemaName.ok()) {
+            return Status::Error("get schema name error");
+        }
+        auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
+                                                                  planContext_->isIntId_,
+                                                                  std::move(schemaName).value(),
+                                                                  schemas_[schemaId].get(),
+                                                                  planContext_->isEdge_);
+        filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
+        out = buildPlanWithDataAndFilter(ctx,
+                                         plan,
+                                         filterItems_[filterId].first.get(),
+                                         filterItems_[filterId].second.get(),
+                                         resultSet);
+        filterId++;
+    }
+    if (out == nullptr) {
+        return Status::Error("Index scan plan error");
+    }
+    return Status::OK();
+}
+
 /**
  * lookup plan should be :
  *              +--------+---------+
@@ -137,107 +281,17 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
  *            +  IndexOutputNode...  +
  *            +----------+-----------+
 **/
-
 template<typename REQ, typename RESP>
-StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
+StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildUnionPlan() {
     StoragePlan<IndexID> plan;
     auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(&resultDataSet_);
     auto deDup = std::make_unique<DeDupNode<IndexID>>(&resultDataSet_, deDupColPos_);
     int32_t filterId = 0;
     std::unique_ptr<IndexOutputNode<IndexID>> out;
-
     for (const auto& ctx : contexts_) {
-        const auto& indexId = ctx.get_index_id();
-        auto needFilter = ctx.__isset.filter && !ctx.get_filter().empty();
-
-        // Check whether a data node is required.
-        // If a non-indexed column appears in the WHERE clause or YIELD clause,
-        // That means need to query the corresponding data.
-        bool needData = false;
-        auto index = planContext_->isEdge_
-            ? this->env_->indexMan_->getEdgeIndex(spaceId_, indexId)
-            : this->env_->indexMan_->getTagIndex(spaceId_, indexId);
-        if (!index.ok()) {
-            return Status::IndexNotFound();
-        }
-
-        // check nullable column
-        bool hasNullableCol = false;
-
-        auto* indexItem = index.value().get();
-        auto fields = indexItem->get_fields();
-
-        for (const auto& col : fields) {
-            if (!hasNullableCol && col.get_nullable()) {
-                hasNullableCol = true;
-                break;
-            }
-        }
-
-        for (const auto& yieldCol : yieldCols_) {
-            static const std::set<std::string> propsInKey{kVid, kTag, kSrc, kType, kRank, kDst};
-            if (propsInKey.count(yieldCol)) {
-                continue;
-            }
-            auto it = std::find_if(fields.begin(),
-                                   fields.end(),
-                                   [&yieldCol] (const auto& columnDef) {
-                                       return yieldCol == columnDef.get_name();
-                                   });
-            if (it == fields.end()) {
-                needData = true;
-                break;
-            }
-        }
-        auto colHints = ctx.get_column_hints();
-
-        // Check WHERE clause contains columns that ware not indexed
-        if (ctx.__isset.filter && !ctx.get_filter().empty()) {
-            auto filter = Expression::decode(ctx.get_filter());
-            auto isFieldsOutsideIndex = isOutsideIndex(filter.get(), indexItem);
-            if (isFieldsOutsideIndex) {
-                needData = needFilter = true;
-            }
-        }
-
-        if (!needData && !needFilter) {
-            out = buildPlanBasic(ctx, plan, hasNullableCol, fields);
-        } else if (needData && !needFilter) {
-            out = buildPlanWithData(ctx, plan);
-        } else if (!needData && needFilter) {
-            auto expr = Expression::decode(ctx.get_filter());
-            auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
-                                                                        planContext_->isIntId_,
-                                                                        hasNullableCol,
-                                                                        fields);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithFilter(ctx,
-                                        plan,
-                                        filterItems_[filterId].first.get(),
-                                        filterItems_[filterId].second.get());
-            filterId++;
-        } else {
-            auto expr = Expression::decode(ctx.get_filter());
-            // Need to get columns in data, expr ctx need to be aware of schema
-            const auto& schemaName = planContext_->isEdge_ ? planContext_->edgeName_ :
-                                                                planContext_->tagName_;
-            if (schema_ == nullptr) {
-                return Status::Error("Schema not found");
-            }
-            auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
-                                                                        planContext_->isIntId_,
-                                                                        schemaName,
-                                                                        schema_.get(),
-                                                                        planContext_->isEdge_);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithDataAndFilter(ctx,
-                                                plan,
-                                                filterItems_[filterId].first.get(),
-                                                filterItems_[filterId].second.get());
-            filterId++;
-        }
-        if (out == nullptr) {
-            return Status::Error("Index scan plan error");
+        if (!buildSubPlan(filterId, plan, &resultDataSet_, ctx, out).ok()) {
+            LOG(ERROR) << "build union plan error";
+            return Status::Error("build union plan error");
         }
         deDup->addDependency(out.get());
         plan.addNode(std::move(out));
@@ -246,6 +300,35 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
     plan.addNode(std::move(deDup));
     plan.addNode(std::move(IndexAggr));
     return plan;
+}
+
+template<typename REQ, typename RESP>
+StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildIntersectPlan() {
+    StoragePlan<IndexID> plan;
+    auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(&resultDataSet_);
+    auto interNode = std::make_unique<IntersectNode<IndexID>>(&resultDataSet_,
+                                                              &resultDataSets_,
+                                                              deDupColPos_);
+    int32_t filterId = 0;
+    std::unique_ptr<IndexOutputNode<IndexID>> out;
+    size_t i = 0;
+    for (const auto& ctx : contexts_) {
+        if (!buildSubPlan(filterId, plan, &(resultDataSets_[i++]), ctx, out).ok()) {
+            LOG(ERROR) << "build intersect plan error";
+            return Status::Error("build intersect plan error");
+        }
+        interNode->addDependency(out.get());
+        plan.addNode(std::move(out));
+    }
+    IndexAggr->addDependency(interNode.get());
+    plan.addNode(std::move(interNode));
+    plan.addNode(std::move(IndexAggr));
+    return plan;
+}
+
+template<typename REQ, typename RESP>
+StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildExceptPlan() {
+    return Status::NotSupported();
 }
 
 /**
@@ -269,18 +352,22 @@ LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
     const cpp2::IndexQueryContext& ctx,
     StoragePlan<IndexID>& plan,
     bool hasNullableCol,
-    const std::vector<meta::cpp2::ColumnDef>& fields) {
+    const std::vector<meta::cpp2::ColumnDef>& fields,
+    nebula::DataSet* resultSet) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
+    auto schemaId = ctx.get_tag_or_edge_id();
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
                                                               std::move(colHints));
 
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(resultSet,
+                                                             yieldCols_,
                                                              planContext_.get(),
                                                              indexScan.get(),
                                                              hasNullableCol,
-                                                             fields);
+                                                             fields,
+                                                             schemaId);
     output->addDependency(indexScan.get());
     plan.addNode(std::move(indexScan));
     return output;
@@ -309,9 +396,11 @@ LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext& ctx,
-                                                  StoragePlan<IndexID>& plan) {
+                                                  StoragePlan<IndexID>& plan,
+                                                  nebula::DataSet* resultSet) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
+    auto schemaId = ctx.get_tag_or_edge_id();
 
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
@@ -319,10 +408,12 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
     if (planContext_->isEdge_) {
         auto edge = std::make_unique<IndexEdgeNode<IndexID>>(planContext_.get(),
                                                              indexScan.get(),
-                                                             schema_,
-                                                             planContext_->edgeName_);
+                                                             schemas_[schemaId],
+                                                             planContext_->edgeName_,
+                                                             schemaId);
         edge->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(resultSet,
+                                                                 yieldCols_,
                                                                  planContext_.get(),
                                                                  edge.get());
         output->addDependency(edge.get());
@@ -333,10 +424,12 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
         auto vertex = std::make_unique<IndexVertexNode<IndexID>>(planContext_.get(),
                                                                  this->vertexCache_,
                                                                  indexScan.get(),
-                                                                 schema_,
-                                                                 planContext_->tagName_);
+                                                                 schemas_[schemaId],
+                                                                 planContext_->tagName_,
+                                                                 schemaId);
         vertex->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(resultSet,
+                                                                 yieldCols_,
                                                                  planContext_.get(),
                                                                  vertex.get());
         output->addDependency(vertex.get());
@@ -371,9 +464,11 @@ std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContext& ctx,
                                                     StoragePlan<IndexID>& plan,
                                                     StorageExpressionContext* exprCtx,
-                                                    Expression* exp) {
+                                                    Expression* exp,
+                                                    nebula::DataSet* resultSet) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
+    auto schemaId = ctx.get_tag_or_edge_id();
 
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
@@ -384,9 +479,12 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
                                                              exp,
                                                              planContext_->isEdge_);
     filter->addDependency(indexScan.get());
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(resultSet,
+                                                             yieldCols_,
                                                              planContext_.get(),
-                                                             filter.get(), true);
+                                                             filter.get(),
+                                                             schemaId,
+                                                             true);
     output->addDependency(filter.get());
     plan.addNode(std::move(indexScan));
     plan.addNode(std::move(filter));
@@ -426,9 +524,11 @@ std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx,
                                                            StoragePlan<IndexID>& plan,
                                                            StorageExpressionContext* exprCtx,
-                                                           Expression* exp) {
+                                                           Expression* exp,
+                                                           nebula::DataSet* resultSet) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
+    auto schemaId = ctx.get_tag_or_edge_id();
 
     auto indexScan = std::make_unique<IndexScanNode<IndexID>>(planContext_.get(),
                                                               indexId,
@@ -436,17 +536,20 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
     if (planContext_->isEdge_) {
         auto edge = std::make_unique<IndexEdgeNode<IndexID>>(planContext_.get(),
                                                              indexScan.get(),
-                                                             schema_,
-                                                             planContext_->edgeName_);
+                                                             schemas_[schemaId],
+                                                             planContext_->edgeName_,
+                                                             schemaId);
         edge->addDependency(indexScan.get());
         auto filter = std::make_unique<IndexFilterNode<IndexID>>(edge.get(),
                                                                  exprCtx,
                                                                  exp);
         filter->addDependency(edge.get());
 
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(resultSet,
+                                                                 yieldCols_,
                                                                  planContext_.get(),
-                                                                 filter.get());
+                                                                 filter.get(),
+                                                                 schemaId);
         output->addDependency(filter.get());
         plan.addNode(std::move(indexScan));
         plan.addNode(std::move(edge));
@@ -456,8 +559,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
         auto vertex = std::make_unique<IndexVertexNode<IndexID>>(planContext_.get(),
                                                                  this->vertexCache_,
                                                                  indexScan.get(),
-                                                                 schema_,
-                                                                 planContext_->tagName_);
+                                                                 schemas_[schemaId],
+                                                                 planContext_->tagName_,
+                                                                 schemaId);
         vertex->addDependency(indexScan.get());
         auto filter = std::make_unique<IndexFilterNode<IndexID>>(vertex.get(),
                                                                  exprCtx,
@@ -465,8 +569,10 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
         filter->addDependency(vertex.get());
 
         auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+                                                                 yieldCols_,
                                                                  planContext_.get(),
-                                                                 filter.get());
+                                                                 filter.get(),
+                                                                 schemaId);
         output->addDependency(filter.get());
         plan.addNode(std::move(indexScan));
         plan.addNode(std::move(vertex));
