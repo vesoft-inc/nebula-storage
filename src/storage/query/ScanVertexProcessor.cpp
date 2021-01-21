@@ -13,6 +13,16 @@ namespace nebula {
 namespace storage {
 
 void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
+    if (executor_ != nullptr) {
+        executor_->add([&req, this] () {
+            this->doProcess(req);
+        });
+    } else {
+        doProcess(req);
+    }
+}
+
+void ScanVertexProcessor::doProcess(const cpp2::ScanVertexRequest& req) {
     spaceId_ = req.get_space_id();
     partId_ = req.get_part_id();
 
@@ -47,7 +57,7 @@ void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
         return;
     }
 
-    int32_t rowLimit = req.get_limit();
+    auto rowLimit = req.get_limit();
     int64_t startTime = 0, endTime = std::numeric_limits<int64_t>::max();
     if (req.__isset.start_time) {
         startTime = *req.get_start_time();
@@ -60,7 +70,7 @@ void ScanVertexProcessor::process(const cpp2::ScanVertexRequest& req) {
     bool onlyLatestVer = req.get_only_latest_version();
     // last valid key without version
     std::string lastValidKey;
-    for (int32_t rowCount = 0; iter->valid() && rowCount < rowLimit; iter->next()) {
+    for (int64_t rowCount = 0; iter->valid() && rowCount < rowLimit; iter->next()) {
         auto key = iter->key();
         if (!NebulaKeyUtils::isVertex(spaceVidLen_, key)) {
             continue;
