@@ -24,7 +24,8 @@ MetaVersion MetaVersionMan::getMetaVersionFromKV(kvstore::KVStore* kv) {
     std::string value;
     auto code = kv->get(kDefaultSpaceId, kDefaultPartId, kMetaVersionKey, &value, true);
     if (code == kvstore::ResultCode::SUCCEEDED) {
-        return *reinterpret_cast<const MetaVersion*>(value.data());
+        auto version = *reinterpret_cast<const MetaVersion*>(value.data());
+        return version == MetaVersion::V2 ? MetaVersion::V2 : MetaVersion::UNKNOWN;
     } else if (isV1(kv)) {
         return MetaVersion::V1;
     } else {
