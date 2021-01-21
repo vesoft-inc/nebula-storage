@@ -168,8 +168,14 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
     }
 
     folly::collectAll(std::move(futures))
-        .thenValue([] (const auto& tries) mutable {
+        .thenValue([](const auto& tries) mutable {
             for (const auto& t : tries) {
+                if (std::any_of(
+                        tries.begin(), tries.end(), [](auto& t) { return t.hasException(); })) {
+                    LOG(ERROR) << "statis job stop() RPC failure.";
+                    return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
+                }
+
                 if (!t.value().ok()) {
                     LOG(ERROR) << "Stop statis job Failed";
                     return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
@@ -177,10 +183,11 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
             }
             return cpp2::ErrorCode::SUCCEEDED;
         })
-        .thenError([] (auto &&e) {
+        .thenError([](auto&& e) {
             LOG(ERROR) << "Exception caught: " << e.what();
             return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
-        }).wait();
+        })
+        .wait();
 
     return cpp2::ErrorCode::SUCCEEDED;
 }
