@@ -26,30 +26,29 @@ MetaVersion MetaVersionMan::getMetaVersionFromKV(kvstore::KVStore* kv) {
     if (code == kvstore::ResultCode::SUCCEEDED) {
         auto version = *reinterpret_cast<const MetaVersion*>(value.data());
         return version == MetaVersion::V2 ? MetaVersion::V2 : MetaVersion::UNKNOWN;
-    } else if (isV1(kv)) {
-        return MetaVersion::V1;
     } else {
-        return MetaVersion::UNKNOWN;
+        return getVersionByHost(kv);
     }
 }
 
 // static
-// return true if we need to upgrade from v1 to v2, return false if the data illegal or already v2
-bool MetaVersionMan::isV1(kvstore::KVStore* kv) {
+MetaVersion MetaVersionMan::getVersionByHost(kvstore::KVStore* kv) {
     const auto& hostPrefix = nebula::meta::MetaServiceUtils::hostPrefix();
     std::unique_ptr<nebula::kvstore::KVIterator> iter;
     auto code = kv->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter, true);
     if (code != kvstore::ResultCode::SUCCEEDED) {
-        return false;
+        return MetaVersion::UNKNOWN;
     }
     if (iter->valid()) {
         auto v1KeySize = hostPrefix.size() + sizeof(int64_t);
-        if (iter->key().size() != v1KeySize) {
-            return false;
+        if (iter->key().size() == v1KeySize) {
+            return MetaVersion::V1;
+        } else {
+            return MetaVersion::V2;
         }
-        return true;
     }
-    return true;
+    // No hosts exists, but other data need to upgrade
+    return MetaVersion::V1;
 }
 
 // static

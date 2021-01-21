@@ -161,9 +161,11 @@ std::unique_ptr<nebula::kvstore::KVStore> initKV(std::vector<nebula::HostAddr> p
         }
     }
 
-    LOG(INFO) << "Nebula store init succeeded, clusterId " << gClusterId
-              << ", meta version " << static_cast<int32_t>(version);
+    if (leader == localhost) {
+        nebula::meta::MetaVersionMan::setMetaVersionToKV(kvstore.get());
+    }
 
+    LOG(INFO) << "Nebula store init succeeded, clusterId " << gClusterId;
     return kvstore;
 }
 

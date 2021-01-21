@@ -29,12 +29,12 @@ public:
 
     static MetaVersion getMetaVersionFromKV(kvstore::KVStore* kv);
 
+    static bool setMetaVersionToKV(kvstore::KVStore* kv);
+
     static Status updateMetaV1ToV2(kvstore::KVStore* kv);
 
 private:
-    static bool setMetaVersionToKV(kvstore::KVStore* kv);
-
-    static bool isV1(kvstore::KVStore* kv);
+    static MetaVersion getVersionByHost(kvstore::KVStore* kv);
 
     static Status doUpgrade(kvstore::KVStore* kv);
 };
