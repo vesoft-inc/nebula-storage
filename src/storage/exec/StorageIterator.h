@@ -102,13 +102,11 @@ public:
 protected:
     // return true when the value iter to a valid edge value
     bool check() {
-        return FLAGS_enable_multi_versions ? checkMvcc() : checkWithOutMvcc();
+        return FLAGS_enable_multi_versions ? checkWithMvcc() : checkWithOutMvcc();
     }
 
     bool checkWithOutMvcc() {
-        reader_.reset();
-        auto val = iter_->val();
-        reader_.reset(*schemas_, val);
+        reader_.reset(*schemas_, iter_->val());
         if (!reader_) {
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;
@@ -123,7 +121,7 @@ protected:
         return true;
     }
 
-    bool checkMvcc() {
+    bool checkWithMvcc() {
         reader_.reset();
         auto key = iter_->key();
         auto rank = NebulaKeyUtils::getRank(planContext_->vIdLen_, key);
