@@ -13,7 +13,7 @@ type S3BackedStore struct {
 	backupName string
 }
 
-func NewS3BackendStore(url string, log *zap.Logger) *S3BackedStore {
+func NewS3BackendStore(url string, log *zap.Logger, maxConcurrent int) *S3BackedStore {
 	return &S3BackedStore{url: url, log: log}
 }
 

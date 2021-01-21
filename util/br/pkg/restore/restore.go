@@ -39,7 +39,7 @@ var LeaderNotFoundError = errors.New("not found leader")
 var restoreFailed = errors.New("restore failed")
 
 func NewRestore(config config.RestoreConfig, log *zap.Logger) *Restore {
-	backend, err := storage.NewExternalStorage(config.BackendUrl, log)
+	backend, err := storage.NewExternalStorage(config.BackendUrl, log, config.MaxConcurrent)
 	if err != nil {
 		log.Error("new external storage failed", zap.Error(err))
 		return nil

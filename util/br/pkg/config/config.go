@@ -8,11 +8,13 @@ type NodeInfo struct {
 }
 
 type BackupConfig struct {
-	MetaNodes     []NodeInfo `yaml:"meta_nodes"`
-	StorageNodes  []NodeInfo `yaml:"storage_nodes"`
-	SpaceNames    []string   `yaml:"space_names"`
-	BackendUrl    string     `yaml:"backend"`
-	MaxConcurrent int        `yaml:"max_concurrent"`
+	MetaNodes         []NodeInfo `yaml:"meta_nodes"`
+	StorageNodes      []NodeInfo `yaml:"storage_nodes"`
+	SpaceNames        []string   `yaml:"space_names"`
+	BackendUrl        string     `yaml:"backend"`
+	MaxSSHConnections int        `yaml:"max_ssh_connections"`
+	// Only for OSS for now
+	MaxConcurrent int `yaml:"max_concurrent"`
 }
 
 type RestoreConfig struct {
@@ -21,6 +23,8 @@ type RestoreConfig struct {
 
 	BackendUrl string `yaml:"backend"`
 	BackupName string `yaml:"backup_name"`
+	// Only for OSS for now
+	MaxConcurrent int `yaml:"max_concurrent"`
 }
 
 type CleanupConfig struct {

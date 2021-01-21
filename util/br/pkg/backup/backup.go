@@ -55,7 +55,7 @@ type Backup struct {
 }
 
 func NewBackupClient(cf config.BackupConfig, log *zap.Logger) *Backup {
-	backend, err := storage.NewExternalStorage(cf.BackendUrl, log)
+	backend, err := storage.NewExternalStorage(cf.BackendUrl, log, cf.MaxConcurrent)
 	if err != nil {
 		log.Error("new external storage failed", zap.Error(err))
 		return nil
@@ -236,7 +236,7 @@ func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) e
 
 		ipAddrs := strings.Split(k, ":")
 		b.log.Info("uploadStorage idMap", zap.Int("idMap length", len(idMap)))
-		clients, err := remote.NewClientPool(ipAddrs[0], b.storageNodeMap[k].User, b.log, b.config.MaxConcurrent)
+		clients, err := remote.NewClientPool(ipAddrs[0], b.storageNodeMap[k].User, b.log, b.config.MaxSSHConnections)
 		if err != nil {
 			b.log.Error("new clients failed", zap.Error(err))
 			return err

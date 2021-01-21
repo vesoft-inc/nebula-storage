@@ -12,7 +12,7 @@ type LocalBackedStore struct {
 	log        *zap.Logger
 }
 
-func NewLocalBackedStore(dir string, log *zap.Logger) *LocalBackedStore {
+func NewLocalBackedStore(dir string, log *zap.Logger, maxConcurrent int) *LocalBackedStore {
 	return &LocalBackedStore{dir: dir, log: log}
 }
 

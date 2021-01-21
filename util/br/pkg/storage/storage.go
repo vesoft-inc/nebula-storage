@@ -22,7 +22,7 @@ type ExternalStorage interface {
 	URI() string
 }
 
-func NewExternalStorage(storageUrl string, log *zap.Logger) (ExternalStorage, error) {
+func NewExternalStorage(storageUrl string, log *zap.Logger, maxConcurrent int) (ExternalStorage, error) {
 	u, err := url.Parse(storageUrl)
 	if err != nil {
 		return nil, err
@@ -32,11 +32,11 @@ func NewExternalStorage(storageUrl string, log *zap.Logger) (ExternalStorage, er
 
 	switch u.Scheme {
 	case "local":
-		return NewLocalBackedStore(u.Path, log), nil
+		return NewLocalBackedStore(u.Path, log, maxConcurrent), nil
 	case "s3":
-		return NewS3BackendStore(storageUrl, log), nil
+		return NewS3BackendStore(storageUrl, log, maxConcurrent), nil
 	case "oss":
-		return NewOSSBackendStore(storageUrl, log), nil
+		return NewOSSBackendStore(storageUrl, log, maxConcurrent), nil
 	default:
 		return nil, fmt.Errorf("Unsupported Backend Storage Types")
 	}
