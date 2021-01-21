@@ -25,7 +25,7 @@ MetaVersion MetaVersionMan::getMetaVersionFromKV(kvstore::KVStore* kv) {
     auto code = kv->get(kDefaultSpaceId, kDefaultPartId, kMetaVersionKey, &value, true);
     if (code == kvstore::ResultCode::SUCCEEDED) {
         auto version = *reinterpret_cast<const MetaVersion*>(value.data());
-        return version == MetaVersion::V2 ? MetaVersion::V2 : MetaVersion::UNKNOWN;
+        return (version == MetaVersion::V2) ? MetaVersion::V2 : MetaVersion::UNKNOWN;
     } else {
         return getVersionByHost(kv);
     }
@@ -41,11 +41,7 @@ MetaVersion MetaVersionMan::getVersionByHost(kvstore::KVStore* kv) {
     }
     if (iter->valid()) {
         auto v1KeySize = hostPrefix.size() + sizeof(int64_t);
-        if (iter->key().size() == v1KeySize) {
-            return MetaVersion::V1;
-        } else {
-            return MetaVersion::V2;
-        }
+        return (iter->key().size() == v1KeySize) ? MetaVersion::V1 : MetaVersion::UNKNOWN;
     }
     // No hosts exists, but other data need to upgrade
     return MetaVersion::V1;
