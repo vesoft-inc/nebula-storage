@@ -78,9 +78,9 @@ GraphStorageServiceHandler::future_getNeighbors(const cpp2::GetNeighborsRequest&
 folly::Future<cpp2::GetPropResponse>
 GraphStorageServiceHandler::future_getProps(const cpp2::GetPropRequest& req) {
     auto* processor = GetPropProcessor::instance(env_,
-                                                &getPropQpsStat_,
-                                                readerPool_.get(),
-                                                &vertexCache_);
+                                                 &getPropQpsStat_,
+                                                 readerPool_.get(),
+                                                 &vertexCache_);
     RETURN_FUTURE(processor);
 }
 
