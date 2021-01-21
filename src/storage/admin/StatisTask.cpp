@@ -246,7 +246,8 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     for (const auto& entry : relevancy) {
         nebula::meta::cpp2::Correlativity partProportion;
         partProportion.set_part_id(entry.first);
-        double proportion = entry.second / spaceEdges;
+        LOG(INFO) << "parts edges " << entry.second << " total " << spaceEdges;
+        double proportion = static_cast<double>(entry.second) / static_cast<double>(spaceEdges);
         partProportion.set_proportion(proportion);
         LOG(INFO) << "Part " << entry.first << " proportion " << proportion;
         correlativity.emplace_back(std::move(partProportion));
