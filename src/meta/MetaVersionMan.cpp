@@ -15,46 +15,29 @@ DEFINE_bool(print_info, false, "enable to print the rewrite data");
 
 namespace nebula {
 namespace meta {
-static const int32_t metaVersion = 2;
+
 static const std::string kMetaVersionKey = "__meta_version__";          // NOLINT
+
 // static
-int32_t MetaVersionMan::getMetaVersionFromKV(kvstore::KVStore* kv) {
+MetaVersion MetaVersionMan::getMetaVersionFromKV(kvstore::KVStore* kv) {
     CHECK_NOTNULL(kv);
     std::string value;
     auto code = kv->get(kDefaultSpaceId, kDefaultPartId, kMetaVersionKey, &value, true);
-    if (code == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-        LOG(INFO) << "There is no meta version key existed in kvstore!";
-        if (isV1(kv)) {
-            return 1;
-        } else {
-            auto ret = setMetaVersionToKV(kv);
-            if (!ret) {
-                return -1;
-            }
-            return metaVersion;
-        }
-    } else if (code == kvstore::ResultCode::SUCCEEDED) {
-        if (value.size() != sizeof(int32_t)) {
-            LOG(ERROR) << "Bad format version " << value;
-            return -1;
-        }
-        auto version = *reinterpret_cast<const int32_t*>(value.data());
-        if (version != metaVersion) {
-            LOG(ERROR) << "Read the version from kv is wrong: " << version;
-            return -1;
-        }
-        return version;
+    if (code == kvstore::ResultCode::SUCCEEDED) {
+        return *reinterpret_cast<const MetaVersion*>(value.data());
+    } else if (isV1(kv)) {
+        return MetaVersion::V1;
     } else {
-        LOG(ERROR) << "Error in kvstore, err " << static_cast<int32_t>(code);
-        return -1;
+        return MetaVersion::UNKNOWN;
     }
 }
 
 // static
+// return true if we need to upgrade from v1 to v2, return false if the data illegal or already v2
 bool MetaVersionMan::isV1(kvstore::KVStore* kv) {
     const auto& hostPrefix = nebula::meta::MetaServiceUtils::hostPrefix();
     std::unique_ptr<nebula::kvstore::KVIterator> iter;
-    auto code = kv->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter);
+    auto code = kv->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &iter, true);
     if (code != kvstore::ResultCode::SUCCEEDED) {
         return false;
     }
@@ -65,16 +48,16 @@ bool MetaVersionMan::isV1(kvstore::KVStore* kv) {
         }
         return true;
     }
-    return false;
+    return true;
 }
 
 // static
 bool MetaVersionMan::setMetaVersionToKV(kvstore::KVStore* kv) {
     CHECK_NOTNULL(kv);
+    auto v2 = MetaVersion::V2;
     std::vector<kvstore::KV> data;
-    data.emplace_back(
-            kMetaVersionKey,
-            std::string(reinterpret_cast<const char*>(&metaVersion), sizeof(metaVersion)));
+    data.emplace_back(kMetaVersionKey,
+                      std::string(reinterpret_cast<const char*>(&v2), sizeof(MetaVersion)));
     bool ret = true;
     folly::Baton<true, std::atomic> baton;
     kv->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
@@ -83,8 +66,7 @@ bool MetaVersionMan::setMetaVersionToKV(kvstore::KVStore* kv) {
                               LOG(ERROR) << "Put failed, error: " << static_cast<int32_t>(code);
                               ret = false;
                           } else {
-                              LOG(INFO) << "Put key: " << kMetaVersionKey
-                                        << ", version: " << metaVersion;
+                              LOG(INFO) << "Write meta version 2 succeeds";
                           }
                           baton.post();
                       });
@@ -330,8 +312,13 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
             }
         }
     }
-    return Status::OK();
+    if (!setMetaVersionToKV(kv)) {
+        return Status::Error("Persist meta version failed");
+    } else {
+        return Status::OK();
+    }
 }
+
 }  // namespace meta
 }  // namespace nebula
 
