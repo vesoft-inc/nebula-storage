@@ -46,7 +46,7 @@ func (s OSSBackedStore) BackupMetaFileCommand(src string) []string {
 }
 
 func (s OSSBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, s.maxConcurrent}
+	return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, "-j", s.maxConcurrent}
 }
 
 func (s OSSBackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {

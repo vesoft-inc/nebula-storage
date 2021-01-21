@@ -59,6 +59,10 @@ func newFullRestoreCmd() *cobra.Command {
 				}
 			}
 
+			if restoreConfig.MaxConcurrent <= 0 {
+				restoreConfig.MaxConcurrent = 5
+			}
+
 			return nil
 		},
 
