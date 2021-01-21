@@ -212,7 +212,7 @@ func (b *Backup) uploadMeta(g *errgroup.Group, files []string) {
 	cmd := b.backendStorage.BackupMetaCommand(files)
 	b.log.Info("start upload meta", zap.String("addr", b.metaLeader.Addrs))
 	ipAddr := strings.Split(b.metaLeader.Addrs, ":")
-	func(addr string, user string, log *zap.Logger) {
+	func(addr string, user string, cmd string, log *zap.Logger) {
 		g.Go(func() error {
 			client, err := remote.NewClient(addr, user, log)
 			if err != nil {
@@ -221,7 +221,7 @@ func (b *Backup) uploadMeta(g *errgroup.Group, files []string) {
 			defer client.Close()
 			return client.ExecCommandBySSH(cmd)
 		})
-	}(ipAddr[0], b.metaLeader.User, b.log)
+	}(ipAddr[0], b.metaLeader.User, cmd, b.log)
 }
 
 func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) error {
@@ -254,7 +254,6 @@ func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) e
 					return client.ExecCommandBySSH(cmd)
 				})
 			}(client, cmd)
-			//g.Go(func() error { return client.ExecCommandBySSH(cmd) })
 			i++
 		}
 	}
