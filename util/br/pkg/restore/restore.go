@@ -56,7 +56,7 @@ func (r *Restore) checkPhysicalTopology(info map[nebula.GraphSpaceID]*meta.Space
 		}
 	}
 
-	if s.Size() != len(r.config.StorageNodes) {
+	if s.Size() > len(r.config.StorageNodes) {
 		return fmt.Errorf("The physical topology of storage must be consistent")
 	}
 	return nil
