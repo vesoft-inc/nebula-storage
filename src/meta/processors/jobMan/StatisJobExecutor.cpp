@@ -169,9 +169,7 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
 
     folly::collectAll(std::move(futures))
         .thenValue([](const auto& tries) mutable {
-            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
-                return t.hasException();
-            })) {
+            if (std::any_of(tries.begin(), tries.end(), [](auto& t) { return t.hasException(); })) {
                 LOG(ERROR) << "statis job stop() RPC failure.";
                 return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
             }
