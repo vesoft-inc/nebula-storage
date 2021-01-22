@@ -453,12 +453,10 @@ func (r *Restore) RestoreCluster() error {
 
 	time.Sleep(time.Second * 3)
 
-	if len(storageIDMap) > 0 {
-		err = r.restoreMeta(sstFiles, storageIDMap)
-		if err != nil {
-			r.log.Error("restore meta file failed", zap.Error(err))
-			return err
-		}
+	err = r.restoreMeta(sstFiles, storageIDMap)
+	if err != nil {
+		r.log.Error("restore meta file failed", zap.Error(err))
+		return err
 	}
 
 	err = r.startStorageService()
