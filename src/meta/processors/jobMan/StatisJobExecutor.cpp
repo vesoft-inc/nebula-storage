@@ -149,7 +149,6 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
     save(statisKey, statisVal);
     doRemove(tempKey);
-    return;
 }
 
 cpp2::ErrorCode StatisJobExecutor::stop() {
@@ -168,7 +167,14 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
     }
 
     folly::collectAll(std::move(futures))
-        .thenValue([] (const auto& tries) mutable {
+        .thenValue([](const auto& tries) mutable {
+            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
+                return t.hasException();
+            })) {
+                LOG(ERROR) << "statis job stop() RPC failure.";
+                return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
+            }
+
             for (const auto& t : tries) {
                 if (!t.value().ok()) {
                     LOG(ERROR) << "Stop statis job Failed";
@@ -177,10 +183,11 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
             }
             return cpp2::ErrorCode::SUCCEEDED;
         })
-        .thenError([] (auto &&e) {
+        .thenError([](auto&& e) {
             LOG(ERROR) << "Exception caught: " << e.what();
             return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
-        }).wait();
+        })
+        .wait();
 
     return cpp2::ErrorCode::SUCCEEDED;
 }
