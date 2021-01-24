@@ -25,6 +25,8 @@ public:
     nebula::cpp2::ErrorCode prepare() override;
 
     nebula::cpp2::ErrorCode stop() override;
+
+    nebula::cpp2::ErrorCode recovery() override;
 };
 
 }  // namespace meta

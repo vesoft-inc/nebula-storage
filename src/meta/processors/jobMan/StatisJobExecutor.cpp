@@ -143,7 +143,7 @@ StatisJobExecutor::saveSpecialTaskStatus(const cpp2::ReportTaskReq& req) {
  * @return std::string
  */
 std::string StatisJobExecutor::toTempKey(int32_t jobId) {
-    std::string key = MetaServiceUtils::statisKey(space_);;
+    std::string key = MetaServiceUtils::statisKey(space_);
     return key.append(reinterpret_cast<const char*>(&jobId), sizeof(int32_t));
 }
 
@@ -156,17 +156,19 @@ nebula::cpp2::ErrorCode StatisJobExecutor::finish(bool exeSuccessed) {
         LOG(ERROR) << "Can't find the statis data, spaceId : " << space_;
         return ret;
     }
+
     auto statisItem = MetaServiceUtils::parseStatisVal(val);
     if (exeSuccessed) {
         statisItem.set_status(cpp2::JobStatus::FINISHED);
     } else {
         statisItem.set_status(cpp2::JobStatus::FAILED);
     }
+
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
     auto retCode = save(statisKey, statisVal);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Sace statis data failed, error "
-                   << apache::thrift::util::enumNameSafe(retCode);;
+                   << apache::thrift::util::enumNameSafe(retCode);
         return retCode;
     }
     return doRemove(tempKey);
@@ -205,6 +207,10 @@ nebula::cpp2::ErrorCode StatisJobExecutor::stop() {
             return nebula::cpp2::ErrorCode::E_BALANCER_FAILURE;
         }
     }
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
+}
+
+nebula::cpp2::ErrorCode StatisJobExecutor::recovery() {
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 

@@ -26,10 +26,12 @@ namespace meta {
 class JobManager : public nebula::cpp::NonCopyable, public nebula::cpp::NonMovable {
     friend class JobManagerTest;
     friend class GetStatisTest;
+    friend class GetBalancePlanTest;
     FRIEND_TEST(JobManagerTest, reserveJobId);
     FRIEND_TEST(JobManagerTest, buildJobDescription);
     FRIEND_TEST(JobManagerTest, addJob);
     FRIEND_TEST(JobManagerTest, StatisJob);
+    FRIEND_TEST(JobManagerTest, BalanceDataJob);
     FRIEND_TEST(JobManagerTest, JobPriority);
     FRIEND_TEST(JobManagerTest, JobDeduplication);
     FRIEND_TEST(JobManagerTest, loadJobDescription);
@@ -41,6 +43,9 @@ class JobManager : public nebula::cpp::NonCopyable, public nebula::cpp::NonMovab
     FRIEND_TEST(GetStatisTest, StatisJob);
     FRIEND_TEST(GetStatisTest, MockSingleMachineTest);
     FRIEND_TEST(GetStatisTest, MockMultiMachineTest);
+    FRIEND_TEST(GetBalancePlanTest, BalancePlanJob);
+    FRIEND_TEST(GetBalancePlanTest, MockSingleMachineTest);
+    FRIEND_TEST(GetBalancePlanTest, MockMultiMachineTest);
 
 public:
     ~JobManager();
@@ -105,10 +110,8 @@ private:
     JobManager() = default;
 
     void scheduleThread();
-    void scheduleThreadOld();
 
     bool runJobInternal(const JobDescription& jobDesc);
-    bool runJobInternalOld(const JobDescription& jobDesc);
 
     ErrorOr<nebula::cpp2::ErrorCode, GraphSpaceID> getSpaceId(const std::string& name);
 

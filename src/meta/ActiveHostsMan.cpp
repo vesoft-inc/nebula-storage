@@ -113,7 +113,6 @@ ActiveHostsMan::getActiveHosts(kvstore::KVStore* kv, int32_t expiredTTL, cpp2::H
         }
         iter->next();
     }
-
     return hosts;
 }
 
@@ -194,8 +193,8 @@ ActiveHostsMan::getActiveAdminHosts(kvstore::KVStore* kv,
     if (!nebula::ok(hostsRet)) {
         return nebula::error(hostsRet);
     }
-    auto hosts = nebula::value(hostsRet);
 
+    auto hosts = nebula::value(hostsRet);
     std::vector<HostAddr> adminHosts(hosts.size());
     std::transform(hosts.begin(), hosts.end(), adminHosts.begin(), [](const auto& h) {
         return Utils::getAdminAddrFromStoreAddr(h);
@@ -209,8 +208,8 @@ ActiveHostsMan::isLived(kvstore::KVStore* kv, const HostAddr& host) {
     if (!nebula::ok(activeHostsRet)) {
         return nebula::error(activeHostsRet);
     }
-    auto activeHosts = nebula::value(activeHostsRet);
 
+    auto activeHosts = nebula::value(activeHostsRet);
     return std::find(activeHosts.begin(), activeHosts.end(), host) != activeHosts.end();
 }
 

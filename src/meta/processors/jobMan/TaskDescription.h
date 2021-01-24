@@ -48,27 +48,9 @@ public:
     std::string taskKey();
 
     /*
-     * decode jobid and taskid from kv store
-     * */
-    static std::pair<JobID, TaskID> parseKey(const folly::StringPiece& rawKey);
-
-    /*
      * encode task val to write to kvstore
      * */
     std::string taskVal();
-
-    /*
-     * decode task val from kvstore
-     * should be
-     * {host, status, start time, stop time}
-     * */
-    static std::tuple<HostAddr, cpp2::JobStatus, int64_t, int64_t>
-    parseVal(const folly::StringPiece& rawVal);
-
-    /*
-     * encoded key when dba called "backup jobs"
-     * */
-    std::string archiveKey();
 
     /*
      * write out task details in human readable strings
@@ -102,8 +84,8 @@ private:
     TaskID                          iTask_;
     HostAddr                        dest_;
     cpp2::JobStatus                 status_;
-    int64_t                         startTime_;
-    int64_t                         stopTime_;
+    Timestamp                       startTime_;
+    Timestamp                       stopTime_;
 };
 
 }  // namespace meta

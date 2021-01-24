@@ -33,11 +33,11 @@ TEST(HBProcessorTest, HBTest) {
             ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         }
 
-        auto hostsRet =  ActiveHostsMan::getActiveHosts(kv.get(), 1);;
+        auto hostsRet =  ActiveHostsMan::getActiveHosts(kv.get(), 1);
         ASSERT_TRUE(nebula::ok(hostsRet));
         ASSERT_EQ(5, nebula::value(hostsRet).size());
         sleep(3);
-        hostsRet =  ActiveHostsMan::getActiveHosts(kv.get(), 1);;
+        hostsRet =  ActiveHostsMan::getActiveHosts(kv.get(), 1);
         ASSERT_TRUE(nebula::ok(hostsRet));
         ASSERT_EQ(0, nebula::value(hostsRet).size());
 

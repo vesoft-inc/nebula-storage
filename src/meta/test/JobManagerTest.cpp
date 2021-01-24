@@ -13,7 +13,6 @@
 #include "meta/test/TestUtils.h"
 #include "meta/test/MockAdminClient.h"
 #include "kvstore/Common.h"
-#include "meta/processors/jobMan/JobUtils.h"
 #include "meta/processors/jobMan/TaskDescription.h"
 #include "meta/processors/jobMan/JobManager.h"
 
@@ -128,6 +127,27 @@ TEST_F(JobManagerTest, StatisJob) {
     ASSERT_EQ(cpp2::JobStatus::FINISHED, job1.status_);
 }
 
+TEST_F(JobManagerTest, BalanceDataJob) {
+    // For preventting job schedule in JobManager
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
+
+    std::vector<std::string> paras{"false", "test_space"};
+    JobDescription job(12, cpp2::AdminCmd::DATA_BALANCE, paras);
+    auto rc = jobMgr->addJob(job, adminClient_.get());
+    ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
+    auto result = jobMgr->runJobInternal(job);
+    ASSERT_TRUE(result);
+    // Function runJobInternal does not set the finished status of the job
+    job.setStatus(cpp2::JobStatus::FINISHED);
+    jobMgr->save(job.jobKey(), job.jobVal());
+
+    auto jobRet = JobDescription::loadJobDescription(job.id_, kv_.get());
+    ASSERT_TRUE(nebula::ok(jobRet));
+    auto jobValue = nebula::value(jobRet);
+    ASSERT_EQ(job.id_, jobValue.id_);
+    ASSERT_EQ(cpp2::JobStatus::FINISHED, jobValue.status_);
+}
+
 TEST_F(JobManagerTest, JobPriority) {
     // For preventting job schedule in JobManager
     jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
@@ -220,10 +240,13 @@ TEST_F(JobManagerTest, loadJobDescription) {
     job1.setStatus(cpp2::JobStatus  ::RUNNING);
     job1.setStatus(cpp2::JobStatus::FINISHED);
     auto rc = jobMgr->addJob(job1, adminClient_.get());
+
+    ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, rc);
     ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
     ASSERT_EQ(job1.id_, 1);
     ASSERT_EQ(job1.cmd_, cpp2::AdminCmd::COMPACT);
     ASSERT_EQ(job1.paras_[0], "test_space");
+    
 
     auto optJd2Ret = JobDescription::loadJobDescription(job1.id_, kv_.get());
     ASSERT_TRUE(nebula::ok(optJd2Ret));
@@ -238,8 +261,8 @@ TEST_F(JobManagerTest, loadJobDescription) {
 }
 
 TEST(JobUtilTest, dummy) {
-    ASSERT_TRUE(JobUtil::jobPrefix().length() + sizeof(size_t) !=
-                JobUtil::currJobKey().length());
+    ASSERT_TRUE(MetaServiceUtils::jobPrefix().length() + sizeof(size_t) !=
+                MetaServiceUtils::currJobKey().length());
 }
 
 TEST_F(JobManagerTest, showJobs) {
@@ -390,7 +413,7 @@ TEST(JobDescriptionTest, parseKey) {
     ASSERT_EQ(cpp2::AdminCmd::COMPACT, jd.getCmd());
 
     folly::StringPiece spKey(&sKey[0], sKey.length());
-    auto parsedKeyId = JobDescription::parseKey(spKey);
+    auto parsedKeyId = MetaServiceUtils::parseJobKey(spKey);
     ASSERT_EQ(iJob, parsedKeyId);
 }
 
@@ -406,7 +429,7 @@ TEST(JobDescriptionTest, parseVal) {
 
     auto strVal = jd.jobVal();
     folly::StringPiece rawVal(&strVal[0], strVal.length());
-    auto parsedVal = JobDescription::parseVal(rawVal);
+    auto parsedVal = MetaServiceUtils::parseJobValue(rawVal);
     ASSERT_EQ(cpp2::AdminCmd::FLUSH, std::get<0>(parsedVal));
     ASSERT_EQ(paras, std::get<1>(parsedVal));
     ASSERT_EQ(status, std::get<2>(parsedVal));
@@ -436,7 +459,7 @@ TEST(TaskDescriptionTest, parseKey) {
 
     std::string strKey = td.taskKey();
     folly::StringPiece rawKey(&strKey[0], strKey.length());
-    auto tup = TaskDescription::parseKey(rawKey);
+    auto tup = MetaServiceUtils::parseTaskKey(rawKey);
     ASSERT_EQ(iJob, std::get<0>(tup));
     ASSERT_EQ(iTask, std::get<1>(tup));
 }
@@ -453,7 +476,7 @@ TEST(TaskDescriptionTest, parseVal) {
 
     std::string strVal = td.taskVal();
     folly::StringPiece rawVal(&strVal[0], strVal.length());
-    auto parsedVal = TaskDescription::parseVal(rawVal);
+    auto parsedVal = MetaServiceUtils::parseTaskValue(rawVal);
 
     ASSERT_EQ(td.dest_, std::get<0>(parsedVal));
     ASSERT_EQ(td.status_, std::get<1>(parsedVal));

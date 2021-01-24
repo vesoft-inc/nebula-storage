@@ -98,7 +98,7 @@ private:
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return Status::Error("Remove data failed");
         }
-        return Status::OK();;
+        return Status::OK();
     }
 
     Status convertToNewColumns(const std::vector<oldmeta::cpp2::ColumnDef> &oldCols,

@@ -331,7 +331,7 @@ TEST(BalanceIntegrationTest, LeaderBalanceTest) {
     }
 
     auto code = balancer.leaderBalance();
-    ASSERT_EQ(code, cpp2::ErrorCode::SUCCEEDED);
+    ASSERT_EQ(code, nebula::cpp2::ErrorCode::SUCCEEDED);
 
     LOG(INFO) << "Waiting for the leader balance";
     sleep(FLAGS_raft_heartbeat_interval_secs + 1);

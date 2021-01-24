@@ -8,7 +8,6 @@
 #define META_LISTEDGEINDEXSTATUSPROCESSOR_H
 
 #include "meta/processors/BaseProcessor.h"
-#include "meta/processors/jobMan/JobUtils.h"
 #include "meta/processors/jobMan/JobDescription.h"
 
 namespace nebula {
@@ -24,7 +23,7 @@ public:
 
 private:
     explicit ListEdgeIndexStatusProcessor(kvstore::KVStore* kvstore)
-            : BaseProcessor<cpp2::ListIndexStatusResp>(kvstore) {}
+        : BaseProcessor<cpp2::ListIndexStatusResp>(kvstore) {}
 };
 
 }  // namespace meta

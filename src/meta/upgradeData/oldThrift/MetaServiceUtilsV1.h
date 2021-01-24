@@ -68,11 +68,11 @@ public:
 
     static int32_t parseJobId(const folly::StringPiece& rawKey);
 
-    static std::tuple<std::string,
+    static std::tuple<nebula::meta::cpp2::AdminCmd,
                       std::vector<std::string>,
                       nebula::meta::cpp2::JobStatus,
-                      int64_t,
-                      int64_t>
+                      Timestamp,
+                      Timestamp>
     parseJobDesc(const folly::StringPiece& rawVal);
 };
 

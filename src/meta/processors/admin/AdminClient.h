@@ -96,8 +96,8 @@ public:
                                                  const HostAddr& host);
 
     virtual folly::Future<Status> addTask(cpp2::AdminCmd cmd,
-                                          int32_t jobId,
-                                          int32_t taskId,
+                                          JobID jobId,
+                                          TaskID taskId,
                                           GraphSpaceID spaceId,
                                           const std::vector<HostAddr>& specificHosts,
                                           const std::vector<std::string>& taskSpecficParas,
@@ -106,8 +106,8 @@ public:
                                           cpp2::StatisItem* statisResult = nullptr);
 
     virtual folly::Future<Status> stopTask(const std::vector<HostAddr>& target,
-                                           int32_t jobId,
-                                           int32_t taskId);
+                                           JobID jobId,
+                                           TaskID taskId);
 
     virtual folly::Future<StatusOr<nebula::cpp2::DirInfo>> listClusterInfo(const HostAddr& host);
 

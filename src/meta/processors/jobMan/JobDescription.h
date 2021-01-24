@@ -16,13 +16,13 @@
 
 namespace nebula {
 namespace meta {
-
 class JobDescription {
     FRIEND_TEST(JobDescriptionTest, parseKey);
     FRIEND_TEST(JobDescriptionTest, parseVal);
     FRIEND_TEST(JobManagerTest, buildJobDescription);
     FRIEND_TEST(JobManagerTest, addJob);
     FRIEND_TEST(JobManagerTest, StatisJob);
+    FRIEND_TEST(JobManagerTest, BalanceDataJob);
     FRIEND_TEST(JobManagerTest, loadJobDescription);
     FRIEND_TEST(JobManagerTest, showJobs);
     FRIEND_TEST(JobManagerTest, showJob);
@@ -31,6 +31,7 @@ class JobDescription {
     FRIEND_TEST(GetStatisTest, StatisJob);
     FRIEND_TEST(GetStatisTest, MockSingleMachineTest);
     FRIEND_TEST(GetStatisTest, MockMultiMachineTest);
+    FRIEND_TEST(GetBalancePlanTest, BalancePlanJob);
 
     using Status = cpp2::JobStatus;
 
@@ -40,8 +41,8 @@ public:
                    cpp2::AdminCmd cmd,
                    std::vector<std::string> paras,
                    Status status = Status::QUEUE,
-                   int64_t startTime = 0,
-                   int64_t stopTime  = 0);
+                   Timestamp startTime = 0,
+                   Timestamp stopTime  = 0);
 
     /*
      * return the JobDescription if both key & val is valid
@@ -77,11 +78,6 @@ public:
     std::string jobVal() const;
 
     /*
-     * return the key write to kv store, while calling "backup job"
-     * */
-    std::string archiveKey();
-
-    /*
      * set the internal status
      * will check if newStatus is later than curr Status
      * e.g. set running to a finished job is forbidden
@@ -98,11 +94,6 @@ public:
     loadJobDescription(JobID iJob, nebula::kvstore::KVStore* kv);
 
     /*
-     * compose a key write to kvstore, according to the given job id
-     * */
-    static std::string makeJobKey(JobID iJob);
-
-    /*
      * write out all job details in human readable strings
      * if a job is
      * =====================================================================================
@@ -114,25 +105,6 @@ public:
      * {27, flush nba, finished, 12/09/19 11:09:40, 12/09/19 11:09:40}
      * */
     cpp2::JobDesc toJobDesc();
-
-    /*
-     * decode key from kvstore, return job id
-     * */
-    static int32_t parseKey(const folly::StringPiece& rawKey);
-
-    /*
-     * decode val from kvstore, return
-     * {command, paras, status, start time, stop time}
-     * */
-    static std::tuple<cpp2::AdminCmd,
-                      std::vector<std::string>,
-                      Status, int64_t, int64_t>
-    parseVal(const folly::StringPiece& rawVal);
-
-    /*
-     * check if the given rawKey is a valid JobKey
-     * */
-    static bool isJobKey(const folly::StringPiece& rawKey);
 
     bool operator==(const JobDescription& that) const {
         return this->cmd_ == that.cmd_ &&
@@ -146,22 +118,14 @@ public:
 
 private:
     static bool isSupportedValue(const folly::StringPiece& val);
-    /*
-     * decode val if it stored in data ver.1, return
-     * {command, paras, status, start time, stop time}
-     * */
-    static std::tuple<cpp2::AdminCmd,
-                      std::vector<std::string>,
-                      Status, int64_t, int64_t>
-    decodeValV1(const folly::StringPiece& rawVal);
 
 private:
     JobID                           id_;
     cpp2::AdminCmd                  cmd_;
     std::vector<std::string>        paras_;
     Status                          status_;
-    int64_t                         startTime_;
-    int64_t                         stopTime_;
+    Timestamp                       startTime_;
+    Timestamp                       stopTime_;
 
     // old job may have different format,
     // will ignore some job if it is too old

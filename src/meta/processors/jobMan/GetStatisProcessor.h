@@ -22,7 +22,7 @@ public:
 
 private:
     explicit GetStatisProcessor(kvstore::KVStore* kvstore)
-            : BaseProcessor<cpp2::GetStatisResp>(kvstore) {}
+        : BaseProcessor<cpp2::GetStatisResp>(kvstore) {}
 };
 
 }  // namespace meta

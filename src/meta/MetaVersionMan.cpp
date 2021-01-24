@@ -7,8 +7,9 @@
 #include "meta/MetaVersionMan.h"
 #include "meta/upgradeData/MetaDataUpgrade.h"
 #include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
-#include "meta/processors/jobMan/JobUtils.h"
+#include "meta/MetaServiceUtils.h"
 #include "meta/processors/jobMan/JobDescription.h"
+#include <thrift/lib/cpp/util/EnumUtils.h>
 
 DEFINE_bool(null_type, true, "set schema to support null type");
 DEFINE_bool(print_info, false, "enable to print the rewrite data");
@@ -60,7 +61,8 @@ bool MetaVersionMan::setMetaVersionToKV(kvstore::KVStore* kv) {
     kv->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
                       [&](nebula::cpp2::ErrorCode code) {
                           if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                              LOG(ERROR) << "Put failed, error: " << static_cast<int32_t>(code);
+                              LOG(ERROR) << "Put failed, error: "
+                                         << apache::thrift::util::enumNameSafe(code);
                               ret = false;
                           } else {
                               LOG(INFO) << "Write meta version 2 succeeds";
@@ -266,13 +268,13 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
 
     {
         // kJob
-        auto prefix = JobUtil::jobPrefix();
+        auto prefix = MetaServiceUtils::jobPrefix();
         std::unique_ptr<kvstore::KVIterator> iter;
         auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
             Status status = Status::OK();
             while (iter->valid()) {
-                if (JobDescription::isJobKey(iter->key())) {
+                if (MetaServiceUtils::isJobKey(iter->key())) {
                     if (FLAGS_print_info) {
                         upgrader.printJobDesc(iter->key(), iter->val());
                     }

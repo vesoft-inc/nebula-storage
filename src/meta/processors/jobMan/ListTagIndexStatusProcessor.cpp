@@ -4,6 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "meta/MetaServiceUtils.h"
 #include "meta/processors/jobMan/ListTagIndexStatusProcessor.h"
 
 namespace nebula {
@@ -13,10 +14,11 @@ void ListTagIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) {
     auto curSpaceId = req.get_space_id();
     CHECK_SPACE_ID_AND_RETURN(curSpaceId);
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto retCode = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, JobUtil::jobPrefix(), &iter);
-    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Loading Job Failed" << apache::thrift::util::enumNameSafe(retCode);
-        handleErrorCode(retCode);
+    const auto& jobPrefix = MetaServiceUtils::jobPrefix();
+    auto code = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, jobPrefix, &iter);
+    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Loading Job Failed" << apache::thrift::util::enumNameSafe(code);
+        handleErrorCode(code);
         onFinished();
         return;
     }
@@ -24,7 +26,7 @@ void ListTagIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) {
     std::vector<cpp2::JobDesc> jobs;
     std::vector<cpp2::IndexStatus> statuses;
     for (; iter->valid(); iter->next()) {
-        if (JobDescription::isJobKey(iter->key())) {
+        if (MetaServiceUtils::isJobKey(iter->key())) {
             auto optJobRet = JobDescription::makeJobDescription(iter->key(), iter->val());
             if (!nebula::ok(optJobRet)) {
                 continue;
@@ -38,9 +40,9 @@ void ListTagIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) {
                 auto spaceName = paras.back();
                 auto ret = getSpaceId(spaceName);
                 if (!nebula::ok(ret)) {
-                    retCode = nebula::error(ret);
-                    if (retCode == nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-                        handleErrorCode(retCode);
+                    code = nebula::error(ret);
+                    if (code == nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
+                        handleErrorCode(code);
                         onFinished();
                         return;
                     }

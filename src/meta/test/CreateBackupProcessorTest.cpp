@@ -41,8 +41,7 @@ public:
     }
 
     folly::Future<storage::cpp2::CreateCPResp> future_createCheckpoint(
-        const storage::cpp2::CreateCPRequest& req) override {
-        UNUSED(req);
+        const storage::cpp2::CreateCPRequest&) override {
         folly::Promise<storage::cpp2::CreateCPResp> pro;
         auto f = pro.getFuture();
         storage::cpp2::CreateCPResp resp;
