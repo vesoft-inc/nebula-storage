@@ -95,6 +95,34 @@ Status MetaVersionMan::updateMetaV1ToV2(kvstore::KVStore* kv) {
 }
 
 // static
+Status MetaVersionMan::prepareCheckV1ToV2(kvstore::KVStore* kv) {
+    // index check
+    {
+        // In version 2.0, The index key reserves two bytes for nullable fields.
+        // the two bytes is bitset 16, up to 16 fields are supported.
+        // need to prepare check the index fields number of old index when FLAGS_null_type turn on.
+        // not need to check during the upgrade process when FLAGS_null_type turn off.
+        if (FLAGS_null_type) {
+            auto prefix = nebula::oldmeta::kIndexesTable;
+            std::unique_ptr<kvstore::KVIterator> iter;
+            auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+            if (ret == kvstore::ResultCode::SUCCEEDED) {
+                while (iter->valid()) {
+                    auto i = oldmeta::MetaServiceUtilsV1::parseIndex(iter->val());
+                    if (i.get_fields().size() > 16) {
+                        auto error = folly::stringPrintf("Index %s, The number of fields greater "
+                                                         "than 16. upgrade is not allowed",
+                                                         i.get_index_name().c_str());
+                        return Status::Error(error);
+                    }
+                }
+            }
+        }
+    }
+    return Status::OK();
+}
+
+// static
 Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
     MetaDataUpgrade upgrader(kv);
     {

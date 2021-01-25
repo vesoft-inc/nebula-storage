@@ -143,10 +143,15 @@ std::unique_ptr<nebula::kvstore::KVStore> initKV(std::vector<nebula::HostAddr> p
         LOG(ERROR) << "Meta version is invalid";
         return nullptr;
     } else if (version == nebula::meta::MetaVersion::V1) {
+        auto ret = nebula::meta::MetaVersionMan::prepareCheckV1ToV2(kvstore.get());
+        if (!ret.ok()) {
+            LOG(ERROR) << ret;
+            return nullptr;
+        }
         if (leader == localhost) {
             LOG(INFO) << "I am leader, begin upgrade meta data";
             // need to upgrade the v1.0 meta data format to v2.0 meta data format
-            auto ret = nebula::meta::MetaVersionMan::updateMetaV1ToV2(kvstore.get());
+            ret = nebula::meta::MetaVersionMan::updateMetaV1ToV2(kvstore.get());
             if (!ret.ok()) {
                 LOG(ERROR) << ret;
                 return nullptr;
