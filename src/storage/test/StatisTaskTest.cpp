@@ -305,7 +305,6 @@ TEST_F(StatisTaskTest, StatisTagAndEdgeData) {
 
             while (iter && iter->valid()) {
                 auto key = iter->key();
-                CHECK(NebulaKeyUtils::isVertex(spaceVidLen, key));
                 auto vId = NebulaKeyUtils::getVertexId(spaceVidLen, key).str();
                 auto tagId = NebulaKeyUtils::getTagId(spaceVidLen, key);
                 auto it = tagsVertices.find(tagId);
@@ -339,7 +338,6 @@ TEST_F(StatisTaskTest, StatisTagAndEdgeData) {
 
             while (iter && iter->valid()) {
                 auto key = iter->key();
-                CHECK(NebulaKeyUtils::isEdge(spaceVidLen, key));
                 auto edgeType = NebulaKeyUtils::getEdgeType(spaceVidLen, key);
                 if (edgeType < 0 || edgetypeEdges.find(edgeType) == edgetypeEdges.end()) {
                     iter->next();
