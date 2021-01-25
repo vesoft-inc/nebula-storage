@@ -40,26 +40,26 @@ set(tools_test_deps
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
 )
 
-#nebula_add_executable(
-#    NAME
-#        db_dump
-#    SOURCES
-#        DbDumpTool.cpp
-#        DbDumper.cpp
-#    OBJECTS
-#        ${tools_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        proxygenlib
-#        wangle
-#)
-#
-#install(
-#    TARGETS
-#        db_dump
-#    DESTINATION
-#        bin
-#    COMPONENT
-#        tool
-#)
+nebula_add_executable(
+    NAME
+        db_dump
+    SOURCES
+        DbDumpTool.cpp
+        DbDumper.cpp
+    OBJECTS
+        ${tools_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        proxygenlib
+        wangle
+)
+
+install(
+    TARGETS
+        db_dump
+    DESTINATION
+        bin
+    COMPONENT
+        tool
+)
