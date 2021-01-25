@@ -115,6 +115,7 @@ Status MetaVersionMan::prepareCheckV1ToV2(kvstore::KVStore* kv) {
                                                          i.get_index_name().c_str());
                         return Status::Error(error);
                     }
+                    iter->next();
                 }
             }
         }
