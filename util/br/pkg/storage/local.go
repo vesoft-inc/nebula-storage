@@ -10,10 +10,11 @@ type LocalBackedStore struct {
 	dir        string
 	backupName string
 	log        *zap.Logger
+	args       string
 }
 
-func NewLocalBackedStore(dir string, log *zap.Logger, maxConcurrent int) *LocalBackedStore {
-	return &LocalBackedStore{dir: dir, log: log}
+func NewLocalBackedStore(dir string, log *zap.Logger, maxConcurrent int, args string) *LocalBackedStore {
+	return &LocalBackedStore{dir: dir, log: log, args: args}
 }
 
 func (s *LocalBackedStore) SetBackupName(name string) {
@@ -26,13 +27,13 @@ func (s LocalBackedStore) URI() string {
 }
 
 func (s LocalBackedStore) copyCommand(src []string, dir string) string {
-	cmdFormat := "mkdir -p " + dir + " && cp -rf %s " + dir
+	cmdFormat := "mkdir -p " + dir + " && cp -rf %s %s " + dir
 	files := ""
 	for _, f := range src {
 		files += f + " "
 	}
 
-	return fmt.Sprintf(cmdFormat, files)
+	return fmt.Sprintf(cmdFormat, s.args, files)
 }
 
 func (s *LocalBackedStore) BackupPreCommand() []string {
@@ -48,15 +49,15 @@ func (s LocalBackedStore) BackupStorageCommand(src string, host string, spaceId 
 	storageDir := s.dir + "/" + "storage/" + host + "/" + spaceId
 	data := src + "/data "
 	wal := src + "/wal "
-	return "mkdir -p " + storageDir + " && cp -rf " + data + wal + storageDir
+	return "mkdir -p " + storageDir + " && cp -rf " + s.args + " " + data + wal + storageDir
 }
 
 func (s LocalBackedStore) BackupMetaFileCommand(src string) []string {
-	return []string{"cp", src, s.dir}
+	return []string{"cp", s.args, src, s.dir}
 }
 
 func (s LocalBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"cp", s.dir + "/" + file, dst}
+	return []string{"cp", s.args, s.dir + "/" + file, dst}
 }
 
 func (s LocalBackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {
@@ -69,7 +70,7 @@ func (s LocalBackedStore) RestoreMetaCommand(src []string, dst string) (string, 
 		dstFile := dst + "/" + f
 		sstFiles = append(sstFiles, dstFile)
 	}
-	return fmt.Sprintf("cp -rf %s "+dst, files), sstFiles
+	return fmt.Sprintf("cp -rf %s %s %s", files, s.args, dst), sstFiles
 }
 
 func (s LocalBackedStore) RestoreStorageCommand(host string, spaceID []string, dst string) string {
@@ -79,7 +80,7 @@ func (s LocalBackedStore) RestoreStorageCommand(host string, spaceID []string, d
 		dirs += storageDir + id + " "
 	}
 
-	return fmt.Sprintf("cp -rf %s "+dst, dirs)
+	return fmt.Sprintf("cp -rf %s %s %s"+dst, dirs, s.args, dst)
 }
 
 func (s LocalBackedStore) RestoreMetaPreCommand(dst string) string {

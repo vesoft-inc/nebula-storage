@@ -13,10 +13,11 @@ type OSSBackedStore struct {
 	log           *zap.Logger
 	backupName    string
 	maxConcurrent string
+	args          string
 }
 
-func NewOSSBackendStore(url string, log *zap.Logger, maxConcurrent int) *OSSBackedStore {
-	return &OSSBackedStore{url: url, log: log, maxConcurrent: strconv.Itoa(maxConcurrent)}
+func NewOSSBackendStore(url string, log *zap.Logger, maxConcurrent int, args string) *OSSBackedStore {
+	return &OSSBackedStore{url: url, log: log, maxConcurrent: strconv.Itoa(maxConcurrent), args: args}
 }
 
 func (s *OSSBackedStore) SetBackupName(name string) {
@@ -33,20 +34,20 @@ func (s *OSSBackedStore) BackupPreCommand() []string {
 
 func (s *OSSBackedStore) BackupStorageCommand(src string, host string, spaceID string) string {
 	storageDir := s.url + "/" + "storage/" + host + "/" + spaceID + "/"
-	return "ossutil cp -r " + src + " " + storageDir + " -j " + s.maxConcurrent
+	return "ossutil cp -r " + src + " " + storageDir + " " + s.args + " -j " + s.maxConcurrent
 }
 
 func (s OSSBackedStore) BackupMetaCommand(src []string) string {
 	metaDir := s.url + "/" + "meta/"
-	return "ossutil cp -r " + filepath.Dir(src[0]) + " " + metaDir + " -j " + s.maxConcurrent
+	return "ossutil cp -r " + filepath.Dir(src[0]) + " " + metaDir + " " + s.args + " -j " + s.maxConcurrent
 }
 
 func (s OSSBackedStore) BackupMetaFileCommand(src string) []string {
-	return []string{"ossutil", "cp", "-r", src, s.url + "/", "-j", s.maxConcurrent}
+	return []string{"ossutil", "cp", "-r", src, s.url + "/", "-j", s.maxConcurrent, s.args}
 }
 
 func (s OSSBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, "-j", s.maxConcurrent}
+	return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, "-j", s.maxConcurrent, s.args}
 }
 
 func (s OSSBackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {
@@ -56,12 +57,12 @@ func (s OSSBackedStore) RestoreMetaCommand(src []string, dst string) (string, []
 		file := dst + "/" + f
 		sstFiles = append(sstFiles, file)
 	}
-	return fmt.Sprintf("ossutil cp -r %s %s -j %s ", metaDir, dst, s.maxConcurrent), sstFiles
+	return fmt.Sprintf("ossutil cp -r %s %s -j %s %s", metaDir, dst, s.maxConcurrent, s.args), sstFiles
 }
 func (s OSSBackedStore) RestoreStorageCommand(host string, spaceID []string, dst string) string {
 	storageDir := s.url + "/storage/" + host + "/"
 
-	return fmt.Sprintf("ossutil cp -r %s %s -j %s ", storageDir, dst, s.maxConcurrent)
+	return fmt.Sprintf("ossutil cp -r %s %s -j %s %s", storageDir, dst, s.maxConcurrent, s.args)
 }
 func (s OSSBackedStore) RestoreMetaPreCommand(dst string) string {
 	return "rm -rf " + dst + " && mkdir -p " + dst

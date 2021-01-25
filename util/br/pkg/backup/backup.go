@@ -55,7 +55,7 @@ type Backup struct {
 }
 
 func NewBackupClient(cf config.BackupConfig, log *zap.Logger) *Backup {
-	backend, err := storage.NewExternalStorage(cf.BackendUrl, log, cf.MaxConcurrent)
+	backend, err := storage.NewExternalStorage(cf.BackendUrl, log, cf.MaxConcurrent, cf.CommandArgs)
 	if err != nil {
 		log.Error("new external storage failed", zap.Error(err))
 		return nil

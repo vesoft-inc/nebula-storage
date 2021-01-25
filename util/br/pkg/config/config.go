@@ -14,7 +14,8 @@ type BackupConfig struct {
 	BackendUrl        string     `yaml:"backend"`
 	MaxSSHConnections int        `yaml:"max_ssh_connections"`
 	// Only for OSS for now
-	MaxConcurrent int `yaml:"max_concurrent"`
+	MaxConcurrent int    `yaml:"max_concurrent"`
+	CommandArgs   string `yaml:"command_args"`
 }
 
 type RestoreConfig struct {
@@ -24,7 +25,8 @@ type RestoreConfig struct {
 	BackendUrl string `yaml:"backend"`
 	BackupName string `yaml:"backup_name"`
 	// Only for OSS for now
-	MaxConcurrent int `yaml:"max_concurrent"`
+	MaxConcurrent int    `yaml:"max_concurrent"`
+	CommandArgs   string `yaml:"command_args"`
 }
 
 type CleanupConfig struct {

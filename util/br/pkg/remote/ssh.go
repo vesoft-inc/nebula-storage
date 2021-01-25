@@ -93,7 +93,7 @@ func (c *Client) ExecCommandBySSH(cmd string) error {
 		c.log.Error("ssh run failed", zap.Error(err), zap.String("cmd", cmd))
 		return err
 	}
-	c.log.Info("Command execution completed", zap.String("result", stdoutBuf.String()))
+	c.log.Info("Command execution completed", zap.String("addr", c.addr), zap.String("cmd", cmd))
 	return nil
 }
 
