@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -38,15 +39,27 @@ func (s *S3BackedStore) BackupStorageCommand(src string, host string, spaceID st
 
 func (s S3BackedStore) BackupMetaCommand(src []string) string {
 	metaDir := s.url + "/" + "meta/"
-	return "aws " + s.args + " s3 sync " + filepath.Dir(src[0]) + " " + metaDir + s.args
+	return "aws " + s.args + " s3 sync " + filepath.Dir(src[0]) + " " + metaDir
 }
 
 func (s S3BackedStore) BackupMetaFileCommand(src string) []string {
-	return []string{"aws", s.args, "s3", "cp", src, s.url + "/"}
+	if len(s.args) == 0 {
+		return []string{"aws", "s3", "cp", src, s.url + "/"}
+	}
+	args := strings.Fields(s.args)
+	args = append(args, "s3", "cp", src, s.url+"/")
+	args = append([]string{"aws"}, args...)
+	return args
 }
 
 func (s S3BackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"aws", s.args, "s3", "cp", s.url + "/" + file, dst}
+	if len(s.args) == 0 {
+		return []string{"aws", "s3", "cp", s.url + "/" + file, dst}
+	}
+	args := strings.Fields(s.args)
+	args = append(args, "s3", "cp", s.url+"/"+file, dst)
+	args = append([]string{"aws"}, args...)
+	return args
 }
 
 func (s S3BackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {

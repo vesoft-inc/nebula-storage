@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -43,11 +44,24 @@ func (s OSSBackedStore) BackupMetaCommand(src []string) string {
 }
 
 func (s OSSBackedStore) BackupMetaFileCommand(src string) []string {
-	return []string{"ossutil", "cp", "-r", src, s.url + "/", "-j", s.maxConcurrent, s.args}
+	if len(s.args) == 0 {
+		return []string{"ossutil", "cp", "-r", src, s.url + "/", "-j", s.maxConcurrent}
+
+	}
+	args := strings.Fields(s.args)
+	args = append(args, "-r", src, s.url+"/", "-j", s.maxConcurrent)
+	args = append([]string{"ossutil", "cp"}, args...)
+	return args
 }
 
 func (s OSSBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, "-j", s.maxConcurrent, s.args}
+	if len(s.args) == 0 {
+		return []string{"ossutil", "cp", "-r", s.url + "/" + file, dst, "-j", s.maxConcurrent}
+	}
+	args := strings.Fields(s.args)
+	args = append(args, "-r", s.url+"/"+file, dst, "-j", s.maxConcurrent)
+	args = append([]string{"ossutil", "cp"}, args...)
+	return args
 }
 
 func (s OSSBackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {

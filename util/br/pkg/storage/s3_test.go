@@ -57,10 +57,10 @@ func TestS3BackupMetaFileCommand(t *testing.T) {
 	s3.SetBackupName("backupmetafile")
 	metaFile := "/home/nebula/backup.meta"
 	cmd := s3.BackupMetaFileCommand(metaFile)
-	expectCmd := []string{"aws", "", "s3", "cp", metaFile, s3.URI() + "/"}
+	expectCmd := []string{"aws", "s3", "cp", metaFile, s3.URI() + "/"}
 	assert.Equal(t, cmd, expectCmd)
 
 	cmd = s3.RestoreMetaFileCommand("backup.meta", "/home/data")
-	expectCmd = []string{"aws", "", "s3", "cp", "s3://nebulabackupfile/backupmetafile/backup.meta", "/home/data"}
+	expectCmd = []string{"aws", "s3", "cp", "s3://nebulabackupfile/backupmetafile/backup.meta", "/home/data"}
 	assert.Equal(t, cmd, expectCmd)
 }

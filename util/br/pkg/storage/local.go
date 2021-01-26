@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -53,11 +54,23 @@ func (s LocalBackedStore) BackupStorageCommand(src string, host string, spaceId 
 }
 
 func (s LocalBackedStore) BackupMetaFileCommand(src string) []string {
-	return []string{"cp", s.args, src, s.dir}
+	if len(s.args) == 0 {
+		return []string{"cp", src, s.dir}
+	}
+	args := strings.Fields(s.args)
+	args = append(args, src, s.dir)
+	args = append([]string{"cp"}, args...)
+	return args
 }
 
 func (s LocalBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
-	return []string{"cp", s.args, s.dir + "/" + file, dst}
+	if len(s.args) == 0 {
+		return []string{"cp", s.dir + "/" + file, dst}
+	}
+	args := strings.Fields(s.args)
+	args = append(args, s.dir+"/"+file, dst)
+	args = append([]string{"cp"}, args...)
+	return args
 }
 
 func (s LocalBackedStore) RestoreMetaCommand(src []string, dst string) (string, []string) {

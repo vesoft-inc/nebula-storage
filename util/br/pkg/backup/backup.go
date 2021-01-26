@@ -262,6 +262,7 @@ func (b *Backup) uploadStorage(g *errgroup.Group, dirs map[string][]spaceInfo) e
 
 func (b *Backup) uploadMetaFile() error {
 	cmdStr := b.backendStorage.BackupMetaFileCommand(b.metaFileName)
+	b.log.Info("will upload metafile", zap.Strings("cmd", cmdStr))
 
 	cmd := exec.Command(cmdStr[0], cmdStr[1:]...)
 	err := cmd.Run()
