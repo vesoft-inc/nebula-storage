@@ -93,7 +93,7 @@ private:
     GraphSpaceID                                                   spaceId_;
     int32_t                                                        spaceVidLen_;
     std::string                                                    spaceName_;
-    std::unordered_set<PartitionID>                                parts_;
+    std::vector<PartitionID>                                       parts_;
     std::unique_ptr<kvstore::RocksEngine>                          engine_;
 
     // Get all tag in space
@@ -109,7 +109,6 @@ private:
 
     std::unordered_map<EdgeType,
         std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>  edgeIndexes_;
-
 };
 
 }  // namespace storage

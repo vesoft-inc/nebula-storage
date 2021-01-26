@@ -82,9 +82,10 @@ Status DbUpgrader::initSpace(std::string& sId) {
     spaceVidLen_ = spaceVidLen.value();
 
     engine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, FLAGS_upgrade_db_path));
-    auto parts = engine_->allParts();
     parts_.clear();
-    parts_.insert(parts.begin(), parts.end());
+    parts_ = engine_->allParts();
+    LOG(INFO) << "Path: " << FLAGS_upgrade_db_path << "\n"
+              << "Space Id " << spaceId_ << " need handle " << parts_.size() << " parts!";
     tagSchemas_.clear();
     tagIndexes_.clear();
     edgeSchemas_.clear();
@@ -115,6 +116,11 @@ Status DbUpgrader::buildSchemaAndIndex() {
         }
     }
 
+    for (auto&tagindexes : tagIndexes_) {
+        LOG(INFO) << "Tag Id " << tagindexes.first  << " has "
+                  << tagindexes.second.size() << " indexes";
+    }
+
     // Get all edge in space
     auto edges = schemaMan_->getAllVerEdgeSchema(spaceId_);
     if (!edges.ok()) {
@@ -134,6 +140,10 @@ Status DbUpgrader::buildSchemaAndIndex() {
         if (edgeIndex->schema_id.edge_type > 0) {
             edgeIndexes_[edgeIndex->schema_id.edge_type].emplace(edgeIndex);
         }
+    }
+    for (auto&edgeindexes : edgeIndexes_) {
+        LOG(INFO) << "EdgeType " << edgeindexes.first  << " has "
+                  << edgeindexes.second.size() << " indexes";
     }
     return  Status::OK();
 }
@@ -296,6 +306,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
     }
 
     for (auto& partId : parts_) {
+        LOG(INFO) << "Start space id " << spaceId_ << " partId " <<  partId;
         auto prefix = NebulaKeyUtilsV1::prefix(partId);
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = engine_->prefix(prefix, &iter);
@@ -438,6 +449,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
             LOG(ERROR)  << "Write multi put failed！";
         }
         data.clear();
+        LOG(INFO) << "Finish space id " << spaceId_ << " partId " <<  partId;
     }
 }
 
