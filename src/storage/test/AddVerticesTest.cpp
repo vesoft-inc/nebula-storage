@@ -94,7 +94,7 @@ TEST(AddVerticesTest, MultiVersionTest) {
 
     LOG(INFO) << "Check data in kv store...";
     // The number of vertices  is 162
-    checkAddVerticesData(req, env, 162, 2);
+    checkAddVerticesData(req, env, 81, 2);
     FLAGS_enable_multi_versions = false;
 }
 

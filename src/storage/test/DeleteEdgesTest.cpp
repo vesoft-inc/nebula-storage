@@ -99,7 +99,7 @@ TEST(DeleteEdgesTest, MultiVersionTest) {
 
         LOG(INFO) << "Check data in kv store...";
         // The number of data in serve is 668
-        checkAddEdgesData(req, env, 668, 2);
+        checkAddEdgesData(req, env, 334, 2);
     }
 
     // Delete edges

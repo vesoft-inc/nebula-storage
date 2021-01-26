@@ -471,7 +471,7 @@ TEST(IndexTest, AlterTagIndexTest) {
             auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId,
                                                        convertVertexId(vIdLen, partId));
             auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
-            EXPECT_EQ(2, retNum);
+            EXPECT_EQ(1, retNum);
         }
 
         LOG(INFO) << "Check insert index1...";

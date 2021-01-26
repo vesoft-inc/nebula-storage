@@ -1204,7 +1204,7 @@ TEST(UpdateVertexTest, TTL_Insert_Test) {
         iter->next();
         count++;
     }
-    EXPECT_EQ(2, count);
+    EXPECT_EQ(1, count);
 }
 
 // upsert, insert faild

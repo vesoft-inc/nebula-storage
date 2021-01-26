@@ -16,7 +16,6 @@ enum class NebulaKeyTypeV1 : uint32_t {
     kIndex             = 0x00000002,
     kUUID              = 0x00000003,
     kSystem            = 0x00000004,
-    kOperation         = 0x00000005,
 };
 
 /**
@@ -226,7 +225,7 @@ private:
 
     static constexpr int32_t kEdgeLen = sizeof(PartitionID) + sizeof(VertexID)
                                       + sizeof(EdgeType) + sizeof(VertexID)
-                                      + sizeof(EdgeRanking) + sizeof(EdgeVersion);
+                                      + sizeof(EdgeRanking) + sizeof(EdgeVerPlaceHolder);
 
     static constexpr int32_t kVertexIndexLen = sizeof(PartitionID) + sizeof(IndexID)
                                                + sizeof(VertexID);

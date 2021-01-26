@@ -101,7 +101,7 @@ public:
                 return false;
             }
         } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            auto edgeKey = NebulaKeyUtils::toEdgeKey(key, true);
+            auto edgeKey = NebulaKeyUtils::toEdgeKey(key);
             return schemaValid(spaceId, edgeKey);
         }
         return true;
@@ -147,7 +147,7 @@ public:
             }
             return checkDataTtlValid(schema.get(), reader.get());
         } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            auto edgeKey = NebulaKeyUtils::toEdgeKey(key, true);
+            auto edgeKey = NebulaKeyUtils::toEdgeKey(key);
             return ttlValid(spaceId, edgeKey, val);
         }
         return true;

@@ -99,8 +99,8 @@ TEST(DeleteVerticesTest, MultiVersionTest) {
         }
 
         LOG(INFO) << "Check data in kv store...";
-        // The number of vertices is 162
-        checkAddVerticesData(req, env, 162, 2);
+        // The number of vertices is 81
+        checkAddVerticesData(req, env, 81, 2);
     }
 
     // Delete vertices

@@ -212,9 +212,9 @@ TEST(CompactionFilterTest, MutliVersionsFilterTest) {
 
     LOG(INFO) << "Before compaction, check data...";
     // check serve positive data, data count is 334
-    checkEdgeData(spaceVidLen, spaceId, 101, parts, env, 334);
+    checkEdgeData(spaceVidLen, spaceId, 101, parts, env, 167);
     // check teammates positive data, data count is 36
-    checkEdgeData(spaceVidLen, spaceId, 102, parts, env, 36);
+    checkEdgeData(spaceVidLen, spaceId, 102, parts, env, 18);
 
     LOG(INFO) << "Do compaction";
     auto* ns = dynamic_cast<kvstore::NebulaStore*>(env->kvstore_);

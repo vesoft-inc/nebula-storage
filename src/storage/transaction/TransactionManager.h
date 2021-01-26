@@ -114,8 +114,6 @@ protected:
 
     void eraseMemoryLock(const std::string& rawKey, int64_t ver);
 
-    std::string reverseKey(size_t vIdLen, GraphSpaceID spaceId, std::string& rawKey, int64_t ver);
-
     nebula::meta::cpp2::IsolationLevel getSpaceIsolationLvel(GraphSpaceID spaceId);
 
     std::string encodeBatch(std::vector<KV>&& data);
