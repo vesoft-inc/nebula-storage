@@ -106,6 +106,33 @@ RocksEngine::RocksEngine(GraphSpaceID spaceId,
     LOG(INFO) << "open rocksdb on " << path;
 }
 
+
+RocksEngine::RocksEngine(const std::string& dataPath,
+                         GraphSpaceID spaceId,
+                         int32_t vIdLen)
+    : KVEngine(spaceId), dataPath_(folly::stringPrintf("%s/nebula/%d", dataPath.c_str(), spaceId)) {
+    auto path = folly::stringPrintf("%s/data", dataPath_.c_str());
+    if (FileUtils::fileType(path.c_str()) == FileType::NOTEXIST) {
+        LOG(FATAL) << "Path " << path << " not exist";
+    }
+
+    if (FileUtils::fileType(path.c_str()) != FileType::DIRECTORY) {
+        LOG(FATAL) << path << " is not directory";
+    }
+
+    rocksdb::Options options;
+    rocksdb::DB* db = nullptr;
+    rocksdb::Status status = initRocksdbOptions(options, vIdLen);
+    CHECK(status.ok());
+
+    status = rocksdb::DB::OpenForReadOnly(options, path, &db);
+    CHECK(status.ok()) << status.ToString();
+    db_.reset(db);
+    partsNum_ = allParts().size();
+    LOG(INFO) << "open rocksdb on " << path;
+}
+
+
 void RocksEngine::stop() {
     if (db_) {
         // Because we trigger compaction in WebService, we need to stop all background work

@@ -75,8 +75,10 @@ Status DbUpgrader::initSpace(std::string& sId) {
     }
     spaceVidLen_ = spaceVidLen.value();
 
-    readEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, srcPath_));
+    // use read only rocksdb
+    readEngine_.reset(new nebula::kvstore::RocksEngine(srcPath_, spaceId_, spaceVidLen_));
     writeEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, dstPath_));
+
     parts_.clear();
     parts_ = readEngine_->allParts();
 
@@ -86,6 +88,12 @@ Status DbUpgrader::initSpace(std::string& sId) {
     tagIndexes_.clear();
     edgeSchemas_.clear();
     edgeIndexes_.clear();
+
+    auto ret = buildSchemaAndIndex();
+    if (!ret.ok()) {
+         LOG(ERROR) << "Build schema and index failed in space id " << spaceId_;
+         return ret;
+    }
     return Status::OK();
 }
 
@@ -98,6 +106,11 @@ Status DbUpgrader::buildSchemaAndIndex() {
     }
     tagSchemas_ = std::move(tags).value();
 
+    for (auto&tag : tagSchemas_) {
+        LOG(INFO) << "Tag Id " << tag.first  << " has "
+                  << tag.second.size() << " schemas";
+    }
+
     // Get all tag index in space
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> tagIndexes;
     auto iRet = indexMan_->getTagIndexes(spaceId_);
@@ -109,7 +122,9 @@ Status DbUpgrader::buildSchemaAndIndex() {
 
     // Handle tag index
     for (auto&tagIndex : tagIndexes) {
-        tagIndexes_[tagIndex->schema_id.tag_id].emplace(tagIndex);
+        auto tagId = tagIndex->get_schema_id().get_tag_id();
+        LOG(INFO) << "Tag Id " << tagId;
+        tagIndexes_[tagId].emplace(tagIndex);
     }
 
     for (auto&tagindexes : tagIndexes_) {
@@ -125,6 +140,11 @@ Status DbUpgrader::buildSchemaAndIndex() {
     }
     edgeSchemas_ = std::move(edges).value();
 
+    for (auto&edge : edgeSchemas_) {
+        LOG(INFO) << "EdgeType " << edge.first  << " has "
+                  << edge.second.size() << " schema";
+    }
+
     // Get all edge index in space
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes;
     iRet = indexMan_->getEdgeIndexes(spaceId_);
@@ -136,7 +156,9 @@ Status DbUpgrader::buildSchemaAndIndex() {
 
     // Handle edge index
     for (auto& edgeIndex : edgeIndexes) {
-        edgeIndexes_[edgeIndex->schema_id.edge_type].emplace(edgeIndex);
+        auto edgetype = edgeIndex->get_schema_id().get_edge_type();
+        LOG(INFO) << "Edgetype " << edgetype;
+        edgeIndexes_[edgetype].emplace(edgeIndex);
     }
 
     for (auto&edgeindexes : edgeIndexes_) {
@@ -160,7 +182,7 @@ std::string DbUpgrader::encodeRowVal(const RowReader* reader,
                                      const meta::NebulaSchemaProvider* schema) {
     auto oldSchema = reader->getSchema();
     if (oldSchema == nullptr) {
-        LOG(ERROR)  << "schema not found.";
+        LOG(ERROR)  << "schema not found from RowReader.";
         return "";
     }
     std::vector<Value> props;
@@ -207,6 +229,7 @@ void DbUpgrader::encodeVertexValue(PartitionID partId,
                                    std::vector<kvstore::KV>& data) {
     auto ret = encodeRowVal(reader, schema);
     if (ret.empty()) {
+        LOG(ERROR)  << "Vertex or edge value is empty";
         return;
     }
     data.emplace_back(std::move(newkey), std::move(ret));
@@ -214,6 +237,7 @@ void DbUpgrader::encodeVertexValue(PartitionID partId,
     // encode v2 index value
     auto it = tagIndexes_.find(tagId);
     if (it != tagIndexes_.end()) {
+        // Use old RowReader, because the values are same
         for (auto& index : it->second) {
             auto newIndexKey = indexVertexKey(partId, strVid, reader, index);
             if (!newIndexKey.empty()) {
@@ -290,25 +314,23 @@ std::string DbUpgrader::indexEdgeKey(PartitionID partId,
 }
 
 void DbUpgrader::doProcessAllTagsAndEdges() {
-    auto ret = buildSchemaAndIndex();
-    if (!ret.ok()) {
-         LOG(ERROR) << "Build schema and index failed";
-         return;
-    }
-
+    LOG(INFO) << "Start to handle data in space Id " << spaceId_;
     for (auto& partId : parts_) {
-        LOG(INFO) << "Start space id " << spaceId_ << " partId " <<  partId;
-        // Only handle vertex and edge
+        LOG(INFO) << "Start to handle vertex/edge/index data in space Id " << spaceId_
+                  << " partId " << partId;
+        // Handle vertex and edge, if there is an index, generate index data
         auto prefix = NebulaKeyUtilsV1::prefix(partId);
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " part " << partId
-                      << " no found!";
+                       << " no found!";
+            LOG(ERROR) << "Handle vertex/edge/index data in space Id " << spaceId_
+                       << " partId " << partId << " failed";
             continue;
         }
-        std::vector<kvstore::KV> data;
 
+        std::vector<kvstore::KV> data;
         TagID                                lastTagId = 0;
         int64_t                              lastVertexId = 0;
 
@@ -322,7 +344,6 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
             if (NebulaKeyUtilsV1::isVertex(key)) {
                 auto vId = NebulaKeyUtilsV1::getVertexId(key);
                 auto tagId = NebulaKeyUtilsV1::getTagId(key);
-                auto version = NebulaKeyUtilsV1::getVersion(key);
 
                 auto it = tagSchemas_.find(tagId);
                 if (it == tagSchemas_.end()) {
@@ -342,8 +363,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                 auto newKey = NebulaKeyUtils::vertexKey(spaceVidLen_,
                                                         partId,
                                                         strVid,
-                                                        tagId,
-                                                        version);
+                                                        tagId);
                 auto val = iter->val();
                 auto reader = RowReaderWrapper::getTagPropReader(schemaMan_, spaceId_, tagId, val);
                 if (!reader) {
@@ -362,7 +382,6 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                 auto edgetype = NebulaKeyUtilsV1::getEdgeType(key);
                 auto ranking = NebulaKeyUtilsV1::getRank(key);
                 auto dvId = NebulaKeyUtilsV1::getDstId(key);
-                auto version = NebulaKeyUtilsV1::getVersion(key);
 
                 auto it = edgeSchemas_.find(std::abs(edgetype));
                 if (it == edgeSchemas_.end()) {
@@ -390,8 +409,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                                                       strsvId,
                                                       edgetype,
                                                       ranking,
-                                                      strdvId,
-                                                      version);
+                                                      strdvId);
                 auto val = iter->val();
                 auto reader = RowReaderWrapper::getEdgePropReader(schemaMan_,
                                                                   spaceId_,
@@ -412,10 +430,11 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
             }
 
             if (data.size() >= FLAGS_write_batch_num) {
-                LOG(INFO) << "Send record total rows " << data.size();
+                VLOG(2) << "Send record total rows " << data.size();
                 auto code = writeEngine_->multiPut(data);
                 if (code != kvstore::ResultCode::SUCCEEDED) {
-                    LOG(ERROR)  << "Write multi put failed！";
+                    LOG(FATAL)  << "Write multi put failed in space id " << spaceId_
+                                << " partid " << partId;
                 }
                 data.clear();
             }
@@ -425,10 +444,12 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
 
         auto code = writeEngine_->multiPut(data);
         if (code != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR)  << "Write multi put failed！";
+            LOG(FATAL)  << "Write multi put failed in space id " << spaceId_
+                        << " partid " << partId;
         }
         data.clear();
-        LOG(INFO) << "Finish space id " << spaceId_ << " partId " <<  partId;
+        LOG(INFO) << "Handle vertex/edge/index data in space Id " << spaceId_
+                  << " partId " << partId << " succeed";
     }
 
     // handle uuid data
@@ -439,6 +460,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " get UUID failed";
+            LOG(ERROR) << "Handle uuid data in space Id " << spaceId_ << " failed";
             return;
         }
         std::vector<kvstore::KV> data;
@@ -450,10 +472,10 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
             auto newKey = NebulaKeyUtils::uuidKey(partId, uuidName);
             data.emplace_back(std::move(newKey), std::move(val));
             if (data.size() >= FLAGS_write_batch_num) {
-                LOG(INFO) << "Send uuid record total rows " << data.size();
+                VLOG(2) << "Send uuid record total rows " << data.size();
                 auto code = writeEngine_->multiPut(data);
                 if (code != kvstore::ResultCode::SUCCEEDED) {
-                    LOG(ERROR) << "Write multi put failed！";
+                    LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
                 }
                 data.clear();
             }
@@ -462,9 +484,9 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
 
         auto code = writeEngine_->multiPut(data);
         if (code != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR) << "Write multi put failed！";
+            LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
         }
-        LOG(INFO) << "Finish to handle uuid data in space Id " << spaceId_;
+        LOG(INFO) << "Handle uuid data in space Id " << spaceId_ << " success";
     }
 
     // handle system data
@@ -475,6 +497,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " get system data failed";
+            LOG(ERROR) << "Handle system data in space Id " << spaceId_ << " failed";
             return;
         }
         std::vector<kvstore::KV> data;
@@ -483,10 +506,10 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
             auto val = iter->val();
             data.emplace_back(std::move(key), std::move(val));
             if (data.size() >= FLAGS_write_batch_num) {
-                LOG(INFO) << "Send system data total rows " << data.size();
+                VLOG(2) << "Send system data total rows " << data.size();
                 auto code = writeEngine_->multiPut(data);
                 if (code != kvstore::ResultCode::SUCCEEDED) {
-                    LOG(ERROR) << "Write multi put failed！";
+                    LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
                 }
                 data.clear();
             }
@@ -495,9 +518,10 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
 
         auto code = writeEngine_->multiPut(data);
         if (code != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR) << "Write multi put failed！";
+            LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
         }
-        LOG(INFO) << "Finish to handle system data in space Id " << spaceId_;
+        LOG(INFO) << "Handle system data in space Id " << spaceId_  << " success";
+        LOG(INFO) << "Handle data in space Id " << spaceId_  << " success";
     }
 }
 
@@ -508,7 +532,7 @@ void DbUpgrader::run() {
         // 2. determine whether the space exists,
         auto ret = initSpace(entry);
         if (!ret.ok()) {
-            LOG(INFO) << "Init space  " << entry << " failed";
+            LOG(ERROR) << "Init space " << entry << " failed";
             continue;
         }
 

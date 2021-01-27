@@ -97,6 +97,12 @@ public:
                 std::shared_ptr<rocksdb::MergeOperator> mergeOp = nullptr,
                 std::shared_ptr<rocksdb::CompactionFilterFactory> cfFactory = nullptr);
 
+   // Open the rocksdb for read only. All DB interfaces
+   // that modify data, like put/delete, will return error.
+   RocksEngine(const std::string& dataPath,
+               GraphSpaceID spaceId,
+               int32_t vIdLen);
+
     ~RocksEngine() {
         LOG(INFO) << "Release rocksdb on " << dataPath_;
     }

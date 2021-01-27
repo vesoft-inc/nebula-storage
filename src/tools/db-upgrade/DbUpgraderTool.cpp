@@ -12,23 +12,28 @@ void printHelp() {
     fprintf(stderr,
            R"(  ./db_upgrade --src_db_path=<path to rocksdb> --dst_db_path=<path to rocksdb>  --upgrade_meta_server=<ip:port,...>
 
-required:
+desc: 
+        This tool is used to upgrade data from nebula 1.0 or the previous versions of nebula 2.0 RC
+        to nebula 2.0 GA version.
+
+required:   
        --src_db_path=<path to rocksdb>
          Source data path(data_path in storage 1.0 conf) to the rocksdb data directory,
          multi paths should be split by comma.
          If nebula 1.0 was installed in /usr/local/nebula,
          the db_path would be /usr/local/nebula/data/storage
-         note: db_path not /usr/local/nebula/data/storage/nebula
          Default: ""
 
        --dst_db_path=<path to rocksdb>
-         Destination data path(data_path in storage 1.0 conf) to the rocksdb data directory,
+         Destination data path(data_path in storage 2.0 conf) to the rocksdb data directory,
          multi paths should be split by comma.
-         If nebula 2.0  was installed in /usr/local/nebula,
-         the db_path would be /usr/local/nebula/data/storage
-         note: db_path not /usr/local/nebula/data/storage/nebula
-         The number of paths in src_db_path is equal to the number of paths in dst_db_path.
+         If nebula 2.0 was installed in /usr/local/nebulav2,
+         the db_path would be /usr/local/nebulav2/data/storage
          Default: ""
+
+         note:
+         The number of paths in src_db_path is equal to the number of paths in dst_db_path, and 
+         src_db_path and dst_db_path must be different.
 
        --upgrade_meta_server=<ip:port,...>
          A list of meta severs' ip:port seperated by comma.
@@ -47,7 +52,7 @@ void printParams() {
 
 
 int main(int argc, char *argv[]) {
-    if (argc == 3) {
+    if (argc == 1) {
         printHelp();
         return EXIT_FAILURE;
     } else {
@@ -59,7 +64,7 @@ int main(int argc, char *argv[]) {
     printParams();
 
     // handle arguments
-    LOG(INFO) << "Prepare begin ";
+    LOG(INFO) << "Prepare begin";
     if (FLAGS_src_db_path.empty() || FLAGS_dst_db_path.empty()) {
         LOG(ERROR) << "Source data path(1.0) or destination data path(2.0) should not empty";
         return EXIT_FAILURE;
@@ -112,10 +117,10 @@ int main(int argc, char *argv[]) {
     auto indexMan = nebula::meta::ServerBasedIndexManager::create(metaClient.get());
     CHECK_NOTNULL(schemaMan);
     CHECK_NOTNULL(indexMan);
-    LOG(INFO) << "Prepare end ";
+    LOG(INFO) << "Prepare end";
 
     // Upgrade data
-    LOG(INFO) << "Upgrade bengin.";
+    LOG(INFO) << "Upgrade bengin";
     std::vector<std::thread> threads;
     for (size_t i = 0; i < srcPaths.size(); i++) {
         threads.emplace_back(std::thread([mclient = metaClient.get(),
@@ -142,7 +147,7 @@ int main(int argc, char *argv[]) {
         t.join();
     }
 
-    LOG(INFO) << "Upgrade end.";
+    LOG(INFO) << "Upgrade end";
     return 0;
 }
 
