@@ -40,7 +40,7 @@ std::string NebulaKeyUtils::edgeKey(size_t vIdLen,
                                     const VertexID& srcId,
                                     EdgeType type,
                                     EdgeRanking rank,
-                                    VertexID dstId,
+                                    const VertexID& dstId,
                                     EdgeVerPlaceHolder ev) {
     CHECK_GE(vIdLen, srcId.size());
     CHECK_GE(vIdLen, dstId.size());

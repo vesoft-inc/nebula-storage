@@ -40,15 +40,18 @@ public:
     /**
      * Generate vertex key for kv store
      * */
-    static std::string vertexKey(size_t vIdLen, PartitionID partId, VertexID vId,
-                                 TagID tagId, TagVersion);
+    static std::string vertexKey(size_t vIdLen,
+                                 PartitionID partId,
+                                 const VertexID& vId,
+                                 TagID tagId,
+                                 TagVersion);
 
     static std::string edgeKey(size_t vIdLen,
                                PartitionID partId,
-                               VertexID srcId,
+                               const VertexID& srcId,
                                EdgeType type,
                                EdgeRanking rank,
-                               VertexID dstId,
+                               const VertexID& dstId,
                                EdgeVerPlaceHolder ev = 1);
 
     static std::string systemCommitKey(PartitionID partId);
