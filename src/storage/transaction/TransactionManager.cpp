@@ -262,7 +262,6 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
     auto spPromiseVal = std::make_shared<cpp2::ErrorCode>(cpp2::ErrorCode::SUCCEEDED);
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
 
-    // auto remoteKey = reverseKey(vIdLen, spaceId, localKey, ver);
     auto dst = NebulaKeyUtils::getDstId(vIdLen, localKey);
     auto stRemotePartId = env_->metaClient_->partId(spaceId, dst.str());
     if (!stRemotePartId.ok()) {
