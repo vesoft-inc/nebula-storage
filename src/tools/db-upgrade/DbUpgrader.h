@@ -17,9 +17,10 @@
 #include "codec/RowReaderWrapper.h"
 
 
-DECLARE_string(upgrade_db_path);
+DECLARE_string(src_db_path);
+DECLARE_string(dst_db_path);
 DECLARE_string(upgrade_meta_server);
-DECLARE_int32(write_batch_num);
+DECLARE_uint32(write_batch_num);
 
 namespace nebula {
 namespace storage {
@@ -30,13 +31,15 @@ public:
 
     ~DbUpgrader() = default;
 
-    Status init();
+    Status init(meta::MetaClient* mclient,
+                meta::ServerBasedSchemaManager*sMan,
+                meta::IndexManager* iMan,
+                const std::string& srcPath,
+                const std::string& dstPath);
 
     void run();
 
 private:
-    Status initMeta();
-
     Status listSpace();
 
     Status initSpace(std::string& spaceId);
@@ -84,9 +87,14 @@ private:
                             std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
 private:
-    std::unique_ptr<meta::MetaClient>                              metaClient_;
-    std::unique_ptr<meta::ServerBasedSchemaManager>                schemaMan_;
-    std::unique_ptr<meta::IndexManager>                            indexMan_;
+    meta::MetaClient*                                              metaClient_;
+    meta::ServerBasedSchemaManager*                                schemaMan_;
+    meta::IndexManager*                                            indexMan_;
+    // Souce data path
+    std::string                                                    srcPath_;
+
+    // Destination data path
+    std::string                                                    dstPath_;
     std::vector<std::string>                                       subDirs_;
 
     // The following variables are space level, When switching space, need to change
@@ -94,7 +102,8 @@ private:
     int32_t                                                        spaceVidLen_;
     std::string                                                    spaceName_;
     std::vector<PartitionID>                                       parts_;
-    std::unique_ptr<kvstore::RocksEngine>                          engine_;
+    std::unique_ptr<kvstore::RocksEngine>                          readEngine_;
+    std::unique_ptr<kvstore::RocksEngine>                          writeEngine_;
 
     // Get all tag in space
     std::unordered_map<TagID,
