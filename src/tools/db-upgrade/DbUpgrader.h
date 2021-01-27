@@ -17,9 +17,9 @@
 #include "codec/RowReaderWrapper.h"
 
 
-
 DECLARE_string(upgrade_db_path);
 DECLARE_string(upgrade_meta_server);
+DECLARE_int32(write_batch_num);
 
 namespace nebula {
 namespace storage {

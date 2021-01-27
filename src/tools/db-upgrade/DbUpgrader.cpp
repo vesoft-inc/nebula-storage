@@ -13,8 +13,9 @@
 #include "codec/RowWriterV2.h"
 
 
-DEFINE_string(upgrade_db_path, "./", "Path to rocksdb.");
+DEFINE_string(upgrade_db_path, "", "Path to rocksdb.");
 DEFINE_string(upgrade_meta_server, "127.0.0.1:45500", "Meta servers' address.");
+DEFINE_int32(write_batch_num, 100, "The size of the batch written to rocksdb");
 
 namespace nebula {
 namespace storage {
@@ -105,15 +106,15 @@ Status DbUpgrader::buildSchemaAndIndex() {
     // Get all index in space
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> tagIndexes;
     auto iRet = indexMan_->getTagIndexes(spaceId_);
-    if (iRet.ok()) {
-        tagIndexes = std::move(iRet).value();
+    if (!iRet.ok()) {
+        LOG(INFO) << "space Id " << spaceId_ << " no found";
+        return iRet.status();
     }
+    tagIndexes = std::move(iRet).value();
 
     // handle index
     for (auto&tagIndex : tagIndexes) {
-        if (tagIndex->schema_id.tag_id > 0) {
-            tagIndexes_[tagIndex->schema_id.tag_id].emplace(tagIndex);
-        }
+        tagIndexes_[tagIndex->schema_id.tag_id].emplace(tagIndex);
     }
 
     for (auto&tagindexes : tagIndexes_) {
@@ -132,14 +133,15 @@ Status DbUpgrader::buildSchemaAndIndex() {
     // Get all edge index in space
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes;
     iRet = indexMan_->getEdgeIndexes(spaceId_);
-    if (iRet.ok()) {
-       edgeIndexes = std::move(iRet).value();
+    if (!iRet.ok()) {
+        LOG(INFO) << "space Id " << spaceId_ << " no found";
+        return iRet.status();
     }
+    edgeIndexes = std::move(iRet).value();
+
     // handle index
     for (auto& edgeIndex : edgeIndexes) {
-        if (edgeIndex->schema_id.edge_type > 0) {
-            edgeIndexes_[edgeIndex->schema_id.edge_type].emplace(edgeIndex);
-        }
+        edgeIndexes_[edgeIndex->schema_id.edge_type].emplace(edgeIndex);
     }
     for (auto&edgeindexes : edgeIndexes_) {
         LOG(INFO) << "EdgeType " << edgeindexes.first  << " has "
@@ -202,15 +204,12 @@ std::string DbUpgrader::encodeRowVal(const RowReader* reader,
 
 // Think that the old and new values are exactly the same, so use one reader
 void DbUpgrader::encodeVertexValue(PartitionID partId,
-                                 RowReader* reader,
-                                 const meta::NebulaSchemaProvider* schema,
-                                 std::string& newkey,
-                                 VertexID& strVid,
-                                 TagID   tagId,
-                                 std::vector<kvstore::KV>& data) {
-    if (reader == nullptr) {
-        return;
-    }
+                                   RowReader* reader,
+                                   const meta::NebulaSchemaProvider* schema,
+                                   std::string& newkey,
+                                   VertexID& strVid,
+                                   TagID tagId,
+                                   std::vector<kvstore::KV>& data) {
     auto ret = encodeRowVal(reader, schema);
     if (ret.empty()) {
         return;
@@ -254,9 +253,6 @@ void DbUpgrader::encodeEdgeValue(PartitionID partId,
                                EdgeRanking rank,
                                VertexID& dstId,
                                std::vector<kvstore::KV>& data) {
-    if (reader == nullptr) {
-        return;
-    }
     auto ret = encodeRowVal(reader, schema);
     if (ret.empty()) {
         return;
@@ -307,6 +303,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
 
     for (auto& partId : parts_) {
         LOG(INFO) << "Start space id " << spaceId_ << " partId " <<  partId;
+        // Only handle vertex and edge
         auto prefix = NebulaKeyUtilsV1::prefix(partId);
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = engine_->prefix(prefix, &iter);
@@ -344,13 +341,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                     continue;
                 }
 
-                // auto strVid = folly::to<std::string>(vId);
                 auto strVid = std::string(reinterpret_cast<const char*>(&vId), sizeof(vId));
-                if (!isValidVidLen(strVid)) {
-                   iter->next();
-                   continue;
-                }
-
                 auto newSchema = it->second.back();
                 // Generate 2.0 key
                 auto newKey = NebulaKeyUtils::vertexKey(spaceVidLen_,
@@ -394,14 +385,8 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                     continue;
                 }
 
-                // auto strsvId = folly::to<std::string>(svId);
-                // auto strdvId = folly::to<std::string>(dvId);
                 auto strsvId = std::string(reinterpret_cast<const char*>(&svId), sizeof(svId));
                 auto strdvId = std::string(reinterpret_cast<const char*>(&dvId), sizeof(dvId));
-                if (!isValidVidLen(strsvId, strdvId)) {
-                    iter->next();
-                    continue;
-                }
 
                 auto newEdgeSchema = it->second.back();
 
@@ -432,7 +417,7 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
                 lastDstVertexId = dvId;
             }
 
-            if (data.size() > 100) {
+            if (data.size() >= FLAGS_write_batch_num) {
                 LOG(INFO) << "Send record total rows " << data.size();
                 auto code = engine_->multiPut(data);
                 if (code != kvstore::ResultCode::SUCCEEDED) {
@@ -451,6 +436,40 @@ void DbUpgrader::doProcessAllTagsAndEdges() {
         data.clear();
         LOG(INFO) << "Finish space id " << spaceId_ << " partId " <<  partId;
     }
+
+    // handle uuid data
+    LOG(INFO) << "Start space id " << spaceId_ << " to handle uuid data";
+    auto prefix = NebulaKeyUtilsV1::UUIDPrefix();
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto retCode = engine_->prefix(prefix, &iter);
+    if (retCode != kvstore::ResultCode::SUCCEEDED) {
+        LOG(INFO) << "Space id " << spaceId_ << " get UUID failed";
+        return;
+    }
+    std::vector<kvstore::KV> data;
+    while (iter && iter->valid()) {
+        auto key = iter->key();
+        auto val = iter->val();
+        auto partId = NebulaKeyUtilsV1::getPart(key);
+        auto uuidName = NebulaKeyUtilsV1::getUUIDName(key);
+        auto newKey = NebulaKeyUtils::uuidKey(partId, uuidName);
+        data.emplace_back(std::move(newKey), std::move(val));
+        if (data.size() >= FLAGS_write_batch_num) {
+            LOG(INFO) << "Send uuid record total rows " << data.size();
+            auto code = engine_->multiPut(data);
+            if (code != kvstore::ResultCode::SUCCEEDED) {
+                LOG(ERROR) << "Write multi put failed！";
+            }
+            data.clear();
+        }
+        iter->next();
+    }
+
+    auto code = engine_->multiPut(data);
+    if (code != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Write multi put failed！";
+    }
+    LOG(INFO) << "Finish space id " << spaceId_ << " to handle uuid data";
 }
 
 void DbUpgrader::run() {

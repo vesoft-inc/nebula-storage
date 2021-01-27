@@ -111,4 +111,13 @@ std::string NebulaKeyUtilsV1::systemPrefix() {
     return key;
 }
 
+// static
+std::string NebulaKeyUtilsV1::UUIDPrefix() {
+    int8_t type = static_cast<uint32_t>(NebulaKeyTypeV1::kUUID);
+    std::string key;
+    key.reserve(sizeof(int8_t));
+    key.append(reinterpret_cast<const char*>(&type), sizeof(int8_t));
+    return key;
+}
+
 }  // namespace nebula

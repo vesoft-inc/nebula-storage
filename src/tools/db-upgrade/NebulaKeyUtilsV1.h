@@ -45,12 +45,19 @@ public:
 
     static std::string systemPrefix();
 
+    static std::string UUIDPrefix();
+
     static std::string prefix(PartitionID partId);
 
     static std::string snapshotPrefix(PartitionID partId);
 
     static PartitionID getPart(const folly::StringPiece& rawKey) {
         return readInt<PartitionID>(rawKey.data(), sizeof(PartitionID)) >> 8;
+    }
+
+    static folly::StringPiece getUUIDName(const folly::StringPiece& rawKey) {
+        auto offset = sizeof(PartitionID);
+        return rawKey.subpiece(offset, rawKey.size() - sizeof(PartitionID));
     }
 
     static bool isVertex(const folly::StringPiece& rawKey) {
