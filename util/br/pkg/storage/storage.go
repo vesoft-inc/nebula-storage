@@ -37,6 +37,8 @@ func NewExternalStorage(storageUrl string, log *zap.Logger, maxConcurrent int, a
 		return NewS3BackendStore(storageUrl, log, maxConcurrent, args), nil
 	case "oss":
 		return NewOSSBackendStore(storageUrl, log, maxConcurrent, args), nil
+	case "hdfs":
+		return NewHDFSBackendStore(storageUrl, log, maxConcurrent, args), nil
 	default:
 		return nil, fmt.Errorf("Unsupported Backend Storage Types")
 	}
