@@ -23,13 +23,14 @@ cpp2::ErrorCode CommonUtils::to(const Status& status) {
     }
 }
 
-
 cpp2::ErrorCode CommonUtils::to(kvstore::ResultCode rc) {
     switch (rc) {
-        case kvstore::ResultCode::SUCCEEDED :
+        case kvstore::ResultCode::SUCCEEDED:
             return cpp2::ErrorCode::SUCCEEDED;
-        case kvstore::ResultCode::ERR_LEADER_CHANGED :
+        case kvstore::ResultCode::ERR_LEADER_CHANGED:
             return cpp2::ErrorCode::E_LEADER_CHANGED;
+        case kvstore::ResultCode::ERR_SPACE_NOT_FOUND:
+            return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
         default:
             LOG(ERROR) << "unknown ResultCode: " << static_cast<int>(rc);
             return cpp2::ErrorCode::E_UNKNOWN;
@@ -46,6 +47,10 @@ kvstore::ResultCode CommonUtils::to(cpp2::ErrorCode code) {
             LOG(ERROR) << "unknown ErrorCode: " << static_cast<int>(code);
             return kvstore::ResultCode::ERR_UNKNOWN;
     }
+}
+
+std::string CommonUtils::name(cpp2::ErrorCode code) {
+    return cpp2::_ErrorCode_VALUES_TO_NAMES.at(code);
 }
 
 

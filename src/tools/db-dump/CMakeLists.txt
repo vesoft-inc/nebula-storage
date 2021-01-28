@@ -4,6 +4,7 @@ set(tools_test_deps
     $<TARGET_OBJECTS:storage_admin_service_handler>
     $<TARGET_OBJECTS:graph_storage_service_handler>
     $<TARGET_OBJECTS:storage_transaction_executor>
+    $<TARGET_OBJECTS:common_graph_storage_client_obj>
     $<TARGET_OBJECTS:common_internal_storage_client_obj>
     $<TARGET_OBJECTS:common_storage_client_base_obj>
     $<TARGET_OBJECTS:storage_common_obj>

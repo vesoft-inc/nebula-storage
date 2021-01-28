@@ -67,6 +67,9 @@ private:
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                              updatedProps_;
 
+    folly::Optional<std::vector<std::string>>                            returnProps_;
+    folly::Optional<std::string>                                         condition_;
+
     // return props expression
     std::vector<std::unique_ptr<Expression>>                             returnPropsExp_;
 

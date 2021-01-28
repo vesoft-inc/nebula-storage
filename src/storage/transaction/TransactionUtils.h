@@ -33,6 +33,10 @@ public:
     static std::string edgeKey(size_t vIdLen,
                                PartitionID partId,
                                const cpp2::EdgeKey& key);
+
+    static std::string lockKey(size_t vIdLen,
+                               PartitionID partId,
+                               const cpp2::EdgeKey& key);
 };
 
 /**

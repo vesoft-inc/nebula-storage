@@ -30,26 +30,6 @@ namespace nebula {
 namespace storage {
 
 struct TossTestUtils {
-    static std::vector<nebula::Value> genSingleVal(int n) {
-        boost::uuids::random_generator          gen;
-        std::vector<nebula::Value> ret(2);
-        ret[0].setInt(n);
-        ret[1].setStr(boost::uuids::to_string(gen()));
-        return ret;
-    }
-
-    static std::vector<std::vector<nebula::Value>> genValues(size_t num) {
-        boost::uuids::random_generator          gen;
-        std::vector<std::vector<nebula::Value>> ret(num);
-        for (auto i = 0U; i != num; ++i) {
-            ret[i].resize(2);
-            int32_t n = 1024*(1+i);
-            ret[i][0].setInt(n);
-            ret[i][1].setStr(boost::uuids::to_string(gen()));
-        }
-        return ret;
-    }
-
     static std::string dumpDataSet(const DataSet& ds) {
         std::stringstream oss;
         for (auto&& it : folly::enumerate(ds.colNames)) {
@@ -158,6 +138,71 @@ struct TossTestUtils {
         ret.src = Value(std::string(reinterpret_cast<const char*>(&input.src.getInt()), 8));
         ret.dst = Value(std::string(reinterpret_cast<const char*>(&input.dst.getInt()), 8));
         return ret;
+    }
+    static cpp2::EdgeKey generateEdgeKey(int64_t src, int edgeType, int rank, int64_t dst) {
+        cpp2::EdgeKey edgeKey;
+        edgeKey.set_src(src);
+        edgeKey.set_edge_type(edgeType);
+        edgeKey.set_ranking(rank);
+        edgeKey.set_dst(dst);
+        return edgeKey;
+    }
+
+    static std::vector<nebula::Value> makeISValue(int64_t iVal) {
+        boost::uuids::random_generator gen;
+        std::vector<nebula::Value> vals(2);
+        vals[0].setInt(iVal);
+        vals[1].setStr(boost::uuids::to_string(gen()));
+        return vals;
+    }
+
+    // generate a vector of values, 1st is ant i64, 2nd is a random string.
+    static std::vector<std::vector<nebula::Value>> genISValues(size_t num) {
+        std::vector<std::vector<nebula::Value>> ret;
+        for (auto i = 0U; i != num; ++i) {
+            int32_t n = 1024*(1+i);
+            ret.emplace_back(makeISValue(n));
+        }
+        return ret;
+    }
+
+    // generate num different edges all start from "src",
+    // the first dst is src + 1, and increase 1 for each
+    static std::vector<cpp2::NewEdge> makeNeighborEdges(int64_t src, int edgeType, size_t num) {
+        auto values = genISValues(num);
+        std::vector<cpp2::NewEdge> edges;
+        auto rank = 0;
+        for (auto i = 0U; i < num; ++i) {
+            auto dst = src + i + 1;
+            auto ekey = generateEdgeKey(src, edgeType, rank, dst);
+            edges.emplace_back();
+            edges.back().set_key(std::move(ekey));
+            edges.back().set_props(std::move(values[i]));
+        }
+        return edges;
+    }
+
+    static std::vector<std::string> makeColNames(size_t n) {
+        std::vector<std::string> colNames;
+        for (auto i = 0U; i < n; ++i) {
+            colNames.emplace_back(folly::sformat("c{}", i+1));
+        }
+        return colNames;
+    }
+
+    static std::vector<meta::cpp2::ColumnDef>
+    makeColDefs(const std::vector<meta::cpp2::PropertyType>& types) {
+        auto N = types.size();
+        auto colNames = makeColNames(N);
+        std::vector<meta::cpp2::ColumnDef> columnDefs(N);
+        for (auto i = 0U; i != N; ++i) {
+            columnDefs[i].set_name(colNames[i]);
+            meta::cpp2::ColumnTypeDef colTypeDef;
+            colTypeDef.set_type(types[i]);
+            columnDefs[i].set_type(colTypeDef);
+            columnDefs[i].set_nullable(true);
+        }
+        return columnDefs;
     }
 };  // end TossTestUtils
 

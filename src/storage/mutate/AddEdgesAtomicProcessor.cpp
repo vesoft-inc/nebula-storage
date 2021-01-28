@@ -11,6 +11,8 @@
 #include "storage/mutate/AddEdgesAtomicProcessor.h"
 #include "storage/transaction/TransactionManager.h"
 #include "storage/transaction/TransactionUtils.h"
+#include "storage/transaction/ChainAddEdgeProcessor.h"
+#include "storage/transaction/MultiChainProcessor.h"
 #include "utils/IndexKeyUtils.h"
 #include "utils/NebulaKeyUtils.h"
 
@@ -27,7 +29,36 @@ using ChainId = std::pair<PartitionID, PartitionID>;
 void AddEdgesAtomicProcessor::process(const cpp2::AddEdgesRequest& req) {
     propNames_ = req.get_prop_names();
     spaceId_ = req.get_space_id();
+    auto code = getSpaceVidLen(spaceId_);
+    if (code != cpp2::ErrorCode::SUCCEEDED) {
+        for (auto& part : req.get_parts()) {
+            pushResultCode(cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
+        }
+        onFinished();
+        return;
+    }
 
+    auto vidTypeStatus = env_->metaClient_->getSpaceVidType(spaceId_);
+    if (!vidTypeStatus) {
+        for (auto& part : req.get_parts()) {
+            pushResultCode(cpp2::ErrorCode::E_INVALID_VID, part.first);
+        }
+        onFinished();
+        return;
+    }
+    auto vidType = std::move(vidTypeStatus).value();
+    if (vidType == meta::cpp2::PropertyType::INT64) {
+        convertVid_ = true;
+    }
+
+    if (req.get_parts().begin()->second.front().get_key().get_edge_type() > 0) {
+        processPositiveEdges(req);
+    } else {
+        processNegativeEdges(req);
+    }
+}
+
+void AddEdgesAtomicProcessor::processPositiveEdges(const cpp2::AddEdgesRequest& req) {
     auto stVidLen = env_->schemaMan_->getSpaceVidLen(spaceId_);
     if (!stVidLen.ok()) {
         LOG(ERROR) << stVidLen.status();
@@ -39,6 +70,95 @@ void AddEdgesAtomicProcessor::process(const cpp2::AddEdgesRequest& req) {
     }
     vIdLen_ = stVidLen.value();
     processByChain(req);
+}
+
+void AddEdgesAtomicProcessor::showRequest(const cpp2::AddEdgesRequest& req) {
+    std::stringstream oss;
+    oss << "\nAddEdgesRequest: \n";
+    oss << "\t space_id = " << req.get_space_id() << "\n";
+    oss << "\t parts.size() = " << req.get_parts().size() << "\n";
+    for (auto& part : req.get_parts()) {
+        oss << "\t\t partId = " << part.first
+            << ", edges.size() = " << part.second.size() << "\n";
+        for (auto& e : part.second) {
+            auto& k = e.key;
+            oss << "\t\t\t edge key(src, edge_type, rank, dst) = ("
+                << k.src << ", "
+                << k.edge_type << ", "
+                << k.ranking << ", "
+                << k.dst << ")\n";
+        }
+    }
+    LOG(INFO) << "showRequest() " << oss.str();
+}
+
+void AddEdgesAtomicProcessor::processNegativeEdges(const cpp2::AddEdgesRequest& request) {
+    LOG(INFO) << "messi processNegativeEdges";
+    auto* multiChainProcessor = MultiChainProcessor::instance([=](auto) {
+        // LOG(INFO) << "MultiChainProcessor::onFinished() codes.size() = " << codes_.size();
+        // for (auto& p : codes_) {
+        //     LOG(INFO) << "part: " << p.get_part_id() << ", " << CommonUtils::name(p.get_code());
+        // }
+        this->onFinished();
+    });
+
+    for (auto& part : request.get_parts()) {
+        cpp2::AddEdgesRequest subReq;
+        subReq.set_space_id(request.get_space_id());
+        subReq.set_prop_names(request.get_prop_names());
+        if (request.__isset.overwritable) {
+            subReq.set_overwritable(request.get_overwritable());
+        }
+
+        auto partId = part.first;
+        std::unordered_map<PartitionID, std::vector<cpp2::NewEdge>> newPart;
+        newPart[partId] = part.second;
+        for (auto& ne : newPart[partId]) {
+            LOG(INFO) << "messi add edge: "
+                      << folly::hexlify(TransactionUtils::edgeKey(spaceVidLen_, partId, ne.key));
+        }
+
+        subReq.set_parts(std::move(newPart));
+
+        auto* pChainAddEdgesProc = ChainAddEdgesProcessor::instance(env_, subReq, [=](auto code) {
+            if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
+                handleLeaderChanged(spaceId_, partId);
+            } else {
+                pushResultCode(code, partId);
+            }
+        });
+
+        pChainAddEdgesProc->setEncoder([&](auto& e){
+            return encodeEdge(e);
+        });
+
+        pChainAddEdgesProc->setVidLen(spaceVidLen_);
+
+        if (convertVid_) {
+            pChainAddEdgesProc->setConvertVid(true);
+        }
+
+        multiChainProcessor->addChainProcessor(pChainAddEdgesProc);
+    }
+
+    env_->txnMan_->processChain(multiChainProcessor);
+}
+
+std::pair<std::string, cpp2::ErrorCode> AddEdgesAtomicProcessor::encodeEdge(
+    const cpp2::NewEdge& e) {
+    auto edgeType = e.get_key().get_edge_type();
+    auto schema = env_->schemaMan_->getEdgeSchema(spaceId_, std::abs(edgeType));
+    if (!schema) {
+        LOG(ERROR) << "Space " << spaceId_ << ", Edge " << edgeType << " invalid";
+        return std::make_pair("", cpp2::ErrorCode::E_SPACE_NOT_FOUND);
+    }
+    WriteResult wRet;
+    auto stVal = encodeRowVal(schema.get(), propNames_, e.get_props(), wRet);
+    if (!stVal.ok()) {
+        LOG(ERROR) << stVal.status();
+        return std::make_pair("", cpp2::ErrorCode::E_DATA_TYPE_MISMATCH);
+    }
+    return std::make_pair(stVal.value(), cpp2::ErrorCode::SUCCEEDED);
 }
 
 void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
@@ -65,7 +185,7 @@ void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
             auto code = encodeSingleEdgeProps(edge, val);
             if (code != cpp2::ErrorCode::SUCCEEDED) {
                 failedPart[localPart] = code;
-                break;;
+                break;
             }
             edgesByChain[cid].emplace_back(std::make_pair(std::move(key), std::move(val)));
         }

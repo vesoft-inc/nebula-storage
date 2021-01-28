@@ -25,6 +25,12 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
     if (req.__isset.insertable) {
         insertable_ = *req.get_insertable();
     }
+    if (req.__isset.return_props) {
+        returnProps_ = *req.get_return_props();
+    }
+    if (req.__isset.condition) {
+        condition_ = *req.get_condition();
+    }
 
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
@@ -140,6 +146,12 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
                                                        expCtx_.get(),
                                                        &edgeContext_);
     updateNode->addDependency(filterNode.get());
+    if (returnProps_) {
+        static_cast<UpdateEdgeNode*>(updateNode.get())->setReturnProps(std::move(*returnProps_));
+    }
+    if (condition_) {
+        static_cast<UpdateEdgeNode*>(updateNode.get())->setCondition(std::move(*condition_));
+    }
 
     auto resultNode = std::make_unique<UpdateResNode<cpp2::EdgeKey>>(planContext_.get(),
                                                                      updateNode.get(),

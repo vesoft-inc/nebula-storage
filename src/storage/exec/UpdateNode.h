@@ -507,11 +507,20 @@ public:
             baton.post();
         };
 
-        if (planContext_->env_->txnMan_ &&
+        if (edgeKey.get_edge_type() < 0 &&
+            planContext_->env_->txnMan_ &&
             planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
             LOG(INFO) << "before update edge atomic" << TransactionUtils::dumpKey(edgeKey);
-            auto f = planContext_->env_->txnMan_->updateEdgeAtomic(
-                planContext_->vIdLen_, planContext_->spaceId_, partId, edgeKey, std::move(op));
+            auto f = planContext_->env_->txnMan_->updateEdge2(
+                planContext_->vIdLen_,
+                planContext_->spaceId_,
+                partId,
+                edgeKey,
+                updatedProps_,
+                insertable_,
+                returnProps_,
+                condition_,
+                std::move(op));
             f.wait();
 
             if (f.valid()) {
@@ -742,10 +751,21 @@ public:
                                            std::move(values).value());
     }
 
+    void setReturnProps(std::vector<std::string>&& returnProps) {
+        returnProps_ = std::move(returnProps);
+    }
+
+    void setCondition(std::string&& condition) {
+        condition_ = std::move(condition);
+    }
+
 private:
-    EdgeContext                            *edgeContext_;
-    EdgeType                                edgeType_;
-    std::string                             edgeName_;
+    EdgeContext                                     *edgeContext_;
+    EdgeType                                        edgeType_;
+    std::string                                     edgeName_;
+
+    folly::Optional<std::vector<std::string>>       returnProps_;
+    folly::Optional<std::string>                    condition_;
 };
 
 }  // namespace storage
