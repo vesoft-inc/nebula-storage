@@ -25,32 +25,26 @@ DECLARE_uint32(write_batch_num);
 namespace nebula {
 namespace storage {
 
-class DbUpgrader {
+// Upgrade a space of path in storage conf
+class UpgraderSpace {
 public:
-    DbUpgrader() = default;
+    UpgraderSpace() = default;
 
-    ~DbUpgrader() = default;
+    ~UpgraderSpace() = default;
 
     Status init(meta::MetaClient* mclient,
                 meta::ServerBasedSchemaManager*sMan,
                 meta::IndexManager* iMan,
                 const std::string& srcPath,
-                const std::string& dstPath);
+                const std::string& dstPath,
+                const std::string& entry);
 
-    void run();
+    void doProcess();
 
 private:
-    Status listSpace();
-
-    Status initSpace(std::string& spaceId);
+    Status initSpace(const std::string& spaceId);
 
     Status buildSchemaAndIndex();
-
-    void doProcessAllTagsAndEdges();
-
-    // Used for vertex and edge
-    std::string encodeRowVal(const RowReader* reader,
-                             const meta::NebulaSchemaProvider* schema);
 
     bool isValidVidLen(VertexID srcVId, VertexID dstVId = "");
 
@@ -63,11 +57,14 @@ private:
                            TagID   tagId,
                            std::vector<kvstore::KV>& data);
 
+    // Used for vertex and edge
+    std::string encodeRowVal(const RowReader* reader,
+                             const meta::NebulaSchemaProvider* schema);
+
     std::string indexVertexKey(PartitionID partId,
                                VertexID& vId,
                                RowReader* reader,
                                std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
-
 
     void encodeEdgeValue(PartitionID partId,
                          RowReader* reader,
@@ -118,6 +115,42 @@ private:
 
     std::unordered_map<EdgeType,
         std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>  edgeIndexes_;
+};
+
+// Upgrade one path in storage conf
+class DbUpgrader {
+public:
+    DbUpgrader() = default;
+
+    ~DbUpgrader() = default;
+
+    Status init(meta::MetaClient* mclient,
+                meta::ServerBasedSchemaManager*sMan,
+                meta::IndexManager* iMan,
+                const std::string& srcPath,
+                const std::string& dstPath);
+
+    void run();
+
+private:
+    // Get all string spaceId
+    Status listSpace();
+
+    Status buildSchemaAndIndex();
+
+    void doProcessAllTagsAndEdges();
+
+
+private:
+    meta::MetaClient*                                              metaClient_;
+    meta::ServerBasedSchemaManager*                                schemaMan_;
+    meta::IndexManager*                                            indexMan_;
+    // Souce data path
+    std::string                                                    srcPath_;
+
+    // Destination data path
+    std::string                                                    dstPath_;
+    std::vector<std::string>                                       subDirs_;
 };
 
 }  // namespace storage

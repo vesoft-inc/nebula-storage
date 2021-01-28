@@ -64,9 +64,9 @@ int main(int argc, char *argv[]) {
     printParams();
 
     // handle arguments
-    LOG(INFO) << "Prepare begin";
+    LOG(INFO) << "Prepare phase begin";
     if (FLAGS_src_db_path.empty() || FLAGS_dst_db_path.empty()) {
-        LOG(ERROR) << "Source data path(1.0) or destination data path(2.0) should not empty";
+        LOG(ERROR) << "Source data path(1.0) or destination data path(2.0) should not empty.";
         return EXIT_FAILURE;
     }
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         return folly::trimWhitespace(p).str();
     });
     if (srcPaths.empty()) {
-        LOG(ERROR) << "Bad src data_path format:" << FLAGS_src_db_path;
+        LOG(ERROR) << "Bad src data_path format: " << FLAGS_src_db_path;
         return EXIT_FAILURE;
     }
 
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
         return folly::trimWhitespace(p).str();
     });
     if (dstPaths.empty()) {
-        LOG(ERROR) << "Bad dst data_path format:" << FLAGS_dst_db_path;
+        LOG(ERROR) << "Bad dst data_path format: " << FLAGS_dst_db_path;
         return EXIT_FAILURE;
     }
 
@@ -117,10 +117,10 @@ int main(int argc, char *argv[]) {
     auto indexMan = nebula::meta::ServerBasedIndexManager::create(metaClient.get());
     CHECK_NOTNULL(schemaMan);
     CHECK_NOTNULL(indexMan);
-    LOG(INFO) << "Prepare end";
+    LOG(INFO) << "Prepare phase end";
 
     // Upgrade data
-    LOG(INFO) << "Upgrade bengin";
+    LOG(INFO) << "Upgrade phase bengin";
     std::vector<std::thread> threads;
     for (size_t i = 0; i < srcPaths.size(); i++) {
         threads.emplace_back(std::thread([mclient = metaClient.get(),
@@ -133,7 +133,8 @@ int main(int argc, char *argv[]) {
             nebula::storage::DbUpgrader upgrader;
             auto ret = upgrader.init(mclient, sMan, iMan, srcPath, dstPath);
             if (!ret.ok()) {
-                LOG(ERROR) << "Upgrader init failed " << srcPath << " " <<  dstPath;
+                LOG(ERROR) << "Upgrader init failed from " << srcPath << " to path "
+                           << dstPath;
                 return;
             }
             upgrader.run();
@@ -147,7 +148,7 @@ int main(int argc, char *argv[]) {
         t.join();
     }
 
-    LOG(INFO) << "Upgrade end";
+    LOG(INFO) << "Upgrade phase end";
     return 0;
 }
 
