@@ -225,7 +225,7 @@ private:
 
     static constexpr int32_t kEdgeLen = sizeof(PartitionID) + sizeof(VertexID)
                                       + sizeof(EdgeType) + sizeof(VertexID)
-                                      + sizeof(EdgeRanking) + sizeof(EdgeVerPlaceHolder);
+                                      + sizeof(EdgeRanking) + sizeof(EdgeVersion);
 
     static constexpr int32_t kVertexIndexLen = sizeof(PartitionID) + sizeof(IndexID)
                                                + sizeof(VertexID);
