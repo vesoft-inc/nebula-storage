@@ -17,8 +17,7 @@ std::string TransactionUtils::dumpKey(const cpp2::EdgeKey& key) {
 
 std::string TransactionUtils::edgeKey(size_t vIdLen,
                                       PartitionID partId,
-                                      const cpp2::EdgeKey& key,
-                                      EdgeVerPlaceHolder) {
+                                      const cpp2::EdgeKey& key) {
     return NebulaKeyUtils::edgeKey(
         vIdLen, partId, key.src.getStr(), key.edge_type, key.ranking, key.dst.getStr());
 }

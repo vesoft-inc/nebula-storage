@@ -20,8 +20,7 @@ bool NebulaKeyUtils::isValidVidLen(size_t vIdLen, const VertexID& srcVId, const 
 std::string NebulaKeyUtils::vertexKey(size_t vIdLen,
                                       PartitionID partId,
                                       const VertexID& vId,
-                                      TagID tagId,
-                                      TagVersion) {
+                                      TagID tagId) {
     CHECK_GE(vIdLen, vId.size());
     int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kVertex);
 

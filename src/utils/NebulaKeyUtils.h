@@ -13,7 +13,7 @@ namespace nebula {
 
 /**
  * VertexKeyUtils:
- * type(1) + partId(3) + vertexId(*) + tagId(4) + version(0)
+ * type(1) + partId(3) + vertexId(*) + tagId(4)
  *
  * EdgeKeyUtils:
  * type(1) + partId(3) + srcId(*) + edgeType(4) + edgeRank(8) + dstId(*) + placeHolder(1)
@@ -43,8 +43,7 @@ public:
     static std::string vertexKey(size_t vIdLen,
                                  PartitionID partId,
                                  const VertexID& vId,
-                                 TagID tagId,
-                                 TagVersion);
+                                 TagID tagId);
 
     static std::string edgeKey(size_t vIdLen,
                                PartitionID partId,
@@ -215,7 +214,7 @@ public:
 
     static folly::StringPiece keyWithNoVersion(const folly::StringPiece& rawKey) {
         // TODO(heng) We should change the method if varint data version supportted.
-        return rawKey.subpiece(0, rawKey.size() - sizeof(int64_t));
+        return rawKey.subpiece(0, rawKey.size() - sizeof(EdgeVerPlaceHolder));
     }
 
     /**

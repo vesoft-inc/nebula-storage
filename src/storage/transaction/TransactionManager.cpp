@@ -232,10 +232,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdgeAtomic(size_t vIdLe
         return folly::makeFuture(CommonUtils::to(stRemotePart.status()));
     }
     auto remotePart = stRemotePart.value();
-
-    // the actual ver(of edge key will be determined behind set mem lock)
-    int64_t fakeVer = 1;
-    auto localKey = TransactionUtils::edgeKey(vIdLen, partId, edgeKey, fakeVer);
+    auto localKey = TransactionUtils::edgeKey(vIdLen, partId, edgeKey);
 
     std::vector<KV> data{std::make_pair(localKey, "")};
     return addSamePartEdges(vIdLen, spaceId, partId, remotePart, data, nullptr, batchGetter);
@@ -244,7 +241,6 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdgeAtomic(size_t vIdLe
 folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdLen,
                                                                      GraphSpaceID spaceId,
                                                                      std::string lockKey,
-                                                                     std::string lockVal,
                                                                      ResumedResult result) {
     LOG_IF(INFO, FLAGS_trace_toss) << "begin resume txn from lock=" << folly::hexlify(lockKey);
     // 1st, set memory lock
@@ -297,18 +293,11 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
              *                  which means we can trust the val of lock as the out-edge
              *              else, don't trust lock.
              * */
-            if (FLAGS_enable_multi_versions) {
-                commitBatch(spaceId, localPart, lockVal)
-                    .via(exec_.get())
-                    .thenValue([=](auto&& rc) { *spPromiseVal = CommonUtils::to(rc); })
-                    .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
-            } else {
-                commitEdgeOut(
+            commitEdgeOut(
                     spaceId, localPart, std::string(kv.first), std::string(kv.second))
                     .via(exec_.get())
                     .thenValue([=](auto&& rc) { *spPromiseVal = CommonUtils::to(rc); })
                     .thenError([=](auto&&) { *spPromiseVal = cpp2::ErrorCode::E_UNKNOWN; });
-            }
         })
         .thenValue([=](auto&&) {
             // 4th, remove persist lock

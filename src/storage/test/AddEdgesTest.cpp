@@ -64,7 +64,6 @@ TEST(AddEdgesTest, SpecifyPropertyNameTest) {
 }
 
 TEST(AddEdgesTest, MultiVersionTest) {
-    FLAGS_enable_multi_versions = true;
     fs::TempDir rootPath("/tmp/AddEdgesTest.XXXXXX");
     mock::MockCluster cluster;
     cluster.initStorageKV(rootPath.path());
@@ -94,7 +93,6 @@ TEST(AddEdgesTest, MultiVersionTest) {
     LOG(INFO) << "Check data in kv store...";
     // The number of data in serve is 668
     checkAddEdgesData(req, env, 334, 2);
-    FLAGS_enable_multi_versions = false;
 }
 
 }  // namespace storage
