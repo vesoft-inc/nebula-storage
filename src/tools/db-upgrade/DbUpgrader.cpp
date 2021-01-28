@@ -76,7 +76,8 @@ Status DbUpgrader::initSpace(std::string& sId) {
     spaceVidLen_ = spaceVidLen.value();
 
     // use read only rocksdb
-    readEngine_.reset(new nebula::kvstore::RocksEngine(srcPath_, spaceId_, spaceVidLen_));
+    readEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, srcPath_,
+                                                       nullptr, nullptr, true));
     writeEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, dstPath_));
 
     parts_.clear();

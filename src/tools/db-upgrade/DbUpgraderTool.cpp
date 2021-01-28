@@ -18,15 +18,15 @@ desc:
 
 required:   
        --src_db_path=<path to rocksdb>
-         Source data path(data_path in storage 1.0 conf) to the rocksdb data directory,
-         multi paths should be split by comma.
+         Source data path(data_path in storage 1.0 conf) to the rocksdb data directory.
+         This is an absolute path, multi paths should be split by comma.
          If nebula 1.0 was installed in /usr/local/nebula,
          the db_path would be /usr/local/nebula/data/storage
          Default: ""
 
        --dst_db_path=<path to rocksdb>
-         Destination data path(data_path in storage 2.0 conf) to the rocksdb data directory,
-         multi paths should be split by comma.
+         Destination data path(data_path in storage 2.0 conf) to the rocksdb data directory.
+         This is an absolute path, multi paths should be split by comma.
          If nebula 2.0 was installed in /usr/local/nebulav2,
          the db_path would be /usr/local/nebulav2/data/storage
          Default: ""
