@@ -29,6 +29,10 @@ public:
 
     void process(const cpp2::AddVerticesRequest& req);
 
+    void doProcess(const cpp2::AddVerticesRequest& req);
+
+    void doProcessWithIndex(const cpp2::AddVerticesRequest& req);
+
 private:
     AddVerticesProcessor(StorageEnv* env,
                          const ProcessorCounters* counters,

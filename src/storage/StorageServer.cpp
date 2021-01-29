@@ -172,6 +172,9 @@ bool StorageServer::start() {
     txnMan_ = std::make_unique<TransactionManager>(env_.get());
     env_->txnMan_ = txnMan_.get();
 
+    env_->vertexCCHM_ = std::make_unique<TempVertexCCHM>();
+    env_->edgeCCHM_ = std::make_unique<TempEdgeCCHM>();
+
     storageThread_.reset(new std::thread([this] {
         try {
             auto handler = std::make_shared<GraphStorageServiceHandler>(env_.get());

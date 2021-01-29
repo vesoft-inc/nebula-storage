@@ -24,7 +24,6 @@ ProcessorCounters kAddVerticesCounters;
 void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
     spaceId_ = req.get_space_id();
     const auto& partVertices = req.get_parts();
-    const auto& propNamesMap = req.get_prop_names();
 
     CHECK_NOTNULL(env_->schemaMan_);
     auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
@@ -52,6 +51,16 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
     indexes_ = std::move(iRet).value();
 
     CHECK_NOTNULL(env_->kvstore_);
+    if (indexes_.empty()) {
+        doProcess(req);
+    } else {
+        doProcessWithIndex(req);
+    }
+}
+
+void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
+    const auto& partVertices = req.get_parts();
+    const auto& propNamesMap = req.get_prop_names();
     for (auto& part : partVertices) {
         auto partId = part.first;
         const auto& vertices = part.second;
@@ -108,20 +117,142 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
                 }
             }
         }
-        if (indexes_.empty()) {
-            doPut(spaceId_, partId, std::move(data));
-        } else {
-            auto atomic = [partId, vertices = std::move(data), this]()
-                          -> folly::Optional<std::string> {
-                return addVertices(partId, vertices);
-            };
+        doPut(spaceId_, partId, std::move(data));
+    }
+}
 
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
+void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& req) {
+    const auto& partVertices = req.get_parts();
+    const auto& propNamesMap = req.get_prop_names();
+    for (auto& part : partVertices) {
+        auto partId = part.first;
+        const auto& vertices = part.second;
+        for (auto& vertex : vertices) {
+            auto vid = vertex.get_id().getStr();
+            const auto& newTags = vertex.get_tags();
+
+            if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
+                LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                onFinished();
+                return;
+            }
+
+            for (auto& newTag : newTags) {
+                auto tagId = newTag.get_tag_id();
+                if (!env_->vertexCCHM_->try_emplace(std::make_tuple(spaceId_,
+                                                                    partId,
+                                                                    tagId,
+                                                                    vid), false).second) {
+                    VLOG(1) << "Concurrent conflict : " << tagId << ":" << vid;
+                    continue;
+                }
+                VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
+                        << ", TagID: " << tagId;
+
+                auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
+                if (!schema) {
+                    LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";
+                    env_->vertexCCHM_->erase(std::make_tuple(spaceId_, partId, tagId, vid));
+                    pushResultCode(cpp2::ErrorCode::E_TAG_NOT_FOUND, partId);
+                    onFinished();
+                    return;
+                }
+
+                auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid, tagId);
+                auto props = newTag.get_props();
+                auto iter = propNamesMap.find(tagId);
+                std::vector<std::string> propNames;
+                if (iter != propNamesMap.end()) {
+                    propNames = iter->second;
+                }
+
+                WriteResult wRet;
+                auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
+                if (!retEnc.ok()) {
+                    LOG(ERROR) << retEnc.status();
+                    env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
+                                                             partId,
+                                                             tagId,
+                                                             vid));
+                    pushResultCode(writeResultTo(wRet, false), partId);
+                    onFinished();
+                    return;
+                }
+
+                RowReaderWrapper nReader;
+                RowReaderWrapper oReader;
+                auto obsIdx = findOldValue(partId, vid, tagId);
+                if (obsIdx != folly::none) {
+                    oReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                                 spaceId_,
+                                                                 tagId,
+                                                                 std::move(obsIdx).value());
+                }
+                nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                             spaceId_,
+                                                             tagId,
+                                                             retEnc.value());
+                for (auto& index : indexes_) {
+                    if (tagId == index->get_schema_id().get_tag_id()) {
+                        /*
+                        * step 1 , Delete old version index if exists.
+                        */
+                        if (oReader != nullptr) {
+                            auto oi = indexKey(partId, vid, oReader.get(), index);
+                            if (!oi.empty()) {
+                                auto ret = doSyncRemove(spaceId_, partId, {std::move(oi)});
+                                if (ret != kvstore::ResultCode::SUCCEEDED) {
+                                    env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
+                                                                             partId,
+                                                                             tagId,
+                                                                             vid));
+                                    pushResultCode(to(ret), partId);
+                                    onFinished();
+                                    return;
+                                }
+                            }
+                        }
+
+                        std::vector<kvstore::KV> data;
+                        data.reserve(2);
+                        /*
+                        * step 2 , Insert new vertex index
+                        */
+                        if (nReader != nullptr) {
+                            auto ni = indexKey(partId, vid, nReader.get(), index);
+                            if (!ni.empty()) {
+                                data.emplace_back(std::move(ni), "");
+                            }
+                        }
+
+                        /*
+                        * step 3 , Insert new vertex data
+                        */
+                        data.emplace_back(std::move(key), std::move(retEnc.value()));
+                        auto ret = doSyncPut(spaceId_, partId, std::move(data));
+                            if (ret != kvstore::ResultCode::SUCCEEDED) {
+                                env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
+                                                                         partId,
+                                                                         tagId,
+                                                                         vid));
+                                pushResultCode(to(ret), partId);
+                                onFinished();
+                                return;
+                            }
+                    }
+                }
+                env_->vertexCCHM_->erase(std::make_tuple(spaceId_, partId, tagId, vid));
+                if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
+                    vertexCache_->evict(std::make_pair(vid, tagId));
+                    VLOG(3) << "Evict cache for vId " << vid
+                            << ", tagId " << tagId;
+                }
+            }
         }
     }
+    onFinished();
 }
 
 folly::Optional<std::string>
