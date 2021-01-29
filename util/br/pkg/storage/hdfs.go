@@ -74,11 +74,11 @@ func (s HDFSBackedStore) BackupMetaFileCommand(src string) []string {
 
 func (s HDFSBackedStore) RestoreMetaFileCommand(file string, dst string) []string {
 	if len(s.args) == 0 {
-		return []string{"hadoop", "fs", "-copyToLocal", s.url + "/" + file, dst}
+		return []string{"hadoop", "fs", "-copyToLocal", "-f", s.url + "/" + file, dst}
 	}
 	args := strings.Fields(s.args)
 	args = append(args, s.url+"/"+file, dst)
-	args = append([]string{"hadoop", "fs", "-copyToLocal"}, args...)
+	args = append([]string{"hadoop", "fs", "-copyToLocal", "-f"}, args...)
 	return args
 }
 
@@ -92,7 +92,7 @@ func (s HDFSBackedStore) RestoreMetaCommand(src []string, dst string) (string, [
 		dstFile := dst + "/" + f
 		sstFiles = append(sstFiles, dstFile)
 	}
-	return fmt.Sprintf("hadoop fs -copyToLocal %s %s %s", files, s.args, dst), sstFiles
+	return fmt.Sprintf("hadoop fs -copyToLocal -f %s %s %s", files, s.args, dst), sstFiles
 }
 
 func (s HDFSBackedStore) RestoreStorageCommand(host string, spaceID []string, dst string) string {
@@ -103,7 +103,7 @@ func (s HDFSBackedStore) RestoreStorageCommand(host string, spaceID []string, ds
 		dirs += storageDir + id + " "
 	}
 
-	return fmt.Sprintf("hadoop fs -copyToLocal %s %s %s"+dst, dirs, s.args, dst)
+	return fmt.Sprintf("hadoop fs -copyToLocal %s %s %s", dirs, s.args, dst)
 }
 
 func (s HDFSBackedStore) RestoreMetaPreCommand(dst string) string {

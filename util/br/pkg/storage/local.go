@@ -93,7 +93,7 @@ func (s LocalBackedStore) RestoreStorageCommand(host string, spaceID []string, d
 		dirs += storageDir + id + " "
 	}
 
-	return fmt.Sprintf("cp -rf %s %s %s"+dst, dirs, s.args, dst)
+	return fmt.Sprintf("cp -rf %s %s %s", dirs, s.args, dst)
 }
 
 func (s LocalBackedStore) RestoreMetaPreCommand(dst string) string {
