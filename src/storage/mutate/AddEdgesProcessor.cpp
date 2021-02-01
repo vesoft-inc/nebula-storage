@@ -120,7 +120,10 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
     for (auto& part : partEdges) {
         auto partId = part.first;
         const auto& newEdges = part.second;
-
+        std::vector<kvstore::KV> data;
+        data.reserve(32);
+        std::vector<std::string> remove;
+        remove.reserve(32);
         for (auto& newEdge : newEdges) {
             auto edgeKey = newEdge.key;
             VLOG(3) << "PartitionID: " << partId << ", VertexID: " << edgeKey.src
@@ -137,18 +140,18 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                 onFinished();
                 return;
             }
-            if (!env_->edgeCCHM_->try_emplace(std::make_tuple(spaceId_,
-                                                              partId,
-                                                              edgeKey.src.getStr(),
-                                                              edgeKey.edge_type,
-                                                              edgeKey.ranking,
-                                                              edgeKey.dst.getStr())).second) {
-                VLOG(1) << "Concurrent conflict : " << edgeKey.src.getStr() << ":"
-                                                    << edgeKey.edge_type << ":"
-                                                    << edgeKey.ranking << ":"
-                                                    << edgeKey.dst.getStr();
-                continue;
-            }
+            // if (!env_->edgeCCHM_->try_emplace(std::make_tuple(spaceId_,
+            //                                                   partId,
+            //                                                   edgeKey.src.getStr(),
+            //                                                   edgeKey.edge_type,
+            //                                                   edgeKey.ranking,
+            //                                                   edgeKey.dst.getStr())).second) {
+            //     VLOG(1) << "Concurrent conflict : " << edgeKey.src.getStr() << ":"
+            //                                         << edgeKey.edge_type << ":"
+            //                                         << edgeKey.ranking << ":"
+            //                                         << edgeKey.dst.getStr();
+            //     continue;
+            // }
 
             auto key = NebulaKeyUtils::edgeKey(spaceVidLen_,
                                                partId,
@@ -161,12 +164,12 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             if (!schema) {
                 LOG(ERROR) << "Space " << spaceId_ << ", Edge "
                            << edgeKey.edge_type << " invalid";
-                env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
-                                                       partId,
-                                                       edgeKey.src.getStr(),
-                                                       edgeKey.edge_type,
-                                                       edgeKey.ranking,
-                                                       edgeKey.dst.getStr()));
+                // env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
+                //                                        partId,
+                //                                        edgeKey.src.getStr(),
+                //                                        edgeKey.edge_type,
+                //                                        edgeKey.ranking,
+                //                                        edgeKey.dst.getStr()));
                 pushResultCode(cpp2::ErrorCode::E_EDGE_NOT_FOUND, partId);
                 onFinished();
                 return;
@@ -177,12 +180,12 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
             if (!retEnc.ok()) {
                 LOG(ERROR) << retEnc.status();
-                env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
-                                                       partId,
-                                                       edgeKey.src.getStr(),
-                                                       edgeKey.edge_type,
-                                                       edgeKey.ranking,
-                                                       edgeKey.dst.getStr()));
+                // env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
+                //                                        partId,
+                //                                        edgeKey.src.getStr(),
+                //                                        edgeKey.edge_type,
+                //                                        edgeKey.ranking,
+                //                                        edgeKey.dst.getStr()));
                 pushResultCode(writeResultTo(wRet, true), partId);
                 onFinished();
                 return;
@@ -209,23 +212,24 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                     if (oReader != nullptr) {
                         auto oi = indexKey(partId, oReader.get(), key, index);
                         if (!oi.empty()) {
-                            auto ret = doSyncRemove(spaceId_, partId, {std::move(oi)});
-                            if (ret != kvstore::ResultCode::SUCCEEDED) {
-                                env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
-                                                       partId,
-                                                       edgeKey.src.getStr(),
-                                                       edgeKey.edge_type,
-                                                       edgeKey.ranking,
-                                                       edgeKey.dst.getStr()));
-                                pushResultCode(to(ret), partId);
-                                onFinished();
-                                return;
-                            }
+                            // auto ret = doSyncRemove(spaceId_, partId, {std::move(oi)});
+                            // if (ret != kvstore::ResultCode::SUCCEEDED) {
+                            //     env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
+                            //                            partId,
+                            //                            edgeKey.src.getStr(),
+                            //                            edgeKey.edge_type,
+                            //                            edgeKey.ranking,
+                            //                            edgeKey.dst.getStr()));
+                            //     pushResultCode(to(ret), partId);
+                            //     onFinished();
+                            //     return;
+                            // }
+                            remove.emplace_back(std::move(oi));
                         }
                     }
 
-                    std::vector<kvstore::KV> data;
-                    data.reserve(2);
+                    // std::vector<kvstore::KV> data;
+                    // data.reserve(2);
                     /*
                     * step 2 , Insert new edge index
                     */
@@ -240,29 +244,38 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                     * step 3 , Insert new edge data
                     */
                     data.emplace_back(std::move(key), std::move(retEnc.value()));
-                    auto ret = doSyncPut(spaceId_, partId, std::move(data));
-                        if (ret != kvstore::ResultCode::SUCCEEDED) {
-                            env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
-                                                   partId,
-                                                   edgeKey.src.getStr(),
-                                                   edgeKey.edge_type,
-                                                   edgeKey.ranking,
-                                                   edgeKey.dst.getStr()));
-                            pushResultCode(to(ret), partId);
-                            onFinished();
-                            return;
-                        }
+                    // auto ret = doSyncPut(spaceId_, partId, std::move(data));
+                    //     if (ret != kvstore::ResultCode::SUCCEEDED) {
+                    //         env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
+                    //                                partId,
+                    //                                edgeKey.src.getStr(),
+                    //                                edgeKey.edge_type,
+                    //                                edgeKey.ranking,
+                    //                                edgeKey.dst.getStr()));
+                    //         pushResultCode(to(ret), partId);
+                    //         onFinished();
+                    //         return;
+                    //     }
                 }
             }
-            env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
-                                                   partId,
-                                                   edgeKey.src.getStr(),
-                                                   edgeKey.edge_type,
-                                                   edgeKey.ranking,
-                                                   edgeKey.dst.getStr()));
+            // env_->edgeCCHM_->erase(std::make_tuple(spaceId_,
+            //                                        partId,
+            //                                        edgeKey.src.getStr(),
+            //                                        edgeKey.edge_type,
+            //                                        edgeKey.ranking,
+            //                                        edgeKey.dst.getStr()));
         }
+        if (!remove.empty()) {
+            env_->kvstore_->asyncMultiRemove(spaceId_, partId, std::move(remove),
+            [] (kvstore::ResultCode code) {
+                if (code != kvstore::ResultCode::SUCCEEDED) {
+                    VLOG(3) << "remove old index error";
+                }
+            });
+        }
+        doPut(spaceId_, partId, std::move(data));
     }
-    onFinished();
+    // onFinished();
 }
 
 
