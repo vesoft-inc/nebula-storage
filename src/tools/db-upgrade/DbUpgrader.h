@@ -59,7 +59,8 @@ private:
 
     // Used for vertex and edge
     std::string encodeRowVal(const RowReader* reader,
-                             const meta::NebulaSchemaProvider* schema);
+                             const meta::NebulaSchemaProvider* schema,
+                             std::vector<std::string>& fieldName);
 
     std::string indexVertexKey(PartitionID partId,
                                VertexID& vId,
@@ -102,19 +103,25 @@ private:
     std::unique_ptr<kvstore::RocksEngine>                          readEngine_;
     std::unique_ptr<kvstore::RocksEngine>                          writeEngine_;
 
-    // Get all tag in space
+    // Get all tag newest schema in space
     std::unordered_map<TagID,
-        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>      tagSchemas_;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>       tagSchemas_;
+
+    // tag all field name in newest schema
+    std::unordered_map<TagID, std::vector<std::string>>                       tagFieldName_;
 
     std::unordered_map<TagID,
-        std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>  tagIndexes_;
+        std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>   tagIndexes_;
 
-    // Get all edge in space
+    // Get all edge newest schema in space
     std::unordered_map<EdgeType,
-        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>      edgeSchemas_;
+        std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>       edgeSchemas_;
+
+    // tag all field name in newest schema
+    std::unordered_map<TagID, std::vector<std::string>>                       edgeFieldName_;
 
     std::unordered_map<EdgeType,
-        std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>  edgeIndexes_;
+        std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>   edgeIndexes_;
 };
 
 // Upgrade one path in storage conf

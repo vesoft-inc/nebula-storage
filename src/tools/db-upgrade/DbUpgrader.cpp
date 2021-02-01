@@ -70,8 +70,10 @@ Status UpgraderSpace::initSpace(const std::string& sId) {
               << parts_.size() << " parts";
 
     tagSchemas_.clear();
+    tagFieldName_.clear();
     tagIndexes_.clear();
     edgeSchemas_.clear();
+    edgeFieldName_.clear();
     edgeIndexes_.clear();
 
     auto ret = buildSchemaAndIndex();
@@ -92,8 +94,14 @@ Status UpgraderSpace::buildSchemaAndIndex() {
     tagSchemas_ = std::move(tags).value();
 
     for (auto&tag : tagSchemas_) {
-        LOG(INFO) << "Tag Id " << tag.first  << " has "
-                  << tag.second.size() << " schemas";
+        auto tagId = tag.first;
+        auto newestTagschema = tag.second.back();
+        auto fields = newestTagschema->getNumFields();
+        for (size_t i = 0; i < fields; i++) {
+            tagFieldName_[tagId].emplace_back(newestTagschema->getFieldName(i));
+        }
+        LOG(INFO) << "Tag Id " << tagId << " has " << tagFieldName_[tagId].size()
+                  << " fields!";
     }
 
     // Get all tag index in space
@@ -126,8 +134,14 @@ Status UpgraderSpace::buildSchemaAndIndex() {
     edgeSchemas_ = std::move(edges).value();
 
     for (auto&edge : edgeSchemas_) {
-        LOG(INFO) << "EdgeType " << edge.first  << " has "
-                  << edge.second.size() << " schema";
+        auto edgetype = edge.first;
+        auto newestEdgeSchema = edge.second.back();
+        auto fields = newestEdgeSchema->getNumFields();
+        for (size_t i = 0; i < fields; i++) {
+            edgeFieldName_[std::abs(edgetype)].emplace_back(newestEdgeSchema->getFieldName(i));
+        }
+        LOG(INFO) << "Edgetype" << edgetype << " has " << edgeFieldName_[std::abs(edgetype)].size()
+                  << " fields!";
     }
 
     // Get all edge index in space
@@ -200,6 +214,12 @@ void UpgraderSpace::doProcess() {
                     iter->next();
                     continue;
                 }
+                auto iterField = tagFieldName_.find(tagId);
+                if (iterField == tagFieldName_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
                 if (vId == lastVertexId && tagId == lastTagId) {
                     // Multi version
                     iter->next();
@@ -207,7 +227,7 @@ void UpgraderSpace::doProcess() {
                 }
 
                 auto strVid = std::string(reinterpret_cast<const char*>(&vId), sizeof(vId));
-                auto newSchema = it->second.back();
+                auto newTagSchema = it->second.back();
                 // Generate 2.0 key
                 auto newKey = NebulaKeyUtils::vertexKey(spaceVidLen_,
                                                         partId,
@@ -221,7 +241,7 @@ void UpgraderSpace::doProcess() {
                     continue;
                 }
                 // Generate 2.0 value and index records
-                encodeVertexValue(partId, reader.get(), newSchema.get(),
+                encodeVertexValue(partId, reader.get(), newTagSchema.get(),
                                   newKey, strVid, tagId, data);
 
                 lastTagId = tagId;
@@ -234,6 +254,12 @@ void UpgraderSpace::doProcess() {
 
                 auto it = edgeSchemas_.find(std::abs(edgetype));
                 if (it == edgeSchemas_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
+                auto iterField = edgeFieldName_.find(std::abs(edgetype));
+                if (iterField == edgeFieldName_.end()) {
                     // Invalid data
                     iter->next();
                     continue;
@@ -382,7 +408,10 @@ void UpgraderSpace::encodeVertexValue(PartitionID partId,
                                       VertexID& strVid,
                                       TagID tagId,
                                       std::vector<kvstore::KV>& data) {
-    auto ret = encodeRowVal(reader, schema);
+    // Get all returned field name
+    auto& fieldNames = tagFieldName_[tagId];
+
+    auto ret = encodeRowVal(reader, schema, fieldNames);
     if (ret.empty()) {
         LOG(ERROR)  << "Vertex or edge value is empty";
         return;
@@ -404,25 +433,22 @@ void UpgraderSpace::encodeVertexValue(PartitionID partId,
 
 // Used for vertex and edge
 std::string UpgraderSpace::encodeRowVal(const RowReader* reader,
-                                        const meta::NebulaSchemaProvider* schema) {
+                                        const meta::NebulaSchemaProvider* schema,
+                                        std::vector<std::string>& fieldName) {
     auto oldSchema = reader->getSchema();
     if (oldSchema == nullptr) {
         LOG(ERROR)  << "schema not found from RowReader.";
         return "";
     }
     std::vector<Value> props;
-    auto iter = oldSchema->begin();
-    size_t idx = 0;
-    while (iter) {
-        auto value = reader->getValueByIndex(idx);
-        if (value != Value::kNullUnknownProp && value != Value::kNullBadType) {
-            props.emplace_back(value);
+    for (auto& name : fieldName) {
+        auto val = reader->getValueByName(name);
+        if (val != Value::kNullUnknownProp && val != Value::kNullBadType) {
+            props.emplace_back(val);
         } else {
             LOG(ERROR)  << "Data is illegal.";
             return "";
         }
-        ++iter;
-        ++idx;
     }
 
     // encode v2 value, use new schema
@@ -469,7 +495,10 @@ void UpgraderSpace::encodeEdgeValue(PartitionID partId,
                                     EdgeRanking rank,
                                     VertexID& dstId,
                                     std::vector<kvstore::KV>& data) {
-    auto ret = encodeRowVal(reader, schema);
+    // Get all returned field name
+    auto& fieldNames = edgeFieldName_[std::abs(type)];
+
+    auto ret = encodeRowVal(reader, schema, fieldNames);
     if (ret.empty()) {
         return;
     }
