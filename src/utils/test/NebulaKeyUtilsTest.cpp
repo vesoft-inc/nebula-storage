@@ -20,9 +20,8 @@ public:
     void verifyVertex(PartitionID partId,
                       VertexID vId,
                       TagID tagId,
-                      TagVersion tagVersion,
                       size_t actualSize) {
-        auto vertexKey = NebulaKeyUtils::vertexKey(vIdLen_, partId, vId, tagId, tagVersion);
+        auto vertexKey = NebulaKeyUtils::vertexKey(vIdLen_, partId, vId, tagId);
         ASSERT_EQ(vertexKey.size(), kVertexLen + vIdLen_);
         ASSERT_EQ(vertexKey.substr(0, sizeof(PartitionID) + vIdLen_ + sizeof(TagID)),
                 NebulaKeyUtils::vertexPrefix(vIdLen_, partId, vId, tagId));
@@ -33,8 +32,6 @@ public:
         ASSERT_EQ(partId, NebulaKeyUtils::getPart(vertexKey));
         ASSERT_EQ(tagId, NebulaKeyUtils::getTagId(vIdLen_, vertexKey));
         ASSERT_EQ(vId, NebulaKeyUtils::getVertexId(vIdLen_, vertexKey).subpiece(0, actualSize));
-        ASSERT_EQ(tagVersion, NebulaKeyUtils::getVersion(vIdLen_, vertexKey));
-        ASSERT_TRUE(NebulaKeyUtils::isDataKey(vertexKey));
     }
 
     void verifyEdge(PartitionID partId,
@@ -42,7 +39,7 @@ public:
                     EdgeType type,
                     EdgeRanking rank,
                     VertexID dstId,
-                    EdgeVersion edgeVersion,
+                    EdgeVerPlaceHolder edgeVersion,
                     size_t actualSize) {
         auto edgeKey = NebulaKeyUtils::edgeKey(vIdLen_, partId, srcId, type,
                                                rank, dstId, edgeVersion);
@@ -61,8 +58,6 @@ public:
         ASSERT_EQ(dstId, NebulaKeyUtils::getDstId(vIdLen_, edgeKey).subpiece(0, actualSize));
         ASSERT_EQ(type, NebulaKeyUtils::getEdgeType(vIdLen_, edgeKey));
         ASSERT_EQ(rank, NebulaKeyUtils::getRank(vIdLen_, edgeKey));
-        ASSERT_EQ(edgeVersion, NebulaKeyUtils::getVersion(vIdLen_, edgeKey));
-        ASSERT_TRUE(NebulaKeyUtils::isDataKey(edgeKey));
     }
 
 protected:
@@ -96,12 +91,12 @@ TEST_F(V1Test, SimpleTest) {
     VertexID vId = getStringId(1001L);
     TagID tagId = 2020;
     TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, sizeof(int64_t));
+    verifyVertex(partId, vId, tagId, tagVersion);
 
     VertexID srcId = getStringId(1001L), dstId = getStringId(2001L);
     EdgeType type = 1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, sizeof(int64_t));
 }
 
@@ -109,13 +104,12 @@ TEST_F(V1Test, NegativeEdgeTypeTest) {
     PartitionID partId = 123;
     VertexID vId = getStringId(1001L);
     TagID tagId = 2020;
-    TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, sizeof(int64_t));
+    verifyVertex(partId, vId, tagId, sizeof(int64_t));
 
     VertexID srcId = getStringId(1001L), dstId = getStringId(2001L);
     EdgeType type = -1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, sizeof(int64_t));
 }
 
@@ -123,13 +117,12 @@ TEST_F(V2ShortTest, SimpleTest) {
     PartitionID partId = 123;
     VertexID vId = "0123456789";
     TagID tagId = 2020;
-    TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, 10);
+    verifyVertex(partId, vId, tagId, 10);
 
     VertexID srcId = "0123456789", dstId = "9876543210";
     EdgeType type = 1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
 }
 
@@ -137,13 +130,12 @@ TEST_F(V2ShortTest, NegativeEdgeTypeTest) {
     PartitionID partId = 123;
     VertexID vId = "0123456789";
     TagID tagId = 2020;
-    TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, 10);
+    verifyVertex(partId, vId, tagId, 10);
 
     VertexID srcId = "0123456789", dstId = "9876543210";
     EdgeType type = -1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
 }
 
@@ -151,13 +143,12 @@ TEST_F(V2LongTest, SimpleTest) {
     PartitionID partId = 123;
     VertexID vId = "0123456789";
     TagID tagId = 2020;
-    TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, 10);
+    verifyVertex(partId, vId, tagId, 10);
 
     VertexID srcId = "0123456789", dstId = "9876543210";
     EdgeType type = 1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
 }
 
@@ -165,13 +156,12 @@ TEST_F(V2LongTest, NegativeEdgeTypeTest) {
     PartitionID partId = 123;
     VertexID vId = "0123456789";
     TagID tagId = 2020;
-    TagVersion tagVersion = folly::Random::rand64();
-    verifyVertex(partId, vId, tagId, tagVersion, 10);
+    verifyVertex(partId, vId, tagId, 10);
 
     VertexID srcId = "0123456789", dstId = "9876543210";
     EdgeType type = -1010;
     EdgeRanking rank = 10L;
-    EdgeVersion edgeVersion = folly::Random::rand64();
+    EdgeVerPlaceHolder edgeVersion = 1;
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
 }
 

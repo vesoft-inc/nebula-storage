@@ -99,8 +99,8 @@ public:
     }
 
     bool InDomain(const rocksdb::Slice& src) const override {
-        return src.size() >= prefixLen_ && NebulaKeyUtils::isDataKey(
-                folly::StringPiece(src.data(), 1));
+        // todo(doodle): only need to consider tag and edge
+        return src.size() >= prefixLen_;
     }
 };
 
@@ -150,7 +150,7 @@ static rocksdb::Status initRocksdbCompression(rocksdb::Options &baseOpts) {
     return rocksdb::Status::OK();
 }
 
-rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts) {
+rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
     rocksdb::Status s;
     rocksdb::DBOptions dbOpts;
     rocksdb::ColumnFamilyOptions cfOpts;
@@ -225,8 +225,9 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts) {
             baseOpts.compaction_style == rocksdb::CompactionStyle::kCompactionStyleLevel;
     }
     if (FLAGS_enable_rocksdb_prefix_filtering) {
+        int lengthBeforeVid = 4;
         baseOpts.prefix_extractor.reset(
-                new GraphPrefixTransform(FLAGS_rocksdb_filtering_prefix_length));
+                new GraphPrefixTransform(lengthBeforeVid + vidLen));
     }
     bbtOpts.whole_key_filtering = FLAGS_enable_rocksdb_whole_key_filtering;
     baseOpts.table_factory.reset(NewBlockBasedTableFactory(bbtOpts));

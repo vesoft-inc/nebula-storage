@@ -41,10 +41,10 @@ MetaVersion MetaVersionMan::getVersionByHost(kvstore::KVStore* kv) {
     }
     if (iter->valid()) {
         auto v1KeySize = hostPrefix.size() + sizeof(int64_t);
-        return (iter->key().size() == v1KeySize) ? MetaVersion::V1 : MetaVersion::UNKNOWN;
+        return (iter->key().size() == v1KeySize) ? MetaVersion::V1 : MetaVersion::V2;
     }
-    // No hosts exists, but other data need to upgrade
-    return MetaVersion::V1;
+    // No hosts exists, regard as regard as version 2
+    return MetaVersion::V2;
 }
 
 // static
@@ -222,6 +222,27 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
     }
 
     {
+        // kIndexesTable
+        auto prefix = nebula::oldmeta::kIndexesTable;
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto ret = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+        if (ret == kvstore::ResultCode::SUCCEEDED) {
+            Status status = Status::OK();
+            while (iter->valid()) {
+                if (FLAGS_print_info) {
+                    upgrader.printIndexes(iter->val());
+                }
+                status = upgrader.rewriteIndexes(iter->key(), iter->val());
+                if (!status.ok()) {
+                    LOG(ERROR) << status;
+                    return status;
+                }
+                iter->next();
+            }
+        }
+    }
+
+    {
         // kConfigsTable
         auto prefix = nebula::oldmeta::kConfigsTable;
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -275,7 +296,6 @@ Status MetaVersionMan::doUpgrade(kvstore::KVStore* kv) {
     // delete
     {
         std::vector<std::string> prefixes({nebula::oldmeta::kIndexStatusTable,
-                                           nebula::oldmeta::kIndexesTable,
                                            nebula::oldmeta::kDefaultTable,
                                            nebula::oldmeta::kCurrJob,
                                            nebula::oldmeta::kJobArchive});
