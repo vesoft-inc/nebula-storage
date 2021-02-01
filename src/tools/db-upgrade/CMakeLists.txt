@@ -4,6 +4,7 @@ nebula_add_executable(
     SOURCES
         DbUpgraderTool.cpp
         NebulaKeyUtilsV1.cpp
+        NebulaKeyUtilsV2.cpp
         DbUpgrader.cpp
     OBJECTS
         $<TARGET_OBJECTS:version_obj>

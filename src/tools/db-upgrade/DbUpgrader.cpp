@@ -8,17 +8,20 @@
 #include "common/datatypes/Value.h"
 #include "tools/db-upgrade/DbUpgrader.h"
 #include "tools/db-upgrade/NebulaKeyUtilsV1.h"
+#include "tools/db-upgrade/NebulaKeyUtilsV2.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/IndexKeyUtils.h"
 #include "codec/RowWriterV2.h"
 
 
 DEFINE_string(src_db_path, "", "Source data path(data_path in storage 1.0 conf), "
-                                "multi paths should be split by comma");
+                               "multi paths should be split by comma");
 DEFINE_string(dst_db_path, "", "Destination data path(data_path in storage 2.0 conf), "
                                "multi paths should be split by comma");
 DEFINE_string(upgrade_meta_server, "127.0.0.1:45500", "Meta servers' address.");
 DEFINE_uint32(write_batch_num, 100, "The size of the batch written to rocksdb");
+DEFINE_bool(update_v1, true, "When true, upgrade data from v1 to v2 Ga, "
+                             "When false, upgrade data from v2 rc to v2 Ga");
 
 namespace nebula {
 namespace storage {
@@ -176,7 +179,7 @@ bool UpgraderSpace::isValidVidLen(VertexID srcVId, VertexID dstVId) {
     return true;
 }
 
-void UpgraderSpace::doProcess() {
+void UpgraderSpace::doProcessV1() {
     LOG(INFO) << "Start to handle data in space Id " << spaceId_;
     // Handle vertex and edge, if there is an index, generate index data
     for (auto& partId : parts_) {
@@ -227,7 +230,7 @@ void UpgraderSpace::doProcess() {
                 }
 
                 auto strVid = std::string(reinterpret_cast<const char*>(&vId), sizeof(vId));
-                auto newTagSchema = it->second.back();
+                auto newTagSchema = it->second.back().get();
                 // Generate 2.0 key
                 auto newKey = NebulaKeyUtils::vertexKey(spaceVidLen_,
                                                         partId,
@@ -241,7 +244,7 @@ void UpgraderSpace::doProcess() {
                     continue;
                 }
                 // Generate 2.0 value and index records
-                encodeVertexValue(partId, reader.get(), newTagSchema.get(),
+                encodeVertexValue(partId, reader.get(), newTagSchema,
                                   newKey, strVid, tagId, data);
 
                 lastTagId = tagId;
@@ -276,7 +279,7 @@ void UpgraderSpace::doProcess() {
                 auto strsvId = std::string(reinterpret_cast<const char*>(&svId), sizeof(svId));
                 auto strdvId = std::string(reinterpret_cast<const char*>(&dvId), sizeof(dvId));
 
-                auto newEdgeSchema = it->second.back();
+                auto newEdgeSchema = it->second.back().get();
 
                 // Generate 2.0 key
                 auto newKey = NebulaKeyUtils::edgeKey(spaceVidLen_,
@@ -296,7 +299,7 @@ void UpgraderSpace::doProcess() {
                     continue;
                 }
                 // Generate 2.0 value and index records
-                encodeEdgeValue(partId, reader.get(), newEdgeSchema.get(), newKey, strsvId,
+                encodeEdgeValue(partId, reader.get(), newEdgeSchema, newKey, strsvId,
                                 edgetype, ranking, strdvId, data);
                 lastSrcVertexId = svId;
                 lastEdgeType  = edgetype;
@@ -325,43 +328,6 @@ void UpgraderSpace::doProcess() {
         data.clear();
         LOG(INFO) << "Handle vertex/edge/index data in space Id " << spaceId_
                   << " partId " << partId << " succeed";
-    }
-
-    // handle uuid data
-    {
-        LOG(INFO) << "Start to handle uuid data in space Id " << spaceId_;
-        auto prefix = NebulaKeyUtilsV1::UUIDPrefix();
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto retCode = readEngine_->prefix(prefix, &iter);
-        if (retCode != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR) << "Space id " << spaceId_ << " get UUID failed";
-            LOG(ERROR) << "Handle uuid data in space Id " << spaceId_ << " failed";
-            return;
-        }
-        std::vector<kvstore::KV> data;
-        while (iter && iter->valid()) {
-            auto key = iter->key();
-            auto val = iter->val();
-            auto partId = NebulaKeyUtilsV1::getPart(key);
-            auto uuidName = NebulaKeyUtilsV1::getUUIDName(key);
-            auto newKey = NebulaKeyUtils::uuidKey(partId, uuidName);
-            data.emplace_back(std::move(newKey), std::move(val));
-            if (data.size() >= FLAGS_write_batch_num) {
-                VLOG(2) << "Send uuid record total rows " << data.size();
-                auto code = writeEngine_->multiPut(data);
-                if (code != kvstore::ResultCode::SUCCEEDED) {
-                    LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
-                }
-                data.clear();
-            }
-            iter->next();
-        }
-
-        auto code = writeEngine_->multiPut(data);
-        if (code != kvstore::ResultCode::SUCCEEDED) {
-            LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
-        }
-        LOG(INFO) << "Handle uuid data in space Id " << spaceId_ << " success";
     }
 
     // handle system data
@@ -400,7 +366,189 @@ void UpgraderSpace::doProcess() {
     }
 }
 
-// Think that the old and new values are exactly the same, so use one reader
+void UpgraderSpace::doProcessV2() {
+    LOG(INFO) << "Start to handle data in space Id " << spaceId_;
+    // Handle vertex and edge, if there is an index, generate index data
+    for (auto& partId : parts_) {
+        LOG(INFO) << "Start to handle vertex/edge/index data in space Id " << spaceId_
+                  << " partId " << partId;
+        auto prefix = NebulaKeyUtilsV2::partPrefix(partId);
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto retCode = readEngine_->prefix(prefix, &iter);
+        if (retCode != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Space id " << spaceId_ << " part " << partId
+                       << " no found!";
+            LOG(ERROR) << "Handle vertex/edge/index data in space Id " << spaceId_
+                       << " partId " << partId << " failed";
+            continue;
+        }
+
+        std::vector<kvstore::KV> data;
+        TagID                                lastTagId = 0;
+        VertexID                             lastVertexId = "";
+
+        VertexID                             lastSrcVertexId = "";
+        EdgeType                             lastEdgeType = 0;
+        VertexID                             lastDstVertexId = "";
+        EdgeRanking                          lastRank = 0;
+
+        while (iter && iter->valid()) {
+            auto key = iter->key();
+            if (NebulaKeyUtilsV2::isVertex(spaceVidLen_, key)) {
+                auto vId = NebulaKeyUtilsV2::getVertexId(spaceVidLen_, key).str();
+                auto tagId = NebulaKeyUtilsV2::getTagId(spaceVidLen_, key);
+
+                auto it = tagSchemas_.find(tagId);
+                if (it == tagSchemas_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
+                auto iterField = tagFieldName_.find(tagId);
+                if (iterField == tagFieldName_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
+                if (vId == lastVertexId && tagId == lastTagId) {
+                    // Multi version
+                    iter->next();
+                    continue;
+                }
+
+                auto newTagSchema = it->second.back().get();
+                // Generate 2.0 key
+                auto newKey = NebulaKeyUtils::vertexKey(spaceVidLen_,
+                                                        partId,
+                                                        vId,
+                                                        tagId);
+                auto val = iter->val();
+                auto reader = RowReaderWrapper::getTagPropReader(schemaMan_, spaceId_, tagId, val);
+                if (!reader) {
+                    LOG(ERROR) << "Can't get tag reader of " << tagId;
+                    iter->next();
+                    continue;
+                }
+                // Generate 2.0 value and index records
+                encodeVertexValue(partId, reader.get(), newTagSchema,
+                                  newKey, vId, tagId, data);
+
+                lastTagId = tagId;
+                lastVertexId = vId;
+            } else if (NebulaKeyUtilsV2::isEdge(spaceVidLen_, key)) {
+                auto svId = NebulaKeyUtilsV2::getSrcId(spaceVidLen_, key).str();
+                auto edgetype = NebulaKeyUtilsV2::getEdgeType(spaceVidLen_, key);
+                auto ranking = NebulaKeyUtilsV2::getRank(spaceVidLen_, key);
+                auto dvId = NebulaKeyUtilsV2::getDstId(spaceVidLen_, key).str();
+
+                auto it = edgeSchemas_.find(std::abs(edgetype));
+                if (it == edgeSchemas_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
+                auto iterField = edgeFieldName_.find(std::abs(edgetype));
+                if (iterField == edgeFieldName_.end()) {
+                    // Invalid data
+                    iter->next();
+                    continue;
+                }
+                if (svId == lastSrcVertexId &&
+                    edgetype == lastEdgeType &&
+                    ranking == lastRank &&
+                    dvId == lastDstVertexId) {
+                    // Multi version
+                    iter->next();
+                    continue;
+                }
+
+                auto newEdgeSchema = it->second.back().get();
+
+                // Generate 2.0 key
+                auto newKey = NebulaKeyUtils::edgeKey(spaceVidLen_,
+                                                      partId,
+                                                      svId,
+                                                      edgetype,
+                                                      ranking,
+                                                      dvId);
+                auto val = iter->val();
+                auto reader = RowReaderWrapper::getEdgePropReader(schemaMan_,
+                                                                  spaceId_,
+                                                                  std::abs(edgetype),
+                                                                  val);
+                if (!reader) {
+                    LOG(ERROR) << "Can't get edge reader of " << edgetype;
+                    iter->next();
+                    continue;
+                }
+                // Generate 2.0 value and index records
+                encodeEdgeValue(partId, reader.get(), newEdgeSchema, newKey, svId,
+                                edgetype, ranking, dvId, data);
+                lastSrcVertexId = svId;
+                lastEdgeType  = edgetype;
+                lastRank = ranking;
+                lastDstVertexId = dvId;
+            }
+
+            if (data.size() >= FLAGS_write_batch_num) {
+                VLOG(2) << "Send record total rows " << data.size();
+                auto code = writeEngine_->multiPut(data);
+                if (code != kvstore::ResultCode::SUCCEEDED) {
+                    LOG(FATAL) << "Write multi put failed in space id " << spaceId_
+                               << " partid " << partId;
+                }
+                data.clear();
+            }
+
+            iter->next();
+        }
+
+        auto code = writeEngine_->multiPut(data);
+        if (code != kvstore::ResultCode::SUCCEEDED) {
+            LOG(FATAL) << "Write multi put failed in space id " << spaceId_
+                       << " partid " << partId;
+        }
+        data.clear();
+        LOG(INFO) << "Handle vertex/edge/index data in space Id " << spaceId_
+                  << " partId " << partId << " succeed";
+    }
+
+    // handle system data
+    {
+        LOG(INFO) << "Start to handle system data in space Id " << spaceId_;
+        auto prefix = NebulaKeyUtilsV2::systemPrefix();
+        std::unique_ptr<kvstore::KVIterator> iter;
+        auto retCode = readEngine_->prefix(prefix, &iter);
+        if (retCode != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Space id " << spaceId_ << " get system data failed";
+            LOG(ERROR) << "Handle system data in space Id " << spaceId_ << " failed";
+            return;
+        }
+        std::vector<kvstore::KV> data;
+        while (iter && iter->valid()) {
+            auto key = iter->key();
+            auto val = iter->val();
+            data.emplace_back(std::move(key), std::move(val));
+            if (data.size() >= FLAGS_write_batch_num) {
+                VLOG(2) << "Send system data total rows " << data.size();
+                auto code = writeEngine_->multiPut(data);
+                if (code != kvstore::ResultCode::SUCCEEDED) {
+                    LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
+                }
+                data.clear();
+            }
+            iter->next();
+        }
+
+        auto code = writeEngine_->multiPut(data);
+        if (code != kvstore::ResultCode::SUCCEEDED) {
+            LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
+        }
+        LOG(INFO) << "Handle system data in space Id " << spaceId_ << " success";
+        LOG(INFO) << "Handle data in space Id " << spaceId_ << " success";
+    }
+}
+
 void UpgraderSpace::encodeVertexValue(PartitionID partId,
                                       RowReader* reader,
                                       const meta::NebulaSchemaProvider* schema,
@@ -416,14 +564,19 @@ void UpgraderSpace::encodeVertexValue(PartitionID partId,
         LOG(ERROR)  << "Vertex or edge value is empty";
         return;
     }
-    data.emplace_back(std::move(newkey), std::move(ret));
+    data.emplace_back(std::move(newkey), ret);
 
     // encode v2 index value
     auto it = tagIndexes_.find(tagId);
     if (it != tagIndexes_.end()) {
-        // Use old RowReader, because the values are same
+        // Use new RowReader
+        auto nReader = RowReaderWrapper::getTagPropReader(schemaMan_, spaceId_, tagId, ret);
+        if (nReader == nullptr) {
+             LOG(ERROR) << "Bad format row";
+             return;
+        }
         for (auto& index : it->second) {
-            auto newIndexKey = indexVertexKey(partId, strVid, reader, index);
+            auto newIndexKey = indexVertexKey(partId, strVid, nReader.get(), index);
             if (!newIndexKey.empty()) {
                 data.emplace_back(std::move(newIndexKey), "");
             }
@@ -440,27 +593,40 @@ std::string UpgraderSpace::encodeRowVal(const RowReader* reader,
         LOG(ERROR)  << "schema not found from RowReader.";
         return "";
     }
-    std::vector<Value> props;
-    for (auto& name : fieldName) {
-        auto val = reader->getValueByName(name);
-        if (val != Value::kNullUnknownProp && val != Value::kNullBadType) {
-            props.emplace_back(val);
-        } else {
-            LOG(ERROR)  << "Data is illegal.";
-            return "";
-        }
-    }
 
     // encode v2 value, use new schema
     WriteResult wRet;
     RowWriterV2 rowWrite(schema);
-    for (size_t i = 0; i < props.size(); i++) {
-        wRet = rowWrite.setValue(i, props[i]);
-        if (wRet != WriteResult::SUCCEEDED) {
-            LOG(ERROR)  << "Write rowWriterV2 failed";
-            return "";
+
+    // fieldName contains all the fields of the latest schema.
+    // The data reader may not use the latest schema,
+    // If it does not contain the field, the default value or null value will be used.
+    for (auto& name : fieldName) {
+        auto val = reader->getValueByName(name);
+        if (val.type() != Value::Type::NULLVALUE) {
+            wRet = rowWrite.setValue(name, val);
+            if (wRet != WriteResult::SUCCEEDED) {
+                LOG(ERROR)  << "Write rowWriterV2 failed";
+                return "";
+            }
+        } else {
+            // read null value
+            auto nullType = val.getNull();
+            if (nullType == NullType::__NULL__) {
+                wRet = rowWrite.setValue(name, val);
+                if (wRet != WriteResult::SUCCEEDED) {
+                    LOG(ERROR)  << "Write rowWriterV2 failed";
+                    return "";
+                }
+            } else if (nullType != NullType::UNKNOWN_PROP) {
+                // nullType == NullType::kNullUnknownProp, indicates that the field is
+                // only in the latest schema, maybe use default value or null value.
+                LOG(ERROR)  << "Data is illegal in " << name << " field";
+                return "";
+            }
         }
     }
+
     wRet = rowWrite.finish();
     if (wRet != WriteResult::SUCCEEDED) {
         LOG(ERROR)  << "Write rowWriterV2 failed";
@@ -485,7 +651,6 @@ std::string UpgraderSpace::indexVertexKey(PartitionID partId,
                                          std::move(values).value());
 }
 
-// Think that the old and new values are exactly the same, so use one reader
 void UpgraderSpace::encodeEdgeValue(PartitionID partId,
                                     RowReader* reader,
                                     const meta::NebulaSchemaProvider* schema,
@@ -502,7 +667,7 @@ void UpgraderSpace::encodeEdgeValue(PartitionID partId,
     if (ret.empty()) {
         return;
     }
-    data.emplace_back(std::move(newkey), std::move(ret));
+    data.emplace_back(std::move(newkey), ret);
 
     if (type <= 0) {
         return;
@@ -511,8 +676,13 @@ void UpgraderSpace::encodeEdgeValue(PartitionID partId,
     // encode v2 index value
     auto it = edgeIndexes_.find(type);
     if (it != edgeIndexes_.end()) {
+        auto nReader = RowReaderWrapper::getEdgePropReader(schemaMan_, spaceId_, type, ret);
+        if (nReader == nullptr) {
+            LOG(ERROR) << "Bad format row";
+            return;
+        }
         for (auto& index : it->second) {
-            auto newIndexKey = indexEdgeKey(partId, reader, svId, rank, dstId, index);
+            auto newIndexKey = indexEdgeKey(partId, nReader.get(), svId, rank, dstId, index);
             if (!newIndexKey.empty()) {
                 data.emplace_back(std::move(newIndexKey), "");
             }
@@ -596,7 +766,11 @@ void DbUpgrader::run() {
                            << " to path " << dstPath << " init failed";
                 return;
             }
-            upgraderSpace.doProcess();
+            if (FLAGS_update_v1) {
+                upgraderSpace.doProcessV1();
+            } else {
+                upgraderSpace.doProcessV2();
+            }
             LOG(INFO) << "Upgrade from path " << srcPath  << " space id" << entry
                       << " to path " << dstPath << " end";
         }));

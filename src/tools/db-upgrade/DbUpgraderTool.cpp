@@ -47,6 +47,7 @@ void printParams() {
     std::cout << "meta server: " << FLAGS_upgrade_meta_server << "\n";
     std::cout << "source data path: " << FLAGS_src_db_path << "\n";
     std::cout << "destination data path: " << FLAGS_dst_db_path << "\n";
+    std::cout << "upgrade data version variable: " << FLAGS_update_v1 << "\n";
     std::cout << "===========================PARAMS============================\n\n";
 }
 
