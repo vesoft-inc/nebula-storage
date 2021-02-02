@@ -21,8 +21,9 @@ DECLARE_string(src_db_path);
 DECLARE_string(dst_db_path);
 DECLARE_string(upgrade_meta_server);
 DECLARE_uint32(write_batch_num);
-DECLARE_uint32(write_batch_num);
 DECLARE_bool(update_v1);
+DECLARE_bool(compactions);
+
 
 namespace nebula {
 namespace storage {
@@ -46,6 +47,9 @@ public:
 
     // Processing v2 Rc data upgrade to v2 Ga
     void doProcessV2();
+
+
+    void doCompaction();
 
 private:
     Status initSpace(const std::string& spaceId);
@@ -90,16 +94,17 @@ private:
                             VertexID& dstId,
                             std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
+public:
+    // Souce data path
+    std::string                                                    srcPath_;
+    // Destination data path
+    std::string                                                    dstPath_;
+    std::string                                                    entry_;
+
 private:
     meta::MetaClient*                                              metaClient_;
     meta::ServerBasedSchemaManager*                                schemaMan_;
     meta::IndexManager*                                            indexMan_;
-    // Souce data path
-    std::string                                                    srcPath_;
-
-    // Destination data path
-    std::string                                                    dstPath_;
-    std::vector<std::string>                                       subDirs_;
 
     // The following variables are space level, When switching space, need to change
     GraphSpaceID                                                   spaceId_;

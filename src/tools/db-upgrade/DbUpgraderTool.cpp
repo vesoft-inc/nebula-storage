@@ -6,17 +6,20 @@
 
 #include "common/base/Base.h"
 #include "tools/db-upgrade/DbUpgrader.h"
+#include "kvstore/RocksEngineConfig.h"
 
+
+DECLARE_string(rocksdb_column_family_options);
 
 void printHelp() {
     fprintf(stderr,
            R"(  ./db_upgrade --src_db_path=<path to rocksdb> --dst_db_path=<path to rocksdb>  --upgrade_meta_server=<ip:port,...>
 
-desc: 
+desc:
         This tool is used to upgrade data from nebula 1.0 or the previous versions of nebula 2.0 RC
         to nebula 2.0 GA version.
 
-required:   
+required:
        --src_db_path=<path to rocksdb>
          Source data path(data_path in storage 1.0 conf) to the rocksdb data directory.
          This is an absolute path, multi paths should be split by comma.
@@ -32,12 +35,27 @@ required:
          Default: ""
 
          note:
-         The number of paths in src_db_path is equal to the number of paths in dst_db_path, and 
+         The number of paths in src_db_path is equal to the number of paths in dst_db_path, and
          src_db_path and dst_db_path must be different.
 
        --upgrade_meta_server=<ip:port,...>
          A list of meta severs' ip:port seperated by comma.
          Default: 127.0.0.1:45500
+
+ optional:
+       --write_batch_num=<N>
+         The size of the batch written to rocksdb.
+         Default: 100
+
+       --update_v1=<true|false>
+         This tool can only upgrade 1.0 data or 2.0 rc data.
+         The data to be upgraded is 1.0 when true.
+         he data to be upgraded is 2.0 rc when false.
+         Default: true
+
+       --compactions=<true|false>
+         When the data upgrade finished, whether to compact all data.
+         Default: true
 )");
 }
 
@@ -47,12 +65,21 @@ void printParams() {
     std::cout << "meta server: " << FLAGS_upgrade_meta_server << "\n";
     std::cout << "source data path: " << FLAGS_src_db_path << "\n";
     std::cout << "destination data path: " << FLAGS_dst_db_path << "\n";
-    std::cout << "upgrade data version variable: " << FLAGS_update_v1 << "\n";
+    std::cout << "The size of the batch written: " << FLAGS_write_batch_num << "\n";
+    std::cout << "upgrade data version variable(true is v1.0, false is v2 rc): "
+              << FLAGS_update_v1 << "\n";
+    std::cout << "whether to compact all data: " << FLAGS_compactions << "\n";
     std::cout << "===========================PARAMS============================\n\n";
 }
 
 
 int main(int argc, char *argv[]) {
+    // When begin to upgrade the data, close compaction
+    // When upgrade finished, manually perform compaction.
+    FLAGS_rocksdb_column_family_options = R"({
+            "disable_auto_compactions":"true"
+    })";
+
     if (argc == 1) {
         printHelp();
         return EXIT_FAILURE;

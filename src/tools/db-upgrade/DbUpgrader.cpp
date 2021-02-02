@@ -23,6 +23,10 @@ DEFINE_uint32(write_batch_num, 100, "The size of the batch written to rocksdb");
 DEFINE_bool(update_v1, true, "When true, upgrade data from v1 to v2 Ga, "
                              "When false, upgrade data from v2 rc to v2 Ga");
 
+DEFINE_bool(compactions, true, "When the upgrade of all spaces under a path is completed, "
+                               "whether to compact");
+
+
 namespace nebula {
 namespace storage {
 
@@ -37,8 +41,9 @@ Status UpgraderSpace::init(meta::MetaClient* mclient,
     indexMan_ = iMan;
     srcPath_ = srcPath;
     dstPath_ = dstPath;
+    entry_ = entry;
 
-    auto ret = initSpace(entry);
+    auto ret = initSpace(entry_);
     if (!ret.ok()) {
         return ret;
     }
@@ -709,6 +714,17 @@ std::string UpgraderSpace::indexEdgeKey(PartitionID partId,
                                        std::move(values).value());
 }
 
+
+void UpgraderSpace::doCompaction() {
+    auto ret = writeEngine_->compact();
+    if (ret != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "Path " << dstPath_ << " space id " << spaceId_
+                   << " compaction failed!";
+    }
+    LOG(INFO) << "Path " << dstPath_ << " space id " << spaceId_
+              << " compaction success!";
+}
+
 Status DbUpgrader::init(meta::MetaClient* mclient,
                         meta::ServerBasedSchemaManager*sMan,
                         meta::IndexManager* iMan,
@@ -749,30 +765,32 @@ void DbUpgrader::run() {
               << dstPath_ << " in DbUpgrader run begin";
     // 1. Get all the directories in the data directory,
     // each directory name is spaceId, traverse each directory
-    std::vector<std::thread> threads;
+    std::vector<std::unique_ptr<nebula::storage::UpgraderSpace>> upgraderSpaces;
     for (auto& entry : subDirs_) {
-        threads.emplace_back(std::thread([mclient = metaClient_,
-                                          sMan = schemaMan_,
-                                          iMan = indexMan_,
-                                          srcPath = srcPath_,
-                                          dstPath = dstPath_,
-                                          &entry] {
-            LOG(INFO) << "Upgrade from path " << srcPath  << " space id" << entry
-                      << " to path " << dstPath << " begin";
-            nebula::storage::UpgraderSpace upgraderSpace;
-            auto ret = upgraderSpace.init(mclient, sMan, iMan, srcPath, dstPath, entry);
-            if (!ret.ok()) {
-                LOG(INFO) << "Upgrade from path " << srcPath  << " space id" << entry
-                           << " to path " << dstPath << " init failed";
-                return;
-            }
+        auto it = std::make_unique<nebula::storage::UpgraderSpace>();
+        auto ret = it->init(metaClient_, schemaMan_, indexMan_, srcPath_, dstPath_, entry);
+        if (!ret.ok()) {
+            LOG(INFO) << "Upgrade from path " << srcPath_  << " space id" << entry
+                       << " to path " << dstPath_ << " init failed";
+            return;
+        }
+        upgraderSpaces.emplace_back(std::move(it));
+    }
+
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < upgraderSpaces.size(); i++) {
+        threads.emplace_back(std::thread([upgraderSpaceIter = upgraderSpaces[i].get()] {
+            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                      << " space id" << upgraderSpaceIter->entry_ << " to path "
+                      << upgraderSpaceIter->dstPath_ << " begin";
             if (FLAGS_update_v1) {
-                upgraderSpace.doProcessV1();
+                upgraderSpaceIter->doProcessV1();
             } else {
-                upgraderSpace.doProcessV2();
+                upgraderSpaceIter->doProcessV2();
             }
-            LOG(INFO) << "Upgrade from path " << srcPath  << " space id" << entry
-                      << " to path " << dstPath << " end";
+            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                      << " space id" << upgraderSpaceIter->entry_ << " to path "
+                      << upgraderSpaceIter->dstPath_ << " end";
         }));
     }
 
@@ -780,6 +798,28 @@ void DbUpgrader::run() {
     for (auto& t : threads) {
         t.join();
     }
+
+    if (FLAGS_compactions) {
+        std::vector<std::thread> compactThreads;
+        for (size_t i = 0; i < upgraderSpaces.size(); i++) {
+            compactThreads.emplace_back(std::thread([upgraderSpaceIter = upgraderSpaces[i].get()] {
+                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                          << " space id" << upgraderSpaceIter->entry_ << " to path "
+                          << upgraderSpaceIter->dstPath_ << " compaction begin";
+                upgraderSpaceIter->doCompaction();
+
+                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                          << " space id" << upgraderSpaceIter->entry_ << " to path "
+                          << upgraderSpaceIter->dstPath_ << " compaction end";
+            }));
+        }
+
+        // Wait for all threads to finish
+        for (auto& t : compactThreads) {
+            t.join();
+        }
+    }
+
     LOG(INFO) << "Upgrade from path " << srcPath_ << " to path "
               << dstPath_ << " in DbUpgrader run end";
 }
