@@ -51,11 +51,11 @@ nebula_add_executable(
         wangle
 )
 
-#install(
-#    TARGETS
-#        db_upgrader
-#    DESTINATION
-#        bin
-#    COMPONENT
-#        tool
-#)
+install(
+    TARGETS
+        db_upgrader
+    DESTINATION
+        bin
+    COMPONENT
+        tool
+)
