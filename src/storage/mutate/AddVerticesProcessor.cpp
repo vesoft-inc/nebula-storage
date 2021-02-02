@@ -125,10 +125,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
     const auto& partVertices = req.get_parts();
     const auto& propNamesMap = req.get_prop_names();
     for (auto& part : partVertices) {
-        std::vector<kvstore::KV> data;
-        data.reserve(32);
-        std::vector<std::string> remove;
-        remove.reserve(32);
+        std::unique_ptr<kvstore::BatchHolder> batchHolder =
+        std::make_unique<kvstore::BatchHolder>();
         auto partId = part.first;
         const auto& vertices = part.second;
         for (auto& vertex : vertices) {
@@ -145,20 +143,12 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
 
             for (auto& newTag : newTags) {
                 auto tagId = newTag.get_tag_id();
-                // if (!env_->vertexCCHM_->try_emplace(std::make_tuple(spaceId_,
-                //                                                     partId,
-                //                                                     tagId,
-                //                                                     vid), false).second) {
-                //     VLOG(1) << "Concurrent conflict : " << tagId << ":" << vid;
-                //     continue;
-                // }
                 VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
                         << ", TagID: " << tagId;
 
                 auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
                 if (!schema) {
                     LOG(ERROR) << "Space " << spaceId_ << ", Tag " << tagId << " invalid";
-                    // env_->vertexCCHM_->erase(std::make_tuple(spaceId_, partId, tagId, vid));
                     pushResultCode(cpp2::ErrorCode::E_TAG_NOT_FOUND, partId);
                     onFinished();
                     return;
@@ -176,10 +166,6 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
                 if (!retEnc.ok()) {
                     LOG(ERROR) << retEnc.status();
-                    // env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
-                    //                                          partId,
-                    //                                          tagId,
-                    //                                          vid));
                     pushResultCode(writeResultTo(wRet, false), partId);
                     onFinished();
                     return;
@@ -188,16 +174,18 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 RowReaderWrapper nReader;
                 RowReaderWrapper oReader;
                 auto obsIdx = findOldValue(partId, vid, tagId);
-                if (obsIdx != folly::none) {
+                if (obsIdx != folly::none && !obsIdx.value().empty()) {
                     oReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
                                                                  spaceId_,
                                                                  tagId,
                                                                  std::move(obsIdx).value());
                 }
-                nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
-                                                             spaceId_,
-                                                             tagId,
-                                                             retEnc.value());
+                if (!retEnc.value().empty()) {
+                    nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                                 spaceId_,
+                                                                 tagId,
+                                                                 retEnc.value());
+                }
                 for (auto& index : indexes_) {
                     if (tagId == index->get_schema_id().get_tag_id()) {
                         /*
@@ -206,49 +194,26 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         if (oReader != nullptr) {
                             auto oi = indexKey(partId, vid, oReader.get(), index);
                             if (!oi.empty()) {
-                                // auto ret = doSyncRemove(spaceId_, partId, {std::move(oi)});
-                                // if (ret != kvstore::ResultCode::SUCCEEDED) {
-                                //     env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
-                                //                                              partId,
-                                //                                              tagId,
-                                //                                              vid));
-                                //     pushResultCode(to(ret), partId);
-                                //     onFinished();
-                                //     return;
-                                // }
-                                remove.emplace_back(std::move(oi));
+                                batchHolder->remove(std::move(oi));
                             }
                         }
 
-                        // std::vector<kvstore::KV> data;
-                        // data.reserve(2);
                         /*
                         * step 2 , Insert new vertex index
                         */
                         if (nReader != nullptr) {
                             auto ni = indexKey(partId, vid, nReader.get(), index);
                             if (!ni.empty()) {
-                                data.emplace_back(std::move(ni), "");
+                                batchHolder->put(std::move(ni), "");
                             }
                         }
 
                         /*
                         * step 3 , Insert new vertex data
                         */
-                        data.emplace_back(std::move(key), std::move(retEnc.value()));
-                        // auto ret = doSyncPut(spaceId_, partId, std::move(data));
-                        //     if (ret != kvstore::ResultCode::SUCCEEDED) {
-                        //         env_->vertexCCHM_->erase(std::make_tuple(spaceId_,
-                        //                                                  partId,
-                        //                                                  tagId,
-                        //                                                  vid));
-                        //         pushResultCode(to(ret), partId);
-                        //         onFinished();
-                        //         return;
-                        //     }
+                        batchHolder->put(std::move(key), std::move(retEnc.value()));
                     }
                 }
-                // env_->vertexCCHM_->erase(std::make_tuple(spaceId_, partId, tagId, vid));
                 if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
                     vertexCache_->evict(std::make_pair(vid, tagId));
                     VLOG(3) << "Evict cache for vId " << vid
@@ -256,17 +221,16 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 }
             }
         }
-        if (!remove.empty()) {
-            env_->kvstore_->asyncMultiRemove(spaceId_, partId, std::move(remove),
-            [] (kvstore::ResultCode code) {
-                if (code != kvstore::ResultCode::SUCCEEDED) {
-                    VLOG(3) << "remove old index error";
-                }
-            });
+        auto atomic = encodeBatchValue(std::move(batchHolder)->getBatch());
+        if (atomic.empty()) {
+            handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
+        } else {
+            auto callback = [partId, this](kvstore::ResultCode code) {
+                handleAsync(spaceId_, partId, code);
+            };
+            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(atomic), callback);
         }
-        doPut(spaceId_, partId, std::move(data));
     }
-    // onFinished();
 }
 
 folly::Optional<std::string>
