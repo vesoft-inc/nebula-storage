@@ -21,7 +21,7 @@ DECLARE_string(src_db_path);
 DECLARE_string(dst_db_path);
 DECLARE_string(upgrade_meta_server);
 DECLARE_uint32(write_batch_num);
-DECLARE_bool(update_v1);
+DECLARE_uint32(upgrade_version);
 DECLARE_bool(compactions);
 
 

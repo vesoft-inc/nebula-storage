@@ -80,14 +80,8 @@ RocksEngine::RocksEngine(GraphSpaceID spaceId,
                          bool readonly)
     : KVEngine(spaceId), dataPath_(folly::stringPrintf("%s/nebula/%d", dataPath.c_str(), spaceId)) {
     auto path = folly::stringPrintf("%s/data", dataPath_.c_str());
-    if (FileUtils::fileType(path.c_str()) == FileType::NOTEXIST) {
-        if (readonly) {
-            LOG(FATAL) << "Path " << path << " not exist";
-        } else {
-            if (!FileUtils::makeDir(path)) {
-                LOG(FATAL) << "makeDir " << path << " failed";
-            }
-        }
+    if (FileUtils::fileType(path.c_str()) == FileType::NOTEXIST && readonly) {
+        LOG(FATAL) << "Path " << path << " not exist";
     }
 
     if (FileUtils::fileType(path.c_str()) != FileType::DIRECTORY) {

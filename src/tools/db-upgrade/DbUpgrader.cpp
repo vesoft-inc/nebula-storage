@@ -20,9 +20,8 @@ DEFINE_string(dst_db_path, "", "Destination data path(data_path in storage 2.0 c
                                "multi paths should be split by comma");
 DEFINE_string(upgrade_meta_server, "127.0.0.1:45500", "Meta servers' address.");
 DEFINE_uint32(write_batch_num, 100, "The size of the batch written to rocksdb");
-DEFINE_bool(update_v1, true, "When true, upgrade data from v1 to v2 Ga, "
-                             "When false, upgrade data from v2 rc to v2 Ga");
-
+DEFINE_uint32(upgrade_version, 0, "When the value is 1, upgrade the data from 1.0 to 2.0 GA. "
+                                  "When the value is 2, upgrade the data from 2.0 RC to 2.0 GA.");
 DEFINE_bool(compactions, true, "When the upgrade of all spaces under a path is completed, "
                                "whether to compact");
 
@@ -148,7 +147,7 @@ Status UpgraderSpace::buildSchemaAndIndex() {
         for (size_t i = 0; i < fields; i++) {
             edgeFieldName_[std::abs(edgetype)].emplace_back(newestEdgeSchema->getFieldName(i));
         }
-        LOG(INFO) << "Edgetype" << edgetype << " has " << edgeFieldName_[std::abs(edgetype)].size()
+        LOG(INFO) << "Edgetype " << edgetype << " has " << edgeFieldName_[std::abs(edgetype)].size()
                   << " fields!";
     }
 
@@ -783,7 +782,7 @@ void DbUpgrader::run() {
             LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
                       << " space id" << upgraderSpaceIter->entry_ << " to path "
                       << upgraderSpaceIter->dstPath_ << " begin";
-            if (FLAGS_update_v1) {
+            if (FLAGS_upgrade_version == 1) {
                 upgraderSpaceIter->doProcessV1();
             } else {
                 upgraderSpaceIter->doProcessV2();
