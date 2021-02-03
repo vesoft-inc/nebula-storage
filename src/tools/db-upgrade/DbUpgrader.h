@@ -48,8 +48,9 @@ public:
     // Processing v2 Rc data upgrade to v2 Ga
     void doProcessV2();
 
-
     void doCompaction();
+
+    bool copyWal();
 
 private:
     Status initSpace(const std::string& spaceId);

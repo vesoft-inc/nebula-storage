@@ -724,6 +724,58 @@ void UpgraderSpace::doCompaction() {
               << " compaction success!";
 }
 
+bool UpgraderSpace::copyWal() {
+    // Get source wal directory
+    auto srcPath = folly::stringPrintf("%s/%s/%s/%s", srcPath_.c_str(), "nebula",
+                                       entry_.c_str(), "wal");
+    if (!fs::FileUtils::exist(srcPath)) {
+        LOG(ERROR) << "Source data wal path " << srcPath << " not exists!";
+        return false;
+    }
+    // Get destination wal directory
+    auto dstPath = folly::stringPrintf("%s/%s/%s", dstPath_.c_str(), "nebula", entry_.c_str());
+    if (!fs::FileUtils::exist(dstPath)) {
+        LOG(ERROR) << "Destination data wal path " << dstPath << " not exists!";
+        return false;
+    }
+    dstPath = fs::FileUtils::joinPath(dstPath, "wal");
+    if (!fs::FileUtils::makeDir(dstPath)) {
+        LOG(FATAL) << "makeDir " << dstPath << " failed";
+    }
+
+    auto partDirs = fs::FileUtils::listAllDirsInDir(srcPath.c_str());
+    for (size_t i = 0; i < partDirs.size(); i++) {
+        // In general, there are only two wal files left for each part
+        auto files = fs::FileUtils::listAllFilesInDir(folly::stringPrintf("%s/%s", srcPath.c_str(),
+                                                      partDirs[i].c_str()).c_str());
+        // If the number of wal files is greater than two, find the latest two wal files
+        auto walNum = files.size();
+        if (walNum > 2) {
+            std::sort(files.begin(), files.end());
+            auto newestFile = files[walNum -2];
+            auto latestFile = files[walNum -1];
+            files.resize(2);
+            files[0] = newestFile;
+            files[1] = latestFile;
+        }
+
+        for (const auto &file : files) {
+            std::fstream srcF(folly::stringPrintf("%s/%s/%s", srcPath.c_str(), partDirs[i].c_str(),
+                              file.c_str()), std::ios::binary | std::ios::in);
+            auto dstwalpart = folly::stringPrintf("%s/%s", dstPath.c_str(), partDirs[i].c_str());
+            if (!fs::FileUtils::makeDir(dstwalpart)) {
+                LOG(FATAL) << "makeDir " << dstwalpart << " failed";
+            }
+            std::fstream destF(folly::stringPrintf("%s/%s", dstwalpart.c_str(), file.c_str()),
+                               std::ios::binary | std::ios::out);
+            destF << srcF.rdbuf();
+            destF.close();
+            srcF.close();
+        }
+    }
+    return true;
+}
+
 Status DbUpgrader::init(meta::MetaClient* mclient,
                         meta::ServerBasedSchemaManager*sMan,
                         meta::IndexManager* iMan,
@@ -806,6 +858,11 @@ void DbUpgrader::run() {
                           << " space id" << upgraderSpaceIter->entry_ << " to path "
                           << upgraderSpaceIter->dstPath_ << " compaction begin";
                 upgraderSpaceIter->doCompaction();
+                auto ret = upgraderSpaceIter->copyWal();
+                if (!ret) {
+                    LOG(ERROR) << "Copy space id " << upgraderSpaceIter->entry_
+                               << " wal file failed";
+                }
 
                 LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
                           << " space id" << upgraderSpaceIter->entry_ << " to path "
