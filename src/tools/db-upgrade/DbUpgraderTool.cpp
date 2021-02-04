@@ -8,7 +8,6 @@
 #include "tools/db-upgrade/DbUpgrader.h"
 #include "kvstore/RocksEngineConfig.h"
 
-
 DECLARE_string(rocksdb_column_family_options);
 
 void printHelp() {
@@ -16,14 +15,14 @@ void printHelp() {
            R"(  ./db_upgrade --src_db_path=<path to rocksdb> --dst_db_path=<path to rocksdb> --upgrade_meta_server=<ip:port,...> --upgrade_version=<1|2>
 
 desc:
-        This tool is used to upgrade data from nebula 1.0 or the previous versions of nebula 2.0 RC
+        This tool is used to upgrade data from nebula 1.x or the previous versions of nebula 2.0 RC
         to nebula 2.0 GA version.
 
 required:
        --src_db_path=<path to rocksdb>
-         Source data path(data_path in storage 1.0 conf) to the rocksdb data directory.
+         Source data path(data_path in storage 1.x conf) to the rocksdb data directory.
          This is an absolute path, multi paths should be split by comma.
-         If nebula 1.0 was installed in /usr/local/nebula,
+         If nebula 1.x was installed in /usr/local/nebula,
          the db_path would be /usr/local/nebula/data/storage
          Default: ""
 
@@ -43,8 +42,8 @@ required:
          Default: 127.0.0.1:45500
 
        --upgrade_version=<1|2>
-         This tool can only upgrade 1.0 data or 2.0 RC data.
-         When the value is 1, upgrade the data from 1.0 to 2.0 GA.
+         This tool can only upgrade 1.x data or 2.0 RC data.
+         When the value is 1, upgrade the data from 1.x to 2.0 GA.
          When the value is 2, upgrade the data from 2.0 RC to 2.0 GA.
          Default: 0
 
@@ -93,10 +92,10 @@ int main(int argc, char *argv[]) {
 
     printParams();
 
-    // handle arguments
+    // Handle arguments
     LOG(INFO) << "Prepare phase begin";
     if (FLAGS_src_db_path.empty() || FLAGS_dst_db_path.empty()) {
-        LOG(ERROR) << "Source data path(1.0) or destination data path(2.0) should not empty.";
+        LOG(ERROR) << "Source data path or destination data path should not empty.";
         return EXIT_FAILURE;
     }
 
@@ -150,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     if (FLAGS_upgrade_version != 1 && FLAGS_upgrade_version != 2) {
         LOG(ERROR) << "Flag upgrade_version : " << FLAGS_upgrade_version
-                   << " illegal, upgrade_version can only be 1 or 2.";
+                   << " illegal, upgrade_version can only be 1 or 2";
         return EXIT_FAILURE;
     }
     LOG(INFO) << "Prepare phase end";
@@ -187,4 +186,3 @@ int main(int argc, char *argv[]) {
     LOG(INFO) << "Upgrade phase end";
     return 0;
 }
-

@@ -13,7 +13,6 @@
 #include "utils/IndexKeyUtils.h"
 #include "codec/RowWriterV2.h"
 
-
 DEFINE_string(src_db_path, "", "Source data path(data_path in storage 1.x conf), "
                                "multi paths should be split by comma");
 DEFINE_string(dst_db_path, "", "Destination data path(data_path in storage 2.0 conf), "
@@ -24,7 +23,6 @@ DEFINE_uint32(upgrade_version, 0, "When the value is 1, upgrade the data from 1.
                                   "When the value is 2, upgrade the data from 2.0 RC to 2.0 GA.");
 DEFINE_bool(compactions, true, "When the upgrade of all spaces under a path is completed, "
                                "whether to compact data");
-
 
 namespace nebula {
 namespace storage {
@@ -44,6 +42,7 @@ Status UpgraderSpace::init(meta::MetaClient* mclient,
 
     auto ret = initSpace(entry_);
     if (!ret.ok()) {
+        LOG(ERROR) << "Init " << srcPath << " space id " << entry << " failed";
         return ret;
     }
 
@@ -54,13 +53,13 @@ Status UpgraderSpace::initSpace(const std::string& sId) {
     try {
         spaceId_ = folly::to<GraphSpaceID>(sId);
     } catch (const std::exception& ex) {
-        LOG(ERROR) << "Cannot convert space Id " << sId;
-        return Status::Error("Cannot convert space Id %s", sId.c_str());;
+        LOG(ERROR) << "Cannot convert space id " << sId;
+        return Status::Error("Cannot convert space id %s", sId.c_str());;
     }
 
     auto sRet = schemaMan_->toGraphSpaceName(spaceId_);
     if (!sRet.ok()) {
-        LOG(ERROR) << "space Id " << spaceId_ << " no found";
+        LOG(ERROR) << "Space id " << spaceId_ << " no found";
         return sRet.status();
     }
     spaceName_ = sRet.value();
@@ -71,7 +70,7 @@ Status UpgraderSpace::initSpace(const std::string& sId) {
     }
     spaceVidLen_ = spaceVidLen.value();
 
-    // use read only rocksdb
+    // Use readonly rocksdb
     readEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, srcPath_,
                                                        nullptr, nullptr, true));
     writeEngine_.reset(new nebula::kvstore::RocksEngine(spaceId_, spaceVidLen_, dstPath_));
@@ -100,7 +99,7 @@ Status UpgraderSpace::buildSchemaAndIndex() {
     // Get all tag in space
     auto tags = schemaMan_->getAllVerTagSchema(spaceId_);
     if (!tags.ok()) {
-        LOG(ERROR) << "space Id " << spaceId_ << " no found";
+        LOG(ERROR) << "Space id " << spaceId_ << " no found";
         return tags.status();
     }
     tagSchemas_ = std::move(tags).value();
@@ -112,7 +111,10 @@ Status UpgraderSpace::buildSchemaAndIndex() {
         for (size_t i = 0; i < fields; i++) {
             tagFieldName_[tagId].emplace_back(newestTagschema->getFieldName(i));
         }
-        LOG(INFO) << "Tag Id " << tagId << " has " << tagFieldName_[tagId].size()
+        if (fields == 0) {
+            tagFieldName_[tagId] = {};
+        }
+        LOG(INFO) << "Tag id " << tagId << " has " << tagFieldName_[tagId].size()
                   << " fields!";
     }
 
@@ -120,7 +122,7 @@ Status UpgraderSpace::buildSchemaAndIndex() {
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> tagIndexes;
     auto iRet = indexMan_->getTagIndexes(spaceId_);
     if (!iRet.ok()) {
-        LOG(ERROR) << "space Id " << spaceId_ << " no found";
+        LOG(ERROR) << "Space id " << spaceId_ << " no found";
         return iRet.status();
     }
     tagIndexes = std::move(iRet).value();
@@ -128,19 +130,19 @@ Status UpgraderSpace::buildSchemaAndIndex() {
     // Handle tag index
     for (auto&tagIndex : tagIndexes) {
         auto tagId = tagIndex->get_schema_id().get_tag_id();
-        LOG(INFO) << "Tag Id " << tagId;
+        LOG(INFO) << "Tag id " << tagId;
         tagIndexes_[tagId].emplace(tagIndex);
     }
 
     for (auto&tagindexes : tagIndexes_) {
-        LOG(INFO) << "Tag Id " << tagindexes.first  << " has "
+        LOG(INFO) << "Tag id " << tagindexes.first  << " has "
                   << tagindexes.second.size() << " indexes";
     }
 
     // Get all edge in space
     auto edges = schemaMan_->getAllVerEdgeSchema(spaceId_);
     if (!edges.ok()) {
-        LOG(ERROR) << "space Id " << spaceId_ << " no found";
+        LOG(ERROR) << "Space id " << spaceId_ << " no found";
         return edges.status();
     }
     edgeSchemas_ = std::move(edges).value();
@@ -152,15 +154,18 @@ Status UpgraderSpace::buildSchemaAndIndex() {
         for (size_t i = 0; i < fields; i++) {
             edgeFieldName_[std::abs(edgetype)].emplace_back(newestEdgeSchema->getFieldName(i));
         }
-        LOG(INFO) << "Edgetype " << edgetype << " has " << edgeFieldName_[std::abs(edgetype)].size()
-                  << " fields!";
+        if (fields == 0) {
+            edgeFieldName_[std::abs(edgetype)] = {};
+        }
+        LOG(INFO) << "Edgetype " << edgetype << " has "
+                  << edgeFieldName_[std::abs(edgetype)].size() << " fields!";
     }
 
     // Get all edge index in space
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> edgeIndexes;
     iRet = indexMan_->getEdgeIndexes(spaceId_);
     if (!iRet.ok()) {
-        LOG(ERROR) << "space Id " << spaceId_ << " no found";
+        LOG(ERROR) << "Space id " << spaceId_ << " no found";
         return iRet.status();
     }
     edgeIndexes = std::move(iRet).value();
@@ -181,7 +186,7 @@ Status UpgraderSpace::buildSchemaAndIndex() {
 
 bool UpgraderSpace::isValidVidLen(VertexID srcVId, VertexID dstVId) {
     if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, srcVId, dstVId)) {
-        LOG(ERROR) << "vertex id length is illegal, expect: " << spaceVidLen_
+        LOG(ERROR) << "Vertex id length is illegal, expect: " << spaceVidLen_
                    << " result: " << srcVId << " " << dstVId;
         return false;
     }
@@ -189,10 +194,10 @@ bool UpgraderSpace::isValidVidLen(VertexID srcVId, VertexID dstVId) {
 }
 
 void UpgraderSpace::doProcessV1() {
-    LOG(INFO) << "Start to handle data in space Id " << spaceId_;
+    LOG(INFO) << "Start to handle data in space id " << spaceId_;
     // Handle vertex and edge, if there is an index, generate index data
     for (auto& partId : parts_) {
-        LOG(INFO) << "Start to handle vertex/edge/index data in space Id " << spaceId_
+        LOG(INFO) << "Start to handle vertex/edge/index data in space id " << spaceId_
                   << " partId " << partId;
         auto prefix = NebulaKeyUtilsV1::prefix(partId);
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -200,8 +205,8 @@ void UpgraderSpace::doProcessV1() {
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " part " << partId
                        << " no found!";
-            LOG(ERROR) << "Handle vertex/edge/index data in space Id " << spaceId_
-                       << " partId " << partId << " failed";
+            LOG(ERROR) << "Handle vertex/edge/index data in space id " << spaceId_
+                       << " part id " << partId << " failed";
             continue;
         }
 
@@ -332,22 +337,22 @@ void UpgraderSpace::doProcessV1() {
         auto code = writeEngine_->multiPut(data);
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(FATAL) << "Write multi put failed in space id " << spaceId_
-                       << " partid " << partId;
+                       << " part id " << partId;
         }
         data.clear();
-        LOG(INFO) << "Handle vertex/edge/index data in space Id " << spaceId_
-                  << " partId " << partId << " succeed";
+        LOG(INFO) << "Handle vertex/edge/index data in space id " << spaceId_
+                  << " part id " << partId << " succeed";
     }
 
     // handle system data
     {
-        LOG(INFO) << "Start to handle system data in space Id " << spaceId_;
+        LOG(INFO) << "Start to handle system data in space id " << spaceId_;
         auto prefix = NebulaKeyUtilsV1::systemPrefix();
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " get system data failed";
-            LOG(ERROR) << "Handle system data in space Id " << spaceId_ << " failed";
+            LOG(ERROR) << "Handle system data in space id " << spaceId_ << " failed";
             return;
         }
         std::vector<kvstore::KV> data;
@@ -370,25 +375,25 @@ void UpgraderSpace::doProcessV1() {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
         }
-        LOG(INFO) << "Handle system data in space Id " << spaceId_ << " success";
-        LOG(INFO) << "Handle data in space Id " << spaceId_ << " success";
+        LOG(INFO) << "Handle system data in space id " << spaceId_ << " success";
+        LOG(INFO) << "Handle data in space id " << spaceId_ << " success";
     }
 }
 
 void UpgraderSpace::doProcessV2() {
-    LOG(INFO) << "Start to handle data in space Id " << spaceId_;
+    LOG(INFO) << "Start to handle data in space id " << spaceId_;
     // Handle vertex and edge, if there is an index, generate index data
     for (auto& partId : parts_) {
-        LOG(INFO) << "Start to handle vertex/edge/index data in space Id " << spaceId_
-                  << " partId " << partId;
+        LOG(INFO) << "Start to handle vertex/edge/index data in space id " << spaceId_
+                  << " part id " << partId;
         auto prefix = NebulaKeyUtilsV2::partPrefix(partId);
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " part " << partId
                        << " no found!";
-            LOG(ERROR) << "Handle vertex/edge/index data in space Id " << spaceId_
-                       << " partId " << partId << " failed";
+            LOG(ERROR) << "Handle vertex/edge/index data in space id " << spaceId_
+                       << " part id " << partId << " failed";
             continue;
         }
 
@@ -504,7 +509,7 @@ void UpgraderSpace::doProcessV2() {
                 auto code = writeEngine_->multiPut(data);
                 if (code != kvstore::ResultCode::SUCCEEDED) {
                     LOG(FATAL) << "Write multi put failed in space id " << spaceId_
-                               << " partid " << partId;
+                               << " part id " << partId;
                 }
                 data.clear();
             }
@@ -515,22 +520,22 @@ void UpgraderSpace::doProcessV2() {
         auto code = writeEngine_->multiPut(data);
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(FATAL) << "Write multi put failed in space id " << spaceId_
-                       << " partid " << partId;
+                       << " part id " << partId;
         }
         data.clear();
-        LOG(INFO) << "Handle vertex/edge/index data in space Id " << spaceId_
-                  << " partId " << partId << " succeed";
+        LOG(INFO) << "Handle vertex/edge/index data in space id " << spaceId_
+                  << " part id " << partId << " succeed";
     }
 
     // handle system data
     {
-        LOG(INFO) << "Start to handle system data in space Id " << spaceId_;
+        LOG(INFO) << "Start to handle system data in space id " << spaceId_;
         auto prefix = NebulaKeyUtilsV2::systemPrefix();
         std::unique_ptr<kvstore::KVIterator> iter;
         auto retCode = readEngine_->prefix(prefix, &iter);
         if (retCode != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Space id " << spaceId_ << " get system data failed";
-            LOG(ERROR) << "Handle system data in space Id " << spaceId_ << " failed";
+            LOG(ERROR) << "Handle system data in space id " << spaceId_ << " failed";
             return;
         }
         std::vector<kvstore::KV> data;
@@ -553,8 +558,8 @@ void UpgraderSpace::doProcessV2() {
         if (code != kvstore::ResultCode::SUCCEEDED) {
             LOG(FATAL) << "Write multi put failed in space id " << spaceId_;
         }
-        LOG(INFO) << "Handle system data in space Id " << spaceId_ << " success";
-        LOG(INFO) << "Handle data in space Id " << spaceId_ << " success";
+        LOG(INFO) << "Handle system data in space id " << spaceId_ << " success";
+        LOG(INFO) << "Handle data in space id " << spaceId_ << " success";
     }
 }
 
@@ -599,7 +604,7 @@ std::string UpgraderSpace::encodeRowVal(const RowReader* reader,
                                         std::vector<std::string>& fieldName) {
     auto oldSchema = reader->getSchema();
     if (oldSchema == nullptr) {
-        LOG(ERROR)  << "schema not found from RowReader.";
+        LOG(ERROR)  << "Schema not found from RowReader.";
         return "";
     }
 
@@ -685,6 +690,7 @@ void UpgraderSpace::encodeEdgeValue(PartitionID partId,
     // encode v2 index value
     auto it = edgeIndexes_.find(type);
     if (it != edgeIndexes_.end()) {
+        // Use new RowReader
         auto nReader = RowReaderWrapper::getEdgePropReader(schemaMan_, spaceId_, type, ret);
         if (nReader == nullptr) {
             LOG(ERROR) << "Bad format row";
@@ -720,6 +726,8 @@ std::string UpgraderSpace::indexEdgeKey(PartitionID partId,
 
 
 void UpgraderSpace::doCompaction() {
+    LOG(INFO) << "Path " << dstPath_ << " space id " << spaceId_
+              << " compaction begin";
     auto ret = writeEngine_->compact();
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Path " << dstPath_ << " space id " << spaceId_
@@ -792,12 +800,7 @@ Status DbUpgrader::init(meta::MetaClient* mclient,
     srcPath_ = srcPath;
     dstPath_ = dstPath;
 
-    auto ret = listSpace();
-    if (!ret.ok()) {
-        return ret;
-    }
-
-    return Status::OK();
+    return listSpace();
 }
 
 Status DbUpgrader::listSpace() {
@@ -824,6 +827,8 @@ void DbUpgrader::run() {
     std::vector<std::unique_ptr<nebula::storage::UpgraderSpace>> upgraderSpaces;
     for (auto& entry : subDirs_) {
         auto it = std::make_unique<nebula::storage::UpgraderSpace>();
+
+        // When the init space fails, ignore to upgrade this space
         auto ret = it->init(metaClient_, schemaMan_, indexMan_, srcPath_, dstPath_, entry);
         if (!ret.ok()) {
             LOG(WARNING) << "Upgrade from path " << srcPath_  << " space id " << entry
@@ -864,15 +869,20 @@ void DbUpgrader::run() {
                           << " space id " << upgraderSpaceIter->entry_ << " to path "
                           << upgraderSpaceIter->dstPath_ << " compaction begin";
                 upgraderSpaceIter->doCompaction();
+
+                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                          << " space id " << upgraderSpaceIter->entry_ << " to path "
+                          << upgraderSpaceIter->dstPath_ << " compaction end";
+
+                LOG(INFO) << "Copy space id " << upgraderSpaceIter->entry_
+                          << " wal file begin";
                 auto ret = upgraderSpaceIter->copyWal();
                 if (!ret) {
                     LOG(ERROR) << "Copy space id " << upgraderSpaceIter->entry_
                                << " wal file failed";
                 }
-
-                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
-                          << " space id " << upgraderSpaceIter->entry_ << " to path "
-                          << upgraderSpaceIter->dstPath_ << " compaction end";
+                LOG(INFO) << "Copy space id " << upgraderSpaceIter->entry_
+                          << " wal file success";
             }));
         }
 

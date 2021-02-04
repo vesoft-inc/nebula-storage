@@ -159,7 +159,6 @@ private:
 
     void doProcessAllTagsAndEdges();
 
-
 private:
     meta::MetaClient*                                              metaClient_;
     meta::ServerBasedSchemaManager*                                schemaMan_;
