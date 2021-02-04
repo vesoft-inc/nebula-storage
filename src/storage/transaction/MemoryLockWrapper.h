@@ -12,31 +12,34 @@ namespace nebula {
 namespace storage {
 
 template<class Key>
-class SimpleMemoryLock {
+class MemoryLockGuard {
 public:
-    explicit SimpleMemoryLock(const Key& key) : SimpleMemoryLock(std::vector<Key>{key}) {}
+    MemoryLockGuard(MemoryLockCore<Key>* lock, const Key& key)
+        : MemoryLockGuard(lock, std::vector<Key>{key}) {}
 
-    explicit SimpleMemoryLock(const std::vector<Key>& key) : keys_(key) {
-        locked_ = GlobalMemoryLock<Key>::inst().lockBatch(keys_);
+    explicit MemoryLockGuard(MemoryLockCore<Key>* lock, const std::vector<Key>& key)
+        : lock_(lock), keys_(key) {
+        locked_ = lock->lockBatch(keys_);
     }
 
-    ~SimpleMemoryLock() {
+    ~MemoryLockGuard() {
         if (locked_) {
-            GlobalMemoryLock<Key>::inst().unlockBatch(keys_);
+            lock_->unlockBatch(keys_);
         }
     }
 
-    bool isLock() const noexcept {
+    bool isLocked() const noexcept {
         return locked_;
     }
 
     operator bool() const noexcept {
-        return isLock();
+        return isLocked();
     }
 
 protected:
-    bool locked_{false};
+    MemoryLockCore<Key>* lock_;
     std::vector<Key> keys_;
+    bool locked_{false};
 };
 
 }  // namespace storage

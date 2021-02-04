@@ -11,33 +11,31 @@
 namespace nebula {
 namespace storage {
 
-using Lock = SimpleMemoryLock<std::string>;
+using LockGuard = MemoryLockGuard<std::string>;
 
 class MemoryLockTest : public ::testing::Test {
 protected:
-    PartitionID partId_ = 0;
-    VertexID vId_ = "nebula";
 };
 
 TEST_F(MemoryLockTest, SimpleTest) {
+    MemoryLockCore<std::string> mlock;
     {
-        Lock lk1("1");
-        EXPECT_TRUE(lk1.isLock());
+        LockGuard lk1(&mlock, "1");
         EXPECT_TRUE(lk1);
 
-        Lock lk2("1");
-        EXPECT_FALSE(lk2.isLock());
+        LockGuard lk2(&mlock, "1");
+        EXPECT_FALSE(lk2);
     }
     {
-        auto* lk1 = new Lock("1");
+        auto* lk1 = new LockGuard(&mlock, "1");
         EXPECT_TRUE(*lk1);
 
         std::vector<std::string> keys{"1", "2", "3"};
-        Lock lk2(keys);
+        LockGuard lk2(&mlock, keys);
         EXPECT_FALSE(lk2);
 
         delete lk1;
-        Lock lk3(keys);
+        LockGuard lk3(&mlock, keys);
         EXPECT_TRUE(lk3);
     }
 }

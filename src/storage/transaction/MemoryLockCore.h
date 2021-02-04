@@ -21,10 +21,12 @@ public:
 
     ~MemoryLockCore() = default;
 
-    // TODO(liuyu): this may have better perf in high contention
+    // I assume this may have better perf in high contention
     // but may not necessary sort any time.
-    bool try_lockSortedBatch() {
-        return false;
+    // this may be useful while first lock attempt failed,
+    // and try to retry.
+    bool try_lockSortedBatch(const std::vector<Key>& keys) {
+        return lockBatch(keys);
     }
 
     bool try_lock(const Key& key) {
@@ -63,19 +65,6 @@ public:
 
 protected:
     folly::ConcurrentHashMap<Key, int> hashMap_;
-};
-
-
-template<typename Key>
-class GlobalMemoryLock {
-public:
-    static MemoryLockCore<Key>& inst() {
-        static MemoryLockCore<Key> memLock;
-        return memLock;
-    }
-
-private:
-    GlobalMemoryLock() = default;
 };
 
 }  // namespace storage
