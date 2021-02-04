@@ -8,11 +8,7 @@
 
 #include <folly/concurrency/ConcurrentHashMap.h>
 
-#include "storage/CommonUtils.h"
-// #include "common/interface/gen-cpp2/storage_types.h"
-
 namespace nebula {
-namespace storage {
 
 template<typename Key>
 class MemoryLockCore {
@@ -67,5 +63,4 @@ protected:
     folly::ConcurrentHashMap<Key, int> hashMap_;
 };
 
-}  // namespace storage
 }  // namespace nebula

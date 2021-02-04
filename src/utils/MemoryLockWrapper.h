@@ -6,12 +6,11 @@
 
 #pragma once
 
-#include "storage/transaction/MemoryLockCore.h"
+#include "utils/MemoryLockCore.h"
 
 namespace nebula {
-namespace storage {
 
-// an RAII style to control the lock acquire / release
+// RAII style to easily control the lock acquire / release
 template<class Key>
 class MemoryLockGuard {
 public:
@@ -43,5 +42,4 @@ protected:
     bool locked_{false};
 };
 
-}  // namespace storage
 }  // namespace nebula
