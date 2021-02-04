@@ -244,6 +244,8 @@ public:
         GraphSpaceID spaceId,
         const std::string& name) override;
 
+    nebula::cpp2::ErrorCode backup();
+
     nebula::cpp2::ErrorCode
     dropCheckpoint(GraphSpaceID spaceId, const std::string& name) override;
 

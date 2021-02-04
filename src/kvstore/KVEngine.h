@@ -129,6 +129,9 @@ public:
                 const std::string& tablePrefix,
                 std::function<bool(const folly::StringPiece& key)> filter) = 0;
 
+    virtual nebula::cpp2::ErrorCode backup() = 0;
+
+
 protected:
     GraphSpaceID spaceId_;
 };

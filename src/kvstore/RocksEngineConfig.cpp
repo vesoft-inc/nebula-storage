@@ -6,6 +6,7 @@
 
 #include "common/base/Base.h"
 #include "common/conf/Configuration.h"
+#include "common/fs/FileUtils.h"
 #include "kvstore/RocksEngineConfig.h"
 #include "kvstore/EventListener.h"
 #include <rocksdb/db.h>
@@ -45,6 +46,7 @@ DEFINE_string(rocksdb_block_based_table_options,
 DEFINE_int32(rocksdb_batch_size,
              4 * 1024,
              "default reserved bytes for one batch operation");
+
 /*
  * For these un-supported string options as below, will need to specify them with gflag.
  */
@@ -74,10 +76,11 @@ DEFINE_int32(rate_limit, 0,
 
 DEFINE_bool(enable_rocksdb_prefix_filtering, false,
             "Whether or not to enable rocksdb's prefix bloom filter.");
+DEFINE_bool(rocksdb_prefix_bloom_filter_length_flag, false,
+            "If true, prefix bloom filter will be sizeof(PartitionID) + vidLen + sizeof(EdgeType). "
+            "If false, prefix bloom filter will be sizeof(PartitionID) + vidLen. ");
 DEFINE_bool(enable_rocksdb_whole_key_filtering, true,
             "Whether or not to enable the whole key filtering.");
-DEFINE_int32(rocksdb_filtering_prefix_length, 12,
-            "The prefix length, default value is 12 bytes(PartitionID+VertexID).");
 
 DEFINE_bool(rocksdb_compact_change_level, true,
             "If true, compacted files will be moved to the minimum level capable "
@@ -87,6 +90,17 @@ DEFINE_int32(rocksdb_compact_target_level, -1,
              "If change_level is true and target_level have non-negative value, compacted files "
              "will be moved to target_level. If change_level is true and target_level is -1, "
              "compacted files will be moved to the minimum level capable of holding the data.");
+
+DEFINE_string(rocksdb_table_format,
+              "BlockBasedTable",
+              "SST file format of rocksdb, only support BlockBasedTable and PlainTable");
+
+DEFINE_string(rocksdb_wal_dir, "", "Rocksdb wal directory");
+
+DEFINE_string(rocksdb_backup_dir, "", "Rocksdb backup directory, only used in PlainTable format");
+
+DEFINE_int32(rocksdb_backup_interval_secs, 300,
+             "Rocksdb backup directory, only used in PlainTable format");
 
 namespace nebula {
 namespace kvstore {
@@ -98,8 +112,7 @@ private:
 
 public:
     explicit GraphPrefixTransform(size_t prefixLen)
-        : prefixLen_(prefixLen),
-        name_("nebula.GraphPrefix." + std::to_string(prefixLen_)) {}
+        : prefixLen_(prefixLen), name_("nebula.GraphPrefix." + std::to_string(prefixLen_)) {}
 
     const char* Name() const override { return name_.c_str(); }
 
@@ -107,9 +120,15 @@ public:
         return rocksdb::Slice(src.data(), prefixLen_);
     }
 
-    bool InDomain(const rocksdb::Slice& src) const override {
-        // todo(doodle): only need to consider tag and edge
-        return src.size() >= prefixLen_;
+    bool InDomain(const rocksdb::Slice& key) const override {
+        if (key.size() < prefixLen_) {
+            return false;
+        }
+        // And we should not use NebulaKeyUtils::isVertex or isEdge here, because it will regard the
+        // prefix itself not in domain since its length does not satisfy
+        constexpr int32_t len = static_cast<int32_t>(sizeof(NebulaKeyType));
+        auto type = static_cast<NebulaKeyType>(readInt<uint32_t>(key.data(), len) & kTypeMask);
+        return type == NebulaKeyType::kEdge || type == NebulaKeyType::kVertex;
     }
 };
 
@@ -159,12 +178,15 @@ static rocksdb::Status initRocksdbCompression(rocksdb::Options &baseOpts) {
     return rocksdb::Status::OK();
 }
 
-rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
+rocksdb::Status initRocksdbOptions(rocksdb::Options& baseOpts,
+                                   GraphSpaceID spaceId,
+                                   int32_t vidLen) {
     rocksdb::Status s;
     rocksdb::DBOptions dbOpts;
     rocksdb::ColumnFamilyOptions cfOpts;
     rocksdb::BlockBasedTableOptions bbtOpts;
 
+    // DBOptions
     std::unordered_map<std::string, std::string> dbOptsMap;
     if (!loadOptionsMap(dbOptsMap, FLAGS_rocksdb_db_options)) {
         return rocksdb::Status::InvalidArgument();
@@ -180,6 +202,20 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
     }
     dbOpts.listeners.emplace_back(new EventListener());
 
+    // if rocksdb_wal_dir is set, specify it to rocksdb
+    if (!FLAGS_rocksdb_wal_dir.empty()) {
+        auto walDir =
+            folly::stringPrintf("%s/rocksdb_wal/%d", FLAGS_rocksdb_wal_dir.c_str(), spaceId);
+        if (fs::FileUtils::fileType(walDir.c_str()) == fs::FileType::NOTEXIST) {
+            if (!fs::FileUtils::makeDir(walDir)) {
+                LOG(FATAL) << "makeDir " << walDir << " failed";
+            }
+        }
+        LOG(INFO) << "set rocksdb wal of space " << spaceId << " to " << walDir;
+        dbOpts.wal_dir = walDir;
+    }
+
+    // ColumnFamilyOptions
     std::unordered_map<std::string, std::string> cfOptsMap;
     if (!loadOptionsMap(cfOptsMap, FLAGS_rocksdb_column_family_options)) {
         return rocksdb::Status::InvalidArgument();
@@ -196,23 +232,6 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
         return s;
     }
 
-    std::unordered_map<std::string, std::string> bbtOptsMap;
-    if (!loadOptionsMap(bbtOptsMap, FLAGS_rocksdb_block_based_table_options)) {
-        return rocksdb::Status::InvalidArgument();
-    }
-    s = GetBlockBasedTableOptionsFromMap(rocksdb::BlockBasedTableOptions(), bbtOptsMap,
-                                         &bbtOpts, true);
-    if (!s.ok()) {
-        return s;
-    }
-
-    if (FLAGS_rocksdb_block_cache <= 0) {
-        bbtOpts.no_block_cache = true;
-    } else {
-        static std::shared_ptr<rocksdb::Cache> blockCache
-            = rocksdb::NewLRUCache(FLAGS_rocksdb_block_cache * 1024 * 1024, 8/*shard bits*/);
-        bbtOpts.block_cache = blockCache;
-    }
     if (FLAGS_num_compaction_threads > 0) {
         static std::shared_ptr<rocksdb::ConcurrentTaskLimiter> compaction_thread_limiter{
             rocksdb::NewConcurrentTaskLimiter("compaction", FLAGS_num_compaction_threads)};
@@ -224,23 +243,59 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
         baseOpts.rate_limiter = rate_limiter;
     }
 
-    bbtOpts.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, false));
-    if (FLAGS_enable_partitioned_index_filter) {
-        bbtOpts.index_type = rocksdb::BlockBasedTableOptions::IndexType::kTwoLevelIndexSearch;
-        bbtOpts.partition_filters = true;
-        bbtOpts.cache_index_and_filter_blocks = true;
-        bbtOpts.cache_index_and_filter_blocks_with_high_priority = true;
-        bbtOpts.pin_l0_filter_and_index_blocks_in_cache =
-            baseOpts.compaction_style == rocksdb::CompactionStyle::kCompactionStyleLevel;
+    size_t prefixLength = FLAGS_rocksdb_prefix_bloom_filter_length_flag
+                              ? sizeof(PartitionID) + vidLen + sizeof(EdgeType)
+                              : sizeof(PartitionID) + vidLen;
+    if (FLAGS_rocksdb_table_format == "BlockBasedTable") {
+        // BlockBasedTableOptions
+        std::unordered_map<std::string, std::string> bbtOptsMap;
+        if (!loadOptionsMap(bbtOptsMap, FLAGS_rocksdb_block_based_table_options)) {
+            return rocksdb::Status::InvalidArgument();
+        }
+        s = GetBlockBasedTableOptionsFromMap(rocksdb::BlockBasedTableOptions(), bbtOptsMap,
+                                            &bbtOpts, true);
+        if (!s.ok()) {
+            return s;
+        }
+
+        if (FLAGS_rocksdb_block_cache <= 0) {
+            bbtOpts.no_block_cache = true;
+        } else {
+            static std::shared_ptr<rocksdb::Cache> blockCache
+                = rocksdb::NewLRUCache(FLAGS_rocksdb_block_cache * 1024 * 1024, 8/*shard bits*/);
+            bbtOpts.block_cache = blockCache;
+        }
+
+        bbtOpts.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, false));
+        if (FLAGS_enable_partitioned_index_filter) {
+            bbtOpts.index_type = rocksdb::BlockBasedTableOptions::IndexType::kTwoLevelIndexSearch;
+            bbtOpts.partition_filters = true;
+            bbtOpts.cache_index_and_filter_blocks = true;
+            bbtOpts.cache_index_and_filter_blocks_with_high_priority = true;
+            bbtOpts.pin_top_level_index_and_filter = true;
+            bbtOpts.pin_l0_filter_and_index_blocks_in_cache =
+                baseOpts.compaction_style == rocksdb::CompactionStyle::kCompactionStyleLevel;
+        }
+        if (FLAGS_enable_rocksdb_prefix_filtering) {
+            baseOpts.prefix_extractor.reset(new GraphPrefixTransform(prefixLength));
+        }
+        bbtOpts.whole_key_filtering = FLAGS_enable_rocksdb_whole_key_filtering;
+        baseOpts.table_factory.reset(NewBlockBasedTableFactory(bbtOpts));
+        baseOpts.create_if_missing = true;
+    } else if (FLAGS_rocksdb_table_format == "PlainTable") {
+        // wal_dir need to be specified by rocksdb_wal_dir.
+        //
+        // WAL_ttl_seconds is 0 by default in rocksdb, which will check every 10 mins,
+        // so rocksdb_backup_interval_secs is set to half of WAL_ttl_seconds by default.
+        // WAL_ttl_seconds and rocksdb_backup_interval_secs need to be modify together if necessary
+        FLAGS_rocksdb_disable_wal = false;
+        baseOpts.prefix_extractor.reset(rocksdb::NewCappedPrefixTransform(prefixLength));
+        baseOpts.table_factory.reset(rocksdb::NewPlainTableFactory());
+        baseOpts.create_if_missing = true;
+    } else {
+        return rocksdb::Status::NotSupported("Illegal table format");
     }
-    if (FLAGS_enable_rocksdb_prefix_filtering) {
-        int lengthBeforeVid = 4;
-        baseOpts.prefix_extractor.reset(
-                new GraphPrefixTransform(lengthBeforeVid + vidLen));
-    }
-    bbtOpts.whole_key_filtering = FLAGS_enable_rocksdb_whole_key_filtering;
-    baseOpts.table_factory.reset(NewBlockBasedTableFactory(bbtOpts));
-    baseOpts.create_if_missing = true;
+
     return s;
 }
 

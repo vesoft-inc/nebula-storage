@@ -23,6 +23,7 @@ DEFINE_int32(clean_wal_interval_secs, 600, "inerval to trigger clean expired wal
 DEFINE_bool(auto_remove_invalid_space, false, "whether remove data of invalid space when restart");
 
 DECLARE_bool(rocksdb_disable_wal);
+DECLARE_int32(rocksdb_backup_interval_secs);
 DECLARE_int32(wal_ttl);
 
 namespace nebula {
@@ -69,6 +70,8 @@ bool NebulaStore::init() {
     }
 
     storeWorker_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+    storeWorker_->addRepeatTask(
+        FLAGS_rocksdb_backup_interval_secs * 1000, &NebulaStore::backup, this);
     LOG(INFO) << "Register handler...";
     options_.partMan_->registerHandler(this);
     return true;
@@ -276,7 +279,8 @@ void NebulaStore::addSpace(GraphSpaceID spaceId, bool isListener) {
 }
 
 int32_t NebulaStore::getSpaceVidLen(GraphSpaceID spaceId) {
-    int vIdLen = 8;  // default value
+    // todo(doodle): the default value may make prefix bloom filter invalid
+    int vIdLen = 8;
     if (options_.schemaMan_) {
         auto stVidLen = options_.schemaMan_->getSpaceVidLen(spaceId);
         if (stVidLen.ok()) {
@@ -1087,6 +1091,18 @@ void NebulaStore::cleanWAL() {
             }
         }
     }
+}
+
+nebula::cpp2::ErrorCode NebulaStore::backup() {
+    for (const auto& spaceEntry : spaces_) {
+        for (const auto& engine : spaceEntry.second->engines_) {
+            auto code = engine->backup();
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                return code;
+            }
+        }
+    }
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>>
