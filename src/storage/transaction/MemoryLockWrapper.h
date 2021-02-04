@@ -11,6 +11,7 @@
 namespace nebula {
 namespace storage {
 
+// an RAII style to control the lock acquire / release
 template<class Key>
 class MemoryLockGuard {
 public:
