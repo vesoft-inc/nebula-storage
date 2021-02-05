@@ -25,6 +25,7 @@ TEST_F(MemoryLockTest, SimpleTest) {
 
         LockGuard lk2(&mlock, "1");
         EXPECT_FALSE(lk2);
+        LOG(INFO) << "conflict key = " << lk2.conflictKey();
     }
     {
         auto* lk1 = new LockGuard(&mlock, "1");
@@ -33,10 +34,21 @@ TEST_F(MemoryLockTest, SimpleTest) {
         std::vector<std::string> keys{"1", "2", "3"};
         LockGuard lk2(&mlock, keys);
         EXPECT_FALSE(lk2);
+        LOG(INFO) << "conflict key = " << lk2.conflictKey();
 
         delete lk1;
         LockGuard lk3(&mlock, keys);
         EXPECT_TRUE(lk3);
+    }
+    {
+        // if keys has dup, but not call the dedup ctor, may lock failed
+        std::vector<std::string> keys{"1", "1", "1"};
+        LockGuard lk1(&mlock, keys);
+        EXPECT_FALSE(lk1);
+        LOG(INFO) << "conflict key = " << lk1.conflictKey();
+
+        LockGuard lk2(&mlock, keys, true);
+        EXPECT_TRUE(lk2);
     }
 }
 

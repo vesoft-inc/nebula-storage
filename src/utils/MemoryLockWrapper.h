@@ -6,6 +6,8 @@
 
 #pragma once
 
+
+#include <algorithm>
 #include "utils/MemoryLockCore.h"
 
 namespace nebula {
@@ -17,9 +19,15 @@ public:
     MemoryLockGuard(MemoryLockCore<Key>* lock, const Key& key)
         : MemoryLockGuard(lock, std::vector<Key>{key}) {}
 
-    explicit MemoryLockGuard(MemoryLockCore<Key>* lock, const std::vector<Key>& key)
-        : lock_(lock), keys_(key) {
-        locked_ = lock->lockBatch(keys_);
+    MemoryLockGuard(MemoryLockCore<Key>* lock, const std::vector<Key>& keys, bool dedup = false)
+        : lock_(lock), keys_(keys) {
+        if (dedup) {
+            std::sort(keys_.begin(), keys_.end());
+            auto last = std::unique(keys_.begin(), keys_.end());
+            std::tie(iter_, locked_) = lock_->lockBatch(keys_.begin(), last);
+        } else {
+            std::tie(iter_, locked_) = lock_->lockBatch(keys_);
+        }
     }
 
     ~MemoryLockGuard() {
@@ -36,9 +44,17 @@ public:
         return isLocked();
     }
 
+    // return the first conflict key, if any
+    // this has to be called iff locked_ is false;
+    Key conflictKey() {
+        CHECK(locked_ == false);
+        return *iter_;
+    }
+
 protected:
     MemoryLockCore<Key>* lock_;
     std::vector<Key> keys_;
+    typename std::vector<Key>::iterator iter_;
     bool locked_{false};
 };
 

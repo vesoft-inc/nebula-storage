@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "common/base/Base.h"
 #include <folly/concurrency/ConcurrentHashMap.h>
 
 namespace nebula {
@@ -21,7 +22,7 @@ public:
     // but may not necessary sort any time.
     // this may be useful while first lock attempt failed,
     // and try to retry.
-    bool try_lockSortedBatch(const std::vector<Key>& keys) {
+    auto try_lockSortedBatch(const std::vector<Key>& keys) {
         return lockBatch(keys);
     }
 
@@ -33,30 +34,44 @@ public:
         hashMap_.erase(key);
     }
 
-    bool lockBatch(const std::vector<Key>& keys) {
+    template<class Iter>
+    std::pair<Iter, bool> lockBatch(Iter begin, Iter end) {
+        Iter curr = begin;
         bool inserted = false;
-        for (auto i = 0U; i != keys.size(); ++i) {
-            std::tie(std::ignore, inserted) = hashMap_.insert(std::make_pair(keys[i], 0));
+        while (curr != end) {
+            std::tie(std::ignore, inserted) = hashMap_.insert(std::make_pair(*curr, 0));
             if (!inserted) {
-                unlockBatchN(keys, i);
-                return false;
+                unlockBatch(begin, curr);
+                return std::make_pair(curr, false);
             }
+            ++curr;
         }
-        return true;
+        return std::make_pair(end, true);
     }
 
-    void unlockBatch(const std::vector<Key>& keys) {
-        unlockBatchN(keys, keys.size());
+    template<class Collection>
+    auto lockBatch(Collection&& collection) {
+        return lockBatch(collection.begin(), collection.end());
     }
 
-    void unlockBatchN(const std::vector<Key>& keys, size_t num) {
-        for (auto i = 0U; i != num; ++i) {
-            hashMap_.erase(keys[i]);
+    template<class Iter>
+    void unlockBatch(Iter begin, Iter end) {
+        for (; begin != end; ++begin) {
+            hashMap_.erase(*begin);
         }
+    }
+
+    template<class Collection>
+    auto unlockBatch(Collection&& collection) {
+        return unlockBatch(collection.begin(), collection.end());
     }
 
     void clear() {
         hashMap_.clear();
+    }
+
+    size_t size() {
+        return hashMap_.size();
     }
 
 protected:
