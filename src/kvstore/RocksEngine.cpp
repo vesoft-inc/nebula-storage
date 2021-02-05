@@ -363,6 +363,10 @@ ResultCode RocksEngine::setDBOption(const std::string& configKey, const std::str
 
 ResultCode RocksEngine::compact() {
     rocksdb::CompactRangeOptions options;
+    // If change_level is true and target_level is -1,
+    // compacted files will be moved to the minimum level capable of holding the data.
+    options.change_level = true;
+    options.target_level = -1;
     rocksdb::Status status = db_->CompactRange(options, nullptr, nullptr);
     if (status.ok()) {
         return ResultCode::SUCCEEDED;
