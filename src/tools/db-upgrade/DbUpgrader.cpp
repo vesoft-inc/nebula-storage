@@ -23,6 +23,8 @@ DEFINE_uint32(upgrade_version, 0, "When the value is 1, upgrade the data from 1.
                                   "When the value is 2, upgrade the data from 2.0 RC to 2.0 GA.");
 DEFINE_bool(compactions, true, "When the upgrade of all spaces under a path is completed, "
                                "whether to compact data");
+DEFINE_uint32(max_concurrent_parts, 10, "The parts could be processed simultaneously");
+DEFINE_uint32(max_concurrent_spaces, 5, "The spaces could be processed simultaneously");
 
 namespace nebula {
 namespace storage {
@@ -92,6 +94,14 @@ Status UpgraderSpace::initSpace(const std::string& sId) {
          LOG(ERROR) << "Build schema and index failed in space id " << spaceId_;
          return ret;
     }
+
+    LOG(INFO) << "Max concurrenct parts: " << FLAGS_max_concurrent_parts;
+    pool_ = std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_max_concurrent_parts);
+    // Parallel process part
+    for (auto& partId : parts_) {
+        partQueue_.add(partId);
+    }
+
     return Status::OK();
 }
 
@@ -193,10 +203,13 @@ bool UpgraderSpace::isValidVidLen(VertexID srcVId, VertexID dstVId) {
     return true;
 }
 
-void UpgraderSpace::doProcessV1() {
-    LOG(INFO) << "Start to handle data in space id " << spaceId_;
-    // Handle vertex and edge, if there is an index, generate index data
-    for (auto& partId : parts_) {
+void UpgraderSpace::runPartV1() {
+    LOG(INFO) << "Start to handle vertex/edge/index of parts data in space id " << spaceId_;
+
+    std::chrono::milliseconds take_dura{10};
+    if (auto pId = partQueue_.try_take_for(take_dura)) {
+        PartitionID partId = *pId;
+        // Handle vertex and edge, if there is an index, generate index data
         LOG(INFO) << "Start to handle vertex/edge/index data in space id " << spaceId_
                   << " partId " << partId;
         auto prefix = NebulaKeyUtilsV1::prefix(partId);
@@ -207,7 +220,17 @@ void UpgraderSpace::doProcessV1() {
                        << " no found!";
             LOG(ERROR) << "Handle vertex/edge/index data in space id " << spaceId_
                        << " part id " << partId << " failed";
-            continue;
+
+            auto unFinishedPart = --unFinishedPart_;
+            if (unFinishedPart == 0) {
+                // all parts has finished
+                LOG(INFO) << "Handle last part: " << partId
+                          << " vertex/edge/index data in space id"
+                          << spaceId_ << " finished";
+            } else {
+                pool_->add(std::bind(&UpgraderSpace::runPartV1, this));
+            }
+            return;
         }
 
         std::vector<kvstore::KV> data;
@@ -341,7 +364,36 @@ void UpgraderSpace::doProcessV1() {
         }
         data.clear();
         LOG(INFO) << "Handle vertex/edge/index data in space id " << spaceId_
-                  << " part id " << partId << " succeed";
+                  << " part id " << partId << " finished";
+
+        auto unFinishedPart = --unFinishedPart_;
+        if (unFinishedPart == 0) {
+            // all parts has finished
+            LOG(INFO) << "Handle last part: " << partId << " vertex/edge/index data in space id"
+                      << spaceId_ << " finished";
+        } else {
+            pool_->add(std::bind(&UpgraderSpace::runPartV1, this));
+        }
+    } else  {
+        LOG(INFO) << "Handle vertex/edge/index of parts data in space id" << spaceId_
+                  << " finished";
+    }
+}
+
+void UpgraderSpace::doProcessV1() {
+    LOG(INFO) << "Start to handle data in space id " << spaceId_;
+
+    // Parallel process part
+    auto partConcurrency = std::min(static_cast<size_t>(FLAGS_max_concurrent_parts),
+                                    parts_.size());
+    unFinishedPart_ = parts_.size();
+
+    for (size_t i = 0; i < partConcurrency; ++i) {
+        pool_->add(std::bind(&UpgraderSpace::runPartV1, this));
+    }
+
+    while (unFinishedPart_ != 0) {
+        sleep(10);
     }
 
     // handle system data
@@ -380,10 +432,13 @@ void UpgraderSpace::doProcessV1() {
     }
 }
 
-void UpgraderSpace::doProcessV2() {
-    LOG(INFO) << "Start to handle data in space id " << spaceId_;
-    // Handle vertex and edge, if there is an index, generate index data
-    for (auto& partId : parts_) {
+void UpgraderSpace::runPartV2() {
+    LOG(INFO) << "Start to handle vertex/edge/index of parts data in space id " << spaceId_;
+
+    std::chrono::milliseconds take_dura{10};
+    if (auto pId = partQueue_.try_take_for(take_dura)) {
+        PartitionID partId = *pId;
+        // Handle vertex and edge, if there is an index, generate index data
         LOG(INFO) << "Start to handle vertex/edge/index data in space id " << spaceId_
                   << " part id " << partId;
         auto prefix = NebulaKeyUtilsV2::partPrefix(partId);
@@ -394,7 +449,17 @@ void UpgraderSpace::doProcessV2() {
                        << " no found!";
             LOG(ERROR) << "Handle vertex/edge/index data in space id " << spaceId_
                        << " part id " << partId << " failed";
-            continue;
+
+            auto unFinishedPart = --unFinishedPart_;
+            if (unFinishedPart == 0) {
+                // all parts has finished
+                LOG(INFO) << "Handle last part: " << partId
+                          << " vertex/edge/index data in space id"
+                          << spaceId_ << " finished";
+            } else {
+                pool_->add(std::bind(&UpgraderSpace::runPartV2, this));
+            }
+            return;
         }
 
         std::vector<kvstore::KV> data;
@@ -525,6 +590,34 @@ void UpgraderSpace::doProcessV2() {
         data.clear();
         LOG(INFO) << "Handle vertex/edge/index data in space id " << spaceId_
                   << " part id " << partId << " succeed";
+
+        auto unFinishedPart = --unFinishedPart_;
+        if (unFinishedPart == 0) {
+            // all parts has finished
+            LOG(INFO) << "Handle last part: " << partId << " vertex/edge/index data in space id"
+                      << spaceId_ << " finished";
+        } else {
+            pool_->add(std::bind(&UpgraderSpace::runPartV2, this));
+        }
+    } else {
+        LOG(INFO) << "Handle vertex/edge/index of parts data in space id"
+                  << spaceId_ << " finished";
+    }
+}
+
+void UpgraderSpace::doProcessV2() {
+    LOG(INFO) << "Start to handle data in space id " << spaceId_;
+
+    // Parallel process part
+    auto partConcurrency = std::min(static_cast<size_t>(FLAGS_max_concurrent_parts),
+                                    parts_.size());
+    unFinishedPart_ = parts_.size();
+    for (size_t i = 0; i < partConcurrency; ++i) {
+        pool_->add(std::bind(&UpgraderSpace::runPartV2, this));
+    }
+
+    while (unFinishedPart_ != 0) {
+        sleep(10);
     }
 
     // handle system data
@@ -799,7 +892,8 @@ Status DbUpgrader::init(meta::MetaClient* mclient,
     indexMan_ = iMan;
     srcPath_ = srcPath;
     dstPath_ = dstPath;
-
+    LOG(INFO) << "Max concurrenct spaces: " << FLAGS_max_concurrent_spaces;
+    pool_ = std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_max_concurrent_spaces);
     return listSpace();
 }
 
@@ -839,61 +933,72 @@ void DbUpgrader::run() {
         }
     }
 
-    std::vector<std::thread> threads;
+    unFinishedSpace_ = upgraderSpaces.size();
     for (size_t i = 0; i < upgraderSpaces.size(); i++) {
-        threads.emplace_back(std::thread([upgraderSpaceIter = upgraderSpaces[i].get()] {
-            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
-                      << " space id " << upgraderSpaceIter->entry_ << " to path "
-                      << upgraderSpaceIter->dstPath_ << " begin";
-            if (FLAGS_upgrade_version == 1) {
-                upgraderSpaceIter->doProcessV1();
-            } else {
-                upgraderSpaceIter->doProcessV2();
-            }
-            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
-                      << " space id " << upgraderSpaceIter->entry_ << " to path "
-                      << upgraderSpaceIter->dstPath_ << " end";
-        }));
+        spaceQueue_.add(upgraderSpaces[i].get());
     }
 
-    // Wait for all threads to finish
-    for (auto& t : threads) {
-        t.join();
+    // Parallel process space
+    auto spaceConcurrency = std::min(static_cast<size_t>(FLAGS_max_concurrent_spaces),
+                                    upgraderSpaces.size());
+    for (size_t i = 0; i < spaceConcurrency; ++i) {
+        pool_->add(std::bind(&DbUpgrader::doSpace, this));
     }
 
-    if (FLAGS_compactions) {
-        std::vector<std::thread> compactThreads;
-        for (size_t i = 0; i < upgraderSpaces.size(); i++) {
-            compactThreads.emplace_back(std::thread([upgraderSpaceIter = upgraderSpaces[i].get()] {
-                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
-                          << " space id " << upgraderSpaceIter->entry_ << " to path "
-                          << upgraderSpaceIter->dstPath_ << " compaction begin";
-                upgraderSpaceIter->doCompaction();
-
-                LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
-                          << " space id " << upgraderSpaceIter->entry_ << " to path "
-                          << upgraderSpaceIter->dstPath_ << " compaction end";
-
-                LOG(INFO) << "Copy space id " << upgraderSpaceIter->entry_
-                          << " wal file begin";
-                auto ret = upgraderSpaceIter->copyWal();
-                if (!ret) {
-                    LOG(ERROR) << "Copy space id " << upgraderSpaceIter->entry_
-                               << " wal file failed";
-                }
-                LOG(INFO) << "Copy space id " << upgraderSpaceIter->entry_
-                          << " wal file success";
-            }));
-        }
-
-        // Wait for all threads to finish
-        for (auto& t : compactThreads) {
-            t.join();
-        }
+    while (unFinishedSpace_ != 0) {
+        sleep(10);
     }
 
     LOG(INFO) << "Upgrade from path " << srcPath_ << " to path "
               << dstPath_ << " in DbUpgrader run end";
+}
+
+void DbUpgrader::doSpace() {
+    std::chrono::milliseconds take_dura{10};
+    if (auto UpSpace = spaceQueue_.try_take_for(take_dura)) {
+        auto upgraderSpaceIter = *UpSpace;
+        LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                  << " space id " << upgraderSpaceIter->entry_ << " to path "
+                  << upgraderSpaceIter->dstPath_ << " begin";
+        if (FLAGS_upgrade_version == 1) {
+            upgraderSpaceIter->doProcessV1();
+        } else {
+            upgraderSpaceIter->doProcessV2();
+        }
+
+        auto ret = upgraderSpaceIter->copyWal();
+        if (!ret) {
+            LOG(ERROR) << "Copy space id " << upgraderSpaceIter->entry_
+                       << " wal file failed";
+        } else {
+            LOG(INFO) << "Copy space id " << upgraderSpaceIter->entry_
+                      << " wal file success";
+        }
+
+        if (FLAGS_compactions) {
+            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                      << " space id " << upgraderSpaceIter->entry_ << " to path "
+                      << upgraderSpaceIter->dstPath_ << " compaction begin";
+            upgraderSpaceIter->doCompaction();
+
+            LOG(INFO) << "Upgrade from path " << upgraderSpaceIter->srcPath_
+                      << " space id " << upgraderSpaceIter->entry_ << " to path "
+                      << upgraderSpaceIter->dstPath_ << " compaction end";
+        }
+
+        auto unFinishedSpace = --unFinishedSpace_;
+        if (unFinishedSpace == 0) {
+            // all spaces has finished
+            LOG(INFO) << "Handle last space: " << upgraderSpaceIter->entry_
+                      << " from " << upgraderSpaceIter->srcPath_ << " to path "
+                      << upgraderSpaceIter->dstPath_ << " end";
+        } else {
+            pool_->add(std::bind(&DbUpgrader::doSpace, this));
+        }
+    } else {
+        LOG(INFO) << "Upgrade from path " << srcPath_ << " to path "
+                  << dstPath_ << " end";
+    }
 }
 
 }  // namespace storage

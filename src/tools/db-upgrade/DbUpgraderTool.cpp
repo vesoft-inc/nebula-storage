@@ -8,8 +8,6 @@
 #include "tools/db-upgrade/DbUpgrader.h"
 #include "kvstore/RocksEngineConfig.h"
 
-DECLARE_string(rocksdb_column_family_options);
-
 void printHelp() {
     fprintf(stderr,
            R"(  ./db_upgrade --src_db_path=<path to rocksdb> --dst_db_path=<path to rocksdb> --upgrade_meta_server=<ip:port,...> --upgrade_version=<1|2>
@@ -73,12 +71,21 @@ void printParams() {
 
 int main(int argc, char *argv[]) {
     // When begin to upgrade the data, close compaction
-    // When upgrade finished, manually perform compaction.
+    // When upgrade finished, perform compaction.
     FLAGS_rocksdb_column_family_options = R"({
-            "disable_auto_compactions":"true",
-            "write_buffer_size":"67108864",
-            "max_write_buffer_number":"4",
-            "max_bytes_for_level_base":"268435456"
+        "disable_auto_compactions":"true",
+        "write_buffer_size":"134217728",
+        "max_write_buffer_number":"12",
+        "max_bytes_for_level_base":"268435456",
+        "level0_slowdown_writes_trigger":"999999",
+        "level0_stop_writes_trigger":"999999"，
+        "soft_pending_compaction_bytes_limit":"137438953472",
+        "hard_pending_compaction_bytes_limit":"274877906944"
+    })";
+
+    FLAGS_rocksdb_db_options = R"({
+        "max_background_jobs":"10",
+        "max_subcompactions":"10"
     })";
 
     if (argc == 1) {

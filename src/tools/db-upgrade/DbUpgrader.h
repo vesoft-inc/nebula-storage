@@ -13,6 +13,8 @@
 #include "common/meta/ServerBasedSchemaManager.h"
 #include "common/meta/ServerBasedIndexManager.h"
 #include <rocksdb/db.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/task_queue/UnboundedBlockingQueue.h>
 #include "kvstore/RocksEngine.h"
 #include "codec/RowReaderWrapper.h"
 
@@ -23,7 +25,8 @@ DECLARE_string(upgrade_meta_server);
 DECLARE_uint32(write_batch_num);
 DECLARE_uint32(upgrade_version);
 DECLARE_bool(compactions);
-
+DECLARE_uint32(max_concurrent_parts);
+DECLARE_uint32(max_concurrent_spaces);
 
 namespace nebula {
 namespace storage {
@@ -33,7 +36,9 @@ class UpgraderSpace {
 public:
     UpgraderSpace() = default;
 
-    ~UpgraderSpace() = default;
+    ~UpgraderSpace() {
+        pool_->join();
+    }
 
     Status init(meta::MetaClient* mclient,
                 meta::ServerBasedSchemaManager*sMan,
@@ -95,6 +100,10 @@ private:
                             VertexID& dstId,
                             std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
+    void runPartV1();
+
+    void runPartV2();
+
 public:
     // Souce data path
     std::string                                                    srcPath_;
@@ -134,6 +143,13 @@ private:
 
     std::unordered_map<EdgeType,
         std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>   edgeIndexes_;
+
+    // for parallel parts
+    std::unique_ptr<folly::IOThreadPoolExecutor>           pool_{nullptr};
+
+    folly::UnboundedBlockingQueue<PartitionID>             partQueue_;
+
+    std::atomic<size_t>                                    unFinishedPart_;
 };
 
 // Upgrade one path in storage conf
@@ -141,7 +157,9 @@ class DbUpgrader {
 public:
     DbUpgrader() = default;
 
-    ~DbUpgrader() = default;
+    ~DbUpgrader() {
+        pool_->join();
+    }
 
     Status init(meta::MetaClient* mclient,
                 meta::ServerBasedSchemaManager*sMan,
@@ -159,16 +177,25 @@ private:
 
     void doProcessAllTagsAndEdges();
 
+    void doSpace();
+
 private:
-    meta::MetaClient*                                              metaClient_;
-    meta::ServerBasedSchemaManager*                                schemaMan_;
-    meta::IndexManager*                                            indexMan_;
+    meta::MetaClient*                                      metaClient_;
+    meta::ServerBasedSchemaManager*                        schemaMan_;
+    meta::IndexManager*                                    indexMan_;
     // Souce data path
-    std::string                                                    srcPath_;
+    std::string                                            srcPath_;
 
     // Destination data path
-    std::string                                                    dstPath_;
-    std::vector<std::string>                                       subDirs_;
+    std::string                                            dstPath_;
+    std::vector<std::string>                               subDirs_;
+
+    // for parallel space
+    std::unique_ptr<folly::IOThreadPoolExecutor>           pool_{nullptr};
+
+    folly::UnboundedBlockingQueue<nebula::storage::UpgraderSpace*>  spaceQueue_;
+
+    std::atomic<size_t>                                    unFinishedSpace_;
 };
 
 }  // namespace storage
