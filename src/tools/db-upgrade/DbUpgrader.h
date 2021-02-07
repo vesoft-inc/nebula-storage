@@ -31,7 +31,7 @@ DECLARE_uint32(max_concurrent_spaces);
 namespace nebula {
 namespace storage {
 
-// Upgrade a space of path in storage conf
+// Upgrade a space of data path in storage conf
 class UpgraderSpace {
 public:
     UpgraderSpace() = default;
@@ -53,8 +53,10 @@ public:
     // Processing v2 Rc data upgrade to v2 Ga
     void doProcessV2();
 
+    // Perform manual compact
     void doCompaction();
 
+    // Copy the latest wal file under each part, two at most
     bool copyWal();
 
 private:
@@ -64,7 +66,6 @@ private:
 
     bool isValidVidLen(VertexID srcVId, VertexID dstVId = "");
 
-    // Think that the old and new values are exactly the same, so use one reader
     void encodeVertexValue(PartitionID partId,
                            RowReader* reader,
                            const meta::NebulaSchemaProvider* schema,
@@ -116,7 +117,7 @@ private:
     meta::ServerBasedSchemaManager*                                schemaMan_;
     meta::IndexManager*                                            indexMan_;
 
-    // The following variables are space level, When switching space, need to change
+    // The following variables are space level
     GraphSpaceID                                                   spaceId_;
     int32_t                                                        spaceVidLen_;
     std::string                                                    spaceName_;
@@ -128,9 +129,10 @@ private:
     std::unordered_map<TagID,
         std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>       tagSchemas_;
 
-    // tag all field name in newest schema
+    // tagId ->  All field names in newest schema
     std::unordered_map<TagID, std::vector<std::string>>                       tagFieldName_;
 
+    // tagId -> all indexes of this tag
     std::unordered_map<TagID,
         std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>   tagIndexes_;
 
@@ -138,21 +140,22 @@ private:
     std::unordered_map<EdgeType,
         std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>>       edgeSchemas_;
 
-    // tag all field name in newest schema
-    std::unordered_map<TagID, std::vector<std::string>>                       edgeFieldName_;
+    // edgetype -> all field name in newest schema
+    std::unordered_map<EdgeType, std::vector<std::string>>                     edgeFieldName_;
 
+    // edgetype -> all indexes of this edgetype
     std::unordered_map<EdgeType,
         std::unordered_set<std::shared_ptr<nebula::meta::cpp2::IndexItem>>>   edgeIndexes_;
 
     // for parallel parts
-    std::unique_ptr<folly::IOThreadPoolExecutor>           pool_{nullptr};
+    std::unique_ptr<folly::IOThreadPoolExecutor>                              pool_{nullptr};
 
-    folly::UnboundedBlockingQueue<PartitionID>             partQueue_;
+    folly::UnboundedBlockingQueue<PartitionID>                                partQueue_;
 
-    std::atomic<size_t>                                    unFinishedPart_;
+    std::atomic<size_t>                                                       unFinishedPart_;
 };
 
-// Upgrade one path in storage conf
+// Upgrade one data path in storage conf
 class DbUpgrader {
 public:
     DbUpgrader() = default;
@@ -173,29 +176,27 @@ private:
     // Get all string spaceId
     Status listSpace();
 
-    Status buildSchemaAndIndex();
-
     void doProcessAllTagsAndEdges();
 
     void doSpace();
 
 private:
-    meta::MetaClient*                                      metaClient_;
-    meta::ServerBasedSchemaManager*                        schemaMan_;
-    meta::IndexManager*                                    indexMan_;
+    meta::MetaClient*                                               metaClient_;
+    meta::ServerBasedSchemaManager*                                 schemaMan_;
+    meta::IndexManager*                                             indexMan_;
     // Souce data path
-    std::string                                            srcPath_;
+    std::string                                                     srcPath_;
 
     // Destination data path
-    std::string                                            dstPath_;
-    std::vector<std::string>                               subDirs_;
+    std::string                                                     dstPath_;
+    std::vector<std::string>                                        subDirs_;
 
-    // for parallel space
-    std::unique_ptr<folly::IOThreadPoolExecutor>           pool_{nullptr};
+    // for parallel spaces
+    std::unique_ptr<folly::IOThreadPoolExecutor>                    pool_{nullptr};
 
     folly::UnboundedBlockingQueue<nebula::storage::UpgraderSpace*>  spaceQueue_;
 
-    std::atomic<size_t>                                    unFinishedSpace_;
+    std::atomic<size_t>                                             unFinishedSpace_;
 };
 
 }  // namespace storage

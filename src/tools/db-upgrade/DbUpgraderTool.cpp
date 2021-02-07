@@ -53,6 +53,14 @@ required:
        --compactions=<true|false>
          When the data upgrade finished, whether to compact all data.
          Default: true
+
+       --max_concurrent_parts<N>
+         Maximum number of concurrent parts allowed.
+         Default: 10
+
+       --max_concurrent_spaces<N>
+         Maximum number of concurrent spaces allowed.
+         Default: 5
 )");
 }
 
@@ -64,7 +72,12 @@ void printParams() {
     std::cout << "destination data path: " << FLAGS_dst_db_path << "\n";
     std::cout << "The size of the batch written: " << FLAGS_write_batch_num << "\n";
     std::cout << "upgrade data from version: " << FLAGS_upgrade_version << "\n";
-    std::cout << "whether to compact all data: " << FLAGS_compactions << "\n";
+    std::cout << "whether to compact all data: "
+              << (FLAGS_compactions == true ? "true" : "false") << "\n";
+    std::cout << "maximum number of concurrent parts allowed:"
+              << FLAGS_max_concurrent_parts << "\n";
+    std::cout << "maximum number of concurrent spaces allowed: "
+              << FLAGS_max_concurrent_spaces << "\n";
     std::cout << "===========================PARAMS============================\n\n";
 }
 
@@ -78,7 +91,7 @@ int main(int argc, char *argv[]) {
         "max_write_buffer_number":"12",
         "max_bytes_for_level_base":"268435456",
         "level0_slowdown_writes_trigger":"999999",
-        "level0_stop_writes_trigger":"999999"，
+        "level0_stop_writes_trigger":"999999",
         "soft_pending_compaction_bytes_limit":"137438953472",
         "hard_pending_compaction_bytes_limit":"274877906944"
     })";
@@ -102,7 +115,7 @@ int main(int argc, char *argv[]) {
     // Handle arguments
     LOG(INFO) << "Prepare phase begin";
     if (FLAGS_src_db_path.empty() || FLAGS_dst_db_path.empty()) {
-        LOG(ERROR) << "Source data path or destination data path should not empty.";
+        LOG(ERROR) << "Source data path or destination data path should be not empty.";
         return EXIT_FAILURE;
     }
 
@@ -112,7 +125,7 @@ int main(int argc, char *argv[]) {
         return folly::trimWhitespace(p).str();
     });
     if (srcPaths.empty()) {
-        LOG(ERROR) << "Bad src data_path format: " << FLAGS_src_db_path;
+        LOG(ERROR) << "Bad source data path format: " << FLAGS_src_db_path;
         return EXIT_FAILURE;
     }
 
@@ -122,18 +135,19 @@ int main(int argc, char *argv[]) {
         return folly::trimWhitespace(p).str();
     });
     if (dstPaths.empty()) {
-        LOG(ERROR) << "Bad dst data_path format: " << FLAGS_dst_db_path;
+        LOG(ERROR) << "Bad destination data path format: " << FLAGS_dst_db_path;
         return EXIT_FAILURE;
     }
 
     if (srcPaths.size() != dstPaths.size()) {
-        LOG(ERROR) << "The size of src data paths is not equal the size of dst data paths";
+        LOG(ERROR) << "The size of source data paths is not equal the "
+                   << "size of destination data paths.";
         return EXIT_FAILURE;
     }
 
     auto addrs = nebula::network::NetworkUtils::toHosts(FLAGS_upgrade_meta_server);
     if (!addrs.ok()) {
-        LOG(ERROR) << "Get host address failed " << FLAGS_upgrade_meta_server;
+        LOG(ERROR) << "Get meta host address failed " << FLAGS_upgrade_meta_server;
         return EXIT_FAILURE;
     }
 
@@ -163,6 +177,9 @@ int main(int argc, char *argv[]) {
 
     // Upgrade data
     LOG(INFO) << "Upgrade phase bengin";
+
+    // The data path in storage conf is generally one, not too many.
+    // So there is no need to control the number of threads here.
     std::vector<std::thread> threads;
     for (size_t i = 0; i < srcPaths.size(); i++) {
         threads.emplace_back(std::thread([mclient = metaClient.get(),
@@ -175,8 +192,8 @@ int main(int argc, char *argv[]) {
             nebula::storage::DbUpgrader upgrader;
             auto ret = upgrader.init(mclient, sMan, iMan, srcPath, dstPath);
             if (!ret.ok()) {
-                LOG(ERROR) << "Upgrader init failed from " << srcPath << " to path "
-                           << dstPath;
+                LOG(ERROR) << "Upgrader from path " << srcPath << " to path "
+                           << dstPath << " init failed.";
                 return;
             }
             upgrader.run();
