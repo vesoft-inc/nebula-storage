@@ -17,9 +17,8 @@ enum class NebulaKeyType : uint32_t {
     kEdge              = 0x00000002,
     kIndex             = 0x00000003,
     kSystem            = 0x00000004,
-    kUUID              = 0x00000005,
-    kOperation         = 0x00000006,
-    kKeyValue          = 0x00000007,
+    kOperation         = 0x00000005,
+    kKeyValue          = 0x00000006,
 };
 
 enum class NebulaSystemKeyType : uint32_t {
