@@ -8,6 +8,7 @@
 #define UTILS_NEBULAKEYUTILS_H_
 
 #include "utils/Types.h"
+#include "utils/IndexKeyUtils.h"
 
 namespace nebula {
 
@@ -202,7 +203,7 @@ public:
             dumpBadKey(rawKey, kEdgeLen + (vIdLen << 1), vIdLen);
         }
         auto offset = sizeof(PartitionID) + vIdLen + sizeof(EdgeType);
-        return readInt<EdgeRanking>(rawKey.data() + offset, sizeof(EdgeRanking));
+        return IndexKeyUtils::decodeInt64(rawKey.data() + offset);
     }
 
 

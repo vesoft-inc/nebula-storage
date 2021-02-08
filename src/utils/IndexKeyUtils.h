@@ -433,7 +433,7 @@ public:
     static EdgeRanking getIndexRank(size_t vIdLen, const folly::StringPiece& rawKey) {
         CHECK_GE(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
         auto offset = rawKey.size() - vIdLen - sizeof(EdgeRanking);
-        return readInt<EdgeRanking>(rawKey.data() + offset, sizeof(EdgeRanking));
+        return IndexKeyUtils::decodeInt64(rawKey.data() + offset);
     }
 
     static bool isIndexKey(const folly::StringPiece& key) {
