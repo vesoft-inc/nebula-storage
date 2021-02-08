@@ -362,7 +362,7 @@ TEST(BalanceTest, ShrinkZoneTest) {
     fs::TempDir rootPath("/tmp/ShrinkZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 10;
+    FLAGS_heartbeat_interval_secs = 1;
     {
         std::vector<HostAddr> hosts;
         for (int i = 0; i < 4; i++) {
@@ -489,7 +489,7 @@ TEST(BalanceTest, BalanceWithComplexZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithComplexZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 10;
+    FLAGS_heartbeat_interval_secs = 1;
     std::vector<HostAddr> hosts;
     for (int i = 0; i < 18; i++) {
         hosts.emplace_back(std::to_string(i), i);
@@ -1597,7 +1597,7 @@ TEST(BalanceTest, ManyHostsLeaderBalancePlanTest) {
     fs::TempDir rootPath("/tmp/SimpleLeaderBalancePlanTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 600;
+    FLAGS_heartbeat_interval_secs = 1;
 
     int partCount = 99999;
     int replica = 3;
@@ -1671,7 +1671,7 @@ TEST(BalanceTest, LeaderBalanceWithZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithZone.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 10;
+    FLAGS_heartbeat_interval_secs = 1;
     std::vector<HostAddr> hosts;
     for (int i = 0; i < 9; i++) {
         hosts.emplace_back(std::to_string(i), i);
@@ -1750,7 +1750,7 @@ TEST(BalanceTest, LeaderBalanceWithLargerZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithLargerZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 10;
+    FLAGS_heartbeat_interval_secs = 1;
     std::vector<HostAddr> hosts;
     for (int i = 0; i < 15; i++) {
         hosts.emplace_back(std::to_string(i), i);
@@ -1818,7 +1818,7 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
     fs::TempDir rootPath("/tmp/LeaderBalanceWithComplexZoneTest.XXXXXX");
     auto store = MockCluster::initMetaKV(rootPath.path());
     auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
-    FLAGS_heartbeat_interval_secs = 10;
+    FLAGS_heartbeat_interval_secs = 1;
     std::vector<HostAddr> hosts;
     for (int i = 0; i < 18; i++) {
         hosts.emplace_back(std::to_string(i), i);
