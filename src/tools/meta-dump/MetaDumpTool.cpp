@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 vesoft inc. All rights reserved.
+/* Copyright (c) 2021 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -17,16 +17,18 @@ namespace meta {
 
 class MetaDumper {
 public:
-    static void dumpMeta(const char* path) {
+    static Status dumpMeta(const char* path) {
         LOG(INFO) << "open rocksdb on " << path;
         rocksdb::DB* db = nullptr;
         rocksdb::Options options;
         auto status = rocksdb::DB::OpenForReadOnly(options, path, &db);
-        CHECK(status.ok()) << status.ToString();
+        if (!status.ok()) {
+            return Status::Error("Open rocksdb failed: %s", status.ToString().c_str());
+        }
         rocksdb::ReadOptions roptions;
         rocksdb::Iterator* iter = db->NewIterator(roptions);
         if (!iter) {
-            LOG(FATAL) << "null iterator!";
+            return Status::Error("Init iterator failed");
         }
         std::string prefix;
         {
@@ -178,6 +180,7 @@ public:
             db->Close();
             delete db;
         }
+        return Status::OK();
     }
 };
 
@@ -195,6 +198,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     nebula::meta::MetaDumper dumper;
-    dumper.dumpMeta(FLAGS_path.c_str());
+    auto status = dumper.dumpMeta(FLAGS_path.c_str());
+    if (!status.ok()) {
+        LOG(ERROR) << status.toString();
+    }
     return 0;
 }
