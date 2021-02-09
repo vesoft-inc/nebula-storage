@@ -203,7 +203,7 @@ public:
             dumpBadKey(rawKey, kEdgeLen + (vIdLen << 1), vIdLen);
         }
         auto offset = sizeof(PartitionID) + vIdLen + sizeof(EdgeType);
-        return IndexKeyUtils::decodeInt64(rawKey.data() + offset);
+        return IndexKeyUtils::decodeRank(rawKey.data() + offset);
     }
 
 

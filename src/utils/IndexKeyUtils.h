@@ -165,6 +165,22 @@ public:
         return val;
     }
 
+    static std::string encodeRank(EdgeRanking rank) {
+        rank ^= folly::to<int64_t>(1) << 63;
+        auto val = folly::Endian::big(rank);
+        std::string raw;
+        raw.reserve(sizeof(int64_t));
+        raw.append(reinterpret_cast<const char*>(&val), sizeof(int64_t));
+        return raw;
+    }
+
+    static EdgeRanking decodeRank(const folly::StringPiece& raw) {
+        auto val = *reinterpret_cast<const int64_t*>(raw.data());
+        val = folly::Endian::big(val);
+        val ^= folly::to<int64_t>(1) << 63;
+        return val;
+    }
+
     /*
      * Default, the double memory structure is :
      *   sign bit（1bit）+  exponent bit(11bit) + float bit(52bit)
@@ -433,7 +449,7 @@ public:
     static EdgeRanking getIndexRank(size_t vIdLen, const folly::StringPiece& rawKey) {
         CHECK_GE(rawKey.size(), kEdgeIndexLen + vIdLen * 2);
         auto offset = rawKey.size() - vIdLen - sizeof(EdgeRanking);
-        return IndexKeyUtils::decodeInt64(rawKey.data() + offset);
+        return IndexKeyUtils::decodeRank(rawKey.data() + offset);
     }
 
     static bool isIndexKey(const folly::StringPiece& key) {

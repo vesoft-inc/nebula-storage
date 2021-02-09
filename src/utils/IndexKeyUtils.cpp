@@ -71,7 +71,7 @@ std::string IndexKeyUtils::edgeIndexKey(size_t vIdLen, PartitionID partId,
        .append(values)
        .append(srcId.data(), srcId.size())
        .append(vIdLen - srcId.size(), '\0')
-       .append(IndexKeyUtils::encodeInt64(rank))
+       .append(IndexKeyUtils::encodeRank(rank))
        .append(dstId.data(), dstId.size())
        .append(vIdLen - dstId.size(), '\0');
     return key;
