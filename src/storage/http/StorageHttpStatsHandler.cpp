@@ -27,20 +27,28 @@ folly::dynamic StorageHttpStatsHandler::getStats() const {
         std::map<std::string, uint64_t> stats_map;
         if (statistics->getTickerMap(&stats_map)) {
             for (const auto& stat : stats_map) {
+                folly::dynamic statObj = folly::dynamic::object();
                 if (!statFiltered(stat.first)) {
-                    addOneStat(stats, stat.first, stat.second);
+                    // addOneStat(stats, stat.first, stat.second);
+                    statObj.insert(stat.first, stat.second);
                 }
+                stats.push_back(std::move(statObj));
             }
         }
         if (statistics->get_stats_level() > rocksdb::StatsLevel::kExceptHistogramOrTimers) {
             for (const auto& h : rocksdb::HistogramsNameMap) {
+                folly::dynamic statObj = folly::dynamic::object();
                 if (!statFiltered(h.second)) {
                     rocksdb::HistogramData hData;
                     statistics->histogramData(h.first, &hData);
-                    addOneStat(stats, h.second + ".p50", hData.average);
-                    addOneStat(stats, h.second + ".p95", hData.percentile95);
-                    addOneStat(stats, h.second + ".p99", hData.percentile99);
+                    // addOneStat(stats, h.second + ".p50", hData.average);
+                    // addOneStat(stats, h.second + ".p95", hData.percentile95);
+                    // addOneStat(stats, h.second + ".p99", hData.percentile99);
+                    statObj.insert(h.second + ".p50", hData.average);
+                    statObj.insert(h.second + ".p95", hData.percentile95);
+                    statObj.insert(h.second + ".p99", hData.percentile99);
                 }
+                stats.push_back(std::move(statObj));
             }
         }
     }
