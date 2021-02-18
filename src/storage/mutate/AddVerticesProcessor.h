@@ -40,10 +40,6 @@ private:
         : BaseProcessor<cpp2::ExecResponse>(env, counters)
         , vertexCache_(cache) {}
 
-    folly::Optional<std::string>
-    addVertices(PartitionID partId,
-                const std::vector<kvstore::KV>& vertices);
-
     folly::Optional<std::string> findOldValue(PartitionID partId, const VertexID& vId, TagID tagId);
 
     std::string indexKey(PartitionID partId, const VertexID& vId, RowReader* reader,

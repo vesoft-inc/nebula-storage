@@ -172,8 +172,8 @@ bool StorageServer::start() {
     txnMan_ = std::make_unique<TransactionManager>(env_.get());
     env_->txnMan_ = txnMan_.get();
 
-    env_->vertexCCHM_ = std::make_unique<TempVertexCCHM>();
-    env_->edgeCCHM_ = std::make_unique<TempEdgeCCHM>();
+    env_->verticesML_ = std::make_unique<VerticesMemLock>();
+    env_->edgesML_ = std::make_unique<EdgesMemLock>();
 
     storageThread_.reset(new std::thread([this] {
         try {

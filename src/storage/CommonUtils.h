@@ -15,6 +15,7 @@
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "codec/RowReader.h"
 #include "kvstore/KVStore.h"
+#include "utils/MemoryLockWrapper.h"
 #include <folly/concurrency/ConcurrentHashMap.h>
 
 
@@ -59,10 +60,10 @@ using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 using IndexKey    = std::tuple<GraphSpaceID, PartitionID>;
 using IndexGuard  = folly::ConcurrentHashMap<IndexKey, IndexState>;
 
-using TempVertex = std::tuple<GraphSpaceID, PartitionID, TagID, VertexID>;
-using TempEdge = std::tuple<GraphSpaceID, PartitionID, VertexID, EdgeType, EdgeRanking, VertexID>;
-using TempVertexCCHM = folly::ConcurrentHashMap<TempVertex, bool>;
-using TempEdgeCCHM = folly::ConcurrentHashMap<TempEdge, bool>;
+using VMLI = std::tuple<GraphSpaceID, PartitionID, TagID, VertexID>;
+using EMLI = std::tuple<GraphSpaceID, PartitionID, VertexID, EdgeType, EdgeRanking, VertexID>;
+using VerticesMemLock = MemoryLockCore<VMLI>;
+using EdgesMemLock = MemoryLockCore<EMLI>;
 
 class TransactionManager;
 
@@ -79,8 +80,8 @@ public:
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
     meta::MetaClient*                               metaClient_{nullptr};
     TransactionManager*                             txnMan_{nullptr};
-    std::unique_ptr<TempVertexCCHM>                 vertexCCHM_{nullptr};
-    std::unique_ptr<TempEdgeCCHM>                   edgeCCHM_{nullptr};
+    std::unique_ptr<VerticesMemLock>                verticesML_{nullptr};
+    std::unique_ptr<EdgesMemLock>                   edgesML_{nullptr};
 
 
     IndexState getIndexState(GraphSpaceID space, PartitionID part) {

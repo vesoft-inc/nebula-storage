@@ -81,10 +81,6 @@ protected:
 
     void doRemove(GraphSpaceID spaceId, PartitionID partId, std::vector<std::string> keys);
 
-    kvstore::ResultCode doSyncRemove(GraphSpaceID spaceId,
-                                     PartitionID partId,
-                                     std::vector<std::string> keys);
-
     cpp2::ErrorCode to(kvstore::ResultCode code);
 
     cpp2::ErrorCode writeResultTo(WriteResult code, bool isEdge);

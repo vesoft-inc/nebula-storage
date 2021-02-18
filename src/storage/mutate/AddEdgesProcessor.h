@@ -48,23 +48,9 @@ private:
                          const folly::StringPiece& rawKey,
                          std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
-    void clearCCHM() noexcept;
-
-    bool tryLock(PartitionID partId,
-                 VertexID srcId,
-                 EdgeType type,
-                 EdgeRanking rank,
-                 VertexID dstId) noexcept;
-
 private:
     GraphSpaceID                                                spaceId_;
     std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
-    std::unordered_set<std::tuple<GraphSpaceID,
-                                  PartitionID,
-                                  VertexID,
-                                  EdgeType,
-                                  EdgeRanking,
-                                  VertexID>>                    cchm_;
 };
 
 }  // namespace storage

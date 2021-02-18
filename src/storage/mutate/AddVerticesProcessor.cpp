@@ -125,8 +125,10 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
     const auto& partVertices = req.get_parts();
     const auto& propNamesMap = req.get_prop_names();
     for (auto& part : partVertices) {
+        IndexCountWrapper wrapper(env_);
         std::unique_ptr<kvstore::BatchHolder> batchHolder =
         std::make_unique<kvstore::BatchHolder>();
+        std::vector<VMLI> dummyLock;
         auto partId = part.first;
         const auto& vertices = part.second;
         for (auto& vertex : vertices) {
@@ -194,7 +196,20 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         if (oReader != nullptr) {
                             auto oi = indexKey(partId, vid, oReader.get(), index);
                             if (!oi.empty()) {
-                                batchHolder->remove(std::move(oi));
+                                // Check the index is building for the specified partition or not.
+                                auto indexState = env_->getIndexState(spaceId_, partId);
+                                if (env_->checkRebuilding(indexState)) {
+                                    auto delOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                    batchHolder->put(std::move(delOpKey), std::move(oi));
+                                } else if (env_->checkIndexLocked(indexState)) {
+                                    LOG(ERROR) << "The index has been locked: "
+                                               << index->get_index_name();
+                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    onFinished();
+                                    return;
+                                } else {
+                                    batchHolder->remove(std::move(oi));
+                                }
                             }
                         }
 
@@ -204,7 +219,20 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         if (nReader != nullptr) {
                             auto ni = indexKey(partId, vid, nReader.get(), index);
                             if (!ni.empty()) {
-                                batchHolder->put(std::move(ni), "");
+                                // Check the index is building for the specified partition or not.
+                                auto indexState = env_->getIndexState(spaceId_, partId);
+                                if (env_->checkRebuilding(indexState)) {
+                                    auto opKey = OperationKeyUtils::modifyOperationKey(partId, ni);
+                                    batchHolder->put(std::move(opKey), "");
+                                } else if (env_->checkIndexLocked(indexState)) {
+                                    LOG(ERROR) << "The index has been locked: "
+                                               << index->get_index_name();
+                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    onFinished();
+                                    return;
+                                } else {
+                                    batchHolder->put(std::move(ni), "");
+                                }
                             }
                         }
 
@@ -214,6 +242,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         batchHolder->put(std::move(key), std::move(retEnc.value()));
                     }
                 }
+                dummyLock.emplace_back(std::make_tuple(spaceId_, partId, tagId, vid));
+
                 if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
                     vertexCache_->evict(std::make_pair(vid, tagId));
                     VLOG(3) << "Evict cache for vId " << vid
@@ -225,124 +255,24 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
         if (atomic.empty()) {
             handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
         } else {
+            nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(), dummyLock, true);
+            if (!lg) {
+                auto conflict = lg.conflictKey();
+                LOG(ERROR) << "edge conflict "
+                           << std::get<0>(conflict) << ":"
+                           << std::get<1>(conflict) << ":"
+                           << std::get<2>(conflict) << ":"
+                           << std::get<3>(conflict);
+                pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                onFinished();
+                return;
+            }
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
             env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(atomic), callback);
         }
     }
-}
-
-folly::Optional<std::string>
-AddVerticesProcessor::addVertices(PartitionID partId,
-                                  const std::vector<kvstore::KV>& vertices) {
-    IndexCountWrapper wrapper(env_);
-    std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
-    /*
-     * Define the map newVertices to avoid inserting duplicate vertex.
-     * This map means :
-     * map<vertex_unique_key, prop_value> ,
-     * -- vertex_unique_key is only used as the unique key , for example:
-     * insert below vertices in the same request:
-     *     kv(part1_vid1_tag1 , v1)
-     *     kv(part1_vid1_tag1 , v2)
-     *     kv(part1_vid1_tag1 , v3)
-     *     kv(part1_vid1_tag1 , v4)
-     *
-     * Ultimately, kv(part1_vid1_tag1 , v4) . It's just what I need.
-     */
-    std::unordered_map<std::string, std::string> newVertices;
-    std::for_each(vertices.begin(), vertices.end(),
-                  [&newVertices](const auto& v) {
-                      newVertices[v.first] = v.second;
-                  });
-
-    for (auto& v : newVertices) {
-        std::string val;
-        RowReaderWrapper oReader;
-        RowReaderWrapper nReader;
-        auto tagId = NebulaKeyUtils::getTagId(spaceVidLen_, v.first);
-        auto vId = NebulaKeyUtils::getVertexId(spaceVidLen_, v.first).str();
-
-        for (auto& index : indexes_) {
-            if (tagId == index->get_schema_id().get_tag_id()) {
-                /*
-                 * step 1 , Delete old version index if exists.
-                 */
-                if (val.empty()) {
-                    auto obsIdx = findOldValue(partId, vId, tagId);
-                    if (obsIdx == folly::none) {
-                        return folly::none;
-                    }
-                    val = std::move(obsIdx).value();
-
-                    if (!val.empty()) {
-                        oReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
-                                                                     spaceId_,
-                                                                     tagId,
-                                                                     val);
-                        if (oReader == nullptr) {
-                            LOG(ERROR) << "Bad format row";
-                            return folly::none;
-                        }
-                    }
-                }
-
-                if (!val.empty()) {
-                    auto oi = indexKey(partId, vId, oReader.get(), index);
-                    if (!oi.empty()) {
-                        // Check the index is building for the specified partition or not.
-                        auto indexState = env_->getIndexState(spaceId_, partId);
-                        if (env_->checkRebuilding(indexState)) {
-                            auto deleteOpKey = OperationKeyUtils::deleteOperationKey(partId);
-                            batchHolder->put(std::move(deleteOpKey), std::move(oi));
-                        } else if (env_->checkIndexLocked(indexState)) {
-                            LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            return folly::none;
-                        } else {
-                            batchHolder->remove(std::move(oi));
-                        }
-                    }
-                }
-
-                /*
-                 * step 2 , Insert new vertex index
-                 */
-                if (nReader == nullptr) {
-                    nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
-                                                                 spaceId_,
-                                                                 tagId,
-                                                                 v.second);
-                    if (nReader == nullptr) {
-                        LOG(ERROR) << "Bad format row";
-                        return folly::none;
-                    }
-                }
-                auto ni = indexKey(partId, vId, nReader.get(), index);
-                if (!ni.empty()) {
-                    // Check the index is building for the specified partition or not.
-                    auto indexState = env_->getIndexState(spaceId_, partId);
-                    if (env_->checkRebuilding(indexState)) {
-                        auto modifyOpKey = OperationKeyUtils::modifyOperationKey(partId, ni);
-                        batchHolder->put(std::move(modifyOpKey), "");
-                    } else if (env_->checkIndexLocked(indexState)) {
-                        LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        return folly::none;
-                    } else {
-                        batchHolder->put(std::move(ni), "");
-                    }
-                }
-            }
-        }
-        /*
-         * step 3 , Insert new vertex data
-         */
-        auto key = v.first;
-        auto prop = v.second;
-        batchHolder->put(std::move(key), std::move(prop));
-    }
-
-    return encodeBatchValue(batchHolder->getBatch());
 }
 
 folly::Optional<std::string>

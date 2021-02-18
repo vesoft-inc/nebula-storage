@@ -202,23 +202,6 @@ void BaseProcessor<RESP>::doRemove(GraphSpaceID spaceId,
 }
 
 template <typename RESP>
-kvstore::ResultCode BaseProcessor<RESP>::doSyncRemove(GraphSpaceID spaceId,
-                                                      PartitionID partId,
-                                                      std::vector<std::string> keys) {
-    folly::Baton<true, std::atomic> baton;
-    kvstore::ResultCode ret = kvstore::ResultCode::SUCCEEDED;
-    this->env_->kvstore_->asyncMultiRemove(
-        spaceId, partId, std::move(keys), [&ret, &baton] (kvstore::ResultCode code) {
-        if (kvstore::ResultCode::SUCCEEDED != code) {
-            ret = code;
-        }
-        baton.post();
-    });
-    baton.wait();
-    return ret;
-}
-
-template <typename RESP>
 StatusOr<std::string>
 BaseProcessor<RESP>::encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                   const std::vector<std::string>& propNames,

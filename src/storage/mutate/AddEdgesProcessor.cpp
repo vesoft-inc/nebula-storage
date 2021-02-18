@@ -114,50 +114,18 @@ void AddEdgesProcessor::doProcess(const cpp2::AddEdgesRequest& req) {
     }
 }
 
-void AddEdgesProcessor::clearCCHM() noexcept {
-    for (auto it = cchm_.begin(); it != cchm_.end(); it++) {
-        env_->edgeCCHM_->erase(*it);
-    }
-    cchm_.clear();
-}
-
-bool AddEdgesProcessor::tryLock(PartitionID partId,
-                                VertexID srcId,
-                                EdgeType type,
-                                EdgeRanking rank,
-                                VertexID dstId) noexcept {
-    if (!env_->edgeCCHM_->try_emplace(std::make_tuple(spaceId_,
-                                                      partId,
-                                                      srcId,
-                                                      type,
-                                                      rank,
-                                                      dstId), false).second) {
-        VLOG(1) << "Concurrent conflict : " << srcId << ":"
-                                            << type << ":"
-                                            << rank << ":"
-                                            << dstId;
-        return false;
-    } else {
-        cchm_.emplace(std::make_tuple(spaceId_, partId, srcId, type, rank, dstId));
-    }
-    return true;
-}
-
 void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
     const auto& partEdges = req.get_parts();
     const auto& propNames = req.get_prop_names();
     for (auto& part : partEdges) {
+        IndexCountWrapper wrapper(env_);
         std::unique_ptr<kvstore::BatchHolder> batchHolder =
         std::make_unique<kvstore::BatchHolder>();
+        std::vector<EMLI> dummyLock;
         auto partId = part.first;
         const auto& newEdges = part.second;
         for (auto& newEdge : newEdges) {
             auto edgeKey = newEdge.key;
-            if (!tryLock(partId, edgeKey.src.getStr(),
-                         edgeKey.edge_type,
-                         edgeKey.ranking, edgeKey.dst.getStr())) {
-                continue;
-            }
             VLOG(3) << "PartitionID: " << partId << ", VertexID: " << edgeKey.src
                     << ", EdgeType: " << edgeKey.edge_type << ", EdgeRanking: "
                     << edgeKey.ranking << ", VertexID: "
@@ -168,7 +136,6 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                 LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                            << "space vid len: " << spaceVidLen_ << ", edge srcVid: " << edgeKey.src
                            << ", dstVid: " << edgeKey.dst;
-                clearCCHM();
                 pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
                 onFinished();
                 return;
@@ -185,7 +152,6 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             if (!schema) {
                 LOG(ERROR) << "Space " << spaceId_ << ", Edge "
                            << edgeKey.edge_type << " invalid";
-                clearCCHM();
                 pushResultCode(cpp2::ErrorCode::E_EDGE_NOT_FOUND, partId);
                 onFinished();
                 return;
@@ -196,7 +162,6 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
             if (!retEnc.ok()) {
                 LOG(ERROR) << retEnc.status();
-                clearCCHM();
                 pushResultCode(writeResultTo(wRet, true), partId);
                 onFinished();
                 return;
@@ -225,7 +190,20 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                         if (oReader != nullptr) {
                             auto oi = indexKey(partId, oReader.get(), key, index);
                             if (!oi.empty()) {
-                                batchHolder->remove(std::move(oi));
+                                // Check the index is building for the specified partition or not.
+                                auto indexState = env_->getIndexState(spaceId_, partId);
+                                if (env_->checkRebuilding(indexState)) {
+                                    auto delOpKey = OperationKeyUtils::deleteOperationKey(partId);
+                                    batchHolder->put(std::move(delOpKey), std::move(oi));
+                                } else if (env_->checkIndexLocked(indexState)) {
+                                    LOG(ERROR) << "The index has been locked: "
+                                               << index->get_index_name();
+                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    onFinished();
+                                    return;
+                                } else {
+                                    batchHolder->remove(std::move(oi));
+                                }
                             }
                         }
                         /*
@@ -234,19 +212,52 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                         if (nReader != nullptr) {
                             auto ni = indexKey(partId, nReader.get(), key, index);
                             if (!ni.empty()) {
-                                batchHolder->put(std::move(ni), "");
+                                // Check the index is building for the specified partition or not.
+                                auto indexState = env_->getIndexState(spaceId_, partId);
+                                if (env_->checkRebuilding(indexState)) {
+                                    auto opKey = OperationKeyUtils::modifyOperationKey(
+                                        partId, std::move(ni));
+                                    batchHolder->put(std::move(opKey), "");
+                                } else if (env_->checkIndexLocked(indexState)) {
+                                    LOG(ERROR) << "The index has been locked: "
+                                               << index->get_index_name();
+                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    onFinished();
+                                    return;
+                                } else {
+                                    batchHolder->put(std::move(ni), "");
+                                }
                             }
                         }
                     }
                 }
             }
             batchHolder->put(std::move(key), std::move(retEnc.value()));
+            dummyLock.emplace_back(std::make_tuple(spaceId_,
+                                                   partId,
+                                                   edgeKey.src.getStr(),
+                                                   edgeKey.edge_type,
+                                                   edgeKey.ranking,
+                                                   edgeKey.dst.getStr()));
         }
         auto atomic = encodeBatchValue(std::move(batchHolder)->getBatch());
-        clearCCHM();
         if (atomic.empty()) {
             handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
         } else {
+            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), dummyLock, true);
+            if (!lg) {
+                auto conflict = lg.conflictKey();
+                LOG(ERROR) << "edge conflict "
+                           << std::get<0>(conflict) << ":"
+                           << std::get<1>(conflict) << ":"
+                           << std::get<2>(conflict) << ":"
+                           << std::get<3>(conflict) << ":"
+                           << std::get<4>(conflict) << ":"
+                           << std::get<5>(conflict);
+                pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                onFinished();
+                return;
+            }
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
