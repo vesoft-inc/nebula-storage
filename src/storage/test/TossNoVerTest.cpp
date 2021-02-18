@@ -141,7 +141,7 @@ TEST_F(TossTest, test0_add_eg_then_getProp) {
     EXPECT_TRUE(env->inEdgeExist(edges[0]));
     EXPECT_TRUE(env->outEdgeExist(edges[0]));
     EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_EQ(svec.size(), 1U);
+    EXPECT_EQ(svec.size(), 2U);
 }
 
 
@@ -149,7 +149,7 @@ TEST_F(TossTest, test0_add_eg_then_getProp) {
  * @brief normal edge
  */
 TEST_F(TossTest, test1_e) {
-    auto expect = 1;
+    auto expect = 2;
     LOG(INFO) << "b_=" << b_;
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
 

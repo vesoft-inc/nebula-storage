@@ -81,11 +81,12 @@ void ChainAddEdgesProcessor::addRemoteEdges(GraphSpaceID space,
                                             std::vector<cpp2::NewEdge>& edges,
                                             const std::vector<std::string>& propNames,
                                             bool overwritable,
-                                            folly::Promise<cpp2::ErrorCode>&& pro) {
+                                            folly::Promise<cpp2::ErrorCode>&& pro) noexcept {
+    LOG(INFO) << "ChainAddEdgesProcessor::addRemoteEdges() " << txnId_;
     auto* sClient = env_->txnMan_->getStorageClient();
     sClient->addEdges(space, edges, propNames, overwritable)
         .via(env_->txnMan_->getExecutor())
-        .thenTry([&, p = std::move(pro)](auto&& ret) mutable {
+        .thenTry([=, p = std::move(pro)](auto&& ret) mutable {
             auto rc = cpp2::ErrorCode::SUCCEEDED;
             if (ret.hasValue()) {
                 StorageRpcResponse<cpp2::ExecResponse>& rpcResp = ret.value();
@@ -102,10 +103,11 @@ void ChainAddEdgesProcessor::addRemoteEdges(GraphSpaceID space,
                 rc = cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
             }
             LOG(INFO) << "sClient->addEdges(), rc = " << static_cast<int>(rc);
-            LOG(INFO) << "~ChainAddEdgesProcessor::processRemote() " << txnId_;
+            LOG(INFO) << "ChainAddEdgesProcessor::~processRemote() " << txnId_;
             p.setValue(rc);
             return;
         });
+    LOG(INFO) << "ChainAddEdgesProcessor::-addRemoteEdges() " << txnId_;
 }
 
 folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processLocal(cpp2::ErrorCode code) {

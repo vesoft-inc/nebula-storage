@@ -48,7 +48,7 @@ public:
                         std::vector<cpp2::NewEdge>& edges,
                         const std::vector<std::string>& propNames,
                         bool overwritable,
-                        folly::Promise<cpp2::ErrorCode>&& promise);
+                        folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
 
 protected:
     GraphSpaceID spaceId_{-1};
