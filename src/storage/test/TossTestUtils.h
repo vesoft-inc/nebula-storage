@@ -166,14 +166,14 @@ struct TossTestUtils {
         return ret;
     }
 
-    // generate num different edges all start from "src",
-    // the first dst is src + 1, and increase 1 for each
-    static std::vector<cpp2::NewEdge> makeNeighborEdges(int64_t src, int edgeType, size_t num) {
+    // generate num different edges with same dst
+    // the first src is dst + 1, and increase 1 for each
+    static std::vector<cpp2::NewEdge> makeNeighborEdges(int64_t dst, int edgeType, size_t num) {
         auto values = genISValues(num);
         std::vector<cpp2::NewEdge> edges;
         auto rank = 0;
         for (auto i = 0U; i < num; ++i) {
-            auto dst = src + i + 1;
+            auto src = dst + i + 1;
             auto ekey = generateEdgeKey(src, edgeType, rank, dst);
             edges.emplace_back();
             edges.back().set_key(std::move(ekey));
