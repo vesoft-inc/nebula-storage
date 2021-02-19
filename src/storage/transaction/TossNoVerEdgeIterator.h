@@ -26,16 +26,16 @@ class PendingLockIter {
 public:
     PendingLockIter(Container& locks, DataChecker checker)
         : locks_(locks), dataChecker_(std::move(checker)) {
-        LOG(INFO) << "enter PendingLockIter::ctor(), locks_.size() = " << locks_.size();
+        LOG(INFO) << "PendingLockIter::ctor(), locks_.size() = " << locks_.size();
         curr_ = locks_.begin();
         if (!check()) {
             next();
         }
-        LOG(INFO) << "exit PendingLockIter::ctor()";
+        LOG(INFO) << "~PendingLockIter::ctor()";
     }
 
     bool valid() const {
-        LOG(INFO) << "enter PendingLockIter::valid()";
+        LOG(INFO) << "PendingLockIter::valid()";
         if (locks_.empty()) {
             return false;
         }
@@ -60,14 +60,49 @@ public:
         return true;
     }
 
+    // bool check() {
+    //     LOG(INFO) << "PendingLockIter::check()";
+    //     bool ret = false;
+    //     do {
+    //         if (!valid()) {
+    //             LOG(INFO) << "!valid()";
+    //             break;
+    //         }
+    //         if (emptyPendLock(curr_->get())) {
+    //             LOG(INFO) << "emptyPendLock(curr_->get()";
+    //             break;
+    //         }
+    //         auto& lock = *(*curr_);
+    //         if (lock.lockProps) {
+    //             LOG(INFO) << "lock.lockProps is true " << folly::hexlify(*lock.lockProps);
+    //         } else {
+    //             LOG(INFO) << "lock.lockProps is false ";
+    //         }
+    //         if (lock.edgeProps) {
+    //             LOG(INFO) << "lock.edgeProps is true " << folly::hexlify(*lock.edgeProps);
+    //         } else {
+    //             LOG(INFO) << "lock.edgeProps is false ";
+    //         }
+    //         auto& val = lock.lockProps ? *lock.lockProps : *lock.edgeProps;
+    //         if (!dataChecker_(val)) {
+    //             LOG(INFO) << "!dataChecker_(val)";
+    //             break;
+    //         }
+    //         ret = true;
+    //     } while(0);
+
+    //     LOG(INFO) << "~PendingLockIter::check(), ret = " << ret;
+    //     return ret;
+    // }
+
     void next() {
-        LOG(INFO) << "enter PendingLockIter::next()";
+        LOG(INFO) << "PendingLockIter::next()";
         for (++curr_; valid(); ++curr_) {
             if (check()) {
                 break;
             }
         }
-        LOG(INFO) << "exit PendingLockIter::next()";
+        LOG(INFO) << "~PendingLockIter::next()";
     }
 
     bool emptyPendLock(PendingLock* pendingLock) {
@@ -75,8 +110,9 @@ public:
     }
 
     folly::StringPiece key() {
-        LOG(FATAL) << "really called this???";
-        return "";
+        std::shared_ptr<PendingLock> splk = *curr_;
+        LOG(INFO) << "PendingLockIter::key()=" << folly::hexlify(splk->lockKey);
+        return splk->lockKey;
     }
 
 private:
@@ -142,6 +178,7 @@ public:
             LOG(INFO) << "TossNoVerEdgeIterator::next(), !iter_->valid()";
             if (!lockIter_) {
                 auto dataChecker = [&](folly::StringPiece val) {
+                    LOG(INFO) << "dataChecker() val=" << folly::hexlify(val);
                     reader_.reset(*schemas_, val);
                     if (!reader_) {
                         planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
@@ -160,10 +197,10 @@ public:
                 folly::collectAll(resumeTasks_).wait();
                 lockIter_ =
                     std::make_unique<PendingLockIter>(pendingLocks_, std::move(dataChecker));
-            }
-
-            if (lockIter_->valid()) {
-                lockIter_->next();
+            } else {
+                if (lockIter_->valid()) {
+                    lockIter_->next();
+                }
             }
         }
     }

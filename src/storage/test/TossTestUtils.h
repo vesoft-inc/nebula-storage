@@ -182,6 +182,20 @@ struct TossTestUtils {
         return edges;
     }
 
+    static cpp2::NewEdge makeEdge(int64_t src, int edgeType) {
+        cpp2::NewEdge edge;
+        edge.set_key(generateEdgeKey(src, edgeType, 0, src + 1));
+        edge.set_props(makeISValue(1024));
+        return edge;
+    }
+
+    static cpp2::NewEdge makeTwinEdge(const cpp2::NewEdge& oldEdge) {
+        cpp2::NewEdge newEdge(oldEdge);
+        auto newVal = makeISValue(newEdge.props[0].getInt() + 1024);
+        newEdge.set_props(newVal);
+        return newEdge;
+    }
+
     static std::vector<std::string> makeColNames(size_t n) {
         std::vector<std::string> colNames;
         for (auto i = 0U; i < n; ++i) {

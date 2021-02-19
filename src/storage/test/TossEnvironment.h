@@ -334,16 +334,23 @@ private:
 };
 
 class GetNeighborsExecutor {
+    std::vector<std::string> data_;
+
 public:
+    explicit GetNeighborsExecutor(cpp2::NewEdge edge)
+        : GetNeighborsExecutor(std::vector<cpp2::NewEdge>{edge}) {
+    }
+
     GetNeighborsExecutor(std::vector<cpp2::NewEdge> edges,
                          int64_t limit = std::numeric_limits<int64_t>::max())
         : edges_(std::move(edges)), limit_(limit) {
         env_ = TossEnvironment::getInstance();
+        auto uniEdges = uniqueEdges(edges_);
+        data_ = run(uniEdges);
     }
 
     std::vector<std::string> data() {
-        auto uniEdges = uniqueEdges(edges_);
-        return run(uniEdges);
+        return data_;
     }
 
     std::vector<cpp2::NewEdge> uniqueEdges(const std::vector<cpp2::NewEdge>& __edges) {
@@ -461,10 +468,6 @@ public:
         auto& ds = resp.vertices;
         LOG(INFO) << "ds.rows.size()=" << ds.rows.size();
         for (auto& row : ds.rows) {
-            // if (row.values.size() < 4) {
-            //     LOG(ERROR) << "row.values.size() = " << row.values.size();
-            //     continue;
-            // }
             LOG(INFO) << "row.values.size()=" << row.values.size();
             for (auto& val : row.values) {
                 LOG(INFO) << "row.val = " << val.toString();
@@ -590,10 +593,12 @@ public:
         CHECK_GT(edge_.key.edge_type, 0);
         std::swap(edge_.key.src, edge_.key.dst);
         edge_.key.edge_type = 0 - edge_.key.edge_type;
+        rpc();
     }
 
+    explicit GetPropsExecutor(std::vector<cpp2::NewEdge> edges) : GetPropsExecutor(edges[0]) {}
+
     std::vector<Value> data() {
-        rpc();
         return result_;
     }
 
