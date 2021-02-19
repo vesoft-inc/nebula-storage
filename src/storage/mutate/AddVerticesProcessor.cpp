@@ -258,7 +258,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
             nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(), dummyLock, true);
             if (!lg) {
                 auto conflict = lg.conflictKey();
-                LOG(ERROR) << "edge conflict "
+                LOG(ERROR) << "vertex conflict "
                            << std::get<0>(conflict) << ":"
                            << std::get<1>(conflict) << ":"
                            << std::get<2>(conflict) << ":"
