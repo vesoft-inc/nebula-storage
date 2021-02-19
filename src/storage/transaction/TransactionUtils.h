@@ -32,11 +32,19 @@ public:
      */
     static std::string edgeKey(size_t vIdLen,
                                PartitionID partId,
-                               const cpp2::EdgeKey& key);
+                               const cpp2::EdgeKey& key) noexcept;
 
     static std::string lockKey(size_t vIdLen,
                                PartitionID partId,
-                               const cpp2::EdgeKey& key);
+                               const cpp2::EdgeKey& key) noexcept;
+
+    static void changeToIntVid(cpp2::EdgeKey& key) noexcept {
+        auto iSrc = *reinterpret_cast<const int64_t*>(key.src.getStr().c_str());
+        key.src.setInt(iSrc);
+
+        auto iDst = *reinterpret_cast<const int64_t*>(key.dst.getStr().c_str());
+        key.dst.setInt(iDst);
+    }
 };
 
 /**

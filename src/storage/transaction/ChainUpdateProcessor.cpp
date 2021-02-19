@@ -12,52 +12,50 @@ namespace nebula {
 namespace storage {
 
 folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::prepareLocal() {
-    LOG(INFO) << "enter ChainUpdateEdgeProcessor::prepareLocal()";
+    LOG(INFO) << "ChainUpdateEdgeProcessor::prepareLocal()";
 
-    std::string strLock = TransactionUtils::lockKey(vIdLen_, req_.part_id, req_.edge_key);
-    if (!env_->txnMan_->getMemoryLock()->lock(strLock)) {
+    sLockKey_ = TransactionUtils::lockKey(vIdLen_, partId_, edgeKey_);
+    if (!env_->txnMan_->getMemoryLock()->lock(sLockKey_)) {
         return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
     }
-    std::vector<KV> data{{strLock, ""}};
+    std::vector<KV> data{{sLockKey_, ""}};
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    env_->kvstore_->asyncMultiPut(spaceId_,
-                                  req_.part_id,
-                                  data,
-                                  [p = std::move(c.first)](kvstore::ResultCode rc) mutable {
-                                      p.setValue(CommonUtils::to(rc));
-                                  });
-    LOG(INFO) << "exit ChainUpdateEdgeProcessor::prepareLocal()";
+    LOG(INFO) << "spaceId_=" << spaceId_;
+    env_->kvstore_->asyncMultiPut(
+        spaceId_, partId_, data, [p = std::move(c.first)](kvstore::ResultCode rc) mutable {
+            LOG(INFO) << "~ChainUpdateEdgeProcessor::prepareLocal(), rc = " << static_cast<int>(rc);
+            p.setValue(CommonUtils::to(rc));
+        });
+    LOG(INFO) << "-ChainUpdateEdgeProcessor::prepareLocal()";
     return std::move(c.second);
 }
 
 folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processRemote(cpp2::ErrorCode code) {
-    LOG(INFO) << "enter ChainUpdateEdgeProcessor::processRemote()";
+    LOG(INFO) << "ChainUpdateEdgeProcessor::processRemote(), code = " << CommonUtils::name(code);
     setErrorCode(code);
     if (code_ != cpp2::ErrorCode::SUCCEEDED) {
         return code_;
     }
-    auto* sClient = env_->txnMan_->getStorageClient();
+    TransactionUtils::changeToIntVid(edgeKey_);
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    sClient
-        ->updateEdge(spaceId_,
-                     req_.get_edge_key(),
-                     req_.get_updated_props(),
-                     req_.get_insertable(),
-                     *req_.get_return_props(),
-                     *req_.get_condition())
-        // .via(env_->txnMan_->getExecutor())
-        .thenTry([p = std::move(c.first)](auto&& ret) mutable {
-            auto rc = ret.hasValue() && ret.value().ok()
-                          ? cpp2::ErrorCode::SUCCEEDED
-                          : cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
-            p.setValue(rc);
-        });
-    LOG(INFO) << "exit ChainUpdateEdgeProcessor::processRemote()";
+    updateRemoteEdge(std::move(c.first));
+    LOG(INFO) << "-ChainUpdateEdgeProcessor::processRemote()";
     return std::move(c.second);
 }
 
+void ChainUpdateEdgeProcessor::updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& pro) noexcept {
+    auto* sClient = env_->txnMan_->getStorageClient();
+    sClient->updateEdge(spaceId_, edgeKey_, updateProps_, insertable_, returnProps_, condition_)
+        .thenTry([&, p = std::move(pro)](auto&& t) mutable {
+            LOG(INFO) << "~ChainUpdateEdgeProcessor::processRemote()";
+            auto rc = t.hasValue() && t.value().ok() ? cpp2::ErrorCode::SUCCEEDED
+                                                     : cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
+            p.setValue(rc);
+        });
+}
+
 folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processLocal(cpp2::ErrorCode code) {
-    LOG(INFO) << "enter ChainUpdateEdgeProcessor::processLocal()";
+    LOG(INFO) << "ChainUpdateEdgeProcessor::processLocal()";
     setErrorCode(code);
     if (code_ != cpp2::ErrorCode::SUCCEEDED) {
         return code_;
@@ -65,7 +63,8 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processLocal(cpp2::
 
     // 1. remove locks
     kvstore::BatchHolder bat;
-    bat.remove(TransactionUtils::lockKey(vIdLen_, req_.part_id, req_.edge_key));
+    // bat.remove(TransactionUtils::lockKey(vIdLen_, partId_, edgeKey_));
+    bat.remove(std::move(sLockKey_));
 
     auto optVal = getter_();
     if (optVal) {
@@ -78,16 +77,14 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processLocal(cpp2::
     env_->txnMan_->commitBatch(spaceId_, partId_, batch)
         .via(env_->txnMan_->getExecutor())
         .thenTry([p = std::move(c.first)](auto&& t) mutable {
+            LOG(INFO) << "~ChainUpdateEdgeProcessor::processLocal()";
             auto rc =
                 t.hasValue() ? CommonUtils::to(t.value()) : cpp2::ErrorCode::E_KVSTORE_EXCEPTION;
             p.setValue(rc);
         });
-    LOG(INFO) << "exit ChainUpdateEdgeProcessor::processLocal()";
+    LOG(INFO) << "-ChainUpdateEdgeProcessor::processLocal()";
     return std::move(c.second);
 }
-
-// void cleanup() override;
-
 
 }  // namespace storage
 }  // namespace nebula

@@ -228,9 +228,6 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdgeAtomic(size_t vIdLe
                                                                     PartitionID partId,
                                                                     const cpp2::EdgeKey& edgeKey,
                                                                     GetBatchFunc&& getter) {
-    // if (edgeKey.get_edge_type() > 0) {
-    //     return updateEdge1(vIdLen, spaceId, partId, edgeKey, std::move(getter));
-    // }
     // return updateEdge2(vIdLen, spaceId, partId, edgeKey, std::move(getter));
     return updateEdge1(vIdLen, spaceId, partId, edgeKey, std::move(getter));
 }
@@ -245,50 +242,36 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge2(
     const cpp2::EdgeKey& edgeKey,
     std::vector<cpp2::UpdatedProp> updateProps,
     bool insertable,
-    folly::Optional<std::vector<std::string>> returnProps,
-    folly::Optional<std::string> condition,
+    folly::Optional<std::vector<std::string>> optReturnProps,
+    folly::Optional<std::string> optCondition,
     GetBatchFunc&& getter) {
-    /*
-     * struct UpdateEdgeRequest {
-        1: common.GraphSpaceID      space_id,
-        2: common.PartitionID       part_id,
-        3: EdgeKey                  edge_key,
-        4: list<UpdatedProp>        updated_props,
-        5: optional bool            insertable = false,
-        // A list of kEdgeProperty expressions, support kSrc, kType, kRank and kDst
-        6: optional list<binary>    return_props,
-        // If provided, the update happens only when the condition evaluates true
-        7: optional binary          condition,
+    LOG(INFO) << "updateEdgeAtomicNew";
+    std::vector<std::string> returnProps;
+    if (optReturnProps) {
+        returnProps = *optReturnProps;
     }
-     * */
-    LOG(INFO) << "enter updateEdgeAtomicNew";
-    cpp2::UpdateEdgeRequest req;
-    req.set_space_id(spaceId);
-    req.set_part_id(partId);
-    req.set_edge_key(edgeKey);
-    req.set_updated_props(updateProps);
-    req.set_insertable(insertable);
-    if (returnProps) {
-        req.set_return_props(*returnProps);
-    }
-    if (condition) {
-        req.set_condition(*condition);
+    std::string condition;
+    if (optCondition) {
+        condition = *optCondition;
     }
 
-    UNUSED(vIdLen);
-    LOG(FATAL) << "UNUSED(vIdLen);";
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    // auto&& cb = [&, p = std::move(c.first)](cpp2::ErrorCode code) mutable {
-    //     p.setValue(code);
-    // };
     auto* processor = ChainUpdateEdgeProcessor::instance(
         env_,
         [&, p = std::move(c.first)](cpp2::ErrorCode code) mutable { p.setValue(code); },
-        std::move(req),
+        spaceId,
+        partId,
+        edgeKey,
+        updateProps,
+        insertable,
+        returnProps,
+        condition,
         std::move(getter));
 
+    processor->setVidLen(vIdLen);
+
     processChain(processor);
-    LOG(INFO) << "exit updateEdgeAtomicNew";
+    LOG(INFO) << "~updateEdgeAtomicNew";
     return std::move(c.second).via(exec_.get());
 }
 

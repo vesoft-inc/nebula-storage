@@ -132,13 +132,6 @@ public:
 
     EdgeType getEdgeType() { return edgeType_; }
 
-    // cpp2::NewEdge dupEdge(const cpp2::NewEdge& e) {
-    //     cpp2::NewEdge dupEdge{e};
-    //     int n = e.props[0].getInt() / 1024 + 1;
-    //     dupEdge.props = TossTestUtils::makeISValue(n);
-    //     return dupEdge;
-    // }
-
     int32_t getPartId(const std::string& src) {
         auto stPart = mClient_->partId(spaceId_, src);
         LOG_IF(FATAL, !stPart.ok()) << "mClient_->partId() failed";
@@ -641,14 +634,6 @@ public:
             CHECK_EQ(resps.size(), 1);
             cpp2::GetPropResponse& propResp = resps.front();
             cpp2::ResponseCommon result = propResp.get_result();
-            // std::vector<cpp2::PartitionResult>& fparts = result.failed_parts;
-            // if (!fparts.empty()) {
-            //     for (cpp2::PartitionResult& res : fparts) {
-            //         LOG(INFO) << "part_id: " << res.part_id << ", part leader " << res.leader
-            //                   << ", code " << static_cast<int>(res.code);
-            //     }
-            //     LOG(FATAL) << "getProps() !failed_parts.empty())";
-            // }
             nebula::DataSet& dataSet = propResp.props;
             std::vector<Row>& rows = dataSet.rows;
             if (rows.empty()) {
@@ -667,6 +652,72 @@ public:
             }
             break;
         } while (retry-- > 0);
+    }
+};
+
+struct UpdateExecutor {
+    TossEnvironment* env_;
+    cpp2::NewEdge edge_;
+    std::vector<cpp2::UpdatedProp> updatedProps_;
+    bool insertable_{false};
+    std::vector<std::string> returnProps_;
+    std::string condition_;
+
+public:
+    explicit UpdateExecutor(cpp2::NewEdge edge) : edge_(std::move(edge)) {
+        env_ = TossEnvironment::getInstance();
+        CHECK_GT(edge_.key.edge_type, 0);
+        std::swap(edge_.key.src, edge_.key.dst);
+        edge_.key.edge_type = 0 - edge_.key.edge_type;
+        prepareParameters();
+        rpc();
+    }
+
+    void prepareParameters() {
+        cpp2::UpdatedProp uProp1;
+        uProp1.set_name("c1");
+        ConstantExpression val1(edge_.props[0].getInt());
+        uProp1.set_value(Expression::encode(val1));
+        updatedProps_.emplace_back(uProp1);
+
+        cpp2::UpdatedProp uProp2;
+        uProp2.set_name("c2");
+        ConstantExpression val2(edge_.props[1].getStr());
+        uProp2.set_value(Expression::encode(val2));
+
+        updatedProps_.emplace_back(uProp2);
+    }
+
+    void rpc() {
+        for (;;) {
+            // folly::Future<StatusOr<storage::cpp2::UpdateResponse>> updateEdge(
+                // GraphSpaceID space,
+                // storage::cpp2::EdgeKey edgeKey,
+                // std::vector<cpp2::UpdatedProp> updatedProps,
+                // bool insertable,
+                // std::vector<std::string> returnProps,
+                // std::string condition,
+                // folly::EventBase* evb = nullptr);
+            auto f = env_->sClient_->updateEdge(
+                env_->spaceId_, edge_.key, updatedProps_, insertable_, returnProps_, condition_);
+            f.wait();
+            CHECK(f.hasValue());
+            if (!f.value().ok()) {
+                LOG(FATAL) << f.value().status().toString();
+            }
+            storage::cpp2::UpdateResponse resp = f.value().value();
+            if (resp.result.get_failed_parts().empty()) {
+                break;
+            }
+
+            CHECK_EQ(resp.result.get_failed_parts().size(), 1U);
+            cpp2::PartitionResult result =  resp.result.get_failed_parts().back();
+            if (result.code == cpp2::ErrorCode::E_LEADER_CHANGED) {
+                LOG(INFO) << "update edge leader changed, retry";
+                continue;
+            }
+            LOG(FATAL) << "update edge err: " << cpp2::_ErrorCode_VALUES_TO_NAMES.at(result.code);
+        }
     }
 };
 

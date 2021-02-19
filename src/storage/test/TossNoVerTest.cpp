@@ -722,7 +722,7 @@ TEST_F(TossTest, test14_blk1_blk2_eg2) {
 /**
  * @brief  good lock(1) + edge(1) + good lock(2) + edge(2)
  */
-TEST_F(TossTest, test16_glk1_eg1_glk2_eg2) {
+TEST_F(TossTest, test24_glk1_eg1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
     auto& e1 = edges[0];
@@ -763,7 +763,7 @@ TEST_F(TossTest, test16_glk1_eg1_glk2_eg2) {
 /**
  * @brief  good lock(1) + edge(1) + bad lock(2) + edge(2)
  */
-TEST_F(TossTest, test16_glk1_eg1_blk2_eg2) {
+TEST_F(TossTest, test24_glk1_eg1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
     auto& e1 = edges[0];
@@ -804,14 +804,13 @@ TEST_F(TossTest, test16_glk1_eg1_blk2_eg2) {
 /**
  * @brief bad lock(1) + edge(1) + good lock(2) + edge(2)
  */
-TEST_F(TossTest, test16_blk1_eg1_glk2_eg2) {
+TEST_F(TossTest, test24_blk1_eg1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
-
 
     env->insertBiEdge(e1);
     env->insertInvalidLock(lk1);
@@ -845,14 +844,13 @@ TEST_F(TossTest, test16_blk1_eg1_glk2_eg2) {
 /**
  * @brief bad lock(1) + edge(1) + bad lock(2) + edge(2)
  */
-TEST_F(TossTest, test16_blk1_eg1_blk2_eg2) {
+TEST_F(TossTest, test24_blk1_eg1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
-
 
     env->insertBiEdge(e1);
     env->insertInvalidLock(lk1);
@@ -881,6 +879,31 @@ TEST_F(TossTest, test16_blk1_eg1_blk2_eg2) {
 
     GetPropsExecutor exec2(e2);
     EXPECT_EQ(e2.props, exec2.data());
+}
+
+/**
+ * @brief update an edge
+ */
+TEST_F(TossTest, test30_update_eg) {
+    LOG(INFO) << "b_=" << b_;
+
+    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
+    env->insertBiEdge(e1);
+    EXPECT_FALSE(env->lockExist(e1));
+    EXPECT_TRUE(env->outEdgeExist(e1));
+    EXPECT_TRUE(env->inEdgeExist(e1));
+
+    auto e2 = TossTestUtils::makeTwinEdge(e1);
+    UpdateExecutor upd(e2);
+
+    GetPropsExecutor exec1(e1);
+    EXPECT_EQ(e2.props, exec1.data());
+}
+
+/**
+ * @brief update non-exist edge
+ */
+TEST_F(TossTest, test30_update_non_exist_eg) {
 }
 
 }  // namespace storage

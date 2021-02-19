@@ -54,18 +54,8 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processRemote(cpp2::E
     std::transform(inEdges.begin(), inEdges.end(), outEdges.begin(), [&](auto edge) {
         std::swap(edge.key.src, edge.key.dst);
         edge.key.edge_type = 0 - edge.key.edge_type;
-        LOG(INFO) << "messi add out-edge: (before convert vid)"
-                  << folly::hexlify(TransactionUtils::edgeKey(vIdLen_, partId_, edge.key))
-                  << ", vIdLen_ = " << vIdLen_;
         if (convertVid_) {
-            int64_t iSrc = *reinterpret_cast<const int64_t*>(edge.key.src.getStr().c_str());
-            auto biSrc = folly::Endian::big(iSrc);
-            LOG(INFO) << "iSrc = " << iSrc << ", biSrc = " << biSrc;
-            edge.key.src.setInt(iSrc);
-            int64_t iDst = *reinterpret_cast<const int64_t*>(edge.key.dst.getStr().c_str());
-            auto biDst = folly::Endian::big(iDst);
-            LOG(INFO) << "biDst = " << iDst << ", biDst = " << biDst;
-            edge.key.dst.setInt(iDst);
+            TransactionUtils::changeToIntVid(edge.key);
         }
         return edge;
     });

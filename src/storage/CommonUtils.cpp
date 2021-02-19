@@ -19,6 +19,7 @@ cpp2::ErrorCode CommonUtils::to(const Status& status) {
         case Status::kPartNotFound:
             return cpp2::ErrorCode::E_PART_NOT_FOUND;
         default:
+            LOG(INFO) << "no converted status: " << status.toString();
             return cpp2::ErrorCode::E_UNKNOWN;
     }
 }
@@ -43,8 +44,10 @@ kvstore::ResultCode CommonUtils::to(cpp2::ErrorCode code) {
             return kvstore::ResultCode::SUCCEEDED;
         case cpp2::ErrorCode::E_LEADER_CHANGED:
             return kvstore::ResultCode::ERR_LEADER_CHANGED;
+        case cpp2::ErrorCode::E_SPACE_NOT_FOUND:
+            return kvstore::ResultCode::ERR_SPACE_NOT_FOUND;
         default:
-            LOG(ERROR) << "unknown ErrorCode: " << static_cast<int>(code);
+            LOG(ERROR) << "unknown ErrorCode: " << name(code);
             return kvstore::ResultCode::ERR_UNKNOWN;
     }
 }

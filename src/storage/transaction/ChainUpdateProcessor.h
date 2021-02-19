@@ -17,17 +17,48 @@ class ChainUpdateEdgeProcessor : public BaseChainProcessor {
 public:
     static ChainUpdateEdgeProcessor* instance(StorageEnv* env,
                                               Callback&& cb,
-                                              cpp2::UpdateEdgeRequest&& req,
+                                              GraphSpaceID spaceId,
+                                              PartitionID partId,
+                                              const cpp2::EdgeKey& edgeKey,
+                                              const std::vector<cpp2::UpdatedProp>& updateProps,
+                                              bool insertable,
+                                              const std::vector<std::string>& returnProps,
+                                              const std::string& condition,
                                               AtomicGetFunc&& getter) {
-        return new ChainUpdateEdgeProcessor(env, std::move(cb), req, std::move(getter));
+        return new ChainUpdateEdgeProcessor(env,
+                                            std::move(cb),
+                                            spaceId,
+                                            partId,
+                                            edgeKey,
+                                            updateProps,
+                                            insertable,
+                                            returnProps,
+                                            condition,
+                                            std::move(getter));
     }
 
     ChainUpdateEdgeProcessor(StorageEnv* env,
                              Callback&& cb,
-                             cpp2::UpdateEdgeRequest req,
+                             GraphSpaceID spaceId,
+                             PartitionID partId,
+                             cpp2::EdgeKey edgeKey,
+                             std::vector<cpp2::UpdatedProp> updateProps,
+                             bool insertable,
+                             std::vector<std::string> returnProps,
+                             std::string condition,
                              AtomicGetFunc&& getter)
         : BaseChainProcessor(env, std::move(cb)),
-          req_(std::move(req)), getter_(std::move(getter)) {}
+          spaceId_(spaceId),
+          partId_(partId),
+          edgeKey_(std::move(edgeKey)),
+          updateProps_(std::move(updateProps)),
+          insertable_(insertable),
+          returnProps_(std::move(returnProps)),
+          condition_(std::move(condition)),
+          getter_(std::move(getter)) {
+              std::swap(edgeKey_.src, edgeKey_.dst);
+              edgeKey_.edge_type = 0 - edgeKey_.edge_type;
+          }
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;
 
@@ -37,12 +68,19 @@ public:
 
     void cleanup() override {}
 
+    void updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
+
 protected:
     GraphSpaceID spaceId_{-1};
     PartitionID partId_{-1};
-    cpp2::UpdateEdgeRequest req_;
-    AtomicGetFunc getter_;
     bool needUnlock_{false};
+    cpp2::EdgeKey edgeKey_;
+    std::vector<cpp2::UpdatedProp> updateProps_;
+    bool insertable_;
+    std::vector<std::string> returnProps_;
+    std::string condition_;
+    AtomicGetFunc getter_;
+    std::string sLockKey_;
 };
 
 }  // namespace storage
