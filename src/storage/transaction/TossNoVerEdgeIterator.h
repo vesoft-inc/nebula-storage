@@ -8,6 +8,7 @@
 
 #include <folly/ScopeGuard.h>
 #include <folly/String.h>
+#include <boost/stacktrace.hpp>
 
 #include "common/base/Base.h"
 #include "kvstore/KVIterator.h"
@@ -131,7 +132,8 @@ public:
         const folly::Optional<std::pair<std::string, int64_t>>* ttl,
         bool stopAtFirstEdge)
         : SingleEdgeIterator() {
-        LOG(INFO) << "enter TossNoVerEdgeIterator::ctor()";
+        LOG(INFO) << "TossNoVerEdgeIterator::ctor(), iter->key=" << folly::hexlify(iter->key());
+        LOG(INFO) << boost::stacktrace::stacktrace();
         planContext_ = planCtx;
         iter_ = std::move(iter);
         edgeType_ = edgeType;
@@ -145,7 +147,7 @@ public:
         if (!checkIter()) {
             next();
         }
-        LOG(INFO) << "exit TossNoVerEdgeIterator::ctor()";
+        LOG(INFO) << "~TossNoVerEdgeIterator::ctor()";
     }
 
     folly::StringPiece key() const override {
@@ -177,6 +179,9 @@ public:
         if (!iter_->valid()) {
             LOG(INFO) << "TossNoVerEdgeIterator::next(), !iter_->valid()";
             if (!lockIter_) {
+                if (!resumeTasks_.empty()) {
+                    folly::collectAll(resumeTasks_).wait();
+                }
                 auto dataChecker = [&](folly::StringPiece val) {
                     LOG(INFO) << "dataChecker() val=" << folly::hexlify(val);
                     reader_.reset(*schemas_, val);
@@ -194,7 +199,6 @@ public:
 
                     return true;
                 };
-                folly::collectAll(resumeTasks_).wait();
                 lockIter_ =
                     std::make_unique<PendingLockIter>(pendingLocks_, std::move(dataChecker));
             } else {

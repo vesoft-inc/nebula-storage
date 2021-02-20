@@ -12,6 +12,8 @@ namespace nebula {
 namespace storage {
 
 class ChainAddEdgesProcessor : public BaseChainProcessor {
+    using LockGuard = nebula::MemoryLockGuard<std::string>;
+
 public:
     using Encoder = std::function<std::pair<std::string, cpp2::ErrorCode>(const cpp2::NewEdge& e)>;
     static ChainAddEdgesProcessor* instance(StorageEnv* env,
@@ -34,7 +36,7 @@ public:
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
 
-    void cleanup() override;
+    // void cleanup() override;
 
     void setEncoder(Encoder&& encoder) {
         encoder_ = std::move(encoder);
@@ -55,8 +57,9 @@ protected:
     PartitionID partId_{-1};
     cpp2::AddEdgesRequest request_;
     Encoder encoder_;
-    bool needUnlock_{false};
+    // bool needUnlock_{false};
     bool convertVid_{false};
+    std::unique_ptr<LockGuard> lk_;
 };
 
 }  // namespace storage

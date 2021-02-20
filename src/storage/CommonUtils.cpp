@@ -32,6 +32,8 @@ cpp2::ErrorCode CommonUtils::to(kvstore::ResultCode rc) {
             return cpp2::ErrorCode::E_LEADER_CHANGED;
         case kvstore::ResultCode::ERR_SPACE_NOT_FOUND:
             return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        case kvstore::ResultCode::ERR_ATOMIC_OP_FAILED:
+            return cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
         default:
             LOG(ERROR) << "unknown ResultCode: " << static_cast<int>(rc);
             return cpp2::ErrorCode::E_UNKNOWN;
@@ -46,6 +48,8 @@ kvstore::ResultCode CommonUtils::to(cpp2::ErrorCode code) {
             return kvstore::ResultCode::ERR_LEADER_CHANGED;
         case cpp2::ErrorCode::E_SPACE_NOT_FOUND:
             return kvstore::ResultCode::ERR_SPACE_NOT_FOUND;
+        case cpp2::ErrorCode::E_ATOMIC_OP_FAILED:
+            return kvstore::ResultCode::ERR_ATOMIC_OP_FAILED;
         default:
             LOG(ERROR) << "unknown ErrorCode: " << name(code);
             return kvstore::ResultCode::ERR_UNKNOWN;

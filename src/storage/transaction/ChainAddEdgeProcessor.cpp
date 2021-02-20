@@ -19,11 +19,12 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::prepareLocal() {
     std::transform(newEdges.begin(), newEdges.end(), locks.begin(), [&](auto& e){
         return TransactionUtils::lockKey(vIdLen_, partId_, e.key);
     });
-    if (!env_->txnMan_->getMemoryLock()->lockBatch(locks)) {
+    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), locks);
+    if (!lk_->isLocked()) {
         return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
     }
 
-    needUnlock_ = true;
+    // needUnlock_ = true;
     // step 2. commit locks
     std::vector<KV> data(locks.size());
     std::transform(locks.begin(), locks.end(), data.begin(), [](auto& key){
@@ -137,18 +138,18 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processLocal(cpp2::Er
     return std::move(c.second);
 }
 
-void ChainAddEdgesProcessor::cleanup() {
-    VLOG(1) << "ChainAddEdgesProcessor::cleanup()";
-    if (needUnlock_) {
-        auto& newEdges = request_.get_parts().begin()->second;
-        std::vector<std::string> locks(newEdges.size());
-        std::transform(newEdges.begin(), newEdges.end(), locks.begin(), [&](auto& e) {
-            return TransactionUtils::lockKey(vIdLen_, partId_, e.key);
-        });
-        env_->txnMan_->getMemoryLock()->unlockBatch(locks);
-    }
-    VLOG(1) << "~ChainAddEdgesProcessor::cleanup()";
-}
+// void ChainAddEdgesProcessor::cleanup() {
+//     VLOG(1) << "ChainAddEdgesProcessor::cleanup()";
+//     // if (needUnlock_) {
+//     //     auto& newEdges = request_.get_parts().begin()->second;
+//     //     std::vector<std::string> locks(newEdges.size());
+//     //     std::transform(newEdges.begin(), newEdges.end(), locks.begin(), [&](auto& e) {
+//     //         return TransactionUtils::lockKey(vIdLen_, partId_, e.key);
+//     //     });
+//     //     env_->txnMan_->getMemoryLock()->unlockBatch(locks);
+//     // }
+//     VLOG(1) << "~ChainAddEdgesProcessor::cleanup()";
+// }
 
 }  // namespace storage
 }  // namespace nebula

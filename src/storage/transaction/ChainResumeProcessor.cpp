@@ -12,22 +12,22 @@ namespace nebula {
 namespace storage {
 
 folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::prepareLocal() {
-    LOG(INFO) << "enter ChainResumeProcessor::prepareLocal()";
+    try {
+        LOG(INFO) << "ChainResumeProcessor::prepareLocal()";
 
-    // std::string& strLock = lock_->lockKey;
-    if (!env_->txnMan_->getMemoryLock()->lock(lock_->lockKey)) {
-        return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
+        // std::string& strLock = lock_->lockKey;
+        lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), lock_->lockKey);
+        if (!lk_->isLocked()) {
+            LOG(INFO) << "ret E_SET_MEM_LOCK_FAILED";
+            return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
+        }
+        LOG(INFO) << "~ChainResumeProcessor::prepareLocal()";
+        return cpp2::ErrorCode::SUCCEEDED;
+    } catch (std::exception& ex) {
+        LOG(FATAL) << ex.what();
+    } catch (...) {
+        LOG(FATAL) << "...";
     }
-    std::vector<KV> data{{lock_->lockKey, ""}};
-    auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    env_->kvstore_->asyncMultiPut(spaceId_,
-                                  partId_,
-                                  data,
-                                  [p = std::move(c.first)](kvstore::ResultCode rc) mutable {
-                                      p.setValue(CommonUtils::to(rc));
-                                  });
-    LOG(INFO) << "partial exit ChainResumeProcessor::prepareLocal()";
-    return std::move(c.second);
 }
 
 folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::processRemote(cpp2::ErrorCode code) {

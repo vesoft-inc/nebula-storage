@@ -16,6 +16,8 @@ namespace nebula {
 namespace storage {
 
 class ChainResumeProcessor : public BaseChainProcessor {
+    using LockGuard = nebula::MemoryLockGuard<std::string>;
+
 public:
     static ChainResumeProcessor* instance(StorageEnv* env,
                                           Callback&& cb,
@@ -41,15 +43,13 @@ public:
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
 
-    void cleanup() override {}
-
 protected:
     int32_t vIdLen_;
     GraphSpaceID spaceId_{-1};
     PartitionID partId_{-1};
     std::shared_ptr<PendingLock> lock_;
-    bool needUnlock_{false};
     InternalStorageClient* iClient_;
+    std::unique_ptr<LockGuard> lk_;
 };
 
 }  // namespace storage

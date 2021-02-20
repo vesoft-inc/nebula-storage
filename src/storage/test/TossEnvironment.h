@@ -716,7 +716,8 @@ public:
                 LOG(INFO) << "update edge leader changed, retry";
                 continue;
             }
-            LOG(FATAL) << "update edge err: " << cpp2::_ErrorCode_VALUES_TO_NAMES.at(result.code);
+            LOG(ERROR) << "update edge err: " << cpp2::_ErrorCode_VALUES_TO_NAMES.at(result.code);
+            break;
         }
     }
 };

@@ -10,6 +10,7 @@
 #include "storage/CommonUtils.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "common/time/WallClock.h"
+#include "utils/MemoryLockWrapper.h"
 
 namespace nebula {
 namespace storage {
@@ -30,7 +31,7 @@ public:
 
     virtual folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) = 0;
 
-    virtual void cleanup() = 0;
+    virtual void cleanup() {}
 
     void setErrorCode(cpp2::ErrorCode code) {
         if (code_ == cpp2::ErrorCode::SUCCEEDED && code != cpp2::ErrorCode::SUCCEEDED) {

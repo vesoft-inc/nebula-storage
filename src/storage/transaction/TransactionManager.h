@@ -23,6 +23,7 @@
 #include "storage/transaction/TransactionTypes.h"
 #include "storage/transaction/MemoryLock.h"
 #include "utils/NebulaKeyUtils.h"
+#include "utils/MemoryLockCore.h"
 
 namespace nebula {
 namespace storage {
@@ -40,49 +41,64 @@ public:
 
     ~TransactionManager() = default;
 
-    /**
-     * @brief edges have same localPart and remotePart will share
-     *        one signle RPC request
-     * @param localEdges
-     *        <K, encodedValue>.
-     * @param processor
-     *        will set this if edge have index
-     * @param optBatchGetter
-     *        get a batch of raft operations.
-     *        used by updateNode, need to run this func after edge locked
-     * */
-    folly::Future<cpp2::ErrorCode> addSamePartEdges(
-        size_t vIdLen,
-        GraphSpaceID spaceId,
-        PartitionID localPart,
-        PartitionID remotePart,
-        std::vector<KV>& localEdges,
-        AddEdgesProcessor* processor = nullptr,
-        folly::Optional<GetBatchFunc> optBatchGetter = folly::none);
+    // /**
+    //  * @brief edges have same localPart and remotePart will share
+    //  *        one signle RPC request
+    //  * @param localEdges
+    //  *        <K, encodedValue>.
+    //  * @param processor
+    //  *        will set this if edge have index
+    //  * @param optBatchGetter
+    //  *        get a batch of raft operations.
+    //  *        used by updateNode, need to run this func after edge locked
+    //  * */
+    // folly::Future<cpp2::ErrorCode> addSamePartEdges(
+    //     size_t vIdLen,
+    //     GraphSpaceID spaceId,
+    //     PartitionID localPart,
+    //     PartitionID remotePart,
+    //     std::vector<KV>& localEdges,
+    //     AddEdgesProcessor* processor = nullptr,
+    //     folly::Optional<GetBatchFunc> optBatchGetter = folly::none);
 
-    /**
-     * @brief update out-edge first, then in-edge
-     * @param batchGetter
-     *        need to update index & edge together, and exactly the same verion
-     *        which means we need a lock before doing anything.
-     *        as this method will call addSamePartEdges(),
-     *        and addSamePartEdges() will set a lock to edge,
-     *        I would like to forward this function to addSamePartEdges()
-     * */
-    folly::Future<cpp2::ErrorCode> updateEdgeAtomic(size_t vIdLen,
-                                                    GraphSpaceID spaceId,
-                                                    PartitionID partId,
-                                                    const cpp2::EdgeKey& edgeKey,
-                                                    GetBatchFunc&& batchGetter);
+    // /**
+    //  * @brief update out-edge first, then in-edge
+    //  * @param batchGetter
+    //  *        need to update index & edge together, and exactly the same verion
+    //  *        which means we need a lock before doing anything.
+    //  *        as this method will call addSamePartEdges(),
+    //  *        and addSamePartEdges() will set a lock to edge,
+    //  *        I would like to forward this function to addSamePartEdges()
+    //  * */
+    // folly::Future<cpp2::ErrorCode> updateEdgeAtomic(size_t vIdLen,
+    //                                                 GraphSpaceID spaceId,
+    //                                                 PartitionID partId,
+    //                                                 const cpp2::EdgeKey& edgeKey,
+    //                                                 GetBatchFunc&& batchGetter);
 
-    /**
-     * @brief the old, out-edge first, in edge last, goes this way
-     */
-    folly::Future<cpp2::ErrorCode> updateEdge1(size_t vIdLen,
-                                               GraphSpaceID spaceId,
-                                               PartitionID partId,
-                                               const cpp2::EdgeKey& edgeKey,
-                                               GetBatchFunc&& batchGetter);
+    // /**
+    //  * @brief the old, out-edge first, in edge last, goes this way
+    //  */
+    // folly::Future<cpp2::ErrorCode> updateEdge1(size_t vIdLen,
+    //                                            GraphSpaceID spaceId,
+    //                                            PartitionID partId,
+    //                                            const cpp2::EdgeKey& edgeKey,
+    //                                            GetBatchFunc&& batchGetter);
+
+    // /*
+    //  * resume an unfinished add/update/upsert request
+    //  * 1. if in-edge commited, will commit out-edge
+    //  *       else, will remove lock
+    //  * 2. if mvcc enabled, will commit the value of lock
+    //  *       else, get props from in-edge, then re-check index and commit
+    //  * */
+    // folly::Future<cpp2::ErrorCode> resumeTransaction(size_t vIdLen,
+    //                                                  GraphSpaceID spaceId,
+    //                                                  std::string lockKey,
+    //                                                  ResumedResult result = nullptr);
+
+    void processChain(BaseChainProcessor*);
+
     /**
      * @brief in-edge first, out-edge last, goes this way
      */
@@ -97,17 +113,13 @@ public:
         folly::Optional<std::string> condition,
         GetBatchFunc&& batchGetter);
 
-    /*
-     * resume an unfinished add/update/upsert request
-     * 1. if in-edge commited, will commit out-edge
-     *       else, will remove lock
-     * 2. if mvcc enabled, will commit the value of lock
-     *       else, get props from in-edge, then re-check index and commit
-     * */
-    folly::Future<cpp2::ErrorCode> resumeTransaction(size_t vIdLen,
-                                                     GraphSpaceID spaceId,
-                                                     std::string lockKey,
-                                                     ResumedResult result = nullptr);
+    folly::Future<cpp2::ErrorCode> resumeLock(size_t vIdLen,
+                                              GraphSpaceID spaceId,
+                                              std::shared_ptr<PendingLock>& lock);
+
+    auto* getMemoryLock() {
+        return &mLock_;
+    }
 
     folly::SemiFuture<kvstore::ResultCode> commitBatch(GraphSpaceID spaceId,
                                                        PartitionID partId,
@@ -122,7 +134,15 @@ public:
     // used for perf trace, will remove finally
     std::unordered_map<std::string, std::list<int64_t>> timer_;
 
-    void processChain(BaseChainProcessor*);
+    GraphStorageClient* getStorageClient() {
+        return sClient_.get();
+    }
+
+    InternalStorageClient* getInternalClient() {
+        return interClient_.get();
+    }
+
+    std::string remoteEdgeKey(size_t vIdLen, GraphSpaceID spaceId, const std::string& lockKey);
 
     // bool lockBatch(const std::vector<std::string>& keys) {
     //     return mLock_.lockBatch(keys);
@@ -132,51 +152,34 @@ public:
     //     mLock_.unlockBatch(keys);
     // }
 
-    auto* getMemoryLock() {
-        return &mLock_;
-    }
-
-    GraphStorageClient* getStorageClient() {
-        return sClient_.get();
-    }
-
-    InternalStorageClient* getInternalClient() {
-        return interClient_.get();
-    }
-
-    folly::Future<cpp2::ErrorCode> resumeLock(size_t vIdLen,
-                                              GraphSpaceID spaceId,
-                                              std::shared_ptr<PendingLock>& lock);
-
-    std::string remoteEdgeKey(size_t vIdLen, GraphSpaceID spaceId, const std::string& lockKey);
-
 protected:
-    folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
-                                                         PartitionID partId,
-                                                         std::string&& key,
-                                                         std::string&& props);
-
-    folly::SemiFuture<kvstore::ResultCode> commitEdge(GraphSpaceID spaceId,
-                                                      PartitionID partId,
-                                                      std::string& key,
-                                                      std::string& encodedProp);
-
-    folly::SemiFuture<cpp2::ErrorCode>
-    eraseKey(GraphSpaceID spaceId, PartitionID partId, const std::string& key);
-
-    void eraseMemoryLock(const std::string& rawKey, int64_t ver);
-
     nebula::meta::cpp2::IsolationLevel getSpaceIsolationLvel(GraphSpaceID spaceId);
 
-    std::string encodeBatch(std::vector<KV>&& data);
+    // folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
+    //                                                      PartitionID partId,
+    //                                                      std::string&& key,
+    //                                                      std::string&& props);
+
+    // folly::SemiFuture<kvstore::ResultCode> commitEdge(GraphSpaceID spaceId,
+    //                                                   PartitionID partId,
+    //                                                   std::string& key,
+    //                                                   std::string& encodedProp);
+
+    // folly::SemiFuture<cpp2::ErrorCode>
+    // eraseKey(GraphSpaceID spaceId, PartitionID partId, const std::string& key);
+
+    // void eraseMemoryLock(const std::string& rawKey, int64_t ver);
+
+    // std::string encodeBatch(std::vector<KV>&& data);
 
 protected:
     StorageEnv*                                         env_{nullptr};
     std::shared_ptr<folly::IOThreadPoolExecutor>        exec_;
     std::unique_ptr<GraphStorageClient>                 sClient_;
     std::unique_ptr<InternalStorageClient>              interClient_;
-    MemEdgeLocks                                        memLock_;
-    MemoryLock<std::string>                             mLock_;
+    // MemEdgeLocks                                        memLock_;
+    // MemoryLock<std::string>                             mLock_;
+    nebula::MemoryLockCore<std::string>                         mLock_;
 };
 
 }  // namespace storage

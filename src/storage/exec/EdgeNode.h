@@ -11,7 +11,6 @@
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
 #include "storage/transaction/TransactionManager.h"
-#include "storage/transaction/TossEdgeIterator.h"
 #include "storage/transaction/TossNoVerEdgeIterator.h"
 
 namespace nebula {

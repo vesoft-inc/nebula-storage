@@ -13,6 +13,7 @@ namespace storage {
 
 class ChainUpdateEdgeProcessor : public BaseChainProcessor {
     using AtomicGetFunc = std::function<folly::Optional<std::string>()>;
+    using LockGuard = nebula::MemoryLockGuard<std::string>;
 
 public:
     static ChainUpdateEdgeProcessor* instance(StorageEnv* env,
@@ -50,15 +51,12 @@ public:
         : BaseChainProcessor(env, std::move(cb)),
           spaceId_(spaceId),
           partId_(partId),
-          edgeKey_(std::move(edgeKey)),
+          inEdgeKey_(std::move(edgeKey)),
           updateProps_(std::move(updateProps)),
           insertable_(insertable),
           returnProps_(std::move(returnProps)),
           condition_(std::move(condition)),
-          getter_(std::move(getter)) {
-              std::swap(edgeKey_.src, edgeKey_.dst);
-              edgeKey_.edge_type = 0 - edgeKey_.edge_type;
-          }
+          getter_(std::move(getter)) {}
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;
 
@@ -74,13 +72,15 @@ protected:
     GraphSpaceID spaceId_{-1};
     PartitionID partId_{-1};
     bool needUnlock_{false};
-    cpp2::EdgeKey edgeKey_;
+    cpp2::EdgeKey inEdgeKey_;
     std::vector<cpp2::UpdatedProp> updateProps_;
     bool insertable_;
     std::vector<std::string> returnProps_;
     std::string condition_;
     AtomicGetFunc getter_;
     std::string sLockKey_;
+    folly::Optional<std::string> optVal_;
+    std::unique_ptr<LockGuard> lk_;
 };
 
 }  // namespace storage
