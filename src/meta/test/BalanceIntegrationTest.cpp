@@ -4,129 +4,207 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "common/base/Base.h"
-#include "common/fs/TempDir.h"
+
 #include <gtest/gtest.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/synchronization/Baton.h>
+
+#include "common/base/Base.h"
+#include "common/fs/TempDir.h"
+#include "common/meta/ServerBasedSchemaManager.h"
+#include "common/meta/ServerBasedIndexManager.h"
+#include "common/clients/storage/GraphStorageClient.h"
+#include "kvstore/PartManager.h"
 #include "meta/processors/admin/Balancer.h"
 #include "meta/test/TestUtils.h"
 #include "storage/test/TestUtils.h"
-#include "storage/client/StorageClient.h"
-#include "storage/test/TestUtils.h"
+#include "storage/GraphStorageServiceHandler.h"
 
 DECLARE_int32(heartbeat_interval_secs);
 DECLARE_uint32(raft_heartbeat_interval_secs);
 DECLARE_int32(expired_threshold_sec);
-
 namespace nebula {
 namespace meta {
 
-TEST(BalanceIntegrationTest, BalanceTest) {
-    FLAGS_heartbeat_interval_secs = 1;
-    FLAGS_raft_heartbeat_interval_secs = 1;
-    FLAGS_expired_threshold_sec = 3;
-    fs::TempDir rootPath("/tmp/balance_integration_test.XXXXXX");
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
+using PriorityThreadManager = apache::thrift::concurrency::PriorityThreadManager;
+
+void startMetaService(const char* rootPath) {
     const nebula::ClusterID kClusterId = 10;
+    auto pool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+    auto partMan = std::make_unique<kvstore::MemPartManager>();
+    auto workers = PriorityThreadManager::newPriorityThreadManager(1, true);
+    workers->setNamePrefix("executor");
+    workers->start();
 
-    uint32_t localMetaPort = network::NetworkUtils::getAvailablePort();
-    LOG(INFO) << "Start meta server....";
-    std::string metaPath = folly::stringPrintf("%s/meta", rootPath.path());
-    auto metaServerContext = meta::TestUtils::mockMetaServer(localMetaPort, metaPath.c_str(),
-                                                             kClusterId);
-    localMetaPort = metaServerContext->port_;
+    // GraphSpaceID =>  {PartitionIDs}
+    auto& partsMap = partMan->partsMap();
+    partsMap[0][0] = PartHosts();
 
-    auto adminClient = std::make_unique<AdminClient>(metaServerContext->kvStore_.get());
-    Balancer balancer(metaServerContext->kvStore_.get(), std::move(adminClient));
+    std::vector<std::string> paths;
+    paths.emplace_back(folly::stringPrintf("%s/disk1", rootPath));
 
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
-    std::vector<HostAddr> metaAddr = {HostAddr(localIp, localMetaPort)};
+    kvstore::KVOptions options;
+    options.dataPaths_ = std::move(paths);
+    options.partMan_ = std::move(partMan);
 
-    LOG(INFO) << "Create meta client...";
-    auto mClient = std::make_unique<meta::MetaClient>(threadPool,
-                                                      metaAddr);
+    auto port = network::NetworkUtils::getAvailablePort();
+    HostAddr localhost = HostAddr("127.0.0.1", port);
+    auto store = std::make_unique<kvstore::NebulaStore>(std::move(options),
+                                                        pool,
+                                                        localhost,
+                                                        workers);
+    store->init();
 
-    mClient->waitForMetadReady();
-
-    int partition = 1;
-    int replica = 3;
-    LOG(INFO) << "Start " << replica << " storage services, partition number " << partition;
-    std::vector<HostAddr> peers;
-    std::vector<uint32_t> storagePorts;
-    std::vector<std::shared_ptr<meta::MetaClient>> metaClients;
-    std::vector<std::unique_ptr<test::ServerContext>> serverContexts;
-    for (int i = 0; i < replica; i++) {
-        uint32_t storagePort = network::NetworkUtils::getAvailablePort();
-        HostAddr storageAddr(localIp, storagePort);
-        storagePorts.emplace_back(storagePort);
-        peers.emplace_back(storageAddr);
-
-        VLOG(1) << "The storage server has been added to the meta service";
-
-        meta::MetaClientOptions options;
-        options.localHost_ = storageAddr;
-        options.clusterId_ = kClusterId;
-        options.role_ = meta::cpp2::HostRole::STORAGE;
-        auto metaClient = std::make_shared<meta::MetaClient>(threadPool,
-                                                             metaAddr,
-                                                             options);
-        metaClient->waitForMetadReady();
-        metaClients.emplace_back(metaClient);
+    while (true) {
+        auto retLeader = store->partLeader(0, 0);
+        if (ok(retLeader)) {
+            auto leader = value(std::move(retLeader));
+            LOG(INFO) << "Leader: " << leader;
+            if (leader == localhost) {
+                break;
+            }
+        }
+        usleep(100000);
     }
 
-    for (int i = 0; i < replica; i++) {
-        std::string dataPath = folly::stringPrintf("%s/%d/data", rootPath.path(), i);
-        auto sc = storage::TestUtils::mockStorageServer(metaClients[i].get(),
-                                                        dataPath.c_str(),
-                                                        localIp,
-                                                        storagePorts[i],
-                                                        true);
-        serverContexts.emplace_back(std::move(sc));
+    auto server = std::make_unique<apache::thrift::ThriftServer>();
+    auto handler = std::make_shared<nebula::meta::MetaServiceHandler>(store.get(), kClusterId);
+    server->setInterface(std::move(handler));
+    server->setPort(port);
+    auto thread = std::make_unique<thread::NamedThread>("meta", [&server] {
+        server->serve();
+        LOG(INFO) << "The meta server has been stopped";
+    });
+
+    while (!server->getServeEventBase() ||
+           !server->getServeEventBase()->isRunning()) {
+        usleep(10000);
+    }
+}
+
+void startStorageService(const char* rootPath, meta::MetaClient* metaClient) {
+    auto pool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+    auto workers = PriorityThreadManager::newPriorityThreadManager(1, true);
+    workers->setNamePrefix("executor");
+    workers->start();
+
+    kvstore::KVOptions options;
+
+    std::vector<std::string> paths;
+    paths.emplace_back(folly::stringPrintf("%s/disk1", rootPath));
+    paths.emplace_back(folly::stringPrintf("%s/disk2", rootPath));
+    options.dataPaths_ = std::move(paths);
+
+    auto port = network::NetworkUtils::getAvailablePort();
+    auto store = std::make_unique<kvstore::NebulaStore>(std::move(options),
+                                                        pool,
+                                                        HostAddr("127.0.0.1", port),
+                                                        workers);
+    store->init();
+
+
+    auto schemaMan = std::make_unique<ServerBasedSchemaManager>();
+    schemaMan->init(metaClient);
+
+    auto indexMan = std::make_unique<ServerBasedIndexManager>();
+    indexMan->init(metaClient);
+
+    storage::StorageEnv env;
+    env.schemaMan_ = schemaMan.get();
+    env.indexMan_ = indexMan.get();
+    auto handler = std::make_shared<storage::GraphStorageServiceHandler>(&env);
+
+    auto server = std::make_unique<apache::thrift::ThriftServer>();
+    auto storagePort = network::NetworkUtils::getAvailablePort();
+    server->setInterface(std::move(handler));
+    server->setPort(storagePort);
+    auto thread = std::make_unique<thread::NamedThread>("storage", [&server] {
+        server->serve();
+        LOG(INFO) << "The Storage Service has been stopped";
+    });
+
+    while (!server->getServeEventBase() ||
+           !server->getServeEventBase()->isRunning()) {
+        usleep(10000);
+    }
+}
+
+TEST(BalanceIntegrationTest, BalanceTest) {
+    fs::TempDir rootPath("/tmp/balance_integration_test.XXXXXX");
+    mock::MockCluster cluster;
+    // uint32_t metaPort = network::NetworkUtils::getAvailablePort();
+    // cluster.startMeta(rootPath.path(), HostAddr("127.0.0.1", metaPort));
+    // cluster.initMetaClient();
+
+    auto metaPath = folly::stringPrintf("%s/meta", rootPath.path());
+    startMetaService(metaPath.c_str());
+
+    int32_t partition = 1;
+    int32_t replica = 3;
+    LOG(INFO) << "Start " << replica << " storage services, partition number " << partition;
+
+    std::vector<HostAddr> peers;
+    std::vector<uint32_t> storagePorts;
+    for (int32_t i = 0; i < replica; i++) {
+        uint32_t storagePort = network::NetworkUtils::getAvailablePort();
+        storagePorts.emplace_back(storagePort);
+        peers.emplace_back("127.0.0.1", storagePort);
+
+        VLOG(1) << "The storage server has been added to the meta service";
+        auto dataPath = folly::stringPrintf("%s/%d/data", rootPath.path(), i);
     }
 
     LOG(INFO) << "Create space and schema";
-    SpaceDesc spaceDesc("storage", partition, replica);
-    auto ret = mClient->createSpace(spaceDesc).get();
+    cpp2::SpaceDesc properties;
+    properties.set_space_name("default_space");
+    properties.set_partition_num(partition);
+    properties.set_replica_factor(replica);
+    auto* metaClient = cluster.metaClient_.get();
+    auto ret = metaClient->createSpace(std::move(properties)).get();
     ASSERT_TRUE(ret.ok());
-    auto spaceId = ret.value();
-
-    std::vector<cpp2::ColumnDef> columns;
-    nebula::cpp2::ValueType vt;
-    vt.set_type(SupportedType::STRING);
-    columns.emplace_back();
-    columns.back().set_name("c");
-    columns.back().set_type(vt);
 
     cpp2::Schema schema;
-    schema.set_columns(std::move(columns));
-    auto tagRet = mClient->createTagSchema(spaceId, "tag", std::move(schema)).get();
+    cpp2::ColumnDef column;
+    column.name = "column0";
+    column.type.set_type(PropertyType::STRING);
+    schema.columns.emplace_back(std::move(column));
+    auto spaceId = ret.value();
+    auto tagRet = metaClient->createTagSchema(spaceId, "tag", std::move(schema)).get();
     ASSERT_TRUE(tagRet.ok());
+
     auto tagId = tagRet.value();
     sleep(FLAGS_heartbeat_interval_secs + FLAGS_raft_heartbeat_interval_secs + 3);
 
     LOG(INFO) << "Let's write some data";
-    auto sClient = std::make_unique<storage::StorageClient>(threadPool, mClient.get());
+
+    auto pool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+    auto storageClient = std::make_unique<storage::GraphStorageClient>(pool, metaClient);
     {
-        std::vector<storage::cpp2::Vertex> vertices;
+        std::vector<storage::cpp2::NewVertex> vertices;
         for (int32_t vId = 0; vId < 10000; vId++) {
-            storage::cpp2::Vertex v;
-            v.set_id(vId);
-            decltype(v.tags) tags;
-            storage::cpp2::Tag t;
-            t.set_tag_id(tagId);
-            // Generate some tag props.
-            RowWriter writer;
-            writer << std::string(1024, 'A');
-            t.set_props(writer.encode());
-            tags.emplace_back(std::move(t));
-            v.set_tags(std::move(tags));
-            vertices.emplace_back(std::move(v));
+            storage::cpp2::NewVertex vertex;
+            vertex.set_id(vId);
+
+            std::vector<storage::cpp2::NewTag> tags;
+            storage::cpp2::NewTag tag;
+            tag.set_tag_id(tagId);
+
+            decltype(tag.props) props;
+            Value val(std::string(1024, 'A'));
+            props.emplace_back(val);
+            tag.set_props(std::move(props));
+
+            tags.emplace_back(std::move(tag));
+            vertex.set_tags(std::move(tags));
+            vertices.emplace_back(std::move(vertex));
         }
-        int retry = 10;
+
+        int32_t retry = 10;
+        std::unordered_map<TagID, std::vector<std::string>> propNames;
+        propNames[tagId].emplace_back("column0");
+
         while (retry-- > 0) {
-            auto f = sClient->addVertices(spaceId, vertices, true);
+            auto f = storageClient->addVertices(spaceId, vertices, propNames, true);
             LOG(INFO) << "Waiting for the response...";
             auto resp = std::move(f).get();
             if (resp.completeness() == 100) {
@@ -142,188 +220,98 @@ TEST(BalanceIntegrationTest, BalanceTest) {
             LOG(INFO) << "Failed, the remaining retry times " << retry;
         }
     }
+
     {
         LOG(INFO) << "Check data...";
-        std::vector<VertexID> vIds;
-        std::vector<storage::cpp2::PropDef> retCols;
+        nebula::DataSet input;
+        input.colNames = {kVid};
+        nebula::Row row;
         for (int32_t vId = 0; vId < 10000; vId++) {
-            vIds.emplace_back(vId);
+            row.values.emplace_back(vId);
         }
-        retCols.emplace_back(storage::TestUtils::vertexPropDef("c", tagId));
-        auto f = sClient->getVertexProps(spaceId, std::move(vIds), std::move(retCols));
+        input.emplace_back(std::move(row));
+
+        std::vector<storage::cpp2::VertexProp> vertexProps;
+        storage::cpp2::VertexProp vertexProp;
+        vertexProp.tag = tagId;
+        vertexProp.props = {"column0"};
+        vertexProps.emplace_back(std::move(vertexProp));
+
+        auto f = storageClient->getProps(spaceId, std::move(input), &vertexProps, nullptr, nullptr);
         auto resp = std::move(f).get();
         if (!resp.succeeded()) {
             std::stringstream ss;
-            for (auto& p : resp.failedParts()) {
-                ss << "Part " << p.first
-                   << ": " << static_cast<int32_t>(p.second)
+            for (auto& part : resp.failedParts()) {
+                ss << "Part " << part.first
+                   << ": " << static_cast<int32_t>(part.second)
                    << "; ";
             }
-            VLOG(2) << "Failed partitions:: " << ss.str();
+            LOG(ERROR) << "Failed partitions:: " << ss.str();
         }
         ASSERT_TRUE(resp.succeeded());
         auto& results = resp.responses();
         EXPECT_EQ(partition, results.size());
-        EXPECT_EQ(0, results[0].result.failed_codes.size());
-        EXPECT_EQ(1, results[0].vertex_schema[tagId].columns.size());
-        auto tagProvider = std::make_shared<ResultSchemaProvider>(results[0].vertex_schema[tagId]);
-        EXPECT_EQ(10000, results[0].vertices.size());
+        EXPECT_EQ(0, results[0].result.failed_parts.size());
+        EXPECT_EQ(1, results[0].props.colNames.size());
+        EXPECT_EQ(10000, results[0].props.rows.size());
     }
-    LOG(INFO) << "Let's open a new storage service";
-    std::unique_ptr<test::ServerContext> newServer;
-    std::unique_ptr<meta::MetaClient> newMetaClient;
-    uint32_t storagePort = network::NetworkUtils::getAvailablePort();
-    HostAddr storageAddr(localIp, storagePort);
-    {
-        MetaClientOptions options;
-        options.localHost_ = storageAddr;
-        options.clusterId_ = kClusterId;
-        options.role_ = meta::cpp2::HostRole::STORAGE;
-        newMetaClient = std::make_unique<meta::MetaClient>(threadPool,
-                                                           metaAddr,
-                                                           options);
-        newMetaClient->waitForMetadReady();
-        std::string dataPath = folly::stringPrintf("%s/%d/data", rootPath.path(), replica + 1);
-        newServer = storage::TestUtils::mockStorageServer(newMetaClient.get(),
-                                                          dataPath.c_str(),
-                                                          localIp,
-                                                          storagePort,
-                                                          true);
-        LOG(INFO) << "Start a new storage server on " << storageAddr;
-    }
-    LOG(INFO) << "Let's stop the last storage servcie " << storagePorts.back();
-    {
-        metaClients.back()->stop();
-        serverContexts.back().reset();
-        // Wait for the host be expired on meta.
-        sleep(FLAGS_expired_threshold_sec + 1);
-    }
-
-    LOG(INFO) << "Let's balance";
-    auto bIdRet = balancer.balance();
-    CHECK(ok(bIdRet));
-    while (balancer.isRunning()) {
-        sleep(1);
-    }
-
-    // Sleep enough time until the data committed on newly added server
-    sleep(FLAGS_raft_heartbeat_interval_secs + 5);
-    {
-        LOG(INFO) << "Balance Finished, check the newly added server";
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto prefix = NebulaKeyUtils::prefix(1);
-        auto partRet = newServer->kvStore_->part(spaceId, 1);
-        CHECK(ok(partRet));
-        auto part = value(partRet);
-        ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, part->engine()->prefix(prefix,
-                                                                         &iter));
-        int num = 0;
-        std::string lastKey = "";
-        while (iter->valid()) {
-            // filter the multipule versions for data.
-            auto key = NebulaKeyUtils::keyWithNoVersion(iter->key());
-            if (lastKey == key) {
-                iter->next();
-                continue;
-            }
-            lastKey = key.str();
-            iter->next();
-            num++;
-        }
-        ASSERT_EQ(10000, num);
-    }
-    {
-        LOG(INFO) << "Check meta";
-        auto paRet = mClient->getPartsAlloc(spaceId).get();
-        ASSERT_TRUE(paRet.ok()) << paRet.status();
-        ASSERT_EQ(1, paRet.value().size());
-        for (auto it = paRet.value().begin(); it != paRet.value().end(); it++) {
-            ASSERT_EQ(3, it->second.size());
-            ASSERT_TRUE(std::find(it->second.begin(), it->second.end(), storageAddr)
-                                    != it->second.end());
-        }
-    }
-    for (auto& c : metaClients) {
-        c->stop();
-    }
-    serverContexts.clear();
-    metaClients.clear();
-    newMetaClient->stop();
-    newServer.reset();
-    newMetaClient.reset();
 }
 
 TEST(BalanceIntegrationTest, LeaderBalanceTest) {
-    FLAGS_heartbeat_interval_secs = 1;
-    FLAGS_raft_heartbeat_interval_secs = 1;
-    fs::TempDir rootPath("/tmp/balance_integration_test.XXXXXX");
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
+    fs::TempDir rootPath("/tmp/balance_integration_leader_test.XXXXXX");
     const nebula::ClusterID kClusterId = 10;
+    mock::MockCluster cluster;
+    uint32_t metaPort = network::NetworkUtils::getAvailablePort();
+    cluster.startMeta(rootPath.path(), HostAddr("127.0.0.1", metaPort));
+    cluster.initMetaClient();
 
-    uint32_t localMetaPort = network::NetworkUtils::getAvailablePort();
-    LOG(INFO) << "Start meta server....";
-    std::string metaPath = folly::stringPrintf("%s/meta", rootPath.path());
-    auto metaServerContext = meta::TestUtils::mockMetaServer(localMetaPort, metaPath.c_str(),
-                                                             kClusterId);
-    localMetaPort = metaServerContext->port_;
+    auto adminClient = std::make_unique<AdminClient>(cluster.metaKV_.get());
+    Balancer balancer(cluster.metaKV_.get(), adminClient.get());
 
-    auto adminClient = std::make_unique<AdminClient>(metaServerContext->kvStore_.get());
-    Balancer balancer(metaServerContext->kvStore_.get(), std::move(adminClient));
+    int32_t partition = 9;
+    int32_t replica = 3;
+    LOG(INFO) << "Start " << replica << " storage services, partition number " << partition;
 
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
-    std::vector<HostAddr> metaAddr = {HostAddr(localIp, localMetaPort)};
-
-    LOG(INFO) << "Create meta client...";
-    auto mClient = std::make_unique<meta::MetaClient>(threadPool,
-                                                      metaAddr);
-
-    mClient->waitForMetadReady();
-
-    int partition = 9;
-    int replica = 3;
     std::vector<HostAddr> peers;
     std::vector<uint32_t> storagePorts;
+    auto pool = std::make_shared<folly::IOThreadPoolExecutor>(4);
+    std::vector<HostAddr> metaHosts = {HostAddr("127.0.0.1", metaPort)};
     std::vector<std::shared_ptr<meta::MetaClient>> metaClients;
-
-    std::vector<std::unique_ptr<test::ServerContext>> serverContexts;
-    for (int i = 0; i < replica; i++) {
-        uint32_t storagePort = network::NetworkUtils::getAvailablePort();
-        HostAddr storageAddr(localIp, storagePort);
-        storagePorts.emplace_back(storagePort);
-        peers.emplace_back(storageAddr);
-
-        VLOG(1) << "The storage server has been added to the meta service";
-        MetaClientOptions options;
-        options.localHost_ = storageAddr;
+    for (int32_t i = 0; i < replica; i++) {
+        auto storagePort = network::NetworkUtils::getAvailablePort();
+        meta::MetaClientOptions options;
+        options.localHost_ = HostAddr("127.0.0.1", storagePort);
         options.clusterId_ = kClusterId;
         options.role_ = meta::cpp2::HostRole::STORAGE;
-        auto metaClient = std::make_shared<meta::MetaClient>(threadPool,
-                                                             metaAddr,
+        auto metaClient = std::make_shared<meta::MetaClient>(pool,
+                                                             metaHosts,
                                                              options);
         metaClient->waitForMetadReady();
         metaClients.emplace_back(metaClient);
+
+
+        storagePorts.emplace_back(storagePort);
+        peers.emplace_back("127.0.0.1", storagePort);
+
+        VLOG(1) << "The storage server has been added to the meta service";
+        auto dataPath = folly::stringPrintf("%s/%d/data", rootPath.path(), i);
     }
 
-    for (int i = 0; i < replica; i++) {
-        std::string dataPath = folly::stringPrintf("%s/%d/data", rootPath.path(), i);
-        auto sc = storage::TestUtils::mockStorageServer(metaClients[i].get(),
-                                                        dataPath.c_str(),
-                                                        localIp,
-                                                        storagePorts[i],
-                                                        true);
-        serverContexts.emplace_back(std::move(sc));
-    }
-
-    SpaceDesc spaceDesc("storage", partition, replica);
-    auto ret = mClient->createSpace(spaceDesc).get();
+    LOG(INFO) << "Create space";
+    cpp2::SpaceDesc properties;
+    properties.set_space_name("default_space");
+    properties.set_partition_num(partition);
+    properties.set_replica_factor(replica);
+    auto* metaClient = cluster.metaClient_.get();
+    auto ret = metaClient->createSpace(std::move(properties)).get();
     ASSERT_TRUE(ret.ok());
+
     while (true) {
         int totalLeaders = 0;
-        for (int i = 0; i < replica; i++) {
-            std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
-            totalLeaders += serverContexts[i]->kvStore_->allLeader(leaderIds);
-        }
+        // for (int i = 0; i < replica; i++) {
+        //     std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
+        //     totalLeaders += serverContexts[i]->kvStore_->allLeader(leaderIds);
+        // }
         if (totalLeaders == partition) {
             break;
         }
@@ -340,14 +328,12 @@ TEST(BalanceIntegrationTest, LeaderBalanceTest) {
     size_t leaderCount = 0;
     for (int i = 0; i < replica; i++) {
         std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
-        leaderCount += serverContexts[i]->kvStore_->allLeader(leaderIds);
+        // leaderCount += serverContexts[i]->kvStore_->allLeader(leaderIds);
     }
     EXPECT_EQ(9, leaderCount);
     for (auto& c : metaClients) {
         c->stop();
     }
-    serverContexts.clear();
-    metaClients.clear();
 }
 
 }  // namespace meta
