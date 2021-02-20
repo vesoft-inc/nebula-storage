@@ -590,7 +590,7 @@ TEST(QueryVertexPropsTest, PrefixBloomFilterTest) {
         std::unique_ptr<kvstore::KVIterator> iter;
         auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId, vId, player);
         auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-        CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+        ASSERT_EQ(code, nebula::cpp2::ErrorCode::SUCCEEDED);
     }
 
     {

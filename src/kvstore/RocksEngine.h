@@ -95,6 +95,7 @@ public:
     RocksEngine(GraphSpaceID spaceId,
                 int32_t vIdLen,
                 const std::string& dataPath,
+                const std::string& walPath = "",
                 std::shared_ptr<rocksdb::MergeOperator> mergeOp = nullptr,
                 std::shared_ptr<rocksdb::CompactionFilterFactory> cfFactory = nullptr,
                 bool readonly = false);
@@ -109,6 +110,10 @@ public:
     // two subdir: data and wal.
     const char* getDataRoot() const override {
         return dataPath_.c_str();
+    }
+
+    const char* getWalRoot() const override {
+        return walPath_.c_str();
     }
 
     std::unique_ptr<WriteBatch> startBatchWrite() override;
@@ -197,6 +202,7 @@ private:
 private:
     GraphSpaceID spaceId_;
     std::string dataPath_;
+    std::string walPath_;
     std::unique_ptr<rocksdb::DB> db_{nullptr};
     std::string backupPath_;
     std::unique_ptr<rocksdb::BackupEngine> backupDb_{nullptr};

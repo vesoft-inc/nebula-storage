@@ -45,6 +45,8 @@ public:
     // Otherwise, nullptr will be returned
     virtual const char* getDataRoot() const = 0;
 
+    virtual const char* getWalRoot() const = 0;
+
     virtual std::unique_ptr<WriteBatch> startBatchWrite() = 0;
 
     virtual nebula::cpp2::ErrorCode

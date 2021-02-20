@@ -80,11 +80,12 @@ public:
 RocksEngine::RocksEngine(GraphSpaceID spaceId,
                          int32_t vIdLen,
                          const std::string& dataPath,
+                         const std::string& walPath,
                          std::shared_ptr<rocksdb::MergeOperator> mergeOp,
                          std::shared_ptr<rocksdb::CompactionFilterFactory> cfFactory,
                          bool readonly)
     : KVEngine(spaceId)
-    , spaceId_(spaceId),
+    , spaceId_(spaceId)
     , dataPath_(folly::stringPrintf("%s/nebula/%d", dataPath.c_str(), spaceId)) {
     // set wal path as dataPath by default
     if (walPath.empty()) {

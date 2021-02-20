@@ -106,7 +106,7 @@ void NebulaStore::loadPartFromDataPath() {
                 KVEngine* enginePtr = nullptr;
                 {
                     folly::RWSpinLock::WriteHolder wh(&lock_);
-                    auto engine = newEngine(spaceId, path);
+                    auto engine = newEngine(spaceId, path, options_.walPath_);
                     auto spaceIt = this->spaces_.find(spaceId);
                     if (spaceIt == this->spaces_.end()) {
                         LOG(INFO) << "Load space " << spaceId << " from disk";
@@ -226,14 +226,16 @@ void NebulaStore::stop() {
 }
 
 std::unique_ptr<KVEngine> NebulaStore::newEngine(GraphSpaceID spaceId,
-                                                 const std::string& path) {
+                                                 const std::string& dataPath,
+                                                 const std::string& walPath) {
     if (FLAGS_engine_type == "rocksdb") {
         std::shared_ptr<KVCompactionFilterFactory> cfFactory = nullptr;
         if (options_.cffBuilder_ != nullptr) {
             cfFactory = options_.cffBuilder_->buildCfFactory(spaceId);
         }
         auto vIdLen = getSpaceVidLen(spaceId);
-        return std::make_unique<RocksEngine>(spaceId, vIdLen, path, options_.mergeOp_, cfFactory);
+        return std::make_unique<RocksEngine>(
+            spaceId, vIdLen, dataPath, walPath, options_.mergeOp_, cfFactory);
     } else {
         LOG(FATAL) << "Unknown engine type " << FLAGS_engine_type;
         return nullptr;
@@ -265,7 +267,8 @@ void NebulaStore::addSpace(GraphSpaceID spaceId, bool isListener) {
         LOG(INFO) << "Create data space " << spaceId;
         this->spaces_[spaceId] = std::make_unique<SpacePartInfo>();
         for (auto& path : options_.dataPaths_) {
-            this->spaces_[spaceId]->engines_.emplace_back(newEngine(spaceId, path));
+            this->spaces_[spaceId]->engines_.emplace_back(
+                newEngine(spaceId, path, options_.walPath_));
         }
     } else {
         // listener don't need engine for now
@@ -922,7 +925,7 @@ ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::CheckpointInfo>> NebulaStore:
                 return error(ret);
             }
             auto walPath = folly::stringPrintf(
-                "%s/checkpoints/%s/wal/%d", engine->getDataRoot(), name.c_str(), part);
+                "%s/checkpoints/%s/wal/%d", engine->getWalRoot(), name.c_str(), part);
             auto p = nebula::value(ret);
             if (!p->linkCurrentWAL(walPath.data())) {
                 return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
