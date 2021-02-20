@@ -10,6 +10,7 @@
 #include "common/base/Base.h"
 #include "common/base/StatusOr.h"
 #include "common/interface/gen-cpp2/meta_types.h"
+#include "common/utils/IndexUtils.h"
 #include "codec/RowReader.h"
 #include "utils/Types.h"
 #include "codec/RowReader.h"
@@ -24,36 +25,6 @@ using PropertyType = nebula::meta::cpp2::PropertyType;
 class IndexKeyUtils final {
 public:
     ~IndexKeyUtils() = default;
-
-    static Value::Type toValueType(PropertyType type) {
-        switch (type) {
-            case PropertyType::BOOL:
-                return Value::Type::BOOL;
-            case PropertyType::INT64:
-            case PropertyType::INT32:
-            case PropertyType::INT16:
-            case PropertyType::INT8:
-            case PropertyType::TIMESTAMP:
-                return Value::Type::INT;
-            case PropertyType::VID:
-                return Value::Type::VERTEX;
-            case PropertyType::FLOAT:
-            case PropertyType::DOUBLE:
-                return Value::Type::FLOAT;
-            case PropertyType::STRING:
-            case PropertyType::FIXED_STRING:
-                return Value::Type::STRING;
-            case PropertyType::DATE:
-                return Value::Type::DATE;
-            case PropertyType::TIME:
-                return Value::Type::TIME;
-            case PropertyType::DATETIME:
-                return Value::Type::DATETIME;
-            case PropertyType::UNKNOWN:
-                return Value::Type::__EMPTY__;
-        }
-        return Value::Type::__EMPTY__;
-    }
 
     static std::string encodeNullValue(Value::Type type, const int16_t* strLen) {
         size_t len = 0;
@@ -356,7 +327,7 @@ public:
         if (it == cols.end()) {
             return Value(NullType::BAD_DATA);
         }
-        auto type = IndexKeyUtils::toValueType(it->get_type().get_type());
+        auto type = IndexUtils::toValueType(it->get_type().get_type());
 
         if (hasNullableCol) {
             auto bitOffset = key.size() - tailLen - sizeof(u_short);
@@ -368,38 +339,7 @@ public:
             if (hasNullableCol && col.get_name() == prop && nullableBit.test(nullableColPosit)) {
                 return Value(NullType::__NULL__);
             }
-            switch (IndexKeyUtils::toValueType(col.type.get_type())) {
-                case Value::Type::BOOL: {
-                    len = sizeof(bool);
-                    break;
-                }
-                case Value::Type::INT: {
-                    len = sizeof(int64_t);
-                    break;
-                }
-                case Value::Type::FLOAT: {
-                    len = sizeof(double);
-                    break;
-                }
-                case Value::Type::STRING: {
-                    len = *col.type.get_type_length();
-                    break;
-                }
-                case Value::Type::TIME: {
-                    len = sizeof(int8_t) * 3 + sizeof(int32_t);
-                    break;
-                }
-                case Value::Type::DATE: {
-                    len = sizeof(int8_t) * 2 + sizeof(int16_t);
-                    break;
-                }
-                case Value::Type::DATETIME: {
-                    len = sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5;
-                    break;
-                }
-                default:
-                    len = 0;
-            }
+            len = IndexUtils::fieldIndexLen(col.get_type());
             if (hasNullableCol) {
                 nullableColPosit -= 1;
             }

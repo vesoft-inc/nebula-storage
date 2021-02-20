@@ -8,6 +8,7 @@
 #define STORAGE_EXEC_INDEXSCANNODE_H_
 
 #include "common/base/Base.h"
+#include "common/utils/IndexUtils.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
 
@@ -107,7 +108,7 @@ private:
                 VLOG(3) << "Field " << col.get_column_name() << " not found ";
                 return Status::Error("Field not found");
             }
-            auto type = IndexKeyUtils::toValueType(iter->type.type);
+            auto type = IndexUtils::toValueType(iter->type.type);
             if (type == Value::Type::STRING && !iter->type.__isset.type_length) {
                 return Status::Error("String property index has not set prefix length.");
             }
@@ -129,7 +130,7 @@ private:
                 VLOG(3) << "Field " << col.get_column_name() << " not found ";
                 return Status::Error("Field not found");
             }
-            auto type = IndexKeyUtils::toValueType(iter->get_type().get_type());
+            auto type = IndexUtils::toValueType(iter->get_type().get_type());
             if (type == Value::Type::STRING && !iter->get_type().__isset.type_length) {
                 return Status::Error("String property index has not set prefix length.");
             }
