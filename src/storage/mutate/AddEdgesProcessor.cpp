@@ -240,8 +240,8 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                                    edgeKey.ranking,
                                                    edgeKey.dst.getStr()));
         }
-        auto atomic = encodeBatchValue(std::move(batchHolder)->getBatch());
-        if (atomic.empty()) {
+        auto batch = encodeBatchValue(std::move(batchHolder)->getBatch());
+        if (batch.empty()) {
             handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
         } else {
             nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), dummyLock, true);
@@ -261,7 +261,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
-            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(atomic), callback);
+            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch), callback);
         }
     }
 }

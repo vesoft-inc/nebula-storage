@@ -28,16 +28,17 @@ public:
 
     void process(const cpp2::DeleteVerticesRequest& req);
 
-    void doProcess(const cpp2::DeleteVerticesRequest& req);
-
-    void doProcessWithIndex(const cpp2::DeleteVerticesRequest& req);
-
 private:
     DeleteVerticesProcessor(StorageEnv* env,
                             const ProcessorCounters* counters,
                             VertexCache* cache)
         : BaseProcessor<cpp2::ExecResponse>(env, counters)
         , vertexCache_(cache) {}
+
+    folly::Optional<std::string>
+    deleteVertices(PartitionID partId,
+                   const std::vector<Value>& vertices,
+                   std::vector<VMLI>& target);
 
 private:
     GraphSpaceID                                                spaceId_;

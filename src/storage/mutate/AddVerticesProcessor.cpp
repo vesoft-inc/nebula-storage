@@ -251,8 +251,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 }
             }
         }
-        auto atomic = encodeBatchValue(std::move(batchHolder)->getBatch());
-        if (atomic.empty()) {
+        auto batch = encodeBatchValue(std::move(batchHolder)->getBatch());
+        if (batch.empty()) {
             handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
         } else {
             nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(), dummyLock, true);
@@ -270,7 +270,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
             auto callback = [partId, this](kvstore::ResultCode code) {
                 handleAsync(spaceId_, partId, code);
             };
-            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(atomic), callback);
+            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch), callback);
         }
     }
 }
