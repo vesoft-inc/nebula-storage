@@ -10,7 +10,6 @@
 #include <folly/Function.h>
 #include <folly/concurrency/ConcurrentHashMap.h>
 #include <folly/Synchronized.h>
-
 #include "common/clients/meta/MetaClient.h"
 #include "common/clients/storage/GraphStorageClient.h"
 #include "common/clients/storage/InternalStorageClient.h"
@@ -19,19 +18,23 @@
 #include "common/thrift/ThriftTypes.h"
 #include "kvstore/KVStore.h"
 #include "storage/mutate/AddEdgesProcessor.h"
+#include "storage/transaction/BaseChainProcessor.h"
 #include "storage/transaction/TransactionUtils.h"
+#include "storage/transaction/TransactionTypes.h"
+#include "storage/transaction/MemoryLock.h"
 #include "utils/NebulaKeyUtils.h"
 
 namespace nebula {
 namespace storage {
 
 using KV = std::pair<std::string, std::string>;
-using RawKeys = std::vector<std::string>;
 using MemEdgeLocks = folly::ConcurrentHashMap<std::string, int64_t>;
 using ResumedResult = std::shared_ptr<folly::Synchronized<KV>>;
-using GetBatchFunc = std::function<folly::Optional<std::string>()>;
 
 class TransactionManager {
+public:
+    using GetBatchFunc = std::function<folly::Optional<std::string>()>;
+
 public:
     explicit TransactionManager(storage::StorageEnv* env);
 
@@ -70,7 +73,29 @@ public:
                                                     GraphSpaceID spaceId,
                                                     PartitionID partId,
                                                     const cpp2::EdgeKey& edgeKey,
-                                                    GetBatchFunc batchGetter);
+                                                    GetBatchFunc&& batchGetter);
+
+    /**
+     * @brief the old, out-edge first, in edge last, goes this way
+     */
+    folly::Future<cpp2::ErrorCode> updateEdge1(size_t vIdLen,
+                                               GraphSpaceID spaceId,
+                                               PartitionID partId,
+                                               const cpp2::EdgeKey& edgeKey,
+                                               GetBatchFunc&& batchGetter);
+    /**
+     * @brief in-edge first, out-edge last, goes this way
+     */
+    folly::Future<cpp2::ErrorCode> updateEdge2(
+        size_t vIdLen,
+        GraphSpaceID spaceId,
+        PartitionID partId,
+        const cpp2::EdgeKey& edgeKey,
+        std::vector<cpp2::UpdatedProp> updateProps,
+        bool insertable,
+        folly::Optional<std::vector<std::string>> returnProps,
+        folly::Optional<std::string> condition,
+        GetBatchFunc&& batchGetter);
 
     /*
      * resume an unfinished add/update/upsert request
@@ -97,6 +122,34 @@ public:
     // used for perf trace, will remove finally
     std::unordered_map<std::string, std::list<int64_t>> timer_;
 
+    void processChain(BaseChainProcessor*);
+
+    // bool lockBatch(const std::vector<std::string>& keys) {
+    //     return mLock_.lockBatch(keys);
+    // }
+
+    // void unlockBatch(const std::vector<std::string>& keys) {
+    //     mLock_.unlockBatch(keys);
+    // }
+
+    auto* getMemoryLock() {
+        return &mLock_;
+    }
+
+    GraphStorageClient* getStorageClient() {
+        return sClient_.get();
+    }
+
+    InternalStorageClient* getInternalClient() {
+        return interClient_.get();
+    }
+
+    folly::Future<cpp2::ErrorCode> resumeLock(size_t vIdLen,
+                                              GraphSpaceID spaceId,
+                                              std::shared_ptr<PendingLock>& lock);
+
+    std::string remoteEdgeKey(size_t vIdLen, GraphSpaceID spaceId, const std::string& lockKey);
+
 protected:
     folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
                                                          PartitionID partId,
@@ -120,8 +173,10 @@ protected:
 protected:
     StorageEnv*                                         env_{nullptr};
     std::shared_ptr<folly::IOThreadPoolExecutor>        exec_;
-    std::unique_ptr<storage::InternalStorageClient>     interClient_;
+    std::unique_ptr<GraphStorageClient>                 sClient_;
+    std::unique_ptr<InternalStorageClient>              interClient_;
     MemEdgeLocks                                        memLock_;
+    MemoryLock<std::string>                             mLock_;
 };
 
 }  // namespace storage

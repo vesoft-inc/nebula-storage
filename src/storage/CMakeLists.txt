@@ -68,6 +68,10 @@ nebula_add_library(
     transaction/TransactionProcessor.cpp
     transaction/GetValueProcessor.cpp
     transaction/TransactionUtils.cpp
+    transaction/ChainAddEdgeProcessor.cpp
+    transaction/MultiChainProcessor.cpp
+    transaction/ChainUpdateProcessor.cpp
+    transaction/ChainResumeProcessor.cpp
 )
 
 nebula_add_library(

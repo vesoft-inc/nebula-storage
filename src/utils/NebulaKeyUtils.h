@@ -135,7 +135,7 @@ public:
     }
 
     static bool isLock(size_t vIdLen, const folly::StringPiece& rawKey) {
-        return isEdge(vIdLen, rawKey) && (rawKey.back() == '0');
+        return isEdge(vIdLen, rawKey) && (rawKey.back() == 0);
     }
 
     static bool isSystem(const folly::StringPiece& rawKey) {

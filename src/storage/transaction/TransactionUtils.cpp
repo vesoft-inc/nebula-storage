@@ -17,9 +17,17 @@ std::string TransactionUtils::dumpKey(const cpp2::EdgeKey& key) {
 
 std::string TransactionUtils::edgeKey(size_t vIdLen,
                                       PartitionID partId,
-                                      const cpp2::EdgeKey& key) {
+                                      const cpp2::EdgeKey& key) noexcept {
     return NebulaKeyUtils::edgeKey(
         vIdLen, partId, key.src.getStr(), key.edge_type, key.ranking, key.dst.getStr());
+}
+
+std::string TransactionUtils::lockKey(size_t vIdLen,
+                                      PartitionID partId,
+                                      const cpp2::EdgeKey& key) noexcept {
+    EdgeVerPlaceHolder lockVer = 0;
+    return NebulaKeyUtils::edgeKey(
+        vIdLen, partId, key.src.getStr(), key.edge_type, key.ranking, key.dst.getStr(), lockVer);
 }
 
 std::string TransactionUtils::reverseRawKey(size_t vIdLen,

@@ -103,5 +103,5 @@ add_dependencies(
     old_meta_thrift_obj
 )
 
-nebula_add_subdirectory(test)
+# nebula_add_subdirectory(test)
 nebula_add_subdirectory(upgradeData)

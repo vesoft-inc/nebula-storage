@@ -164,6 +164,8 @@ public:
     static cpp2::ErrorCode to(kvstore::ResultCode rc);
 
     static kvstore::ResultCode to(cpp2::ErrorCode rc);
+
+    static std::string name(cpp2::ErrorCode code);
 };
 
 }  // namespace storage

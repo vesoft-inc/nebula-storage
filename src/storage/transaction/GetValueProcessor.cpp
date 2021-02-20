@@ -18,12 +18,16 @@ void GetValueProcessor::process(const cpp2::GetValueRequest& req) {
     auto spaceId = req.get_space_id();
     auto partId = req.get_part_id();
     auto key = req.get_key();
+    LOG(INFO) << "check key exist: " << folly::hexlify(key);
 
     std::string value;
     auto rc = env_->kvstore_->get(spaceId, partId, key, &value);
     LOG_IF(INFO, FLAGS_trace_toss) << "getValue for partId=" << partId
                                    << ", key=" << folly::hexlify(key)
                                    << ", rc=" << static_cast<int>(rc);
+
+    LOG(INFO) << "getValue for partId=" << partId << ", key=" << folly::hexlify(key)
+              << ", rc=" << static_cast<int>(rc);
 
     if (rc != kvstore::ResultCode::SUCCEEDED) {
         handleErrorCode(rc, spaceId, partId);

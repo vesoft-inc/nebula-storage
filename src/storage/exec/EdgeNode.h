@@ -12,6 +12,7 @@
 #include "storage/exec/StorageIterator.h"
 #include "storage/transaction/TransactionManager.h"
 #include "storage/transaction/TossEdgeIterator.h"
+#include "storage/transaction/TossNoVerEdgeIterator.h"
 
 namespace nebula {
 namespace storage {
@@ -139,7 +140,9 @@ public:
             if (planContext_->env_->txnMan_ &&
                 planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
                 bool stopAtFirstEdge = true;
-                iter_.reset(new TossEdgeIterator(
+                // iter_.reset(new TossEdgeIterator(
+                //     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
+                iter_.reset(new TossNoVerEdgeIterator(
                     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
             } else {
                 iter_.reset(new SingleEdgeIterator(
@@ -179,7 +182,9 @@ public:
             if (planContext_->env_->txnMan_ &&
                 planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
                 bool stopAtFirstEdge = false;
-                iter_.reset(new TossEdgeIterator(
+                // iter_.reset(new TossEdgeIterator(
+                //     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
+                iter_.reset(new TossNoVerEdgeIterator(
                     planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
             } else {
                 iter_.reset(new SingleEdgeIterator(
