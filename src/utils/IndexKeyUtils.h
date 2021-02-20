@@ -166,19 +166,11 @@ public:
     }
 
     static std::string encodeRank(EdgeRanking rank) {
-        rank ^= folly::to<int64_t>(1) << 63;
-        auto val = folly::Endian::big(rank);
-        std::string raw;
-        raw.reserve(sizeof(int64_t));
-        raw.append(reinterpret_cast<const char*>(&val), sizeof(int64_t));
-        return raw;
+        return IndexKeyUtils::encodeInt64(rank);
     }
 
     static EdgeRanking decodeRank(const folly::StringPiece& raw) {
-        auto val = *reinterpret_cast<const int64_t*>(raw.data());
-        val = folly::Endian::big(val);
-        val ^= folly::to<int64_t>(1) << 63;
-        return val;
+        return IndexKeyUtils::decodeInt64(raw);
     }
 
     /*
