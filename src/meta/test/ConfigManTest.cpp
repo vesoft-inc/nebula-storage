@@ -8,7 +8,8 @@
 #include "common/fs/TempDir.h"
 #include "common/conf/Configuration.h"
 #include "common/meta/GflagsManager.h"
-#include "common/meta/ClientBasedGflagsManager.h"
+#include "common/clients/meta/MetaClient.h"
+
 #include <gtest/gtest.h>
 #include <rocksdb/db.h>
 #include <rocksdb/utilities/options_util.h>
@@ -39,23 +40,27 @@ DEFINE_string(test4, "v4", "test");
 namespace nebula {
 namespace meta {
 
+cpp2::ConfigItem assignConfigItem(const cpp2::ConfigModule& module,
+                                  const std::string& name,
+                                  const cpp2::ConfigMode& mode,
+                                  const nebula::Value& value) {
+    cpp2::ConfigItem item;
+    item.set_module(module);
+    item.set_name(name);
+    item.set_mode(mode);
+    item.set_value(value);
+    return item;
+}
+
 TEST(ConfigManTest, ConfigProcessorTest) {
     fs::TempDir rootPath("/tmp/ConfigProcessorTest.XXXXXX");
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
 
-    cpp2::ConfigItem item1;
-    item1.set_module(cpp2::ConfigModule::STORAGE);
-    item1.set_name("k1");
-    item1.set_type(cpp2::ConfigType::STRING);
-    item1.set_mode(cpp2::ConfigMode::MUTABLE);
-    item1.set_value("v1");
+    auto item1 = assignConfigItem(cpp2::ConfigModule::STORAGE, "k1",
+                                  cpp2::ConfigMode::MUTABLE, "v1");
 
-    cpp2::ConfigItem item2;
-    item2.set_module(cpp2::ConfigModule::STORAGE);
-    item2.set_name("k2");
-    item2.set_type(cpp2::ConfigType::STRING);
-    item2.set_mode(cpp2::ConfigMode::MUTABLE);
-    item2.set_value("v2");
+    auto item2 = assignConfigItem(cpp2::ConfigModule::STORAGE, "k2",
+                                  cpp2::ConfigMode::MUTABLE, "v2");
 
     // set and get without register
     {
@@ -73,7 +78,7 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         item.set_module(cpp2::ConfigModule::STORAGE);
         item.set_name("k1");
         cpp2::GetConfigReq req;
-        req.set_item(item);
+        req.set_item(std::move(item));
 
         auto* processor = GetConfigProcessor::instance(kv.get());
         auto f = processor->getFuture();
@@ -161,13 +166,8 @@ TEST(ConfigManTest, ConfigProcessorTest) {
     cpp2::ConfigItem item3;
     item3.set_module(cpp2::ConfigModule::META);
     item3.set_name("nested");
-    item3.set_type(cpp2::ConfigType::NESTED);
     item3.set_mode(cpp2::ConfigMode::MUTABLE);
-    // default value is a json string
-    std::string defaultValue = R"({
-        "max_background_jobs":"4"
-    })";
-    item3.set_value(defaultValue);
+    item3.set_value(R"({"max_background_jobs":8})");
 
     {
         std::vector<cpp2::ConfigItem> items;
@@ -186,10 +186,10 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         cpp2::ConfigItem updated;
         updated.set_module(cpp2::ConfigModule::META);
         updated.set_name("nested");
-        updated.set_type(cpp2::ConfigType::NESTED);
         updated.set_mode(cpp2::ConfigMode::MUTABLE);
         // update from consle as format of update list
-        updated.set_value("max_background_jobs=8,level0_file_num_compaction_trigger=10");
+        updated.set_value(R"({"max_background_jobs":8, "level0_file_num_compaction_trigger":10})");
+
 
         cpp2::SetConfigReq req;
         req.set_item(updated);
@@ -215,17 +215,17 @@ TEST(ConfigManTest, ConfigProcessorTest) {
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
 
         // verify the updated nested config
-        Configuration conf;
-        auto confRet = conf.parseFromString(resp.get_items().front().get_value());
+        conf::Configuration conf;
+        auto confRet = conf.parseFromString(resp.get_items().front().get_value().getStr());
         ASSERT_TRUE(confRet.ok());
 
-        std::string val;
-        auto status = conf.fetchAsString("max_background_jobs", val);
+        int64_t val;
+        auto status = conf.fetchAsInt("max_background_jobs", val);
         ASSERT_TRUE(status.ok());
-        ASSERT_EQ(val, "8");
-        status = conf.fetchAsString("level0_file_num_compaction_trigger", val);
+        ASSERT_EQ(val, 8);
+        status = conf.fetchAsInt("level0_file_num_compaction_trigger", val);
         ASSERT_TRUE(status.ok());
-        ASSERT_EQ(val, "10");
+        ASSERT_EQ(val, 10);
     }
     // list all configs in all module
     {
@@ -242,97 +242,65 @@ TEST(ConfigManTest, ConfigProcessorTest) {
     }
 }
 
-ConfigItem toConfigItem(const cpp2::ConfigItem& item) {
-    VariantType value;
-    switch (item.get_type()) {
-        case cpp2::ConfigType::INT64:
-            value = *reinterpret_cast<const int64_t*>(item.get_value().data());
-            break;
-        case cpp2::ConfigType::BOOL:
-            value = *reinterpret_cast<const bool*>(item.get_value().data());
-            break;
-        case cpp2::ConfigType::DOUBLE:
-            value = *reinterpret_cast<const double*>(item.get_value().data());
-            break;
-        case cpp2::ConfigType::STRING:
-        case cpp2::ConfigType::NESTED:
-            value = item.get_value();
-            break;
-    }
-    return ConfigItem(item.get_module(), item.get_name(), item.get_type(), item.get_mode(), value);
-}
-
-TEST(ConfigManTest, MetaConfigManTest) {
+TEST(ConfigManTest, MetaConfigTest) {
     FLAGS_heartbeat_interval_secs = 1;
-    fs::TempDir rootPath("/tmp/MetaConfigManTest.XXXXXX");
-    uint32_t localMetaPort = 0;
-    auto sc = TestUtils::mockMetaServer(localMetaPort, rootPath.path());
-    TestUtils::createSomeHosts(sc->kvStore_.get());
-
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
+    fs::TempDir rootPath("/tmp/MetaConfigTest.XXXXXX");
 
     auto module = cpp2::ConfigModule::STORAGE;
-    auto client = std::make_shared<MetaClient>(threadPool,
-        std::vector<HostAddr>{HostAddr(localIp, sc->port_)});
-    client->waitForMetadReady();
-    client->gflagsModule_ = module;
+    auto mode = cpp2::ConfigMode::MUTABLE;
+    mock::MockCluster cluster;
+    cluster.startMeta(rootPath.path());
+    cluster.initMetaClient();
+    auto* client = cluster.metaClient_.get();
+    // client->setGflagsModule(module);
 
-    ClientBasedGflagsManager cfgMan(client.get());
     // mock some test gflags to meta
     {
-        auto mode = meta::cpp2::ConfigMode::MUTABLE;
         std::vector<cpp2::ConfigItem> configItems;
-        configItems.emplace_back(toThriftConfigItem(
-            module, "int64_key_immutable", cpp2::ConfigType::INT64, cpp2::ConfigMode::IMMUTABLE,
-            toThriftValueStr(cpp2::ConfigType::INT64, 100L)));
-        configItems.emplace_back(toThriftConfigItem(
-            module, "int64_key", cpp2::ConfigType::INT64,
-            mode, toThriftValueStr(cpp2::ConfigType::INT64, 101L)));
-        configItems.emplace_back(toThriftConfigItem(
-            module, "bool_key", cpp2::ConfigType::BOOL,
-            mode, toThriftValueStr(cpp2::ConfigType::BOOL, false)));
-        configItems.emplace_back(toThriftConfigItem(
-            module, "double_key", cpp2::ConfigType::DOUBLE,
-            mode, toThriftValueStr(cpp2::ConfigType::DOUBLE, 1.23)));
-        std::string defaultValue = "something";
-        configItems.emplace_back(toThriftConfigItem(
-            module, "string_key", cpp2::ConfigType::STRING,
-            mode, toThriftValueStr(cpp2::ConfigType::STRING, defaultValue)));
-        configItems.emplace_back(toThriftConfigItem(
-            module, "nested_key", cpp2::ConfigType::NESTED,
-            mode, toThriftValueStr(cpp2::ConfigType::NESTED, FLAGS_nested_key)));
-        cfgMan.registerGflags(configItems);
+        auto item = assignConfigItem(module, "int64_key_immutable",
+                                     cpp2::ConfigMode::IMMUTABLE, 100L);
+        configItems.emplace_back(std::move(item));
+
+        item = assignConfigItem(module, "int64_key", mode, 101L);
+        configItems.emplace_back(std::move(item));
+
+        item = assignConfigItem(module, "bool_key", mode, false);
+        configItems.emplace_back(std::move(item));
+
+        item = assignConfigItem(module, "double_key", mode, 1.23);
+        configItems.emplace_back(std::move(item));
+
+        item = assignConfigItem(module, "string_key", mode, "something");
+        configItems.emplace_back(std::move(item));
+
+        item = assignConfigItem(module, "nested_key", mode, FLAGS_nested_key);
+        configItems.emplace_back(std::move(item));
+        client->regConfig(configItems);
     }
 
     // try to set/get config not registered
     {
         std::string name = "not_existed";
-        auto type = cpp2::ConfigType::INT64;
-
         sleep(FLAGS_heartbeat_interval_secs + 1);
         // get/set without register
-        auto setRet = cfgMan.setConfig(module, name, type, 101l).get();
+        auto setRet = client->setConfig(module, name, 101l).get();
         ASSERT_FALSE(setRet.ok());
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_FALSE(getRet.ok());
     }
     // immutable configs
     {
         std::string name = "int64_key_immutable";
-        auto type = cpp2::ConfigType::INT64;
 
         // register config as immutable and try to update
-        auto setRet = cfgMan.setConfig(module, name, type, 101l).get();
+        auto setRet = client->setConfig(module, name, 101l).get();
         ASSERT_FALSE(setRet.ok());
 
         // get immutable config
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<int64_t>(item.value_);
-        ASSERT_EQ(value, 100);
+        auto item = getRet.value().front();
+        ASSERT_EQ(item.get_value().getInt(), 100);
 
         sleep(FLAGS_heartbeat_interval_secs + 1);
         ASSERT_EQ(FLAGS_int64_key_immutable, 100);
@@ -340,19 +308,17 @@ TEST(ConfigManTest, MetaConfigManTest) {
     // mutable config
     {
         std::string name = "int64_key";
-        auto type = cpp2::ConfigType::INT64;
         ASSERT_EQ(FLAGS_int64_key, 101);
 
         // update config
-        auto setRet = cfgMan.setConfig(module, name, type, 102l).get();
+        auto setRet = client->setConfig(module, name, 102l).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<int64_t>(item.value_);
-        ASSERT_EQ(value, 102);
+        auto item = getRet.value().front();
+        ASSERT_EQ(item.get_value().getInt(), 102);
 
         // get from cache
         sleep(FLAGS_heartbeat_interval_secs + 1);
@@ -360,39 +326,35 @@ TEST(ConfigManTest, MetaConfigManTest) {
     }
     {
         std::string name = "bool_key";
-        auto type = cpp2::ConfigType::BOOL;
         ASSERT_EQ(FLAGS_bool_key, false);
 
         // update config
-        auto setRet = cfgMan.setConfig(module, name, type, true).get();
+        auto setRet = client->setConfig(module, name, true).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<bool>(item.value_);
-        ASSERT_EQ(value, true);
+        auto item = getRet.value().front();
+        ASSERT_TRUE(item.get_value().getBool());
 
         // get from cache
         sleep(FLAGS_heartbeat_interval_secs + 1);
-        ASSERT_EQ(FLAGS_bool_key, true);
+        ASSERT_TRUE(FLAGS_bool_key);
     }
     {
         std::string name = "double_key";
-        auto type = cpp2::ConfigType::DOUBLE;
         ASSERT_EQ(FLAGS_double_key, 1.23);
 
         // update config
-        auto setRet = cfgMan.setConfig(module, name, type, 3.14).get();
+        auto setRet = client->setConfig(module, name, 3.14).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<double>(item.value_);
-        ASSERT_EQ(value, 3.14);
+        auto item = getRet.value().front();
+        ASSERT_EQ(item.get_value().getFloat(), 3.14);
 
         // get from cache
         sleep(FLAGS_heartbeat_interval_secs + 1);
@@ -400,20 +362,18 @@ TEST(ConfigManTest, MetaConfigManTest) {
     }
     {
         std::string name = "string_key";
-        auto type = cpp2::ConfigType::STRING;
         ASSERT_EQ(FLAGS_string_key, "something");
 
         // update config
         std::string newValue = "abc";
-        auto setRet = cfgMan.setConfig(module, name, type, newValue).get();
+        auto setRet = client->setConfig(module, name, newValue).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<std::string>(item.value_);
-        ASSERT_EQ(value, "abc");
+        auto item = getRet.value().front();
+        ASSERT_EQ(item.get_value().getStr(), "abc");
 
         // get from cache
         sleep(FLAGS_heartbeat_interval_secs + 1);
@@ -421,22 +381,20 @@ TEST(ConfigManTest, MetaConfigManTest) {
     }
     {
         std::string name = "nested_key";
-        auto type = cpp2::ConfigType::NESTED;
         ASSERT_EQ(FLAGS_nested_key, R"({"max_background_jobs":"4"})");
 
         // update config
-        std::string newValue = "max_background_jobs=8";
-        auto setRet = cfgMan.setConfig(module, name, type, newValue).get();
+        std::string newValue = R"({"max_background_jobs":"8"})";
+        auto setRet = client->setConfig(module, name, newValue).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = client->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        auto value = boost::get<std::string>(item.value_);
+        auto item = getRet.value().front();
 
-        Configuration conf;
-        auto confRet = conf.parseFromString(value);
+        conf::Configuration conf;
+        auto confRet = conf.parseFromString(item.get_value().getStr());
         ASSERT_TRUE(confRet.ok());
         std::string val;
         auto status = conf.fetchAsString("max_background_jobs", val);
@@ -452,7 +410,7 @@ TEST(ConfigManTest, MetaConfigManTest) {
         ASSERT_EQ(val, "8");
     }
     {
-        auto ret = cfgMan.listConfigs(module).get();
+        auto ret = client->listConfigs(module).get();
         ASSERT_TRUE(ret.ok());
         ASSERT_EQ(ret.value().size(), 6);
     }
@@ -461,40 +419,31 @@ TEST(ConfigManTest, MetaConfigManTest) {
 TEST(ConfigManTest, MockConfigTest) {
     FLAGS_heartbeat_interval_secs = 1;
     fs::TempDir rootPath("/tmp/MockConfigTest.XXXXXX");
-    uint32_t localMetaPort = 0;
-    auto sc = TestUtils::mockMetaServer(localMetaPort, rootPath.path());
+    mock::MockCluster cluster;
+    cluster.startMeta(rootPath.path());
+    cluster.initMetaClient();
 
-    // mock one ClientBaseGflagsManager, and do some update value in console, check if it works
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
     auto module = cpp2::ConfigModule::STORAGE;
-    auto type = cpp2::ConfigType::STRING;
     auto mode = cpp2::ConfigMode::MUTABLE;
-
-    auto client = std::make_shared<MetaClient>(threadPool,
-        std::vector<HostAddr>{HostAddr(localIp, sc->port_)});
-    client->waitForMetadReady();
-    client->gflagsModule_ = module;
-    ClientBasedGflagsManager clientCfgMan(client.get());
+    auto* client = cluster.metaClient_.get();
 
     std::vector<cpp2::ConfigItem> configItems;
     for (int i = 0; i < 5; i++) {
         std::string name = "test" + std::to_string(i);
         std::string value = "v" + std::to_string(i);
-        configItems.emplace_back(toThriftConfigItem(module, name, type, mode, value));
+        configItems.emplace_back(assignConfigItem(module, name, mode, value));
     }
-    clientCfgMan.registerGflags(configItems);
+    client->regConfig(configItems);
 
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(1);
     auto consoleClient = std::make_shared<MetaClient>(threadPool,
-        std::vector<HostAddr>{HostAddr(localIp, sc->port_)});
+        std::vector<HostAddr>{HostAddr("127.0.0.1", cluster.metaServer_->port_)});
     consoleClient->waitForMetadReady();
-    ClientBasedGflagsManager console(consoleClient.get());
     // update in console
     for (int i = 0; i < 5; i++) {
         std::string name = "test" + std::to_string(i);
         std::string value = "updated" + std::to_string(i);
-        auto setRet = console.setConfig(module, name, type, value).get();
+        auto setRet = consoleClient->setConfig(module, name, value).get();
         ASSERT_TRUE(setRet.ok());
     }
     // get in console
@@ -502,136 +451,139 @@ TEST(ConfigManTest, MockConfigTest) {
         std::string name = "test" + std::to_string(i);
         std::string value = "updated" + std::to_string(i);
 
-        auto getRet = console.getConfig(module, name).get();
+        auto getRet = consoleClient->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
-        auto item = toConfigItem(getRet.value().front());
-        ASSERT_EQ(boost::get<std::string>(item.value_), value);
+        auto item = getRet.value().front();
+        ASSERT_EQ(item.get_value().getStr(), value);
     }
-
-    // check values in ClientBaseGflagsManager
-    sleep(FLAGS_heartbeat_interval_secs + 1);
-    ASSERT_EQ(FLAGS_test0, "updated0");
-    ASSERT_EQ(FLAGS_test1, "updated1");
-    ASSERT_EQ(FLAGS_test2, "updated2");
-    ASSERT_EQ(FLAGS_test3, "updated3");
-    ASSERT_EQ(FLAGS_test4, "updated4");
 }
 
 TEST(ConfigManTest, RocksdbOptionsTest) {
     FLAGS_heartbeat_interval_secs = 1;
     fs::TempDir rootPath("/tmp/RocksdbOptionsTest.XXXXXX");
-    IPv4 localIp;
-    network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
-    const nebula::ClusterID kClusterId = 10;
-
-    uint32_t localMetaPort = network::NetworkUtils::getAvailablePort();
-    LOG(INFO) << "Start meta server....";
-    std::string metaPath = folly::stringPrintf("%s/meta", rootPath.path());
-    auto metaServerContext = meta::TestUtils::mockMetaServer(localMetaPort, metaPath.c_str(),
-                                                             kClusterId);
-    localMetaPort = metaServerContext->port_;
-
     auto module = cpp2::ConfigModule::STORAGE;
-    auto type = cpp2::ConfigType::NESTED;
     auto mode = meta::cpp2::ConfigMode::MUTABLE;
-    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
-    std::vector<HostAddr> metaAddr = {HostAddr(localIp, localMetaPort)};
-
     LOG(INFO) << "Create meta client...";
-    uint32_t storagePort = network::NetworkUtils::getAvailablePort();
-    HostAddr storageAddr(localIp, storagePort);
+    mock::MockCluster cluster;
+    cluster.startMeta(rootPath.path());
+    auto ptr = cluster.metaKV_.get();
+    auto* kv = dynamic_cast<kvstore::KVStore*>(ptr);
     meta::MetaClientOptions options;
-    options.localHost_ = HostAddr(localIp, storagePort);
-    options.clusterId_ = kClusterId;
+    auto storagePort = network::NetworkUtils::getAvailablePort();
+    HostAddr storageAddr{"127.0.0.1", storagePort};
+    std::vector<HostAddr> hosts = {storageAddr};
+    TestUtils::createSomeHosts(kv, hosts);
+    TestUtils::registerHB(kv, hosts);
+    options.localHost_ = storageAddr;
     options.role_ = meta::cpp2::HostRole::STORAGE;
-    options.skipConfig_ = false;
-    auto mClient = std::make_unique<meta::MetaClient>(threadPool,
-                                                      metaAddr,
-                                                      options);
-    mClient->waitForMetadReady();
-    mClient->gflagsModule_ = module;
+    cluster.initMetaClient(options);
+    auto* mClient = cluster.metaClient_.get();
 
-    ClientBasedGflagsManager cfgMan(mClient.get());
     // mock some rocksdb gflags to meta
     {
         std::vector<cpp2::ConfigItem> configItems;
         FLAGS_rocksdb_db_options = R"({
             "max_background_jobs":"4"
         })";
-        configItems.emplace_back(toThriftConfigItem(
-            module, "rocksdb_db_options", type,
-            mode, toThriftValueStr(type, FLAGS_rocksdb_db_options)));
+        configItems.emplace_back(assignConfigItem(
+            module, "rocksdb_db_options",
+            mode, FLAGS_rocksdb_db_options));
         FLAGS_rocksdb_column_family_options = R"({
             "disable_auto_compactions":"false"
         })";
-        configItems.emplace_back(toThriftConfigItem(
-            module, "rocksdb_column_family_options", type,
-            mode, toThriftValueStr(type, FLAGS_rocksdb_column_family_options)));
-        cfgMan.registerGflags(configItems);
+        configItems.emplace_back(assignConfigItem(
+            module, "rocksdb_column_family_options",
+            mode, FLAGS_rocksdb_column_family_options));
+        mClient->regConfig(configItems);
     }
 
     std::string dataPath = folly::stringPrintf("%s/storage", rootPath.path());
-    auto sc = storage::TestUtils::mockStorageServer(mClient.get(),
-                                                    dataPath.c_str(),
-                                                    localIp,
-                                                    storagePort,
-                                                    true);
+    cluster.startStorage(storageAddr, dataPath, false);
 
-    SpaceDesc spaceDesc("storage", 9, 1);
-    auto ret = mClient->createSpace(spaceDesc).get();
+    cpp2::SpaceDesc spaceDesc;
+    spaceDesc.set_space_name("storage");
+    spaceDesc.set_partition_num(9);
+    spaceDesc.set_replica_factor(1);
+    auto ret = mClient->createSpace(std::move(spaceDesc)).get();
     ASSERT_TRUE(ret.ok());
     auto spaceId = ret.value();
     sleep(FLAGS_heartbeat_interval_secs + 1);
-    storage::TestUtils::waitUntilAllElected(sc->kvStore_.get(), spaceId, 9);
     {
         std::string name = "rocksdb_db_options";
-        std::string updateValue = "max_background_jobs=10";
+        std::string updateValue = R"({
+            "max_background_jobs":"10"
+        })";
         // update config
-        auto setRet = cfgMan.setConfig(module, name, type, updateValue).get();
+        auto setRet = mClient->setConfig(module, name, updateValue).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = mClient->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
         auto item = getRet.value().front();
-        auto value = boost::get<std::string>(item.get_value());
 
         sleep(FLAGS_heartbeat_interval_secs + 3);
-        ASSERT_EQ(FLAGS_rocksdb_db_options, value);
+        ASSERT_EQ(updateValue, item.get_value().getStr());
     }
     {
         std::string name = "rocksdb_column_family_options";
-        std::string updateValue = "disable_auto_compactions=true,"
-                                  "level0_file_num_compaction_trigger=8,"
-                                  "write_buffer_size=1048576";
+        std::string updateValue = R"({"disable_auto_compactions":true,
+                                      "level0_file_num_compaction_trigger":8,
+                                      "write_buffer_size":1048576})";
+
         // update config
-        auto setRet = cfgMan.setConfig(module, name, type, updateValue).get();
+        auto setRet = mClient->setConfig(module, name, updateValue).get();
         ASSERT_TRUE(setRet.ok());
 
         // get from meta server
-        auto getRet = cfgMan.getConfig(module, name).get();
+        auto getRet = mClient->getConfig(module, name).get();
         ASSERT_TRUE(getRet.ok());
         auto item = getRet.value().front();
-        auto value = boost::get<std::string>(item.get_value());
 
         sleep(FLAGS_heartbeat_interval_secs + 3);
-        ASSERT_EQ(FLAGS_rocksdb_column_family_options, value);
+        ASSERT_EQ(updateValue, item.get_value().getStr());
     }
     {
         // need to sleep a bit to take effect on rocksdb
+        LOG(INFO) << "=========================================";
+
+        std::vector<cpp2::ConfigItem> items;
+        auto item1 = assignConfigItem(cpp2::ConfigModule::STORAGE,
+                                      "disable_auto_compactions",
+                                      cpp2::ConfigMode::MUTABLE,
+                                      true);
+
+        auto item2 = assignConfigItem(cpp2::ConfigModule::STORAGE,
+                                      "level0_file_num_compaction_trigger",
+                                      cpp2::ConfigMode::MUTABLE,
+                                      8);
+
+        auto item3 = assignConfigItem(cpp2::ConfigModule::STORAGE,
+                                      "write_buffer_size",
+                                      cpp2::ConfigMode::MUTABLE,
+                                      1048576);
+
+        items.emplace_back(std::move(item1));
+        items.emplace_back(std::move(item2));
+        items.emplace_back(std::move(item3));
+
+        mClient->gflagsDeclared_ = std::move(items);
+        mClient->gflagsModule_ = cpp2::ConfigModule::STORAGE;
+        mClient->loadCfg();
         sleep(FLAGS_heartbeat_interval_secs + 2);
         rocksdb::DBOptions loadedDbOpt;
         std::vector<rocksdb::ColumnFamilyDescriptor> loadedCfDescs;
-        std::string rocksPath = folly::stringPrintf("%s/disk1/nebula/%d/data",
-                                                    dataPath.c_str(), spaceId);
-        rocksdb::Status status = rocksdb::LoadLatestOptions(rocksPath, rocksdb::Env::Default(),
-                                                            &loadedDbOpt, &loadedCfDescs);
+        auto rocksPath = folly::stringPrintf("%s/disk1/nebula/%d/data",
+                                              dataPath.c_str(), spaceId);
+        auto status = rocksdb::LoadLatestOptions(rocksPath, rocksdb::Env::Default(),
+                                                 &loadedDbOpt, &loadedCfDescs);
         ASSERT_TRUE(status.ok());
         EXPECT_EQ(10, loadedDbOpt.max_background_jobs);
         EXPECT_EQ(true, loadedCfDescs[0].options.disable_auto_compactions);
         EXPECT_EQ(8, loadedCfDescs[0].options.level0_file_num_compaction_trigger);
         EXPECT_EQ(1048576, loadedCfDescs[0].options.write_buffer_size);
     }
+    cluster.stop();
 }
 
 }  // namespace meta
