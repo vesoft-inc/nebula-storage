@@ -207,7 +207,8 @@ public:
 
         std::vector<VMLI> dummyLock = {std::make_tuple(planContext_->spaceId_,
                                                        partId, tagId_, vId)};
-        nebula::MemoryLockGuard<VMLI> lg(planContext_->env_->verticesML_.get(), dummyLock);
+        nebula::MemoryLockGuard<VMLI> lg(planContext_->env_->verticesML_.get(),
+                                         std::move(dummyLock));
         if (!lg) {
             auto conflict = lg.conflictKey();
             LOG(ERROR) << "vertex conflict "
@@ -215,7 +216,7 @@ public:
                        << std::get<1>(conflict) << ":"
                        << std::get<2>(conflict) << ":"
                        << std::get<3>(conflict);
-            return kvstore::ResultCode::ERR_CONSENSUS_ERROR;
+            return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
         }
 
         folly::Baton<true, std::atomic> baton;
@@ -521,7 +522,8 @@ public:
             }
             std::vector<EMLI> dummyLock = {std::make_tuple(planContext_->spaceId_, partId,
             edgeKey.src.getStr(), edgeKey.edge_type, edgeKey.ranking, edgeKey.dst.getStr())};
-            nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(), dummyLock);
+            nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(),
+                                             std::move(dummyLock));
             if (!lg) {
                 auto conflict = lg.conflictKey();
                 LOG(ERROR) << "edge conflict "
@@ -531,7 +533,7 @@ public:
                            << std::get<3>(conflict) << ":"
                            << std::get<4>(conflict) << ":"
                            << std::get<5>(conflict);
-                return kvstore::ResultCode::ERR_CONSENSUS_ERROR;
+                return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
             }
             folly::Baton<true, std::atomic> baton;
             auto callback = [&ret, &baton] (kvstore::ResultCode code) {

@@ -95,8 +95,9 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
         }
     } else {
         for (auto& part : partEdges) {
-            std::vector<EMLI> dummyLock;
             auto partId = part.first;
+            std::vector<EMLI> dummyLock;
+            dummyLock.reserve(part.second.size());
             for (const auto& edgeKey : part.second) {
                 dummyLock.emplace_back(std::make_tuple(spaceId_,
                                                        partId,
@@ -111,29 +112,26 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                 onFinished();
                 return;
             }
-            if (batch.value().empty()) {
-                handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
-            } else {
-                nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), dummyLock, true);
-                if (!lg) {
-                    auto conflict = lg.conflictKey();
-                    LOG(ERROR) << "edge conflict "
-                            << std::get<0>(conflict) << ":"
-                            << std::get<1>(conflict) << ":"
-                            << std::get<2>(conflict) << ":"
-                            << std::get<3>(conflict) << ":"
-                            << std::get<4>(conflict) << ":"
-                            << std::get<5>(conflict);
-                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
-                    onFinished();
-                    return;
-                }
-                auto callback = [partId, this](kvstore::ResultCode code) {
-                    handleAsync(spaceId_, partId, code);
-                };
-                env_->kvstore_->asyncAppendBatch(spaceId_, partId,
-                                                 std::move(batch).value(), callback);
+            DCHECK(!batch.value().empty());
+            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), true);
+            if (!lg) {
+                auto conflict = lg.conflictKey();
+                LOG(ERROR) << "edge conflict "
+                        << std::get<0>(conflict) << ":"
+                        << std::get<1>(conflict) << ":"
+                        << std::get<2>(conflict) << ":"
+                        << std::get<3>(conflict) << ":"
+                        << std::get<4>(conflict) << ":"
+                        << std::get<5>(conflict);
+                pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
+                onFinished();
+                return;
             }
+            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch).value(),
+                [l = std::move(lg), partId, this](kvstore::ResultCode code) {
+                    UNUSED(l);
+                    handleAsync(spaceId_, partId, code);
+                });
         }
     }
 }

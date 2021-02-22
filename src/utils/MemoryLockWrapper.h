@@ -30,6 +30,10 @@ public:
         }
     }
 
+    MemoryLockGuard(MemoryLockGuard&& lg)
+        : lock_(lg.lock_), keys_(std::move(lg.keys_)), locked_(lg.locked_) {}
+
+
     ~MemoryLockGuard() {
         if (locked_) {
             lock_->unlockBatch(keys_);

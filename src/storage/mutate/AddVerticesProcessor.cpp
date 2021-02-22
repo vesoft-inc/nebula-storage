@@ -128,9 +128,10 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
         IndexCountWrapper wrapper(env_);
         std::unique_ptr<kvstore::BatchHolder> batchHolder =
         std::make_unique<kvstore::BatchHolder>();
-        std::vector<VMLI> dummyLock;
         auto partId = part.first;
         const auto& vertices = part.second;
+        std::vector<VMLI> dummyLock;
+        dummyLock.reserve(vertices.size());
         for (auto& vertex : vertices) {
             auto vid = vertex.get_id().getStr();
             const auto& newTags = vertex.get_tags();
@@ -204,7 +205,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
                                     onFinished();
                                     return;
                                 } else {
@@ -227,7 +228,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
                                     onFinished();
                                     return;
                                 } else {
@@ -252,26 +253,24 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
             }
         }
         auto batch = encodeBatchValue(std::move(batchHolder)->getBatch());
-        if (batch.empty()) {
-            handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
-        } else {
-            nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(), dummyLock, true);
-            if (!lg) {
-                auto conflict = lg.conflictKey();
-                LOG(ERROR) << "vertex conflict "
-                           << std::get<0>(conflict) << ":"
-                           << std::get<1>(conflict) << ":"
-                           << std::get<2>(conflict) << ":"
-                           << std::get<3>(conflict);
-                pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
-                onFinished();
-                return;
-            }
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch), callback);
+        DCHECK(!batch.empty());
+        nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(), std::move(dummyLock), true);
+        if (!lg) {
+            auto conflict = lg.conflictKey();
+            LOG(ERROR) << "vertex conflict "
+                        << std::get<0>(conflict) << ":"
+                        << std::get<1>(conflict) << ":"
+                        << std::get<2>(conflict) << ":"
+                        << std::get<3>(conflict);
+            pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
+            onFinished();
+            return;
         }
+        env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
+            [l = std::move(lg), partId, this](kvstore::ResultCode code) {
+                UNUSED(l);
+                handleAsync(spaceId_, partId, code);
+            });
     }
 }
 

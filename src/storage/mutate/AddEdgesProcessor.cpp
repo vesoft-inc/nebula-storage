@@ -121,9 +121,10 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
         IndexCountWrapper wrapper(env_);
         std::unique_ptr<kvstore::BatchHolder> batchHolder =
         std::make_unique<kvstore::BatchHolder>();
-        std::vector<EMLI> dummyLock;
         auto partId = part.first;
         const auto& newEdges = part.second;
+        std::vector<EMLI> dummyLock;
+        dummyLock.reserve(newEdges.size());
         for (auto& newEdge : newEdges) {
             auto edgeKey = newEdge.key;
             VLOG(3) << "PartitionID: " << partId << ", VertexID: " << edgeKey.src
@@ -198,7 +199,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
                                     onFinished();
                                     return;
                                 } else {
@@ -221,7 +222,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
+                                    pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
                                     onFinished();
                                     return;
                                 } else {
@@ -241,28 +242,26 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                                    edgeKey.dst.getStr()));
         }
         auto batch = encodeBatchValue(std::move(batchHolder)->getBatch());
-        if (batch.empty()) {
-            handleAsync(spaceId_, partId, kvstore::ResultCode::SUCCEEDED);
-        } else {
-            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), dummyLock, true);
-            if (!lg) {
-                auto conflict = lg.conflictKey();
-                LOG(ERROR) << "edge conflict "
-                           << std::get<0>(conflict) << ":"
-                           << std::get<1>(conflict) << ":"
-                           << std::get<2>(conflict) << ":"
-                           << std::get<3>(conflict) << ":"
-                           << std::get<4>(conflict) << ":"
-                           << std::get<5>(conflict);
-                pushResultCode(cpp2::ErrorCode::E_CONSENSUS_ERROR, partId);
-                onFinished();
-                return;
-            }
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch), callback);
+        DCHECK(!batch.empty());
+        nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), true);
+        if (!lg) {
+            auto conflict = lg.conflictKey();
+            LOG(ERROR) << "edge conflict "
+                        << std::get<0>(conflict) << ":"
+                        << std::get<1>(conflict) << ":"
+                        << std::get<2>(conflict) << ":"
+                        << std::get<3>(conflict) << ":"
+                        << std::get<4>(conflict) << ":"
+                        << std::get<5>(conflict);
+            pushResultCode(cpp2::ErrorCode::E_DATA_CONFLICT_ERROR, partId);
+            onFinished();
+            return;
         }
+        env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
+            [l = std::move(lg), partId, this](kvstore::ResultCode code) {
+                UNUSED(l);
+                handleAsync(spaceId_, partId, code);
+            });
     }
 }
 
