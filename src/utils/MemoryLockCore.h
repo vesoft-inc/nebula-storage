@@ -30,6 +30,18 @@ public:
         return hashMap_.insert(std::make_pair(key, 0)).second;
     }
 
+    // return true if
+    //      1 of 2: can be locked as normal
+    //      2 of 2: or, there is already a key, but has the same value
+    // this will be usefult as a re-entered lock
+    bool lockIfNotEqual(const Key& key, int64_t val) {
+        auto result = hashMap_.insert(std::make_pair(key, val));
+        if (result.second) {
+            return true;
+        }
+        return result.first->second == val;
+    }
+
     void unlock(const Key& key) {
         hashMap_.erase(key);
     }
@@ -75,7 +87,7 @@ public:
     }
 
 protected:
-    folly::ConcurrentHashMap<Key, int> hashMap_;
+    folly::ConcurrentHashMap<Key, int64_t> hashMap_;
 };
 
 }  // namespace nebula

@@ -456,7 +456,9 @@ public:
         folly::Baton<true, std::atomic> baton;
         auto ret = kvstore::ResultCode::SUCCEEDED;
         // folly::Function<folly::Optional<std::string>(void)>
-        auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
+        auto op = [&partId, &edgeKey, this](int64_t txnId = 0) -> folly::Optional<std::string> {
+            planContext_->txnId_ = txnId;
+            LOG(INFO) << "planContext_->txnId_=" << planContext_->txnId_;
             IndexCountWrapper wrapper(planContext_->env_);
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {

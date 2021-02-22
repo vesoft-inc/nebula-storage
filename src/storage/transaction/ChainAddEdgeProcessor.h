@@ -36,8 +36,6 @@ public:
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
 
-    // void cleanup() override;
-
     void setEncoder(Encoder&& encoder) {
         encoder_ = std::move(encoder);
     }
@@ -57,7 +55,6 @@ protected:
     PartitionID partId_{-1};
     cpp2::AddEdgesRequest request_;
     Encoder encoder_;
-    // bool needUnlock_{false};
     bool convertVid_{false};
     std::unique_ptr<LockGuard> lk_;
 };

@@ -19,6 +19,10 @@ public:
     MemoryLockGuard(MemoryLockCore<Key>* lock, const Key& key)
         : MemoryLockGuard(lock, std::vector<Key>{key}) {}
 
+    MemoryLockGuard(MemoryLockCore<Key>* lock, const Key& key, int64_t val) : lock_(lock) {
+        locked_ = lock_->lockIfNotEqual(key, val);
+    }
+
     MemoryLockGuard(MemoryLockCore<Key>* lock, const std::vector<Key>& keys, bool dedup = false)
         : lock_(lock), keys_(keys) {
         if (dedup) {

@@ -148,8 +148,7 @@ public:
     // used for lookup
     bool                                isEdge_ = false;
 
-    // used for toss version
-    int64_t                             defaultEdgeVer_ = 0L;
+    int64_t                             txnId_ = 0;
 };
 
 class CommonUtils final {

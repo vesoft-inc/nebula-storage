@@ -94,15 +94,14 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge2(
     return std::move(c.second).via(exec_.get());
 }
 
-folly::Future<cpp2::ErrorCode> TransactionManager::resumeLock(size_t vIdLen,
-                                                              GraphSpaceID spaceId,
-                                                              std::shared_ptr<PendingLock>& lock) {
+folly::Future<cpp2::ErrorCode> TransactionManager::resumeLock(PlanContext* planCtx,
+                                          std::shared_ptr<PendingLock>& lock) {
     LOG(INFO) << "resume lock: " << folly::hexlify(lock->lockKey);
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     auto cb = [&, p = std::move(c.first)](cpp2::ErrorCode code) mutable {
         p.setValue(code);
     };
-    auto* processor = ChainResumeProcessor::instance(env_, std::move(cb), vIdLen, spaceId, lock);
+    auto* processor = ChainResumeProcessor::instance(env_, std::move(cb), planCtx, lock);
     processChain(processor);
     return std::move(c.second).via(exec_.get());
 }

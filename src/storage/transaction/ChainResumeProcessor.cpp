@@ -12,22 +12,14 @@ namespace nebula {
 namespace storage {
 
 folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::prepareLocal() {
-    try {
-        LOG(INFO) << "ChainResumeProcessor::prepareLocal()";
-
-        // std::string& strLock = lock_->lockKey;
-        lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), lock_->lockKey);
-        if (!lk_->isLocked()) {
-            LOG(INFO) << "ret E_SET_MEM_LOCK_FAILED";
-            return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
-        }
-        LOG(INFO) << "~ChainResumeProcessor::prepareLocal()";
-        return cpp2::ErrorCode::SUCCEEDED;
-    } catch (std::exception& ex) {
-        LOG(FATAL) << ex.what();
-    } catch (...) {
-        LOG(FATAL) << "...";
+    LOG(INFO) << "ChainResumeProcessor::prepareLocal(), txnId_ = " << txnId_;
+    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), lock_->lockKey, txnId_);
+    if (!lk_->isLocked()) {
+        LOG(INFO) << "E_SET_MEM_LOCK_FAILED, txnId_ = " << txnId_;
+        return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
     }
+    LOG(INFO) << "~ChainResumeProcessor::prepareLocal()";
+    return cpp2::ErrorCode::SUCCEEDED;
 }
 
 folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::processRemote(cpp2::ErrorCode code) {

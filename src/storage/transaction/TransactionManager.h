@@ -34,70 +34,14 @@ using ResumedResult = std::shared_ptr<folly::Synchronized<KV>>;
 
 class TransactionManager {
 public:
-    using GetBatchFunc = std::function<folly::Optional<std::string>()>;
+    using GetBatchFunc = std::function<folly::Optional<std::string>(int64_t)>;
 
 public:
     explicit TransactionManager(storage::StorageEnv* env);
 
     ~TransactionManager() = default;
 
-    // /**
-    //  * @brief edges have same localPart and remotePart will share
-    //  *        one signle RPC request
-    //  * @param localEdges
-    //  *        <K, encodedValue>.
-    //  * @param processor
-    //  *        will set this if edge have index
-    //  * @param optBatchGetter
-    //  *        get a batch of raft operations.
-    //  *        used by updateNode, need to run this func after edge locked
-    //  * */
-    // folly::Future<cpp2::ErrorCode> addSamePartEdges(
-    //     size_t vIdLen,
-    //     GraphSpaceID spaceId,
-    //     PartitionID localPart,
-    //     PartitionID remotePart,
-    //     std::vector<KV>& localEdges,
-    //     AddEdgesProcessor* processor = nullptr,
-    //     folly::Optional<GetBatchFunc> optBatchGetter = folly::none);
-
-    // /**
-    //  * @brief update out-edge first, then in-edge
-    //  * @param batchGetter
-    //  *        need to update index & edge together, and exactly the same verion
-    //  *        which means we need a lock before doing anything.
-    //  *        as this method will call addSamePartEdges(),
-    //  *        and addSamePartEdges() will set a lock to edge,
-    //  *        I would like to forward this function to addSamePartEdges()
-    //  * */
-    // folly::Future<cpp2::ErrorCode> updateEdgeAtomic(size_t vIdLen,
-    //                                                 GraphSpaceID spaceId,
-    //                                                 PartitionID partId,
-    //                                                 const cpp2::EdgeKey& edgeKey,
-    //                                                 GetBatchFunc&& batchGetter);
-
-    // /**
-    //  * @brief the old, out-edge first, in edge last, goes this way
-    //  */
-    // folly::Future<cpp2::ErrorCode> updateEdge1(size_t vIdLen,
-    //                                            GraphSpaceID spaceId,
-    //                                            PartitionID partId,
-    //                                            const cpp2::EdgeKey& edgeKey,
-    //                                            GetBatchFunc&& batchGetter);
-
-    // /*
-    //  * resume an unfinished add/update/upsert request
-    //  * 1. if in-edge commited, will commit out-edge
-    //  *       else, will remove lock
-    //  * 2. if mvcc enabled, will commit the value of lock
-    //  *       else, get props from in-edge, then re-check index and commit
-    //  * */
-    // folly::Future<cpp2::ErrorCode> resumeTransaction(size_t vIdLen,
-    //                                                  GraphSpaceID spaceId,
-    //                                                  std::string lockKey,
-    //                                                  ResumedResult result = nullptr);
-
-    void processChain(BaseChainProcessor*);
+    void processChain(BaseChainProcessor* processor);
 
     /**
      * @brief in-edge first, out-edge last, goes this way
@@ -113,8 +57,7 @@ public:
         folly::Optional<std::string> condition,
         GetBatchFunc&& batchGetter);
 
-    folly::Future<cpp2::ErrorCode> resumeLock(size_t vIdLen,
-                                              GraphSpaceID spaceId,
+    folly::Future<cpp2::ErrorCode> resumeLock(PlanContext* planCtx,
                                               std::shared_ptr<PendingLock>& lock);
 
     auto* getMemoryLock() {

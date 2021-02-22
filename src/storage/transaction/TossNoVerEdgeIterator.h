@@ -215,8 +215,8 @@ public:
         if (NebulaKeyUtils::isLock(planContext_->vIdLen_, iter_->key())) {
             LOG(INFO) << "meet a lock: " << folly::hexlify(iter_->key());
             pendingLocks_.emplace_back(std::make_shared<PendingLock>(iter_->key()));
-            resumeTasks_.emplace_back(planContext_->env_->txnMan_->resumeLock(
-                planContext_->vIdLen_, planContext_->spaceId_, pendingLocks_.back()));
+            resumeTasks_.emplace_back(
+                planContext_->env_->txnMan_->resumeLock(planContext_, pendingLocks_.back()));
             checkEdgeHasLock_ = true;
         } else if (NebulaKeyUtils::isEdge(planContext_->vIdLen_, iter_->key())) {
             LOG(INFO) << "meet an edge: " << folly::hexlify(iter_->key());

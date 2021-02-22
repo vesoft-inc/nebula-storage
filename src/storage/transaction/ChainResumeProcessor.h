@@ -21,20 +21,21 @@ class ChainResumeProcessor : public BaseChainProcessor {
 public:
     static ChainResumeProcessor* instance(StorageEnv* env,
                                           Callback&& cb,
-                                          int32_t vIdLen,
-                                          GraphSpaceID spaceId,
+                                          PlanContext* planCtx,
                                           std::shared_ptr<PendingLock>& lock) {
-        return new ChainResumeProcessor(env, std::move(cb), vIdLen, spaceId, lock);
+        return new ChainResumeProcessor(env, std::move(cb), planCtx, lock);
     }
 
     ChainResumeProcessor(StorageEnv* env,
                          Callback&& cb,
-                         int32_t vIdLen,
-                         GraphSpaceID spaceId,
+                         PlanContext* planCtx,
                          std::shared_ptr<PendingLock> lock)
-        : BaseChainProcessor(env, std::move(cb)), vIdLen_(vIdLen), spaceId_(spaceId), lock_(lock) {
+        : BaseChainProcessor(env, std::move(cb)), lock_(lock) {
             partId_ = NebulaKeyUtils::getPart(lock_->lockKey);
             iClient_ = env_->txnMan_->getInternalClient();
+            vIdLen_ = planCtx->vIdLen_;
+            spaceId_ = planCtx->spaceId_;
+            txnId_ = planCtx->txnId_;
         }
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;

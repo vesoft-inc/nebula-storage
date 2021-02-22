@@ -12,16 +12,17 @@ namespace nebula {
 namespace storage {
 
 folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::prepareLocal() {
-    LOG(INFO) << "ChainUpdateEdgeProcessor::prepareLocal()";
-    optVal_ = getter_();
-    if (!optVal_) {
-        return cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
-    }
+    LOG(INFO) << "ChainUpdateEdgeProcessor::prepareLocal(), txnId_=" << txnId_;
 
     sLockKey_ = TransactionUtils::lockKey(vIdLen_, partId_, inEdgeKey_);
-    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), sLockKey_);
+    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), sLockKey_, txnId_);
     if (!lk_->isLocked()) {
         return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
+    }
+
+    optVal_ = getter_(txnId_);
+    if (!optVal_) {
+        return cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
     }
 
     std::vector<KV> data{{sLockKey_, ""}};

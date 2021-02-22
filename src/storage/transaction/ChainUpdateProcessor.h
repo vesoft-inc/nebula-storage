@@ -12,7 +12,7 @@ namespace nebula {
 namespace storage {
 
 class ChainUpdateEdgeProcessor : public BaseChainProcessor {
-    using AtomicGetFunc = std::function<folly::Optional<std::string>()>;
+    using AtomicGetFunc = std::function<folly::Optional<std::string>(int64_t)>;
     using LockGuard = nebula::MemoryLockGuard<std::string>;
 
 public:
