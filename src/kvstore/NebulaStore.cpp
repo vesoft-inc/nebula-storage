@@ -914,11 +914,13 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
                 return ResultCode::ERR_CHECKPOINT_ERROR;
             }
 
-            auto logInfo = p->lastLogInfo();
-            cpp2::LogInfo info;
-            info.set_log_id(logInfo.first);
-            info.set_term_id(logInfo.second);
-            partitionInfo.emplace(part, std::move(info));
+            if (p->isLeader()) {
+                auto logInfo = p->lastLogInfo();
+                cpp2::LogInfo info;
+                info.set_log_id(logInfo.first);
+                info.set_term_id(logInfo.second);
+                partitionInfo.emplace(part, std::move(info));
+            }
         }
     }
     nebula::cpp2::PartitionBackupInfo backupInfo;
