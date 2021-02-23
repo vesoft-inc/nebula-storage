@@ -8,7 +8,6 @@
 
 #include <folly/ScopeGuard.h>
 #include <folly/String.h>
-#include <boost/stacktrace.hpp>
 
 #include "common/base/Base.h"
 #include "kvstore/KVIterator.h"
@@ -20,12 +19,12 @@
 namespace nebula {
 namespace storage {
 
-class PendingLockIter {
+class LockIter {
     using Container = std::list<std::shared_ptr<PendingLock>>;
     using DataChecker = std::function<bool(folly::StringPiece)>;
 
 public:
-    PendingLockIter(Container& locks, DataChecker checker)
+    LockIter(Container& locks, DataChecker checker)
         : locks_(locks), dataChecker_(std::move(checker)) {
         curr_ = locks_.begin();
         if (!check()) {
@@ -127,11 +126,9 @@ public:
 
         if (!iter_->valid()) {
             if (!lockIter_) {
-                if (!resumeTasks_.empty()) {
-                    folly::collectAll(resumeTasks_).wait();
-                }
-                lockIter_ = std::make_unique<PendingLockIter>(
-                    pendingLocks_, [&](auto val) { return checkValue(val); });
+                folly::collectAll(resumeTasks_).wait();
+                lockIter_ =
+                    std::make_unique<LockIter>(locks_, [&](auto val) { return checkValue(val); });
             } else {
                 if (lockIter_->valid()) {
                     lockIter_->next();
@@ -145,14 +142,14 @@ public:
     bool checkIter() {
         if (NebulaKeyUtils::isLock(planContext_->vIdLen_, iter_->key())) {
             LOG_IF(INFO, FLAGS_trace_toss) << "meet a lock: " << folly::hexlify(iter_->key());
-            pendingLocks_.emplace_back(std::make_shared<PendingLock>(iter_->key()));
+            locks_.emplace_back(std::make_shared<PendingLock>(iter_->key()));
             resumeTasks_.emplace_back(
-                planContext_->env_->txnMan_->resumeLock(planContext_, pendingLocks_.back()));
+                planContext_->env_->txnMan_->resumeLock(planContext_, locks_.back()));
             checkEdgeHasLock_ = true;
         } else if (NebulaKeyUtils::isEdge(planContext_->vIdLen_, iter_->key())) {
             LOG_IF(INFO, FLAGS_trace_toss) << "meet an edge: " << folly::hexlify(iter_->key());
             if (hasPendingLock(iter_->key())) {
-                pendingLocks_.back()->edgeProps = iter_->val().str();
+                locks_.back()->edgeProps = iter_->val().str();
                 return false;
             }
             if (check()) {
@@ -185,16 +182,16 @@ public:
         }
         checkEdgeHasLock_ = false;
 
-        auto& prevLock = pendingLocks_.back()->lockKey;
+        auto& prevLock = locks_.back()->lockKey;
         folly::StringPiece lockWoPlaceHolder(prevLock.data(), prevLock.size() - 1);
         return ekey.startsWith(lockWoPlaceHolder);
     }
 
 private:
     bool                                                    stopAtFirstEdge_{false};
-    std::list<std::shared_ptr<PendingLock>>                 pendingLocks_;
+    std::list<std::shared_ptr<PendingLock>>                 locks_;
     std::list<folly::SemiFuture<cpp2::ErrorCode>>           resumeTasks_;
-    std::unique_ptr<PendingLockIter>                        lockIter_;
+    std::unique_ptr<LockIter>                               lockIter_;
     // use this for fast check if an edge has a lock(by avoid strcmp).
     bool                                                    checkEdgeHasLock_{false};
 };
