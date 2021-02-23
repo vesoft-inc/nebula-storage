@@ -20,7 +20,6 @@
 #include "storage/transaction/BaseChainProcessor.h"
 #include "storage/transaction/TransactionUtils.h"
 #include "storage/transaction/TransactionTypes.h"
-#include "storage/transaction/MemoryLock.h"
 #include "utils/NebulaKeyUtils.h"
 #include "utils/MemoryLockCore.h"
 
