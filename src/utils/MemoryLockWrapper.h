@@ -47,7 +47,6 @@ public:
     }
 
     ~MemoryLockGuard() {
-        LOG(INFO) << "begin ~MemoryLockGuard";
         if (locked_) {
             lock_->unlockBatch(keys_);
         }
