@@ -80,7 +80,7 @@ TEST_F(TossTest, utils_test) {
     }
     auto lockKey = TossTest::env->strLockKey(edges[0].key);
 
-    EXPECT_TRUE(NebulaKeyUtils::isEdge(TossTest::env->vIdLen_, lockKey));
+    EXPECT_FALSE(NebulaKeyUtils::isEdge(TossTest::env->vIdLen_, lockKey));
     EXPECT_EQ(lockKey.back(), 0);
     EXPECT_TRUE(NebulaKeyUtils::isLock(TossTest::env->vIdLen_, lockKey));
 }

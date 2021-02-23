@@ -148,6 +148,7 @@ public:
     // used for lookup
     bool                                isEdge_ = false;
 
+    // used for transaction
     int64_t                             txnId_ = 0;
 };
 

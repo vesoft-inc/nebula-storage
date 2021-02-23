@@ -48,7 +48,7 @@ public:
                              std::vector<std::string> returnProps,
                              std::string condition,
                              AtomicGetFunc&& getter)
-        : BaseChainProcessor(env, std::move(cb)),
+        : BaseChainProcessor(std::move(cb), env),
           spaceId_(spaceId),
           partId_(partId),
           inEdgeKey_(std::move(edgeKey)),
@@ -63,8 +63,6 @@ public:
     folly::SemiFuture<cpp2::ErrorCode> processRemote(cpp2::ErrorCode code) override;
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
-
-    void cleanup() override {}
 
     void updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
 

@@ -52,5 +52,21 @@ std::string TransactionUtils::hexEdgeId(size_t vIdLen, folly::StringPiece key) {
            folly::hexlify(NebulaKeyUtils::getDstId(vIdLen, key));
 }
 
+std::string TransactionUtils::dumpAddEdgesRequest(const cpp2::AddEdgesRequest& req) {
+    std::stringstream oss;
+    oss << "\nAddEdgesRequest: \n";
+    oss << "\t space_id = " << req.get_space_id() << "\n";
+    oss << "\t parts.size() = " << req.get_parts().size() << "\n";
+    for (auto& part : req.get_parts()) {
+        oss << "\t\t partId = " << part.first << ", edges.size() = " << part.second.size() << "\n";
+        for (auto& e : part.second) {
+            auto& k = e.key;
+            oss << "\t\t\t edge key(src, edge_type, rank, dst) = (" << k.src << ", " << k.edge_type
+                << ", " << k.ranking << ", " << k.dst << ")\n";
+        }
+    }
+    return oss.str();
+}
+
 }  // namespace storage
 }  // namespace nebula

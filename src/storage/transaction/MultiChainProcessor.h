@@ -19,7 +19,7 @@ public:
     }
 
     MultiChainProcessor(StorageEnv* env, Callback&& cb)
-        : BaseChainProcessor(env, std::move(cb)) {}
+        : BaseChainProcessor(std::move(cb), env) {}
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;
 

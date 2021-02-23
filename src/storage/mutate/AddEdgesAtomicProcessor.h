@@ -10,9 +10,6 @@
 #include "common/base/Base.h"
 #include "kvstore/LogEncoder.h"
 #include "storage/BaseProcessor.h"
-#include "storage/StorageFlags.h"
-#include "storage/mutate/AddEdgesProcessor.h"
-#include "storage/transaction/TransactionManager.h"
 
 namespace nebula {
 namespace storage {
@@ -29,29 +26,20 @@ public:
 
     void process(const cpp2::AddEdgesRequest& req);
 
-    void processNegativeEdges(const cpp2::AddEdgesRequest& req);
-
-    void processPositiveEdges(const cpp2::AddEdgesRequest& req);
-
-    void processByChain(const cpp2::AddEdgesRequest& req);
-
 private:
     AddEdgesAtomicProcessor(StorageEnv* env, const ProcessorCounters* counters)
         : BaseProcessor<cpp2::ExecResponse>(env, counters) {}
 
-    cpp2::ErrorCode encodeSingleEdgeProps(const cpp2::NewEdge& e, std::string& encodedVal);
+    void processInEdges(const cpp2::AddEdgesRequest& req);
 
     std::pair<std::string, cpp2::ErrorCode> encodeEdge(const cpp2::NewEdge& e);
-
-    void showRequest(const cpp2::AddEdgesRequest& request);
 
     GraphSpaceID                                                spaceId_;
     int64_t                                                     vIdLen_;
     std::vector<std::string>                                    propNames_;
-    std::unique_ptr<AddEdgesProcessor>                          processor_;
-    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes_;
-    // nebula::Value::Type       spaceVidType_{nebula::Value::Type::STRING};
-    bool convertVid_{false};
+    meta::cpp2::PropertyType                                    spaceVidType_;
+    std::atomic<int>                                            activeSubRequest_;
+    // bool convertVid_{false};
 };
 
 }   // namespace storage

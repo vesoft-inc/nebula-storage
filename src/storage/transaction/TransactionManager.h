@@ -4,8 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef STORAGE_TRANSACTION_TRANSACTIONMGR_H_
-#define STORAGE_TRANSACTION_TRANSACTIONMGR_H_
+#pragma once
 
 #include <folly/Function.h>
 #include <folly/concurrency/ConcurrentHashMap.h>
@@ -28,9 +27,7 @@
 namespace nebula {
 namespace storage {
 
-using KV = std::pair<std::string, std::string>;
-using MemEdgeLocks = folly::ConcurrentHashMap<std::string, int64_t>;
-using ResumedResult = std::shared_ptr<folly::Synchronized<KV>>;
+// using KV = std::pair<std::string, std::string>;
 
 class TransactionManager {
 public:
@@ -42,6 +39,9 @@ public:
     ~TransactionManager() = default;
 
     void processChain(BaseChainProcessor* processor);
+
+    folly::Future<cpp2::ErrorCode> resumeLock(PlanContext* planCtx,
+                                              std::shared_ptr<PendingLock>& lock);
 
     /**
      * @brief in-edge first, out-edge last, goes this way
@@ -56,9 +56,6 @@ public:
         folly::Optional<std::vector<std::string>> returnProps,
         folly::Optional<std::string> condition,
         GetBatchFunc&& batchGetter);
-
-    folly::Future<cpp2::ErrorCode> resumeLock(PlanContext* planCtx,
-                                              std::shared_ptr<PendingLock>& lock);
 
     auto* getMemoryLock() {
         return &mLock_;
@@ -87,45 +84,16 @@ public:
 
     std::string remoteEdgeKey(size_t vIdLen, GraphSpaceID spaceId, const std::string& lockKey);
 
-    // bool lockBatch(const std::vector<std::string>& keys) {
-    //     return mLock_.lockBatch(keys);
-    // }
-
-    // void unlockBatch(const std::vector<std::string>& keys) {
-    //     mLock_.unlockBatch(keys);
-    // }
-
 protected:
     nebula::meta::cpp2::IsolationLevel getSpaceIsolationLvel(GraphSpaceID spaceId);
-
-    // folly::SemiFuture<kvstore::ResultCode> commitEdgeOut(GraphSpaceID spaceId,
-    //                                                      PartitionID partId,
-    //                                                      std::string&& key,
-    //                                                      std::string&& props);
-
-    // folly::SemiFuture<kvstore::ResultCode> commitEdge(GraphSpaceID spaceId,
-    //                                                   PartitionID partId,
-    //                                                   std::string& key,
-    //                                                   std::string& encodedProp);
-
-    // folly::SemiFuture<cpp2::ErrorCode>
-    // eraseKey(GraphSpaceID spaceId, PartitionID partId, const std::string& key);
-
-    // void eraseMemoryLock(const std::string& rawKey, int64_t ver);
-
-    // std::string encodeBatch(std::vector<KV>&& data);
 
 protected:
     StorageEnv*                                         env_{nullptr};
     std::shared_ptr<folly::IOThreadPoolExecutor>        exec_;
     std::unique_ptr<GraphStorageClient>                 sClient_;
     std::unique_ptr<InternalStorageClient>              interClient_;
-    // MemEdgeLocks                                        memLock_;
-    // MemoryLock<std::string>                             mLock_;
-    nebula::MemoryLockCore<std::string>                         mLock_;
+    nebula::MemoryLockCore<std::string>                 mLock_;
 };
 
 }  // namespace storage
 }  // namespace nebula
-
-#endif  // STORAGE_TRANSACTION_TRANSACTIONMGR_H_

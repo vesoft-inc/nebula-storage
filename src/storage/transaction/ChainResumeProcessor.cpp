@@ -82,7 +82,7 @@ folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::processLocal(cpp2::Erro
     if (lock_->lockProps) {
         auto ekey = NebulaKeyUtils::toEdgeKey(lock_->lockKey);
         LOG(INFO) << "resume in-edge: " << folly::hexlify(ekey);
-        std::vector<KV> data;
+        std::vector<nebula::kvstore::KV> data;
         data.emplace_back(std::make_pair(ekey, *lock_->lockProps));
         folly::Baton<true, std::atomic> baton2;
         env_->kvstore_->asyncMultiPut(

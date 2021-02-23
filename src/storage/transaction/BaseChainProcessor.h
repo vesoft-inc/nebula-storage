@@ -19,7 +19,7 @@ class BaseChainProcessor {
 public:
     using Callback = folly::Function<void(cpp2::ErrorCode)>;
 
-    explicit BaseChainProcessor(StorageEnv* env, Callback&& cb) : env_(env), cb_(std::move(cb)) {
+    explicit BaseChainProcessor(Callback&& cb, StorageEnv* env) : cb_(std::move(cb)), env_(env) {
         txnId_ = std::numeric_limits<int64_t>::max() - time::WallClock::slowNowInMicroSec();
     }
 
@@ -33,7 +33,7 @@ public:
 
     virtual void cleanup() {}
 
-    void setErrorCode(cpp2::ErrorCode code) {
+    virtual void setErrorCode(cpp2::ErrorCode code) {
         if (code_ == cpp2::ErrorCode::SUCCEEDED && code != cpp2::ErrorCode::SUCCEEDED) {
             code_ = code;
         }
@@ -50,8 +50,8 @@ public:
     }
 
 protected:
-    StorageEnv* env_{nullptr};
     Callback cb_;
+    StorageEnv* env_{nullptr};
     cpp2::ErrorCode code_{cpp2::ErrorCode::SUCCEEDED};
     int32_t vIdLen_{-1};
     int64_t txnId_{0};

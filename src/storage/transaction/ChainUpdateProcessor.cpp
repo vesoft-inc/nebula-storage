@@ -25,7 +25,7 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::prepareLocal() {
         return cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
     }
 
-    std::vector<KV> data{{sLockKey_, ""}};
+    std::vector<nebula::kvstore::KV> data{{sLockKey_, ""}};
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     LOG(INFO) << "spaceId_=" << spaceId_;
     env_->kvstore_->asyncMultiPut(

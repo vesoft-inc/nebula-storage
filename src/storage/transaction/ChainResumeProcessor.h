@@ -30,7 +30,7 @@ public:
                          Callback&& cb,
                          PlanContext* planCtx,
                          std::shared_ptr<PendingLock> lock)
-        : BaseChainProcessor(env, std::move(cb)), lock_(lock) {
+        : BaseChainProcessor(std::move(cb), env), lock_(lock) {
             partId_ = NebulaKeyUtils::getPart(lock_->lockKey);
             iClient_ = env_->txnMan_->getInternalClient();
             vIdLen_ = planCtx->vIdLen_;

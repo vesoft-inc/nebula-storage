@@ -124,18 +124,21 @@ public:
         return readInt<TagID>(rawKey.data() + offset, sizeof(TagID));
     }
 
-    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey) {
+    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey, int surfix = 1) {
         if (rawKey.size() != kEdgeLen + (vIdLen << 1)) {
             return false;
         }
         constexpr int32_t len = static_cast<int32_t>(sizeof(NebulaKeyType));
         auto type = readInt<uint32_t>(rawKey.data(), len) & kTypeMask;
-        // return static_cast<uint32_t>(NebulaKeyType::kEdge) == type;
+        if (rawKey.back() != surfix) {
+            return false;
+        }
         return static_cast<NebulaKeyType>(type) == NebulaKeyType::kEdge;
     }
 
+    // isEdge(vIdLen, rawKey) && (rawKey.back() == 0);
     static bool isLock(size_t vIdLen, const folly::StringPiece& rawKey) {
-        return isEdge(vIdLen, rawKey) && (rawKey.back() == 0);
+        return isEdge(vIdLen, rawKey, 0);
     }
 
     static bool isSystem(const folly::StringPiece& rawKey) {

@@ -13,22 +13,29 @@ namespace storage {
 
 class ChainAddEdgesProcessor : public BaseChainProcessor {
     using LockGuard = nebula::MemoryLockGuard<std::string>;
+    using Encoder = std::function<std::pair<std::string, cpp2::ErrorCode>(const cpp2::NewEdge& e)>;
 
 public:
-    using Encoder = std::function<std::pair<std::string, cpp2::ErrorCode>(const cpp2::NewEdge& e)>;
-    static ChainAddEdgesProcessor* instance(StorageEnv* env,
-                                            const cpp2::AddEdgesRequest& req,
-                                            Callback&& cb) {
-        return new ChainAddEdgesProcessor(env, req, std::move(cb));
+    ChainAddEdgesProcessor(Callback cb,
+                           StorageEnv* env,
+                           int32_t vIdLen,
+                           GraphSpaceID spaceId,
+                           PartitionID partId,
+                           std::vector<cpp2::NewEdge> edges,
+                           std::vector<std::string> propNames,
+                           bool overwritable,
+                           meta::cpp2::PropertyType spaceVidType,
+                           Encoder encoder)
+        : BaseChainProcessor(std::move(cb), env),
+          spaceId_(spaceId),
+          partId_(partId),
+          inEdges_(std::move(edges)),
+          propNames_(std::move(propNames)),
+          overwritable_(overwritable),
+          spaceVidType_(spaceVidType),
+          encoder_(encoder) {
+        vIdLen_ = vIdLen;
     }
-
-    ChainAddEdgesProcessor(StorageEnv* env, cpp2::AddEdgesRequest req, Callback cb)
-        : BaseChainProcessor(env, std::move(cb)), request_(std::move(req)) {
-            CHECK(req.__isset.space_id);
-            CHECK(req.__isset.parts);
-            spaceId_ = request_.get_space_id();
-            partId_ = request_.get_parts().begin()->first;
-        }
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;
 
@@ -36,27 +43,45 @@ public:
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
 
-    void setEncoder(Encoder&& encoder) {
-        encoder_ = std::move(encoder);
+    static ChainAddEdgesProcessor* instance(Callback&& cb,
+                                            StorageEnv* env,
+                                            int32_t vIdLen,
+                                            GraphSpaceID spaceId,
+                                            PartitionID partId,
+                                            const std::vector<cpp2::NewEdge>& edges,
+                                            std::vector<std::string>& propNames,
+                                            bool overwritable,
+                                            meta::cpp2::PropertyType spaceVidType,
+                                            Encoder&& encoder) {
+        return new ChainAddEdgesProcessor(std::move(cb),
+                                          env,
+                                          vIdLen,
+                                          spaceId,
+                                          partId,
+                                          edges,
+                                          propNames,
+                                          overwritable,
+                                          spaceVidType,
+                                          std::move(encoder));
     }
 
-    void setConvertVid(bool convertVid) {
-        convertVid_ = convertVid;
-    }
-
-    void addRemoteEdges(GraphSpaceID space,
-                        std::vector<cpp2::NewEdge>& edges,
-                        const std::vector<std::string>& propNames,
-                        bool overwritable,
-                        folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
+private:
+    void doRpc(std::vector<cpp2::NewEdge>& outEdges,
+               folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
 
 protected:
     GraphSpaceID spaceId_{-1};
     PartitionID partId_{-1};
-    cpp2::AddEdgesRequest request_;
+    std::vector<cpp2::NewEdge> inEdges_;
+    std::vector<std::string> propNames_;
+    bool overwritable_{true};
+    meta::cpp2::PropertyType spaceVidType_;
     Encoder encoder_;
-    bool convertVid_{false};
     std::unique_ptr<LockGuard> lk_;
+
+    // bool convertVid_{false};
+    std::atomic<size_t> runningPart_{0};
+    // cpp2::AddEdgesRequest request_;
 };
 
 }  // namespace storage

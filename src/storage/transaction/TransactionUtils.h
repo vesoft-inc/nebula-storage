@@ -45,6 +45,8 @@ public:
         auto iDst = *reinterpret_cast<const int64_t*>(key.dst.getStr().c_str());
         key.dst.setInt(iDst);
     }
+
+    static std::string dumpAddEdgesRequest(const cpp2::AddEdgesRequest& req);
 };
 
 /**
