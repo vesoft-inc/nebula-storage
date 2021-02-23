@@ -12,7 +12,7 @@
 #include "common/webservice/WebService.h"
 #include "common/fs/TempDir.h"
 #include "common/http/HttpClient.h"
-#include "version/Version.h"
+#include "common/version/Version.h"
 
 namespace nebula {
 
@@ -40,7 +40,7 @@ protected:
 
 
 TEST(StatusHandlerTest, SimpleTest) {
-    std::string gitInfoShaValue = storage::gitInfoSha();
+    std::string gitInfoShaValue = gitInfoSha();
     std::string pattern = R"([a-f0-9]{7})";
     std::regex gitInfoShaRegex(pattern);
     {

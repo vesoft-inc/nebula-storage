@@ -1,5 +1,4 @@
 set(storage_test_deps
-    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:mock_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:storage_admin_service_handler>

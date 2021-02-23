@@ -18,7 +18,6 @@ nebula_add_test(
         $<TARGET_OBJECTS:common_time_obj>
         $<TARGET_OBJECTS:common_base_obj>
         $<TARGET_OBJECTS:common_version_obj>
-        $<TARGET_OBJECTS:version_obj>
     LIBRARIES
         proxygenhttpserver
         proxygenlib

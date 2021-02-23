@@ -45,7 +45,6 @@
 #include "meta/processors/zoneMan/AddZoneProcessor.h"
 #include "meta/processors/zoneMan/ListZonesProcessor.h"
 #include "meta/processors/admin/CreateBackupProcessor.h"
-#include "version/Version.h"
 
 
 DECLARE_int32(expired_threshold_sec);
@@ -190,7 +189,7 @@ TEST(ProcessorTest, ListPartsTest) {
     // register HB with leader distribution
     {
         auto now = time::WallClock::fastNowInMilliSec();
-        HostInfo info(now, cpp2::HostRole::STORAGE, nebula::storage::gitInfoSha());
+        HostInfo info(now, cpp2::HostRole::STORAGE, gitInfoSha());
 
         LeaderParts leaderParts;
         leaderParts[1] = {1, 2, 3, 4, 5};
