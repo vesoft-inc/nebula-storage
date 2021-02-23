@@ -101,12 +101,32 @@ TEST_F(TossTest, empty_db) {
  */
 TEST_F(TossTest, test0_add_eg) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
+    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
 
-    AddEdgeExecutor exec(edges[0]);
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
+    AddEdgeExecutor exec(eg);
+    EXPECT_FALSE(env->lockExist(eg));
+    EXPECT_TRUE(env->outEdgeExist(eg));
+    EXPECT_TRUE(env->inEdgeExist(eg));
+}
+
+/**
+ * @brief add edge
+ */
+TEST_F(TossTest, test0_add_eg_twice) {
+    LOG(INFO) << "b_=" << b_;
+    auto eg1 = TossTestUtils::makeEdge(b_, edgeType_);
+
+    AddEdgeExecutor exec1(eg1);
+    EXPECT_FALSE(env->lockExist(eg1));
+    EXPECT_TRUE(env->outEdgeExist(eg1));
+    EXPECT_TRUE(env->inEdgeExist(eg1));
+
+    auto eg2 = TossTestUtils::makeTwinEdge(eg1);
+    AddEdgeExecutor exec2(eg2);
+    EXPECT_TRUE(exec2.ok());
+    // EXPECT_FALSE(env->lockExist(eg2));
+    // EXPECT_TRUE(env->outEdgeExist(eg2));
+    // EXPECT_TRUE(env->inEdgeExist(eg2));
 }
 
 /**
@@ -114,18 +134,18 @@ TEST_F(TossTest, test0_add_eg) {
  */
 TEST_F(TossTest, test0_add_eg_then_getProp) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
+    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
 
-    AddEdgeExecutor addExec(edges[0]);
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
+    AddEdgeExecutor addExec(eg);
+    EXPECT_FALSE(env->lockExist(eg));
+    EXPECT_TRUE(env->outEdgeExist(eg));
+    EXPECT_TRUE(env->inEdgeExist(eg));
 
-    GetPropsExecutor exec(edges[0]);
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
-    EXPECT_EQ(exec.data(), edges[0].props);
+    GetPropsExecutor exec(eg);
+    EXPECT_FALSE(env->lockExist(eg));
+    EXPECT_TRUE(env->outEdgeExist(eg));
+    EXPECT_TRUE(env->inEdgeExist(eg));
+    EXPECT_EQ(exec.data(), eg.props);
 }
 
 
@@ -938,6 +958,9 @@ TEST_F(TossTest, test30_update_glk) {
 
     GetPropsExecutor exec1(e1);
     EXPECT_EQ(e2.props, exec1.data());
+
+    AddEdgeExecutor addEdge(e1);
+    EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
 /**
@@ -958,6 +981,9 @@ TEST_F(TossTest, test30_update_blk) {
     EXPECT_FALSE(env->lockExist(e1));
     EXPECT_FALSE(env->outEdgeExist(e1));
     EXPECT_FALSE(env->inEdgeExist(e1));
+
+    AddEdgeExecutor addEdge(e1);
+    EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
 /**
@@ -981,10 +1007,8 @@ TEST_F(TossTest, test30_update_eg_then_add) {
     GetPropsExecutor exec1(e1);
     EXPECT_EQ(e2.props, exec1.data());
 
-    AddEdgeExecutor exec(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    AddEdgeExecutor addEdge(e1);
+    EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
 }  // namespace storage

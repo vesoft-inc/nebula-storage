@@ -72,7 +72,6 @@ void AddEdgesProcessor::process(const cpp2::AddEdgesRequest& req) {
                                                edgeKey.edge_type,
                                                edgeKey.ranking,
                                                edgeKey.dst.getStr());
-            LOG(INFO) << "messi addEdge key = " << folly::hexlify(key);
             auto schema = env_->schemaMan_->getEdgeSchema(spaceId_,
                                                           std::abs(edgeKey.edge_type));
             if (!schema) {

@@ -4,8 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#ifndef STORAGE_TRANSACTION_BASECHAINPROCESSOR_H_
-#define STORAGE_TRANSACTION_BASECHAINPROCESSOR_H_
+#pragma once
 
 #include "storage/CommonUtils.h"
 #include "common/interface/gen-cpp2/storage_types.h"
@@ -59,5 +58,3 @@ protected:
 
 }  // namespace storage
 }  // namespace nebula
-
-#endif  // STORAGE_TRANSACTION_BASECHAINPROCESSOR_H_

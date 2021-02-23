@@ -4,16 +4,11 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-// #include <algorithm>
-
 #include "codec/RowWriterV2.h"
 #include "storage/StorageFlags.h"
 #include "storage/mutate/AddEdgesAtomicProcessor.h"
 #include "storage/transaction/TransactionManager.h"
-// #include "storage/transaction/TransactionUtils.h"
 #include "storage/transaction/ChainAddEdgeProcessor.h"
-// #include "storage/transaction/MultiChainProcessor.h"
-// #include "utils/NebulaKeyUtils.h"
 
 namespace nebula {
 namespace storage {

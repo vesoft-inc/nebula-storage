@@ -39,7 +39,6 @@ private:
     std::vector<std::string>                                    propNames_;
     meta::cpp2::PropertyType                                    spaceVidType_;
     std::atomic<int>                                            activeSubRequest_;
-    // bool convertVid_{false};
 };
 
 }   // namespace storage

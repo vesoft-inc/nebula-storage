@@ -322,6 +322,15 @@ public:
         return resp_->responses();
     }
 
+    cpp2::ErrorCode firstErrCode() {
+        for (auto& p : resp_->failedParts()) {
+            if (p.second != cpp2::ErrorCode::SUCCEEDED) {
+                return p.second;
+            }
+        }
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
+
 private:
     StorageRpcResponse<Response>* resp_;
 };
@@ -511,8 +520,17 @@ public:
             if (reader.isLeaderChange()) {
                 continue;
             }
+            code_ = reader.firstErrCode();
             break;
         } while (retry-- > 0);
+    }
+
+    bool ok() {
+        return code_ == cpp2::ErrorCode::SUCCEEDED;
+    }
+
+    cpp2::ErrorCode code() {
+        return code_;
     }
     // cpp2::ErrorCode syncAddMultiEdges(std::vector<cpp2::NewEdge>& edges, bool useToss) {
     //     bool retLeaderChange = false;
