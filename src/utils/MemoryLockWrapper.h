@@ -30,11 +30,24 @@ public:
         }
     }
 
-    MemoryLockGuard(MemoryLockGuard&& lg)
+    MemoryLockGuard(const MemoryLockGuard&) = delete;
+
+    MemoryLockGuard(MemoryLockGuard&& lg) noexcept
         : lock_(lg.lock_), keys_(std::move(lg.keys_)), locked_(lg.locked_) {}
 
+    MemoryLockGuard& operator=(const MemoryLockGuard&) = delete;
+
+    MemoryLockGuard& operator=(MemoryLockGuard&& lg) noexcept {
+        if (this != &lg) {
+            lock_ = lg.lock_;
+            keys_ = std::move(lg.keys_);
+            locked_ = lg.locked_;
+        }
+        return *this;
+    }
 
     ~MemoryLockGuard() {
+        LOG(INFO) << "begin ~MemoryLockGuard";
         if (locked_) {
             lock_->unlockBatch(keys_);
         }
