@@ -26,11 +26,9 @@
 namespace nebula {
 namespace storage {
 
-// using KV = std::pair<std::string, std::string>;
-
 class TransactionManager {
 public:
-    using GetBatchFunc = std::function<folly::Optional<std::string>(int64_t)>;
+    using UpdateEdgeGetter = std::function<folly::Optional<std::string>(int64_t)>;
 
 public:
     explicit TransactionManager(storage::StorageEnv* env);
@@ -45,7 +43,7 @@ public:
     /**
      * @brief in-edge first, out-edge last, goes this way
      */
-    folly::Future<cpp2::ErrorCode> updateEdge2(
+    folly::Future<cpp2::ErrorCode> updateEdge(
         size_t vIdLen,
         GraphSpaceID spaceId,
         PartitionID partId,
@@ -54,7 +52,7 @@ public:
         bool insertable,
         folly::Optional<std::vector<std::string>> returnProps,
         folly::Optional<std::string> condition,
-        GetBatchFunc&& batchGetter);
+        UpdateEdgeGetter&& getter);
 
     auto* getMemoryLock() {
         return &mLock_;

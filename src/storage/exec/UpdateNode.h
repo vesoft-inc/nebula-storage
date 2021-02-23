@@ -513,7 +513,7 @@ public:
             planContext_->env_->txnMan_ &&
             planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
             LOG(INFO) << "before update edge atomic" << TransactionUtils::dumpKey(edgeKey);
-            auto f = planContext_->env_->txnMan_->updateEdge2(
+            auto f = planContext_->env_->txnMan_->updateEdge(
                 planContext_->vIdLen_,
                 planContext_->spaceId_,
                 partId,

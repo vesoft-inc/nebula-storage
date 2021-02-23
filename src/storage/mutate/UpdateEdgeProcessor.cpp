@@ -71,9 +71,7 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
                                        edgeKey_.get_ranking(),
                                        edgeKey_.get_dst().getStr());
 
-    LOG(INFO) << "messi UpdateEdgeProcessor::process key=" << folly::hexlify(sek);
-
-    LOG(INFO) << "Update edge, spaceId: " << spaceId_ << ", partId:  " << partId
+    VLOG(3) << "Update edge, spaceId: " << spaceId_ << ", partId:  " << partId
             << ", src: " << edgeKey_.get_src() << ", edge_type: " << edgeKey_.get_edge_type()
             << ", dst: " << edgeKey_.get_dst() << ", ranking: " << edgeKey_.get_ranking();
 

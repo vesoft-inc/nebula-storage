@@ -25,9 +25,6 @@ void GetValueProcessor::process(const cpp2::GetValueRequest& req) {
                                    << ", key=" << folly::hexlify(key)
                                    << ", rc=" << static_cast<int>(rc);
 
-    LOG(INFO) << "getValue for partId=" << partId << ", key=" << folly::hexlify(key)
-              << ", rc=" << static_cast<int>(rc);
-
     if (rc != kvstore::ResultCode::SUCCEEDED) {
         handleErrorCode(rc, spaceId, partId);
     } else {

@@ -54,7 +54,7 @@ void TransactionManager::processChain(BaseChainProcessor* proc) {
 /**
  * @brief in-edge first, out-edge last, goes this way
  */
-folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge2(
+folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge(
     size_t vIdLen,
     GraphSpaceID spaceId,
     PartitionID partId,
@@ -63,8 +63,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge2(
     bool insertable,
     folly::Optional<std::vector<std::string>> optReturnProps,
     folly::Optional<std::string> optCondition,
-    GetBatchFunc&& getter) {
-    LOG(INFO) << "updateEdgeAtomicNew";
+    UpdateEdgeGetter&& getter) {
     std::vector<std::string> returnProps;
     if (optReturnProps) {
         returnProps = *optReturnProps;
@@ -90,13 +89,12 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge2(
     processor->setVidLen(vIdLen);
 
     processChain(processor);
-    LOG(INFO) << "~updateEdgeAtomicNew";
     return std::move(c.second).via(exec_.get());
 }
 
 folly::Future<cpp2::ErrorCode> TransactionManager::resumeLock(PlanContext* planCtx,
                                           std::shared_ptr<PendingLock>& lock) {
-    LOG(INFO) << "resume lock: " << folly::hexlify(lock->lockKey);
+    LOG_IF(INFO, FLAGS_trace_toss) << "resume lock: " << folly::hexlify(lock->lockKey);
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     auto cb = [&, p = std::move(c.first)](cpp2::ErrorCode code) mutable {
         p.setValue(code);
