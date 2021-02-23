@@ -7,37 +7,16 @@
 #pragma once
 
 #include "storage/transaction/BaseChainProcessor.h"
+#include "storage/transaction/TransactionManager.h"
 
 namespace nebula {
 namespace storage {
 
 class ChainUpdateEdgeProcessor : public BaseChainProcessor {
-    using AtomicGetFunc = std::function<folly::Optional<std::string>(int64_t)>;
     using LockGuard = nebula::MemoryLockGuard<std::string>;
+    using Getter = TransactionManager::UpdateEdgeGetter;
 
 public:
-    static ChainUpdateEdgeProcessor* instance(StorageEnv* env,
-                                              Callback&& cb,
-                                              GraphSpaceID spaceId,
-                                              PartitionID partId,
-                                              const cpp2::EdgeKey& edgeKey,
-                                              const std::vector<cpp2::UpdatedProp>& updateProps,
-                                              bool insertable,
-                                              const std::vector<std::string>& returnProps,
-                                              const std::string& condition,
-                                              AtomicGetFunc&& getter) {
-        return new ChainUpdateEdgeProcessor(env,
-                                            std::move(cb),
-                                            spaceId,
-                                            partId,
-                                            edgeKey,
-                                            updateProps,
-                                            insertable,
-                                            returnProps,
-                                            condition,
-                                            std::move(getter));
-    }
-
     ChainUpdateEdgeProcessor(StorageEnv* env,
                              Callback&& cb,
                              GraphSpaceID spaceId,
@@ -47,7 +26,7 @@ public:
                              bool insertable,
                              std::vector<std::string> returnProps,
                              std::string condition,
-                             AtomicGetFunc&& getter)
+                             Getter&& getter)
         : BaseChainProcessor(std::move(cb), env),
           spaceId_(spaceId),
           partId_(partId),
@@ -64,18 +43,40 @@ public:
 
     folly::SemiFuture<cpp2::ErrorCode> processLocal(cpp2::ErrorCode code) override;
 
+    static ChainUpdateEdgeProcessor* instance(StorageEnv* env,
+                                              Callback&& cb,
+                                              GraphSpaceID spaceId,
+                                              PartitionID partId,
+                                              const cpp2::EdgeKey& edgeKey,
+                                              const std::vector<cpp2::UpdatedProp>& updateProps,
+                                              bool insertable,
+                                              const std::vector<std::string>& returnProps,
+                                              const std::string& condition,
+                                              Getter&& getter) {
+        return new ChainUpdateEdgeProcessor(env,
+                                            std::move(cb),
+                                            spaceId,
+                                            partId,
+                                            edgeKey,
+                                            updateProps,
+                                            insertable,
+                                            returnProps,
+                                            condition,
+                                            std::move(getter));
+    }
+
+private:
     void updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
 
 protected:
     GraphSpaceID spaceId_{-1};
     PartitionID partId_{-1};
-    bool needUnlock_{false};
     cpp2::EdgeKey inEdgeKey_;
     std::vector<cpp2::UpdatedProp> updateProps_;
     bool insertable_;
     std::vector<std::string> returnProps_;
     std::string condition_;
-    AtomicGetFunc getter_;
+    Getter getter_;
     std::string sLockKey_;
     folly::Optional<std::string> optVal_;
     std::unique_ptr<LockGuard> lk_;
