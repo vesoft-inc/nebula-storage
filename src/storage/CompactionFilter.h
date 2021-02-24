@@ -46,13 +46,16 @@ public:
             return !edgeValid(spaceId, key, val);
         } else if (IndexKeyUtils::isIndexKey(key)) {
             return !indexValid(spaceId, key);
+        } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
+            return !lockValid(spaceId, key);
         } else {
-            // skip lock/uuid/system/operation
+            // skip uuid/system/operation
             VLOG(3) << "Skip the system key inside, key " << key;
         }
         return false;
     }
 
+private:
     bool vertexValid(GraphSpaceID spaceId,
                      const folly::StringPiece& key,
                      const folly::StringPiece& val) const {
@@ -95,6 +98,16 @@ public:
         }
         if (ttlExpired(schema.get(), reader.get())) {
             VLOG(3) << "Ttl expired";
+            return false;
+        }
+        return true;
+    }
+
+    bool lockValid(GraphSpaceID spaceId, const folly::StringPiece& key) const {
+        auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
+        auto schema = schemaMan_->getEdgeSchema(spaceId, std::abs(edgeType));
+        if (!schema) {
+            VLOG(3) << "Space " << spaceId << ", EdgeType " << edgeType << " invalid";
             return false;
         }
         return true;
