@@ -46,7 +46,7 @@ void AddEdgesAtomicProcessor::processInEdges(cpp2::AddEdgesRequest& request) {
         this->onFinished();
         return;
     }
-    activeSubRequest_ = request.get_parts().size();
+    callingNum_ = request.get_parts().size();
 
     auto spaceId = request.get_space_id();
     auto propNames = request.get_prop_names();
@@ -54,14 +54,7 @@ void AddEdgesAtomicProcessor::processInEdges(cpp2::AddEdgesRequest& request) {
 
     for (auto& part : request.parts) {
         auto cb = [&, partId = part.first](auto code) {
-            if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
-                handleLeaderChanged(spaceId_, partId);
-            } else {
-                pushResultCode(code, partId);
-            }
-            if (--activeSubRequest_ == 0) {
-                this->onFinished();
-            }
+            handleAsync(spaceId_, partId, CommonUtils::to(code));
         };
 
         auto encoder = [&](auto& e) { return encodeEdge(e); };

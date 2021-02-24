@@ -29,9 +29,6 @@ namespace nebula {
  * This class supply some utils for transition between Vertex/Edge and key in kvstore.
  * */
 class NebulaKeyUtils final {
-    static constexpr char kEdgeSurfix = 1;
-    static constexpr char kLockSurfix = 0;
-
 public:
     ~NebulaKeyUtils() = default;
 
@@ -127,21 +124,32 @@ public:
         return readInt<TagID>(rawKey.data() + offset, sizeof(TagID));
     }
 
-    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey, char surfix = kEdgeSurfix) {
-        if (rawKey.size() != kEdgeLen + (vIdLen << 1)) {
+    static bool isEdgePrefix(size_t vIdLen, const folly::StringPiece& rawKey) {
+        if (rawKey.size() != kEdgePrefixLen + (vIdLen << 1)) {
             return false;
         }
         constexpr int32_t len = static_cast<int32_t>(sizeof(NebulaKeyType));
         auto type = readInt<uint32_t>(rawKey.data(), len) & kTypeMask;
-        if (rawKey.back() != surfix) {
-            return false;
-        }
         return static_cast<NebulaKeyType>(type) == NebulaKeyType::kEdge;
     }
 
-    // isEdge(vIdLen, rawKey) && (rawKey.back() == 0);
+    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey) {
+        static constexpr char kEdgeSurfix = 1;
+        if (rawKey.back() != kEdgeSurfix) {
+            return false;
+        }
+
+        folly::StringPiece rawKeyPrefix(rawKey.begin(), rawKey.size()-1);
+        return isEdgePrefix(vIdLen, rawKeyPrefix);
+    }
+
     static bool isLock(size_t vIdLen, const folly::StringPiece& rawKey) {
-        return isEdge(vIdLen, rawKey, kLockSurfix);
+        static constexpr char kLockSurfix = 0;
+        if (rawKey.back() != kLockSurfix) {
+            return false;
+        }
+        folly::StringPiece rawKeyPrefix(rawKey.begin(), rawKey.size()-1);
+        return isEdgePrefix(vIdLen, rawKeyPrefix);
     }
 
     static bool isSystem(const folly::StringPiece& rawKey) {

@@ -151,10 +151,10 @@ StoragePlan<cpp2::EdgeKey> UpdateEdgeProcessor::buildPlan(nebula::DataSet* resul
                                                        &edgeContext_);
     updateNode->addDependency(filterNode.get());
     if (returnProps_) {
-        static_cast<UpdateEdgeNode*>(updateNode.get())->setReturnProps(std::move(*returnProps_));
+        updateNode->setReturnProps(std::move(*returnProps_));
     }
     if (condition_) {
-        static_cast<UpdateEdgeNode*>(updateNode.get())->setCondition(std::move(*condition_));
+        updateNode->setCondition(std::move(*condition_));
     }
 
     auto resultNode = std::make_unique<UpdateResNode<cpp2::EdgeKey>>(planContext_.get(),

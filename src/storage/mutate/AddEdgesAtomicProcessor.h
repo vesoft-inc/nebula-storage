@@ -38,7 +38,6 @@ private:
     int64_t                                                     vIdLen_;
     std::vector<std::string>                                    propNames_;
     meta::cpp2::PropertyType                                    spaceVidType_;
-    std::atomic<int>                                            activeSubRequest_;
 };
 
 }   // namespace storage
