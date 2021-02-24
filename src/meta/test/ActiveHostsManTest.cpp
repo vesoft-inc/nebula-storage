@@ -11,7 +11,7 @@
 #include "meta/ActiveHostsMan.h"
 #include "meta/test/TestUtils.h"
 
-DECLARE_int32(expired_threshold_sec);
+DECLARE_int32(heartbeat_interval_secs);
 
 namespace nebula {
 namespace meta {
@@ -49,7 +49,7 @@ TEST(ActiveHostsManTest, EncodeDecodeHostInfoV2) {
 
 TEST(ActiveHostsManTest, NormalTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
-    FLAGS_expired_threshold_sec = 2;
+    FLAGS_heartbeat_interval_secs = 1;
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     auto now = time::WallClock::fastNowInMilliSec();
     HostInfo info1(now, cpp2::HostRole::STORAGE, gitInfoSha());
@@ -88,12 +88,12 @@ TEST(ActiveHostsManTest, NormalTest) {
 
 TEST(ActiveHostsManTest, LeaderTest) {
     fs::TempDir rootPath("/tmp/ActiveHostsManTest.XXXXXX");
-    FLAGS_expired_threshold_sec = 2;
+    FLAGS_heartbeat_interval_secs = 1;
     std::unique_ptr<kvstore::KVStore> kv(MockCluster::initMetaKV(rootPath.path()));
     auto now = time::WallClock::fastNowInMilliSec();
 
     HostInfo hInfo1(now, cpp2::HostRole::STORAGE, gitInfoSha());
-    HostInfo hInfo2(now+2000, cpp2::HostRole::STORAGE, gitInfoSha());
+    HostInfo hInfo2(now + 2000, cpp2::HostRole::STORAGE, gitInfoSha());
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 0), hInfo1);
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 1), hInfo1);
     ActiveHostsMan::updateHostInfo(kv.get(), HostAddr("0", 2), hInfo1);
