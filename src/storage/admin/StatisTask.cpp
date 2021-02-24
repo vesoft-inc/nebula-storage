@@ -185,6 +185,13 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     // 3    3       1    4    1
     while (edgeIter && edgeIter->valid()) {
         auto key = edgeIter->key();
+
+        // Because edge lock in toss and edge are the same except for the last byte
+        if (!NebulaKeyUtils::isEdge(vIdLen, key)) {
+            edgeIter->next();
+            continue;
+        }
+
         auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen, key);
         if (edgeType < 0 || edgetypeEdges.find(edgeType) == edgetypeEdges.end()) {
             edgeIter->next();
