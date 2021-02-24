@@ -39,7 +39,9 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processRemote(cpp2:
     if (code_ != cpp2::ErrorCode::SUCCEEDED) {
         return code_;
     }
-    TransactionUtils::changeToIntVid(inEdgeKey_);
+    if (spaceVidType_ == meta::cpp2::PropertyType::INT64) {
+        TransactionUtils::changeToIntVid(inEdgeKey_);
+    }
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     updateRemoteEdge(std::move(c.first));
     return std::move(c.second);

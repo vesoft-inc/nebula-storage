@@ -139,6 +139,7 @@ struct TossTestUtils {
         ret.dst = Value(std::string(reinterpret_cast<const char*>(&input.dst.getInt()), 8));
         return ret;
     }
+
     static cpp2::EdgeKey generateEdgeKey(int64_t src, int edgeType, int rank, int64_t dst) {
         cpp2::EdgeKey edgeKey;
         edgeKey.set_src(src);

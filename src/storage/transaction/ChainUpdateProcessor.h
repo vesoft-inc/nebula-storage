@@ -26,6 +26,7 @@ public:
                              bool insertable,
                              std::vector<std::string> returnProps,
                              std::string condition,
+                             meta::cpp2::PropertyType spaceVidType,
                              Getter&& getter)
         : BaseChainProcessor(std::move(cb), env),
           spaceId_(spaceId),
@@ -35,6 +36,7 @@ public:
           insertable_(insertable),
           returnProps_(std::move(returnProps)),
           condition_(std::move(condition)),
+          spaceVidType_(spaceVidType),
           getter_(std::move(getter)) {}
 
     folly::SemiFuture<cpp2::ErrorCode> prepareLocal() override;
@@ -52,6 +54,7 @@ public:
                                               bool insertable,
                                               const std::vector<std::string>& returnProps,
                                               const std::string& condition,
+                                              meta::cpp2::PropertyType spaceVidType,
                                               Getter&& getter) {
         return new ChainUpdateEdgeProcessor(env,
                                             std::move(cb),
@@ -62,6 +65,7 @@ public:
                                             insertable,
                                             returnProps,
                                             condition,
+                                            spaceVidType,
                                             std::move(getter));
     }
 
@@ -76,6 +80,7 @@ protected:
     bool insertable_;
     std::vector<std::string> returnProps_;
     std::string condition_;
+    meta::cpp2::PropertyType spaceVidType_;
     Getter getter_;
     std::string sLockKey_;
     folly::Optional<std::string> optVal_;

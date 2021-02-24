@@ -73,6 +73,12 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge(
         condition = *optCondition;
     }
 
+    auto vidTypeStatus = env_->metaClient_->getSpaceVidType(spaceId);
+    if (!vidTypeStatus) {
+        return cpp2::ErrorCode::E_INVALID_VID;
+    }
+    auto spaceVidType = std::move(vidTypeStatus).value();
+
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     auto* processor = ChainUpdateEdgeProcessor::instance(
         env_,
@@ -84,6 +90,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::updateEdge(
         insertable,
         returnProps,
         condition,
+        spaceVidType,
         std::move(getter));
 
     processor->setVidLen(vIdLen);

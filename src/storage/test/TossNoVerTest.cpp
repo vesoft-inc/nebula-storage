@@ -61,11 +61,10 @@ TossEnvironment* TossTest::env = nullptr;
 
 /**
  * test case naming rules
- * e  => edge
+ * eg  => edge
  * glk => valid lock
  * blk => invalid lock
  */
-
 TEST_F(TossTest, utils_test) {
     auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
     LOG(INFO) << "edges.size() = " << edges.size();
@@ -86,14 +85,12 @@ TEST_F(TossTest, utils_test) {
 }
 
 TEST_F(TossTest, empty_db) {
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
-    GetNeighborsExecutor exec(edges);
+    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
+    GetNeighborsExecutor exec(eg);
 
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_FALSE(env->outEdgeExist(edges[0]));
-    EXPECT_FALSE(env->inEdgeExist(edges[0]));
-    // EXPECT_EQ(edges[0].props, exec.data());
-    // EXPECT_TRUE(exec.data().empty());
+    EXPECT_FALSE(env->lockExist(eg));
+    EXPECT_FALSE(env->outEdgeExist(eg));
+    EXPECT_FALSE(env->inEdgeExist(eg));
 }
 
 /**
@@ -124,9 +121,6 @@ TEST_F(TossTest, test0_add_eg_twice) {
     auto eg2 = TossTestUtils::makeTwinEdge(eg1);
     AddEdgeExecutor exec2(eg2);
     EXPECT_TRUE(exec2.ok());
-    // EXPECT_FALSE(env->lockExist(eg2));
-    // EXPECT_TRUE(env->outEdgeExist(eg2));
-    // EXPECT_TRUE(env->inEdgeExist(eg2));
 }
 
 /**

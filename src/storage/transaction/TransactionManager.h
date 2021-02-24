@@ -86,7 +86,7 @@ protected:
     std::shared_ptr<folly::IOThreadPoolExecutor>        exec_;
     std::unique_ptr<GraphStorageClient>                 sClient_;
     std::unique_ptr<InternalStorageClient>              interClient_;
-    folly::ConcurrentHashMap<GraphSpaceID, UPtrLock>      memLocks_;
+    folly::ConcurrentHashMap<GraphSpaceID, UPtrLock>    memLocks_;
 };
 
 }  // namespace storage

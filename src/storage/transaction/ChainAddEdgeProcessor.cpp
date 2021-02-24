@@ -52,7 +52,6 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processRemote(cpp2::E
     if (code_ != cpp2::ErrorCode::SUCCEEDED) {
         return code_;
     }
-    // auto& inEdges = request_.get_parts().begin()->second;
     std::vector<cpp2::NewEdge> outEdges(inEdges_.size());
     std::transform(inEdges_.begin(), inEdges_.end(), outEdges.begin(), [&](auto edge) {
         std::swap(edge.key.src, edge.key.dst);
