@@ -38,10 +38,10 @@ void AddEdgesAtomicProcessor::process(const cpp2::AddEdgesRequest& req) {
     spaceVidType_ = std::move(vidTypeStatus).value();
     CHECK_LT(req.get_parts().begin()->second.front().get_key().get_edge_type(), 0);
 
-    processInEdges(req);
+    processInEdges(const_cast<cpp2::AddEdgesRequest&>(req));
 }
 
-void AddEdgesAtomicProcessor::processInEdges(const cpp2::AddEdgesRequest& request) {
+void AddEdgesAtomicProcessor::processInEdges(cpp2::AddEdgesRequest& request) {
     if (request.get_parts().empty()) {
         this->onFinished();
         return;
@@ -52,7 +52,7 @@ void AddEdgesAtomicProcessor::processInEdges(const cpp2::AddEdgesRequest& reques
     auto propNames = request.get_prop_names();
     auto overwrittable = request.__isset.overwritable ? request.get_overwritable() : true;
 
-    for (auto& part : request.get_parts()) {
+    for (auto& part : request.parts) {
         auto cb = [&, partId = part.first](auto code) {
             if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
                 handleLeaderChanged(spaceId_, partId);

@@ -29,6 +29,9 @@ namespace nebula {
  * This class supply some utils for transition between Vertex/Edge and key in kvstore.
  * */
 class NebulaKeyUtils final {
+    static constexpr char kEdgeSurfix = 1;
+    static constexpr char kLockSurfix = 0;
+
 public:
     ~NebulaKeyUtils() = default;
 
@@ -124,7 +127,7 @@ public:
         return readInt<TagID>(rawKey.data() + offset, sizeof(TagID));
     }
 
-    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey, int surfix = 1) {
+    static bool isEdge(size_t vIdLen, const folly::StringPiece& rawKey, char surfix = kEdgeSurfix) {
         if (rawKey.size() != kEdgeLen + (vIdLen << 1)) {
             return false;
         }
@@ -138,7 +141,7 @@ public:
 
     // isEdge(vIdLen, rawKey) && (rawKey.back() == 0);
     static bool isLock(size_t vIdLen, const folly::StringPiece& rawKey) {
-        return isEdge(vIdLen, rawKey, 0);
+        return isEdge(vIdLen, rawKey, kLockSurfix);
     }
 
     static bool isSystem(const folly::StringPiece& rawKey) {

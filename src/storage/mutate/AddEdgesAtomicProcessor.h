@@ -30,7 +30,7 @@ private:
     AddEdgesAtomicProcessor(StorageEnv* env, const ProcessorCounters* counters)
         : BaseProcessor<cpp2::ExecResponse>(env, counters) {}
 
-    void processInEdges(const cpp2::AddEdgesRequest& req);
+    void processInEdges(cpp2::AddEdgesRequest& req);
 
     std::pair<std::string, cpp2::ErrorCode> encodeEdge(const cpp2::NewEdge& e);
 

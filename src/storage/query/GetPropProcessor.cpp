@@ -13,7 +13,6 @@ namespace storage {
 ProcessorCounters kGetPropCounters;
 
 void GetPropProcessor::process(const cpp2::GetPropRequest& req) {
-    LOG(INFO) << "GetPropProcessor::process()";
     if (executor_ != nullptr) {
         executor_->add([req, this] () {
             this->doProcess(req);

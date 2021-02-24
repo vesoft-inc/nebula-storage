@@ -100,9 +100,13 @@ public:
     }
 
 protected:
-    // return true when the value iter to a valid edge value
     bool check() {
-        reader_.reset(*schemas_, iter_->val());
+        return check(iter_->val());
+    }
+
+    // return true when the value iter to a valid edge value
+    bool check(folly::StringPiece val) {
+        reader_.reset(*schemas_, val);
         if (!reader_) {
             planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
             return false;

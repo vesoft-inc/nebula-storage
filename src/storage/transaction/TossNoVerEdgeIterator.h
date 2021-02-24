@@ -127,7 +127,7 @@ public:
             if (!lockIter_) {
                 folly::collectAll(resumeTasks_).wait();
                 lockIter_ =
-                    std::make_unique<LockIter>(locks_, [&](auto val) { return checkValue(val); });
+                    std::make_unique<LockIter>(locks_, [&](auto val) { return check(val); });
             } else {
                 if (lockIter_->valid()) {
                     lockIter_->next();
@@ -158,21 +158,6 @@ public:
             LOG(ERROR) << "meet a weird key: " << folly::hexlify(iter_->key());
         }
         return false;
-    }
-
-    bool checkValue(folly::StringPiece val) {
-        reader_.reset(*schemas_, val);
-        if (!reader_) {
-            planContext_->resultStat_ = ResultStatus::ILLEGAL_DATA;
-            return false;
-        }
-
-        if (hasTtl_ && CommonUtils::checkDataExpiredForTTL(
-                           schemas_->back().get(), reader_.get(), ttlCol_, ttlDuration_)) {
-            reader_.reset();
-            return false;
-        }
-        return true;
     }
 
     bool hasPendingLock(const folly::StringPiece& ekey) {

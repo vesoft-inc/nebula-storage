@@ -37,12 +37,13 @@ folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::processRemote(cpp2::Err
                 p.setValue(cpp2::ErrorCode::E_KEY_NOT_FOUND);
                 return;
             }
-            if (!nebula::ok(t.value())) {
-                p.setValue(cpp2::ErrorCode::E_KEY_NOT_FOUND);
-                return;
+            auto ret = cpp2::ErrorCode::SUCCEEDED;
+            if (nebula::ok(t.value())) {
+                lock_->lockProps = nebula::value(t.value());
+            } else {
+                ret = nebula::error(t.value());
             }
-            lock_->lockProps = nebula::value(t.value());
-            p.setValue(cpp2::ErrorCode::SUCCEEDED);
+            p.setValue(ret);
         });
     return std::move(c.second);
 }

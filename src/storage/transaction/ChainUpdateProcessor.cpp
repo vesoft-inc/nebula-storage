@@ -71,15 +71,14 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processLocal(cpp2::
     kvstore::BatchHolder bat;
     bat.remove(std::move(sLockKey_));
 
-    if (optVal_) {
-        auto val = kvstore::decodeBatchValue(*optVal_);
-        auto& dataView = val.back().second;
-        auto key = dataView.first.str();
-        if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            key = NebulaKeyUtils::toEdgeKey(key);
-        }
-        bat.put(std::move(key), dataView.second.str());
+    auto decoded = kvstore::decodeBatchValue(*optVal_);
+    auto& kv = decoded.back().second;
+    auto key = kv.first.str();
+    if (NebulaKeyUtils::isLock(vIdLen_, key)) {
+        key = NebulaKeyUtils::toEdgeKey(key);
     }
+    bat.put(std::move(key), kv.second.str());
+
     auto batch = encodeBatchValue(bat.getBatch());
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
     env_->txnMan_->commitBatch(spaceId_, partId_, batch)
