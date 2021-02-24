@@ -55,9 +55,29 @@ void ChainUpdateEdgeProcessor::updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&
 
     sClient->updateEdge(spaceId_, outEdgeKey, updateProps_, insertable_, returnProps_, condition_)
         .thenTry([&, p = std::move(pro)](auto&& t) mutable {
-            auto rc = t.hasValue() && t.value().ok() ? cpp2::ErrorCode::SUCCEEDED
-                                                     : cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
-            p.setValue(rc);
+            auto code = cpp2::ErrorCode::SUCCEEDED;
+            do {
+                if (!t.hasValue()) {
+                    code = cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
+                    break;
+                }
+                if (!t.value().ok()) {
+                    code = CommonUtils::to(t.value().status());
+                    break;
+                }
+                auto& updateResp = t.value().value();
+                auto& respCommon = updateResp.get_result();
+                auto failedPart = respCommon.get_failed_parts();
+                if (failedPart.empty()) {
+                    break;
+                }
+                auto& partResult = failedPart.back();
+                code = partResult.get_code();
+                if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
+                    updateRemoteEdge(std::move(p));
+                }
+            } while (0);
+            p.setValue(code);
         });
 }
 
