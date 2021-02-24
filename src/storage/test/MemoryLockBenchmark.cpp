@@ -12,7 +12,7 @@
 #include "utils/NebulaKeyUtils.h"
 
 DEFINE_int64(total_spaces, 10000, "total spaces number");
-DEFINE_int64(num_threads, 100, "threads nomber");
+DEFINE_int64(num_threads, 100, "threads number");
 DEFINE_int32(num_batch, 10000, "batch write number");
 
 namespace nebula {
