@@ -29,6 +29,8 @@ namespace storage {
 class TransactionManager {
 public:
     using UpdateEdgeGetter = std::function<folly::Optional<std::string>(int64_t)>;
+    using LockCore = MemoryLockCore<std::string>;
+    using UPtrLock = std::unique_ptr<LockCore>;
 
 public:
     explicit TransactionManager(storage::StorageEnv* env);
@@ -54,22 +56,17 @@ public:
         folly::Optional<std::string> condition,
         UpdateEdgeGetter&& getter);
 
-    auto* getMemoryLock() {
-        return &mLock_;
-    }
-
     folly::SemiFuture<kvstore::ResultCode> commitBatch(GraphSpaceID spaceId,
                                                        PartitionID partId,
                                                        std::string& batch);
+
+    LockCore* getMemoryLock(GraphSpaceID spaceId);
 
     bool enableToss(GraphSpaceID spaceId) {
         return nebula::meta::cpp2::IsolationLevel::TOSS == getSpaceIsolationLvel(spaceId);
     }
 
     folly::Executor* getExecutor() { return exec_.get(); }
-
-    // used for perf trace, will remove finally
-    std::unordered_map<std::string, std::list<int64_t>> timer_;
 
     GraphStorageClient* getStorageClient() {
         return sClient_.get();
@@ -89,7 +86,7 @@ protected:
     std::shared_ptr<folly::IOThreadPoolExecutor>        exec_;
     std::unique_ptr<GraphStorageClient>                 sClient_;
     std::unique_ptr<InternalStorageClient>              interClient_;
-    nebula::MemoryLockCore<std::string>                 mLock_;
+    folly::ConcurrentHashMap<GraphSpaceID, UPtrLock>      memLocks_;
 };
 
 }  // namespace storage

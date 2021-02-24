@@ -136,5 +136,15 @@ std::string TransactionManager::remoteEdgeKey(size_t vIdLen,
     return TransactionUtils::reverseRawKey(vIdLen, stPart.value(), lockKey);
 }
 
+TransactionManager::LockCore* TransactionManager::getMemoryLock(GraphSpaceID spaceId) {
+    auto it = memLocks_.find(spaceId);
+    if (it != memLocks_.end()) {
+        return it->second.get();
+    }
+
+    auto item = memLocks_.insert(spaceId, std::make_unique<LockCore>());
+    return item.first->second.get();
+}
+
 }   // namespace storage
 }   // namespace nebula

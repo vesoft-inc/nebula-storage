@@ -36,8 +36,7 @@ public:
         if (locks_.empty()) {
             return false;
         }
-        auto valid = curr_ != locks_.end();
-        return valid;
+        return curr_ != locks_.end();;
     }
 
     bool check() {

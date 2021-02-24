@@ -124,6 +124,12 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
         }
 
         if (iter->valid()) {
+            // TODO(liuyu): known issue
+            //      if lock deleted, but out-edge not delted, there may be in-consist
+            if (NebulaKeyUtils::isLock(spaceVidLen_, iter->key())) {
+                batchHolder->remove(iter->key().str());
+                continue;
+            }
             /**
              * just get the latest version edge for index.
              */

@@ -24,7 +24,7 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::prepareLocal() {
     std::transform(inEdges_.begin(), inEdges_.end(), locks.begin(), [&](auto& e){
         return TransactionUtils::lockKey(vIdLen_, partId_, e.key);
     });
-    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), locks);
+    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(spaceId_), locks);
     if (!lk_->isLocked()) {
         return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
     }

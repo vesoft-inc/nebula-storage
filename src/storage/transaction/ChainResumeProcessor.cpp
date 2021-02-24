@@ -13,7 +13,8 @@ namespace storage {
 
 folly::SemiFuture<cpp2::ErrorCode> ChainResumeProcessor::prepareLocal() {
     LOG_IF(INFO, FLAGS_trace_toss) << "prepareLocal(), txnId_ = " << txnId_;
-    lk_ = std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(), lock_->lockKey, txnId_);
+    lk_ =
+        std::make_unique<LockGuard>(env_->txnMan_->getMemoryLock(spaceId_), lock_->lockKey, txnId_);
     if (!lk_->isLocked()) {
         LOG(INFO) << "E_SET_MEM_LOCK_FAILED, txnId_ = " << txnId_;
         return cpp2::ErrorCode::E_SET_MEM_LOCK_FAILED;
