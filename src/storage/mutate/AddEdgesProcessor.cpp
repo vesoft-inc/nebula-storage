@@ -392,12 +392,8 @@ AddEdgesProcessor::findOldValue(PartitionID partId, const folly::StringPiece& ra
                    << ", spaceId " << spaceId_;
         return folly::none;
     }
-
-    while (iter && iter->valid()) {
-        if (NebulaKeyUtils::isEdge(spaceVidLen_, iter->key())) {
-            return iter->val().str();
-        }
-        iter->next();
+    if (iter && iter->valid()) {
+        return iter->val().str();
     }
     return std::string();
 }
