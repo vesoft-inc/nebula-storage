@@ -30,75 +30,6 @@ namespace nebula {
 namespace storage {
 
 struct TossTestUtils {
-    static std::string dumpDataSet(const DataSet& ds) {
-        std::stringstream oss;
-        for (auto&& it : folly::enumerate(ds.colNames)) {
-            oss << "\ncolNames[" << it.index << "]=" << *it;
-        }
-        oss << "\n";
-
-        oss << dumpRows(ds.rows);
-        return oss.str();
-    }
-
-    static std::string concatValues(const std::vector<nebula::Value>& vals) {
-        if (vals.empty()) {
-            return "";
-        }
-        std::ostringstream oss;
-        for (auto& val : vals) {
-            oss << val << ',';
-        }
-        std::string ret = oss.str();
-        return ret.substr(0, ret.size()-1);
-    }
-
-    static std::string dumpValues(const std::vector<Value>& vals) {
-        std::stringstream oss;
-        oss << "vals.size() = " << vals.size() << "\n";
-        for (auto& val : vals) {
-            oss << val.toString() << "\n";
-        }
-        return oss.str();
-    }
-
-    static std::string dumpRows(const std::vector<Row>& rows) {
-        std::stringstream oss;
-        oss << "rows.size() = " << rows.size() << "\n";
-        for (auto& row : rows) {
-            oss << "row.size()=" << row.size() << "\n";
-            oss << row.toString() << "\n";
-        }
-        return oss.str();
-    }
-
-    static std::string hexVid(int64_t vid) {
-        std::string str(reinterpret_cast<char*>(&vid), sizeof(int64_t));
-        return folly::hexlify(str);
-    }
-
-    static std::string hexEdgeId(const cpp2::EdgeKey& ek) {
-        return hexVid(ek.src.getInt()) + hexVid(ek.dst.getInt());
-    }
-
-    static std::vector<std::string> splitNeiResults(std::vector<std::string>& svec) {
-        std::vector<std::string> ret;
-        for (auto& str : svec) {
-            auto sub = splitNeiResult(str);
-            ret.insert(ret.end(), sub.begin(), sub.end());
-        }
-        return ret;
-    }
-
-    static bool compareSize(const std::vector<std::string>& svec, size_t expect) {
-        auto equalSize = svec.size() == expect;
-        if (!equalSize) {
-            LOG(INFO) << "compareSize failed: expect=" << expect;
-            print_svec(svec);
-        }
-        return equalSize;
-    }
-
     static std::vector<std::string> splitNeiResult(folly::StringPiece str) {
         std::vector<std::string> ret;
         auto begin = str.begin();
@@ -126,27 +57,27 @@ struct TossTestUtils {
         }
     }
 
-    static cpp2::NewEdge toVertexIdEdge(const cpp2::NewEdge& e) {
-        cpp2::NewEdge ret(e);
-        ret.key.src = Value(std::string(reinterpret_cast<const char*>(&e.key.src.getInt()), 8));
-        ret.key.dst = Value(std::string(reinterpret_cast<const char*>(&e.key.dst.getInt()), 8));
-        return ret;
-    }
-
-    static cpp2::EdgeKey toVidKey(const cpp2::EdgeKey& input) {
-        cpp2::EdgeKey ret(input);
-        ret.src = Value(std::string(reinterpret_cast<const char*>(&input.src.getInt()), 8));
-        ret.dst = Value(std::string(reinterpret_cast<const char*>(&input.dst.getInt()), 8));
-        return ret;
-    }
-
-    static cpp2::EdgeKey generateEdgeKey(int64_t src, int edgeType, int rank, int64_t dst) {
+    static cpp2::EdgeKey makeEdgeKeyI(int64_t src, int edgeType, int rank, int64_t dst) {
         cpp2::EdgeKey edgeKey;
         edgeKey.set_src(src);
         edgeKey.set_edge_type(edgeType);
         edgeKey.set_ranking(rank);
         edgeKey.set_dst(dst);
         return edgeKey;
+    }
+
+    static cpp2::EdgeKey makeEdgeKeyS(int64_t src, int edgeType, int rank, int64_t dst) {
+        return makeEdgeKeyS(makeEdgeKeyI(src, edgeType, rank, dst));
+    }
+
+    static cpp2::EdgeKey makeEdgeKeyS(const cpp2::EdgeKey& input) {
+        if (input.src.type() == Value::Type::STRING) {
+            return input;
+        }
+        cpp2::EdgeKey ret(input);
+        ret.src = Value(std::string(reinterpret_cast<const char*>(&input.src.getInt()), 8));
+        ret.dst = Value(std::string(reinterpret_cast<const char*>(&input.dst.getInt()), 8));
+        return ret;
     }
 
     static std::vector<nebula::Value> makeISValue(int64_t iVal) {
@@ -175,7 +106,7 @@ struct TossTestUtils {
         auto rank = 0;
         for (auto i = 0U; i < num; ++i) {
             auto src = dst + i + 1;
-            auto ekey = generateEdgeKey(src, edgeType, rank, dst);
+            auto ekey = makeEdgeKeyI(src, edgeType, rank, dst);
             edges.emplace_back();
             edges.back().set_key(std::move(ekey));
             edges.back().set_props(std::move(values[i]));
@@ -185,8 +116,14 @@ struct TossTestUtils {
 
     static cpp2::NewEdge makeEdge(int64_t src, int edgeType) {
         cpp2::NewEdge edge;
-        edge.set_key(generateEdgeKey(src, edgeType, 0, src + 1));
+        edge.set_key(makeEdgeKeyI(src, edgeType, 0, src + 1));
         edge.set_props(makeISValue(1024));
+        return edge;
+    }
+
+    static cpp2::NewEdge makeEdgeS(int64_t src, int edgeType) {
+        cpp2::NewEdge edge = makeEdge(src, edgeType);
+        edge.key = makeEdgeKeyS(edge.key);
         return edge;
     }
 

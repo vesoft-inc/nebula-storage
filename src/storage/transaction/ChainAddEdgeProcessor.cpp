@@ -94,7 +94,8 @@ void ChainAddEdgesProcessor::doRpc(std::vector<cpp2::NewEdge>& outEdges,
             } else {
                 rc = cpp2::ErrorCode::E_FORWARD_REQUEST_ERR;
             }
-            LOG_IF(INFO, FLAGS_trace_toss) << "~tid=" << txnId_ << ", rc=" << CommonUtils::name(rc);
+            LOG_IF(INFO, FLAGS_trace_toss)
+                << "~doRpc(), tid=" << txnId_ << ", rc=" << CommonUtils::name(rc);
             p.setValue(rc);
             return;
         });
@@ -113,7 +114,7 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processLocal(cpp2::Er
         bat.remove(TransactionUtils::lockKey(vIdLen_, partId_, e.key));
         auto ret = encoder_(e);
         // if encode failed, processRemote should failed.
-        LOG_IF(INFO, FLAGS_trace_toss) << "messi put in-edge key: "
+        LOG_IF(INFO, FLAGS_trace_toss) << "put in-edge key: "
                   << folly::hexlify(TransactionUtils::edgeKey(vIdLen_, partId_, e.key))
                   << ", txnId_ = " << txnId_;
         bat.put(TransactionUtils::edgeKey(vIdLen_, partId_, e.key), std::move(ret.first));
@@ -124,9 +125,10 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processLocal(cpp2::Er
     env_->txnMan_->commitBatch(spaceId_, partId_, batch)
         .via(env_->txnMan_->getExecutor())
         .thenTry([&, p = std::move(c.first)](auto&& t) mutable {
-            LOG_IF(INFO, FLAGS_trace_toss) << "~processLocal() " << txnId_;
             auto rc =
                 t.hasValue() ? CommonUtils::to(t.value()) : cpp2::ErrorCode::E_KVSTORE_EXCEPTION;
+            LOG_IF(INFO, FLAGS_trace_toss)
+                << "~processLocal() " << txnId_ << ", code = " << CommonUtils::name(rc);
             p.setValue(rc);
         });
     LOG_IF(INFO, FLAGS_trace_toss) << "-processLocal() " << txnId_;

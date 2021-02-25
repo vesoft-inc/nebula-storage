@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "TossEnvironment.h"
+#include "TossTestExecutor.h"
 #include "folly/String.h"
 #define LOG_FMT(...) LOG(INFO) << folly::sformat(__VA_ARGS__)
 
@@ -15,11 +16,10 @@ namespace storage {
 constexpr bool kUseToss = true;
 constexpr bool kNotUseToss = false;
 
-// const std::string kMetaName = "hp-server";  // NOLINT
 const std::string kMetaName = "127.0.0.1";  // NOLINT
 constexpr int32_t kMetaPort = 6500;
 const std::string kSpaceName = "test";   // NOLINT
-const std::string kColName = "test_edge";   // NOLINT
+const std::string kEdgeName = "test_edge";   // NOLINT
 constexpr int32_t kPart = 5;
 constexpr int32_t kReplica = 3;
 
@@ -31,13 +31,14 @@ public:
     static void SetUpTestCase() {
         env = TossEnvironment::getInstance();
         ASSERT_TRUE(env->connectToMeta(kMetaName, kMetaPort));
-        env->createSpace(kSpaceName, kPart, kReplica);
+
         std::vector<meta::cpp2::PropertyType> types;
         types.emplace_back(meta::cpp2::PropertyType::INT64);
         types.emplace_back(meta::cpp2::PropertyType::STRING);
-        auto colDefs = TossTestUtils::makeColDefs(types);
-        env->setupEdgeSchema(kColName, colDefs);
-        env->waitLeaderCollection();
+
+        env->init(kSpaceName, kPart, kReplica, kEdgeName, types);
+        edgeTypeS_ = env->getEdgeTypeS();
+        spaceIdS_ = env->getSpaceIdS();
     }
 
     static void TearDownTestCase() {}
@@ -55,9 +56,13 @@ public:
 protected:
     static TossEnvironment* env;
     EdgeType edgeType_;
+    static GraphSpaceID spaceIdS_;
+    static EdgeType edgeTypeS_;
 };
 
 TossEnvironment* TossTest::env = nullptr;
+EdgeType TossTest::edgeTypeS_ = 0;
+GraphSpaceID TossTest::spaceIdS_ = 0;
 
 /**
  * test case naming rules
@@ -1003,6 +1008,21 @@ TEST_F(TossTest, test30_update_eg_then_add) {
 
     AddEdgeExecutor addEdge(e1);
     EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
+}
+
+/**
+ * @brief add string edge
+ */
+TEST_F(TossTest, test0_add_string_eg) {
+    auto eg = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
+    LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(eg.key));
+    LOG(INFO) << "TossTest::edgeTypeS_: " << TossTest::edgeTypeS_;
+
+    AddEdgeExecutor exec(eg, TossTest::spaceIdS_);
+    LOG(INFO) << "exec.code() = " << cpp2::_ErrorCode_VALUES_TO_NAMES.at(exec.code());
+    EXPECT_FALSE(env->lockExist(eg, TossTest::spaceIdS_));
+    EXPECT_TRUE(env->outEdgeExist(eg, TossTest::spaceIdS_));
+    EXPECT_TRUE(env->inEdgeExist(eg, TossTest::spaceIdS_));
 }
 
 }  // namespace storage
