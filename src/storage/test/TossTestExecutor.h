@@ -43,16 +43,18 @@ private:
 };
 
 class GetNeighborsExecutor {
+    TestSpace* s_;
     std::vector<std::string> data_;
 
 public:
-    explicit GetNeighborsExecutor(cpp2::NewEdge edge)
-        : GetNeighborsExecutor(std::vector<cpp2::NewEdge>{edge}) {
+    GetNeighborsExecutor(TestSpace* s, cpp2::NewEdge edge)
+        : GetNeighborsExecutor(s, std::vector<cpp2::NewEdge>{edge}) {
     }
 
-    GetNeighborsExecutor(std::vector<cpp2::NewEdge> edges,
+    GetNeighborsExecutor(TestSpace* s,
+                         std::vector<cpp2::NewEdge> edges,
                          int64_t limit = std::numeric_limits<int64_t>::max())
-        : edges_(std::move(edges)), limit_(limit) {
+        : s_(s), edges_(std::move(edges)), limit_(limit) {
         env_ = TossEnvironment::getInstance();
         auto uniEdges = uniqueEdges(edges_);
         data_ = run(uniEdges);
@@ -147,19 +149,19 @@ public:
 
         auto colNames = TossTestUtils::makeColNames(edges.back().props.size());
 
-        return env_->sClient_->getNeighbors(env_->iSpaceId_,
-                                            colNames,
-                                            vertices,
-                                            edgeTypes,
-                                            edgeDirection,
-                                            statProps,
-                                            vertexProps,
-                                            &edgeProps,
-                                            expressions,
-                                            dedup,
-                                            random,
-                                            orderBy,
-                                            limit_);
+        return s_->sClient_->getNeighbors(s_->getSpaceId(),
+                                          colNames,
+                                          vertices,
+                                          edgeTypes,
+                                          edgeDirection,
+                                          statProps,
+                                          vertexProps,
+                                          &edgeProps,
+                                          expressions,
+                                          dedup,
+                                          random,
+                                          orderBy,
+                                          limit_);
     }
 
     std::vector<std::string> readStorageResp(StorageRpcResponse<cpp2::GetNeighborsResponse>& rpc) {
@@ -193,28 +195,21 @@ private:
 };
 
 struct AddEdgeExecutor {
-    TossEnvironment* env_;
+    TestSpace* s_;
     std::vector<cpp2::NewEdge> edges_;
     cpp2::ErrorCode code_;
-    GraphSpaceID spaceId_;
 
 public:
-    explicit AddEdgeExecutor(cpp2::NewEdge edge, GraphSpaceID spaceId = 0) : spaceId_(spaceId) {
-        env_ = TossEnvironment::getInstance();
+    AddEdgeExecutor(TestSpace* s, cpp2::NewEdge edge) : s_(s) {
         CHECK_GT(edge.key.edge_type, 0);
-        LOG(INFO) << "src.type() = " << static_cast<int>(edge.key.src.type());
         edges_.push_back(edge);
         std::swap(edges_.back().key.src, edges_.back().key.dst);
         edges_.back().key.edge_type = 0 - edges_.back().key.edge_type;
-        LOG(INFO) << "src.type() = " << static_cast<int>(edges_.back().key.src.type());
-        if (spaceId == 0) {
-            spaceId_ = env_->iSpaceId_;
-        }
         rpc();
     }
 
     void rpc() {
-        LOG(INFO) << "AddEdgeExecutor::rpc(), spaceId=" << spaceId_;
+        LOG(INFO) << "AddEdgeExecutor::rpc(), spaceId=" << s_->getSpaceId();
         auto propNames = TossTestUtils::makeColNames(edges_.back().props.size());
         bool overwritable = true;
         folly::EventBase* evb = nullptr;
@@ -222,8 +217,8 @@ public:
         int retry = 10;
         do {
             LOG(INFO) << "AddEdgeExecutor::rpc(), do retry = " << retry;
-            auto f = env_->sClient_->addEdges(
-                spaceId_, edges_, propNames, overwritable, evb, useToss);
+            auto f = s_->sClient_->addEdges(
+                s_->getSpaceId(), edges_, propNames, overwritable, evb, useToss);
             f.wait();
             CHECK(f.hasValue());
             StorageResponseReader<cpp2::ExecResponse> reader(f.value());
@@ -305,11 +300,12 @@ public:
 
 struct GetPropsExecutor {
     TossEnvironment* env_;
+    TestSpace* s_;
     cpp2::NewEdge edge_;
     std::vector<Value> result_;
 
 public:
-    explicit GetPropsExecutor(cpp2::NewEdge edge) : edge_(std::move(edge)) {
+    GetPropsExecutor(TestSpace* s, cpp2::NewEdge edge) : s_(s), edge_(std::move(edge)) {
         env_ = TossEnvironment::getInstance();
         CHECK_GT(edge_.key.edge_type, 0);
         std::swap(edge_.key.src, edge_.key.dst);
@@ -317,7 +313,8 @@ public:
         rpc();
     }
 
-    explicit GetPropsExecutor(std::vector<cpp2::NewEdge> edges) : GetPropsExecutor(edges[0]) {}
+    GetPropsExecutor(TestSpace* s, std::vector<cpp2::NewEdge> edges)
+        : GetPropsExecutor(s, edges[0]) {}
 
     std::vector<Value> data() {
         return result_;
@@ -325,11 +322,9 @@ public:
 
     void rpc() {
         nebula::Row row;
-        CHECK_EQ(Value::Type::INT, edge_.key.src.type());
         row.values.emplace_back(edge_.key.src);
         row.values.emplace_back(edge_.key.edge_type);
         row.values.emplace_back(edge_.key.ranking);
-        CHECK_EQ(Value::Type::INT, edge_.key.dst.type());
         row.values.emplace_back(edge_.key.dst);
 
         nebula::DataSet ds;
@@ -340,12 +335,10 @@ public:
 
         int retry = 10;
 
-        CHECK_EQ(Value::Type::INT, ds.rows[0].values[0].type());
-        CHECK_EQ(Value::Type::INT, ds.rows[0].values[3].type());
         do {
             LOG(INFO) << "enter do{} while";
-            auto frpc = env_->sClient_
-                            ->getProps(env_->iSpaceId_,
+            auto frpc = s_->sClient_
+                            ->getProps(s_->getSpaceId(),
                                        ds, /*DataSet*/
                                        nullptr,       /*vector<cpp2::VertexProp>*/
                                        &props,        /*vector<cpp2::EdgeProp>*/
@@ -385,6 +378,7 @@ public:
 
 struct UpdateExecutor {
     TossEnvironment* env_;
+    TestSpace* s_;
     cpp2::NewEdge edge_;
     std::vector<cpp2::UpdatedProp> updatedProps_;
     bool insertable_{false};
@@ -392,7 +386,7 @@ struct UpdateExecutor {
     std::string condition_;
 
 public:
-    explicit UpdateExecutor(cpp2::NewEdge edge) : edge_(std::move(edge)) {
+    UpdateExecutor(TestSpace* s, cpp2::NewEdge edge) : s_(s), edge_(std::move(edge)) {
         env_ = TossEnvironment::getInstance();
         CHECK_GT(edge_.key.edge_type, 0);
         std::swap(edge_.key.src, edge_.key.dst);
@@ -418,8 +412,8 @@ public:
 
     void rpc() {
         for (;;) {
-            auto f = env_->sClient_->updateEdge(
-                env_->iSpaceId_, edge_.key, updatedProps_, insertable_, returnProps_, condition_);
+            auto f = s_->sClient_->updateEdge(
+                s_->getSpaceId(), edge_.key, updatedProps_, insertable_, returnProps_, condition_);
             f.wait();
             CHECK(f.hasValue());
             if (!f.value().ok()) {

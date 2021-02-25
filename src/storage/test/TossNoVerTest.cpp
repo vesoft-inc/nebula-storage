@@ -32,13 +32,18 @@ public:
         env = TossEnvironment::getInstance();
         ASSERT_TRUE(env->connectToMeta(kMetaName, kMetaPort));
 
-        std::vector<meta::cpp2::PropertyType> types;
-        types.emplace_back(meta::cpp2::PropertyType::INT64);
-        types.emplace_back(meta::cpp2::PropertyType::STRING);
+        std::vector<meta::cpp2::PropertyType> colTypes{meta::cpp2::PropertyType::INT64,
+                                                       meta::cpp2::PropertyType::STRING};
 
-        env->init(kSpaceName, kPart, kReplica, kEdgeName, types);
-        edgeTypeS_ = env->getEdgeTypeS();
-        spaceIdS_ = env->getSpaceIdS();
+        std::string name1("test1");
+        auto intVid = meta::cpp2::PropertyType::INT64;
+        TossTest::space1 = std::make_unique<TestSpace>(
+            env, name1, kPart, kReplica, intVid, kEdgeName, colTypes);
+
+        auto stringVid = meta::cpp2::PropertyType::FIXED_STRING;
+        std::string name2("test2");
+        TossTest::space2 = std::make_unique<TestSpace>(
+            env, name2, kPart, kReplica, stringVid, kEdgeName, colTypes);
     }
 
     static void TearDownTestCase() {}
@@ -48,21 +53,23 @@ public:
         ++b_;
         b_ *= gap;
 
-        edgeType_ = env->getEdgeType();
+        s1 = TossTest::space1.get();
+        s2 = TossTest::space2.get();
     }
 
     void TearDown() override {}
 
 protected:
     static TossEnvironment* env;
-    EdgeType edgeType_;
-    static GraphSpaceID spaceIdS_;
-    static EdgeType edgeTypeS_;
+    TestSpace* s1{nullptr};
+    TestSpace* s2{nullptr};
+    static std::unique_ptr<TestSpace> space1;
+    static std::unique_ptr<TestSpace> space2;
 };
 
 TossEnvironment* TossTest::env = nullptr;
-EdgeType TossTest::edgeTypeS_ = 0;
-GraphSpaceID TossTest::spaceIdS_ = 0;
+std::unique_ptr<TestSpace> TossTest::space1;
+std::unique_ptr<TestSpace> TossTest::space2;
 
 /**
  * test case naming rules
@@ -71,31 +78,31 @@ GraphSpaceID TossTest::spaceIdS_ = 0;
  * blk => invalid lock
  */
 TEST_F(TossTest, utils_test) {
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->getEdgeType(), 1);
     LOG(INFO) << "edges.size() = " << edges.size();
     for (auto& e : edges) {
-        LOG(INFO) << "in-edge key: " << folly::hexlify(TossTest::env->strInEdgeKey(edges[0].key));
-        LOG(INFO) << "out-edge key: " << folly::hexlify(TossTest::env->strOutEdgeKey(edges[0].key));
-        LOG(INFO) << "lock key: " << folly::hexlify(TossTest::env->strLockKey(edges[0].key));
+        LOG(INFO) << "in-edge key: " << folly::hexlify(s1->strInEdgeKey(edges[0].key));
+        LOG(INFO) << "out-edge key: " << folly::hexlify(s1->strOutEdgeKey(edges[0].key));
+        LOG(INFO) << "lock key: " << folly::hexlify(s1->strLockKey(edges[0].key));
         LOG(INFO) << "e.props.size() = " << e.props.size();
         for (auto& prop : e.props) {
             LOG(INFO) << prop.toString();
         }
     }
-    auto lockKey = TossTest::env->strLockKey(edges[0].key);
+    auto lockKey = s1->strLockKey(edges[0].key);
 
-    EXPECT_FALSE(NebulaKeyUtils::isEdge(TossTest::env->vIdLen_, lockKey));
+    EXPECT_FALSE(NebulaKeyUtils::isEdge(s1->vIdLen_, lockKey));
     EXPECT_EQ(lockKey.back(), 0);
-    EXPECT_TRUE(NebulaKeyUtils::isLock(TossTest::env->vIdLen_, lockKey));
+    EXPECT_TRUE(NebulaKeyUtils::isLock(s1->vIdLen_, lockKey));
 }
 
 TEST_F(TossTest, empty_db) {
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
-    GetNeighborsExecutor exec(eg);
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    GetNeighborsExecutor exec(s1, eg);
 
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_FALSE(env->outEdgeExist(eg));
-    EXPECT_FALSE(env->inEdgeExist(eg));
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_FALSE(s1->outEdgeExist(eg));
+    EXPECT_FALSE(s1->inEdgeExist(eg));
 }
 
 /**
@@ -103,12 +110,12 @@ TEST_F(TossTest, empty_db) {
  */
 TEST_F(TossTest, test0_add_eg) {
     LOG(INFO) << "b_=" << b_;
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    AddEdgeExecutor exec(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    AddEdgeExecutor exec(s1, eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 }
 
 /**
@@ -116,15 +123,15 @@ TEST_F(TossTest, test0_add_eg) {
  */
 TEST_F(TossTest, test0_add_eg_twice) {
     LOG(INFO) << "b_=" << b_;
-    auto eg1 = TossTestUtils::makeEdge(b_, edgeType_);
+    auto eg1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    AddEdgeExecutor exec1(eg1);
-    EXPECT_FALSE(env->lockExist(eg1));
-    EXPECT_TRUE(env->outEdgeExist(eg1));
-    EXPECT_TRUE(env->inEdgeExist(eg1));
+    AddEdgeExecutor exec1(s1, eg1);
+    EXPECT_FALSE(s1->lockExist(eg1));
+    EXPECT_TRUE(s1->outEdgeExist(eg1));
+    EXPECT_TRUE(s1->inEdgeExist(eg1));
 
     auto eg2 = TossTestUtils::makeTwinEdge(eg1);
-    AddEdgeExecutor exec2(eg2);
+    AddEdgeExecutor exec2(s1, eg2);
     EXPECT_TRUE(exec2.ok());
 }
 
@@ -133,17 +140,17 @@ TEST_F(TossTest, test0_add_eg_twice) {
  */
 TEST_F(TossTest, test0_add_eg_then_getProp) {
     LOG(INFO) << "b_=" << b_;
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    AddEdgeExecutor addExec(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    AddEdgeExecutor addExec(s1, eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 
-    GetPropsExecutor exec(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    GetPropsExecutor exec(s1, eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
     EXPECT_EQ(exec.data(), eg.props);
 }
 
@@ -153,51 +160,51 @@ TEST_F(TossTest, test0_add_eg_then_getProp) {
  */
 TEST_F(TossTest, test1_eg) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 1);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 1);
 
-    env->insertBiEdge(edges[0]);
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_FALSE(env->lockExist(edges[0]));
+    s1->insertBiEdge(edges[0]);
+    EXPECT_TRUE(s1->inEdgeExist(edges[0]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[0]));
+    EXPECT_FALSE(s1->lockExist(edges[0]));
 
-    GetPropsExecutor exec(edges[0]);
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_FALSE(env->lockExist(edges[0]));
+    GetPropsExecutor exec(s1, edges[0]);
+    EXPECT_TRUE(s1->inEdgeExist(edges[0]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[0]));
+    EXPECT_FALSE(s1->lockExist(edges[0]));
     EXPECT_EQ(edges[0].props, exec.data());
 }
 
 TEST_F(TossTest, test2_glk_getNei) {
     LOG(INFO) << "b_=" << b_;
-    auto lk = TossTestUtils::makeEdge(b_, edgeType_);
+    auto lk = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    auto lockKey = env->insertValidLock(lk);
-    EXPECT_FALSE(env->inEdgeExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->lockExist(lk));
+    auto lockKey = s1->insertValidLock(lk);
+    EXPECT_FALSE(s1->inEdgeExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->lockExist(lk));
 
-    GetNeighborsExecutor exec(lk);
+    GetNeighborsExecutor exec(s1, lk);
 
-    EXPECT_TRUE(env->inEdgeExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_FALSE(env->lockExist(lk));
+    EXPECT_TRUE(s1->inEdgeExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_FALSE(s1->lockExist(lk));
 
     UNUSED(exec);
 }
 
 TEST_F(TossTest, test2_glk_getProp) {
     LOG(INFO) << "b_=" << b_;
-    auto lk = TossTestUtils::makeEdge(b_, edgeType_);
+    auto lk = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    auto lockKey = env->insertValidLock(lk);
-    EXPECT_FALSE(env->inEdgeExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->lockExist(lk));
+    auto lockKey = s1->insertValidLock(lk);
+    EXPECT_FALSE(s1->inEdgeExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->lockExist(lk));
 
-    GetPropsExecutor exec(lk);
-    EXPECT_TRUE(env->inEdgeExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_FALSE(env->lockExist(lk));
+    GetPropsExecutor exec(s1, lk);
+    EXPECT_TRUE(s1->inEdgeExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_FALSE(s1->lockExist(lk));
     EXPECT_EQ(lk.props, exec.data());
 
     UNUSED(exec);
@@ -209,22 +216,22 @@ TEST_F(TossTest, test2_glk_getProp) {
 TEST_F(TossTest, test3_glk_eg) {
     LOG(INFO) << "b_=" << b_;
 
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertBiEdge(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertBiEdge(eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 
     auto lk = TossTestUtils::makeTwinEdge(eg);
-    env->insertValidLock(lk);
-    EXPECT_TRUE(env->lockExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->inEdgeExist(lk));
+    s1->insertValidLock(lk);
+    EXPECT_TRUE(s1->lockExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->inEdgeExist(lk));
 
-    GetPropsExecutor exec(lk);
-    EXPECT_FALSE(env->lockExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->inEdgeExist(lk));
+    GetPropsExecutor exec(s1, lk);
+    EXPECT_FALSE(s1->lockExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->inEdgeExist(lk));
 
     EXPECT_EQ(lk.props, exec.data());
 }
@@ -235,17 +242,17 @@ TEST_F(TossTest, test3_glk_eg) {
 TEST_F(TossTest, test4_blk) {
     LOG(INFO) << "b_=" << b_;
 
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
 
-    env->insertInvalidLock(eg);
-    EXPECT_TRUE(env->lockExist(eg));
-    EXPECT_FALSE(env->outEdgeExist(eg));
-    EXPECT_FALSE(env->inEdgeExist(eg));
+    s1->insertInvalidLock(eg);
+    EXPECT_TRUE(s1->lockExist(eg));
+    EXPECT_FALSE(s1->outEdgeExist(eg));
+    EXPECT_FALSE(s1->inEdgeExist(eg));
 
-    GetPropsExecutor exec(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_FALSE(env->outEdgeExist(eg));
-    EXPECT_FALSE(env->inEdgeExist(eg));
+    GetPropsExecutor exec(s1, eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_FALSE(s1->outEdgeExist(eg));
+    EXPECT_FALSE(s1->inEdgeExist(eg));
 
     UNUSED(exec);
 }
@@ -256,22 +263,22 @@ TEST_F(TossTest, test4_blk) {
 TEST_F(TossTest, test5_blk_eg) {
     LOG(INFO) << "b_=" << b_;
 
-    auto eg = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertBiEdge(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    auto eg = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertBiEdge(eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 
     auto lk = TossTestUtils::makeTwinEdge(eg);
-    env->insertInvalidLock(lk);
-    EXPECT_TRUE(env->lockExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->inEdgeExist(lk));
+    s1->insertInvalidLock(lk);
+    EXPECT_TRUE(s1->lockExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->inEdgeExist(lk));
 
-    GetPropsExecutor exec(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    GetPropsExecutor exec(s1, eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 
     EXPECT_EQ(eg.props, exec.data());
 }
@@ -281,30 +288,30 @@ TEST_F(TossTest, test5_blk_eg) {
  */
 TEST_F(TossTest, test6_e1_e2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
 
-    env->insertBiEdge(edges[0]);
-    env->insertBiEdge(edges[1]);
+    s1->insertBiEdge(edges[0]);
+    s1->insertBiEdge(edges[1]);
 
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
+    EXPECT_FALSE(s1->lockExist(edges[0]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[0]));
+    EXPECT_TRUE(s1->inEdgeExist(edges[0]));
 
-    EXPECT_FALSE(env->lockExist(edges[1]));
-    EXPECT_TRUE(env->outEdgeExist(edges[1]));
-    EXPECT_TRUE(env->inEdgeExist(edges[1]));
+    EXPECT_FALSE(s1->lockExist(edges[1]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[1]));
+    EXPECT_TRUE(s1->inEdgeExist(edges[1]));
 
-    GetPropsExecutor exec0(edges[0]);
-    GetPropsExecutor exec1(edges[1]);
+    GetPropsExecutor exec0(s1, edges[0]);
+    GetPropsExecutor exec1(s1, edges[1]);
 
-    EXPECT_FALSE(env->lockExist(edges[0]));
-    EXPECT_TRUE(env->outEdgeExist(edges[0]));
-    EXPECT_TRUE(env->inEdgeExist(edges[0]));
+    EXPECT_FALSE(s1->lockExist(edges[0]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[0]));
+    EXPECT_TRUE(s1->inEdgeExist(edges[0]));
     EXPECT_EQ(edges[0].props, exec0.data());
 
-    EXPECT_FALSE(env->lockExist(edges[1]));
-    EXPECT_TRUE(env->outEdgeExist(edges[1]));
-    EXPECT_TRUE(env->inEdgeExist(edges[1]));
+    EXPECT_FALSE(s1->lockExist(edges[1]));
+    EXPECT_TRUE(s1->outEdgeExist(edges[1]));
+    EXPECT_TRUE(s1->inEdgeExist(edges[1]));
     EXPECT_EQ(edges[1].props, exec1.data());
 }
 
@@ -314,31 +321,31 @@ TEST_F(TossTest, test6_e1_e2) {
 TEST_F(TossTest, test7_e1_glk2) {
     LOG(INFO) << "b_=" << b_;
 
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& eg = edges[0];
     auto& lk = edges[1];
 
-    env->insertBiEdge(eg);
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    s1->insertBiEdge(eg);
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
 
-    env->insertValidLock(lk);
-    EXPECT_TRUE(env->lockExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_FALSE(env->inEdgeExist(lk));
+    s1->insertValidLock(lk);
+    EXPECT_TRUE(s1->lockExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_FALSE(s1->inEdgeExist(lk));
 
-    GetPropsExecutor exec1(eg);
-    GetPropsExecutor exec2(lk);
+    GetPropsExecutor exec1(s1, eg);
+    GetPropsExecutor exec2(s1, lk);
 
-    EXPECT_FALSE(env->lockExist(eg));
-    EXPECT_TRUE(env->outEdgeExist(eg));
-    EXPECT_TRUE(env->inEdgeExist(eg));
+    EXPECT_FALSE(s1->lockExist(eg));
+    EXPECT_TRUE(s1->outEdgeExist(eg));
+    EXPECT_TRUE(s1->inEdgeExist(eg));
     EXPECT_EQ(eg.props, exec1.data());
 
-    EXPECT_FALSE(env->lockExist(lk));
-    EXPECT_TRUE(env->outEdgeExist(lk));
-    EXPECT_TRUE(env->inEdgeExist(lk));
+    EXPECT_FALSE(s1->lockExist(lk));
+    EXPECT_TRUE(s1->outEdgeExist(lk));
+    EXPECT_TRUE(s1->inEdgeExist(lk));
     EXPECT_EQ(lk.props, exec2.data());
 }
 
@@ -347,36 +354,36 @@ TEST_F(TossTest, test7_e1_glk2) {
  */
 TEST_F(TossTest, test8_e1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertBiEdge(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertValidLock(lk);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertValidLock(lk);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(lk.props, exec2.data());
 }
 
@@ -386,31 +393,31 @@ TEST_F(TossTest, test8_e1_glk2_eg2) {
 TEST_F(TossTest, test9_e1_blk2) {
     LOG(INFO) << "b_=" << b_;
 
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
 
-    env->insertBiEdge(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertInvalidLock(e2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    s1->insertInvalidLock(e2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor exec(e1);
+    GetNeighborsExecutor exec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 }
 
@@ -419,36 +426,36 @@ TEST_F(TossTest, test9_e1_blk2) {
  */
 TEST_F(TossTest, test10_eg1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertBiEdge(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertInvalidLock(lk);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertInvalidLock(lk);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -457,36 +464,35 @@ TEST_F(TossTest, test10_eg1_blk2_eg2) {
  */
 TEST_F(TossTest, test11_glk1_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     // auto lk = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    // env->insertInvalidLock(lk);
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    // s1->insertInvalidLock(lk);
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
-
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -495,34 +501,31 @@ TEST_F(TossTest, test11_glk1_eg2) {
  */
 TEST_F(TossTest, test11_blk1_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
 
-    env->insertInvalidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertInvalidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    // GetPropsExecutor exec1(e1);
-    // EXPECT_EQ(e1.props, exec1.data());
-
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -531,36 +534,36 @@ TEST_F(TossTest, test11_blk1_eg2) {
  */
 TEST_F(TossTest, test12_glk1_glk2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     // auto lk = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertValidLock(e2);
-    // env->insertInvalidLock(lk);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    s1->insertValidLock(e2);
+    // s1->insertInvalidLock(lk);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -569,31 +572,31 @@ TEST_F(TossTest, test12_glk1_glk2) {
  */
 TEST_F(TossTest, test12_glk1_blk2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
 
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertInvalidLock(e2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    s1->insertInvalidLock(e2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 }
 
@@ -602,29 +605,29 @@ TEST_F(TossTest, test12_glk1_blk2) {
  */
 TEST_F(TossTest, test12_blk1_blk2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
 
-    env->insertInvalidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertInvalidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertInvalidLock(e2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    s1->insertInvalidLock(e2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_FALSE(env->outEdgeExist(e2));
-    EXPECT_FALSE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_FALSE(s1->outEdgeExist(e2));
+    EXPECT_FALSE(s1->inEdgeExist(e2));
 }
 
 /**
@@ -632,36 +635,36 @@ TEST_F(TossTest, test12_blk1_blk2) {
  */
 TEST_F(TossTest, test14_glk1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto glk2 = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertValidLock(glk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertValidLock(glk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(glk2.props, exec2.data());
 }
 
@@ -670,36 +673,36 @@ TEST_F(TossTest, test14_glk1_glk2_eg2) {
  */
 TEST_F(TossTest, test14_glk1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto glk2 = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertInvalidLock(glk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertInvalidLock(glk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -708,33 +711,33 @@ TEST_F(TossTest, test14_glk1_blk2_eg2) {
  */
 TEST_F(TossTest, test14_blk1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto glk2 = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertInvalidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    s1->insertInvalidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertInvalidLock(glk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertInvalidLock(glk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -743,39 +746,39 @@ TEST_F(TossTest, test14_blk1_blk2_eg2) {
  */
 TEST_F(TossTest, test24_glk1_eg1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
 
 
-    env->insertBiEdge(e1);
-    env->insertValidLock(lk1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    s1->insertValidLock(lk1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertValidLock(lk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertValidLock(lk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(lk1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(lk2.props, exec2.data());
 }
 
@@ -784,39 +787,39 @@ TEST_F(TossTest, test24_glk1_eg1_glk2_eg2) {
  */
 TEST_F(TossTest, test24_glk1_eg1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
 
 
-    env->insertBiEdge(e1);
-    env->insertValidLock(lk1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    s1->insertValidLock(lk1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertInvalidLock(lk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertInvalidLock(lk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(lk1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -825,38 +828,38 @@ TEST_F(TossTest, test24_glk1_eg1_blk2_eg2) {
  */
 TEST_F(TossTest, test24_blk1_eg1_glk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertBiEdge(e1);
-    env->insertInvalidLock(lk1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    s1->insertInvalidLock(lk1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertValidLock(lk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertValidLock(lk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(lk2.props, exec2.data());
 }
 
@@ -865,38 +868,38 @@ TEST_F(TossTest, test24_blk1_eg1_glk2_eg2) {
  */
 TEST_F(TossTest, test24_blk1_eg1_blk2_eg2) {
     LOG(INFO) << "b_=" << b_;
-    auto edges = TossTestUtils::makeNeighborEdges(b_, edgeType_, 2);
+    auto edges = TossTestUtils::makeNeighborEdges(b_, s1->edgeType_, 2);
     auto& e1 = edges[0];
     auto& e2 = edges[1];
     auto lk1 = TossTestUtils::makeTwinEdge(e1);
     auto lk2 = TossTestUtils::makeTwinEdge(e2);
 
-    env->insertBiEdge(e1);
-    env->insertInvalidLock(lk1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    s1->insertBiEdge(e1);
+    s1->insertInvalidLock(lk1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    env->insertBiEdge(e2);
-    env->insertInvalidLock(lk2);
-    EXPECT_TRUE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    s1->insertBiEdge(e2);
+    s1->insertInvalidLock(lk2);
+    EXPECT_TRUE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetNeighborsExecutor neiExec(e1);
+    GetNeighborsExecutor neiExec(s1, e1);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    EXPECT_FALSE(env->lockExist(e2));
-    EXPECT_TRUE(env->outEdgeExist(e2));
-    EXPECT_TRUE(env->inEdgeExist(e2));
+    EXPECT_FALSE(s1->lockExist(e2));
+    EXPECT_TRUE(s1->outEdgeExist(e2));
+    EXPECT_TRUE(s1->inEdgeExist(e2));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e1.props, exec1.data());
 
-    GetPropsExecutor exec2(e2);
+    GetPropsExecutor exec2(s1, e2);
     EXPECT_EQ(e2.props, exec2.data());
 }
 
@@ -906,19 +909,19 @@ TEST_F(TossTest, test24_blk1_eg1_blk2_eg2) {
 TEST_F(TossTest, test30_update_eg) {
     LOG(INFO) << "b_=" << b_;
 
-    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertBiEdge(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertBiEdge(e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
     auto e2 = TossTestUtils::makeTwinEdge(e1);
-    UpdateExecutor upd(e2);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    UpdateExecutor upd(s1, e2);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e2.props, exec1.data());
 }
 
@@ -928,13 +931,13 @@ TEST_F(TossTest, test30_update_eg) {
 TEST_F(TossTest, test30_update_non_exist_eg) {
     LOG(INFO) << "b_=" << b_;
 
-    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
     auto e2 = TossTestUtils::makeTwinEdge(e1);
-    UpdateExecutor upd(e2);
+    UpdateExecutor upd(s1, e2);
 }
 
 /**
@@ -943,22 +946,22 @@ TEST_F(TossTest, test30_update_non_exist_eg) {
 TEST_F(TossTest, test30_update_glk) {
     LOG(INFO) << "b_=" << b_;
 
-    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertValidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertValidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
     auto e2 = TossTestUtils::makeTwinEdge(e1);
-    UpdateExecutor upd(e2);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    UpdateExecutor upd(s1, e2);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e2.props, exec1.data());
 
-    AddEdgeExecutor addEdge(e1);
+    AddEdgeExecutor addEdge(s1, e1);
     EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
@@ -968,20 +971,20 @@ TEST_F(TossTest, test30_update_glk) {
 TEST_F(TossTest, test30_update_blk) {
     LOG(INFO) << "b_=" << b_;
 
-    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertInvalidLock(e1);
-    EXPECT_TRUE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertInvalidLock(e1);
+    EXPECT_TRUE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
     auto e2 = TossTestUtils::makeTwinEdge(e1);
-    UpdateExecutor upd(e2);
+    UpdateExecutor upd(s1, e2);
 
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_FALSE(env->outEdgeExist(e1));
-    EXPECT_FALSE(env->inEdgeExist(e1));
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_FALSE(s1->outEdgeExist(e1));
+    EXPECT_FALSE(s1->inEdgeExist(e1));
 
-    AddEdgeExecutor addEdge(e1);
+    AddEdgeExecutor addEdge(s1, e1);
     EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
@@ -991,39 +994,76 @@ TEST_F(TossTest, test30_update_blk) {
 TEST_F(TossTest, test30_update_eg_then_add) {
     LOG(INFO) << "b_=" << b_;
 
-    auto e1 = TossTestUtils::makeEdge(b_, edgeType_);
-    env->insertBiEdge(e1);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    s1->insertBiEdge(e1);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
     auto e2 = TossTestUtils::makeTwinEdge(e1);
-    UpdateExecutor upd(e2);
-    EXPECT_FALSE(env->lockExist(e1));
-    EXPECT_TRUE(env->outEdgeExist(e1));
-    EXPECT_TRUE(env->inEdgeExist(e1));
+    UpdateExecutor upd(s1, e2);
+    EXPECT_FALSE(s1->lockExist(e1));
+    EXPECT_TRUE(s1->outEdgeExist(e1));
+    EXPECT_TRUE(s1->inEdgeExist(e1));
 
-    GetPropsExecutor exec1(e1);
+    GetPropsExecutor exec1(s1, e1);
     EXPECT_EQ(e2.props, exec1.data());
 
-    AddEdgeExecutor addEdge(e1);
+    AddEdgeExecutor addEdge(s1, e1);
     EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 }
 
 /**
- * @brief add string edge
+ * @brief add string edge in an string vid space
  */
-TEST_F(TossTest, test0_add_string_eg) {
-    auto eg = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
-    LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(eg.key));
-    LOG(INFO) << "TossTest::edgeTypeS_: " << TossTest::edgeTypeS_;
+TEST_F(TossTest, test40_string_vid_add_eg) {
+    auto eg = TossTestUtils::makeEdgeS(b_, s2->getEdgeType());
+    LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(s2->strEdgeKey(eg.key));
 
-    AddEdgeExecutor exec(eg, TossTest::spaceIdS_);
-    LOG(INFO) << "exec.code() = " << cpp2::_ErrorCode_VALUES_TO_NAMES.at(exec.code());
-    EXPECT_FALSE(env->lockExist(eg, TossTest::spaceIdS_));
-    EXPECT_TRUE(env->outEdgeExist(eg, TossTest::spaceIdS_));
-    EXPECT_TRUE(env->inEdgeExist(eg, TossTest::spaceIdS_));
+    AddEdgeExecutor exec(s2, eg);
+    EXPECT_TRUE(exec.ok());
+    EXPECT_FALSE(s2->lockExist(eg));
+    EXPECT_TRUE(s2->outEdgeExist(eg));
+    EXPECT_TRUE(s2->inEdgeExist(eg));
 }
+
+// /**
+//  * @brief add string edge in an string vid space
+//  */
+// TEST_F(TossTest, test50_multi_add_eg) {
+//     auto eg = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
+//     LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(eg.key));
+
+//     AddEdgeExecutor exec(s1, eg);
+//     EXPECT_TRUE(exec.ok());
+//     EXPECT_FALSE(s1->lockExist(eg));
+//     EXPECT_TRUE(s1->outEdgeExist(eg));
+//     EXPECT_TRUE(s1->inEdgeExist(eg));
+// }
+
+
+// /**
+//  * @brief update an edge in an string vid space
+//  */
+// TEST_F(TossTest, test40_string_vid_update_eg) {
+//     auto e1 = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
+//     LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(e1.key));
+
+//     s1->insertBiEdge(e1);
+//     EXPECT_FALSE(s1->lockExist(e1));
+//     EXPECT_TRUE(s1->outEdgeExist(e1));
+//     EXPECT_TRUE(s1->inEdgeExist(e1));
+
+//     auto e2 = TossTestUtils::makeTwinEdge(e1);
+
+//     UpdateExecutor upd(s1, e2);
+//     EXPECT_FALSE(s1->lockExist(e1));
+//     EXPECT_TRUE(s1->outEdgeExist(e1));
+//     EXPECT_TRUE(s1->inEdgeExist(e1));
+
+//     GetPropsExecutor exec1(s1, e1);
+//     EXPECT_EQ(e2.props, exec1.data());
+// }
 
 }  // namespace storage
 }  // namespace nebula
