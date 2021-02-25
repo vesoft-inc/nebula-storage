@@ -132,11 +132,12 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     }
 
     VertexID                              lastVertexId = "";
+
     // Only statis valid vetex data, no multi version
     // For example
     // Vid  tagId
     // 1     1
-    // 2     2  (invalid data)
+    // 2     2  (invalid data, for example, tag data without tag schema)
     // 2     3
     // 2     5
     // 3     1
@@ -166,7 +167,7 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     // For example
     // src edgetype rank dst
     // 1    1       1    2
-    // 2    2       1    3  (invalid data)
+    // 2    2       1    3  (invalid data, for example, edge data without edge schema)
     // 2    3       1    4
     // 2    3       1    5
     while (edgeIter && edgeIter->valid()) {
