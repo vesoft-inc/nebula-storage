@@ -16,8 +16,6 @@ namespace nebula {
 namespace storage {
 
 class ChainResumeProcessor : public BaseChainProcessor {
-    using LockGuard = nebula::MemoryLockGuard<std::string>;
-
 public:
     static ChainResumeProcessor* instance(StorageEnv* env,
                                           Callback&& cb,

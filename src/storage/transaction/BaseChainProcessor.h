@@ -16,6 +16,7 @@ namespace storage {
 
 class BaseChainProcessor {
 public:
+    using LockGuard = nebula::MemoryLockGuard<std::string>;
     using Callback = folly::Function<void(cpp2::ErrorCode)>;
 
     explicit BaseChainProcessor(Callback&& cb, StorageEnv* env) : cb_(std::move(cb)), env_(env) {
@@ -54,6 +55,7 @@ protected:
     cpp2::ErrorCode code_{cpp2::ErrorCode::SUCCEEDED};
     int32_t vIdLen_{-1};
     int64_t txnId_{0};
+    int32_t rpcRetryLimit_{32};
 };
 
 }  // namespace storage

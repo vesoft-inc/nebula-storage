@@ -64,13 +64,6 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
         indexes_ = std::move(iRet).value();
     }
 
-    auto sek = NebulaKeyUtils::edgeKey(spaceVidLen_,
-                                       partId,
-                                       edgeKey_.get_src().getStr(),
-                                       edgeKey_.get_edge_type(),
-                                       edgeKey_.get_ranking(),
-                                       edgeKey_.get_dst().getStr());
-
     VLOG(3) << "Update edge, spaceId: " << spaceId_ << ", partId:  " << partId
             << ", src: " << edgeKey_.get_src() << ", edge_type: " << edgeKey_.get_edge_type()
             << ", dst: " << edgeKey_.get_dst() << ", ranking: " << edgeKey_.get_ranking();

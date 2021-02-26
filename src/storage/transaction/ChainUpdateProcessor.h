@@ -13,7 +13,6 @@ namespace nebula {
 namespace storage {
 
 class ChainUpdateEdgeProcessor : public BaseChainProcessor {
-    using LockGuard = nebula::MemoryLockGuard<std::string>;
     using Getter = TransactionManager::UpdateEdgeGetter;
 
 public:
@@ -70,7 +69,7 @@ public:
     }
 
 private:
-    void updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
+    void updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& promise, int retry) noexcept;
 
 protected:
     GraphSpaceID spaceId_{-1};

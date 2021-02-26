@@ -43,11 +43,15 @@ folly::SemiFuture<cpp2::ErrorCode> ChainUpdateEdgeProcessor::processRemote(cpp2:
         TransactionUtils::changeToIntVid(inEdgeKey_);
     }
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    updateRemoteEdge(std::move(c.first));
+    updateRemoteEdge(std::move(c.first), 0);
     return std::move(c.second);
 }
 
-void ChainUpdateEdgeProcessor::updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& pro) noexcept {
+void ChainUpdateEdgeProcessor::updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&& pro,
+                                                int retry) noexcept {
+    if (retry > rpcRetryLimit_) {
+        pro.setValue(cpp2::ErrorCode::E_LEADER_CHANGED);
+    }
     auto* sClient = env_->txnMan_->getStorageClient();
     auto outEdgeKey(inEdgeKey_);
     std::swap(outEdgeKey.src, outEdgeKey.dst);
@@ -74,7 +78,9 @@ void ChainUpdateEdgeProcessor::updateRemoteEdge(folly::Promise<cpp2::ErrorCode>&
                 auto& partResult = failedPart.back();
                 code = partResult.get_code();
                 if (code == cpp2::ErrorCode::E_LEADER_CHANGED) {
-                    updateRemoteEdge(std::move(p));
+                    LOG(INFO) << "rpc retry txnId_=" << txnId_ << ", retry = " << retry;
+                    std::this_thread::sleep_for(std::chrono::microseconds(500));
+                    updateRemoteEdge(std::move(p), ++retry);
                 }
             } while (0);
             p.setValue(code);

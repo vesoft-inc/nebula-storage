@@ -113,11 +113,16 @@ folly::SemiFuture<cpp2::ErrorCode> ChainAddEdgesProcessor::processLocal(cpp2::Er
     std::for_each(inEdges_.begin(), inEdges_.end(), [&](auto& e) {
         bat.remove(TransactionUtils::lockKey(vIdLen_, partId_, e.key));
         auto ret = encoder_(e);
-        // if encode failed, processRemote should failed.
-        LOG_IF(INFO, FLAGS_trace_toss) << "put in-edge key: "
-                  << folly::hexlify(TransactionUtils::edgeKey(vIdLen_, partId_, e.key))
-                  << ", txnId_ = " << txnId_;
-        bat.put(TransactionUtils::edgeKey(vIdLen_, partId_, e.key), std::move(ret.first));
+        if (ret.second == cpp2::ErrorCode::SUCCEEDED) {
+            // if encode failed, processRemote should failed.
+            LOG_IF(INFO, FLAGS_trace_toss)
+                << "put in-edge key: "
+                << folly::hexlify(TransactionUtils::edgeKey(vIdLen_, partId_, e.key))
+                << ", txnId_ = " << txnId_;
+            bat.put(TransactionUtils::edgeKey(vIdLen_, partId_, e.key), std::move(ret.first));
+        } else {
+            LOG(WARNING) << "encode edge failed: " << CommonUtils::name(ret.second);
+        }
     });
 
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();

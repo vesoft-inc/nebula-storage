@@ -12,7 +12,6 @@ namespace nebula {
 namespace storage {
 
 class ChainAddEdgesProcessor : public BaseChainProcessor {
-    using LockGuard = nebula::MemoryLockGuard<std::string>;
     using Encoder = std::function<std::pair<std::string, cpp2::ErrorCode>(const cpp2::NewEdge& e)>;
 
 public:
@@ -70,18 +69,14 @@ private:
                folly::Promise<cpp2::ErrorCode>&& promise) noexcept;
 
 protected:
-    GraphSpaceID spaceId_{-1};
-    PartitionID partId_{-1};
-    std::vector<cpp2::NewEdge> inEdges_;
-    std::vector<std::string> propNames_;
-    bool overwritable_{true};
-    meta::cpp2::PropertyType spaceVidType_;
-    Encoder encoder_;
-    std::unique_ptr<LockGuard> lk_;
-
-    // bool convertVid_{false};
-    std::atomic<size_t> runningPart_{0};
-    // cpp2::AddEdgesRequest request_;
+    GraphSpaceID                spaceId_{-1};
+    PartitionID                 partId_{-1};
+    std::vector<cpp2::NewEdge>  inEdges_;
+    std::vector<std::string>    propNames_;
+    bool                        overwritable_{true};
+    meta::cpp2::PropertyType    spaceVidType_;
+    Encoder                     encoder_;
+    std::unique_ptr<LockGuard>  lk_;
 };
 
 }  // namespace storage
