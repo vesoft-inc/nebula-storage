@@ -63,6 +63,7 @@ class Balancer {
     FRIEND_TEST(BalanceTest, LeaderBalanceWithZoneTest);
     FRIEND_TEST(BalanceTest, LeaderBalanceWithLargerZoneTest);
     FRIEND_TEST(BalanceTest, LeaderBalanceWithComplexZoneTest);
+    FRIEND_TEST(BalanceTest, LeaderBalanceWithPartCorrelativityTest);
     FRIEND_TEST(BalanceTest, ExpansionZoneTest);
     FRIEND_TEST(BalanceTest, ExpansionHostIntoZoneTest);
     FRIEND_TEST(BalanceTest, ShrinkZoneTest);
@@ -233,6 +234,8 @@ private:
 
     bool checkZoneLegal(const HostAddr& source, const HostAddr& target, PartitionID part);
 
+    bool getPartCorrelativity(GraphSpaceID spaceId, const int32_t partSize);
+
 private:
     std::atomic_bool running_{false};
     kvstore::KVStore* kv_{nullptr};
@@ -248,6 +251,7 @@ private:
 
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
     std::unordered_map<HostAddr, ZoneNameAndParts> zoneParts_;
+    std::map<PartitionID, PartitionID> correlativity_;
 };
 
 }  // namespace meta

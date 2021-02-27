@@ -1942,6 +1942,114 @@ TEST(BalanceTest, LeaderBalanceWithComplexZoneTest) {
     }
 }
 
+cpp2::Correlativity toThriftCorrelativity(PartitionID partId, double proportion) {
+    cpp2::Correlativity correlativity;
+    correlativity.set_part_id(partId);
+    correlativity.set_proportion(proportion);
+    return correlativity;
+}
+
+TEST(BalanceTest, LeaderBalanceWithPartCorrelativityTest) {
+    cpp2::StatisItem item;
+    std::unordered_map<PartitionID, std::vector<cpp2::Correlativity>> positive_part_correlativity;
+    std::vector<cpp2::Correlativity> correlativities1 = {toThriftCorrelativity(2, 0.4),
+                                                         toThriftCorrelativity(3, 0.1),
+                                                         toThriftCorrelativity(4, 0.3),
+                                                         toThriftCorrelativity(5, 0.2)};
+    positive_part_correlativity.insert(std::make_pair(1, std::move(correlativities1)));
+
+    std::vector<cpp2::Correlativity> correlativities2 = {toThriftCorrelativity(1, 0.4),
+                                                         toThriftCorrelativity(3, 0.1),
+                                                         toThriftCorrelativity(4, 0.25),
+                                                         toThriftCorrelativity(5, 0.25)};
+    positive_part_correlativity.insert(std::make_pair(2, std::move(correlativities2)));
+
+    std::vector<cpp2::Correlativity> correlativities3 = {toThriftCorrelativity(1, 0.30),
+                                                         toThriftCorrelativity(2, 0.25),
+                                                         toThriftCorrelativity(4, 0.25),
+                                                         toThriftCorrelativity(5, 0.2)};
+    positive_part_correlativity.insert(std::make_pair(3, std::move(correlativities3)));
+
+    std::vector<cpp2::Correlativity> correlativities4 = {toThriftCorrelativity(1, 0.3),
+                                                         toThriftCorrelativity(2, 0.25),
+                                                         toThriftCorrelativity(3, 0.15),
+                                                         toThriftCorrelativity(5, 0.3)};
+    positive_part_correlativity.insert(std::make_pair(4, std::move(correlativities4)));
+
+    std::vector<cpp2::Correlativity> correlativities5 = {toThriftCorrelativity(1, 0.2),
+                                                         toThriftCorrelativity(2, 0.3),
+                                                         toThriftCorrelativity(3, 0.2),
+                                                         toThriftCorrelativity(4, 0.3)};
+
+    positive_part_correlativity.insert(std::make_pair(5, std::move(correlativities5)));
+    item.set_positive_part_correlativity(std::move(positive_part_correlativity));
+    item.set_status(cpp2::JobStatus::FINISHED);
+    fs::TempDir rootPath("/tmp/LeaderBalanceWithPartCorrelativityTest.XXXXXX");
+    auto store = MockCluster::initMetaKV(rootPath.path());
+    auto* kv = dynamic_cast<kvstore::KVStore*>(store.get());
+
+    FLAGS_heartbeat_interval_secs = 10;
+    std::vector<HostAddr> hosts;
+    for (int i = 0; i < 3; i++) {
+        hosts.emplace_back(std::to_string(i), i);
+    }
+    TestUtils::createSomeHosts(kv, hosts);
+    TestUtils::registerHB(kv, hosts);
+
+    GraphSpaceID spaceId = 1;
+    {
+        cpp2::SpaceDesc properties;
+        properties.set_space_name("default_space");
+        properties.set_partition_num(5);
+        properties.set_replica_factor(3);
+        cpp2::CreateSpaceReq req;
+        req.set_properties(std::move(properties));
+        auto* processor = CreateSpaceProcessor::instance(kv);
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(spaceId, resp.get_id().get_space_id());
+        showHostLoading(kv, resp.get_id().get_space_id());
+    }
+
+    folly::Baton<true, std::atomic> baton;
+    auto ret = kvstore::ResultCode::SUCCEEDED;
+    std::vector<kvstore::KV> data;
+    data.emplace_back(MetaServiceUtils::statisKey(spaceId),
+                      MetaServiceUtils::statisVal(std::move(item)));
+    kv->asyncMultiPut(kDefaultSpaceId,
+                      kDefaultPartId,
+                      std::move(data),
+                      [&baton, &ret] (kvstore::ResultCode code) {
+        if (kvstore::ResultCode::SUCCEEDED != code) {
+            ret = code;
+            LOG(ERROR) << "Can't write the kvstore, ret = " << static_cast<int32_t>(code);
+        }
+        baton.post();
+    });
+    baton.wait();
+    ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+
+    DefaultValue<folly::Future<Status>>::SetFactory([] {
+        return folly::Future<Status>(Status::OK());
+    });
+    NiceMock<MockAdminClient> client;
+    Balancer balancer(kv, &client);
+    {
+        HostLeaderMap hostLeaderMap;
+        hostLeaderMap[HostAddr("0", 0)][1] = {};
+        hostLeaderMap[HostAddr("1", 1)][1] = {1, 2, 3, 4, 5};
+        hostLeaderMap[HostAddr("2", 2)][1] = {};
+
+        LeaderBalancePlan plan;
+        auto leaderBalanceResult = balancer.buildLeaderBalancePlan(&hostLeaderMap, 1, 3,
+                                                                   true, plan, true);
+        ASSERT_TRUE(leaderBalanceResult);
+        verifyLeaderBalancePlan(hostLeaderMap, plan, 1, 9);
+    }
+}
+
 }  // namespace meta
 }  // namespace nebula
 

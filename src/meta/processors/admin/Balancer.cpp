@@ -17,6 +17,9 @@
 DEFINE_double(leader_balance_deviation, 0.05, "after leader balance, leader count should in range "
                                               "[avg * (1 - deviation), avg * (1 + deviation)]");
 
+DEFINE_double(part_correlativity, 0.8, "Beyond that average correlation degree, the partition "
+                                       "will be tried to schedule to the same node");
+
 namespace nebula {
 namespace meta {
 
@@ -774,6 +777,12 @@ bool Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
         }
     }
 
+    if (FLAGS_part_correlativity != 0.0) {
+        if (!getPartCorrelativity(spaceId, peersMap.size())) {
+            LOG(ERROR) << "Get Part Correlativity failed";
+        }
+    }
+
     while (true) {
         int32_t taskCount = 0;
         bool hasUnbalancedHost = false;
@@ -828,6 +837,23 @@ int32_t Balancer::acquireLeaders(HostParts& allHostParts,
     std::set_difference(allHostParts[target].begin(), allHostParts[target].end(),
                         leaderHostParts[target].begin(), leaderHostParts[target].end(),
                         std::back_inserter(diff));
+
+    if (FLAGS_part_correlativity != 0.0) {
+        for (auto part : leaderHostParts[target]) {
+            auto iter = correlativity_.find(part);
+            if (iter == correlativity_.end()) {
+                continue;
+            }
+            auto targetPart = iter->second;
+            auto p = std::find(diff.begin(), diff.end(), targetPart);
+            if (p == diff.end()) {
+                continue;
+            }
+            diff.erase(p);
+            diff.insert(diff.begin(), targetPart);
+        }
+    }
+
     auto& targetLeaders = leaderHostParts[target];
     size_t minLoad = hostBounds_[target].first;
     for (const auto& partId : diff) {
@@ -891,6 +917,39 @@ int32_t Balancer::giveupLeaders(HostParts& leaderParts,
                                            }
                                            return leaderParts[l].size() < leaderParts[r].size();
                                        });
+
+        if (FLAGS_part_correlativity != 0.0) {
+            {
+                auto iter = correlativity_.find(partId);
+                if (iter != correlativity_.end()) {
+                    auto targetPart = iter->second;
+                    auto targetIter = std::find(sourceLeaders.begin(),
+                                                sourceLeaders.end(),
+                                                targetPart);
+                    if (targetIter != sourceLeaders.end()) {
+                        LOG(INFO) << partId << " : " << *targetIter << " relationed";
+                        ++it;
+                        continue;
+                    }
+                }
+            }
+            {
+                for (auto iter = correlativity_.begin();
+                     iter != correlativity_.end();
+                     ++iter) {
+                    if (iter->second == partId) {
+                        auto sourceIter = std::find(sourceLeaders.begin(),
+                                                    sourceLeaders.end(),
+                                                    iter->first);
+                        if (sourceIter != sourceLeaders.end()) {
+                            LOG(INFO) << partId << " : " << *sourceIter << " relationed";
+                            ++it;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
 
         // If peer can accept this partition leader, than host will transfer to the peer
         if (target != targets.end()) {
@@ -1022,6 +1081,67 @@ bool Balancer::checkZoneLegal(const HostAddr& source,
 
     auto& parts = targetIter->second.second;
     return std::find(parts.begin(), parts.end(), part) == parts.end();
+}
+
+bool Balancer::getPartCorrelativity(GraphSpaceID spaceId, const int32_t partSize) {
+    auto statisKey = MetaServiceUtils::statisKey(spaceId);
+    std::string val;
+    auto result = kv_->get(kDefaultSpaceId, kDefaultPartId, statisKey, &val);
+    if (result != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "SpaceId " << spaceId << " no statis data";
+        return false;
+    }
+
+    auto statisItem = MetaServiceUtils::parseStatisVal(val);
+    auto statisJobStatus = statisItem.get_status();
+    if (statisJobStatus != cpp2::JobStatus::FINISHED) {
+        LOG(ERROR) << "SpaceId " << spaceId << " statis job is running or failed";
+        return false;
+    }
+
+    double** correlation = new double*[partSize + 1];
+    for (int32_t i = 1; i <= partSize; i++) {
+        correlation[i] = new double[partSize + 1];
+    }
+
+    auto& positiveCorelativity = statisItem.get_positive_part_correlativity();
+    for (auto iter = positiveCorelativity.begin(); iter != positiveCorelativity.end(); iter++) {
+        if (iter->second.size() == 0) {
+            continue;
+        }
+        auto sourcePart = iter->first;
+        for (const auto& c : iter->second) {
+            auto part = c.get_part_id();
+            auto proportion = c.get_proportion();
+            correlation[sourcePart][part] = proportion * FLAGS_part_correlativity;
+        }
+    }
+
+    auto& negativeCorelativity = statisItem.get_negative_part_correlativity();
+    for (auto iter = negativeCorelativity.begin(); iter != negativeCorelativity.end(); iter++) {
+        if (iter->second.size() == 0) {
+            continue;
+        }
+        auto targetPart = iter->first;
+        for (const auto& c : iter->second) {
+            auto part = c.get_part_id();
+            auto proportion = c.get_proportion();
+            correlation[part][targetPart] +=  proportion * (1- FLAGS_part_correlativity);
+        }
+    }
+
+    for (PartitionID i = 1; i <= partSize; i++) {
+        double max = 0;
+        for (PartitionID j = 1; j <= partSize; j++) {
+            if (correlation[i][j] > max) {
+                max = correlation[i][j];
+                correlativity_[i] = j;
+            }
+        }
+        delete[] correlation[i];
+    }
+    delete[] correlation;
+    return true;
 }
 
 }  // namespace meta
