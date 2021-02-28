@@ -16,6 +16,7 @@
 
 DEFINE_double(leader_balance_deviation, 0.05, "after leader balance, leader count should in range "
                                               "[avg * (1 - deviation), avg * (1 + deviation)]");
+DEFINE_int32(leader_balance_times, 1024, "Leader balance iteration times");
 
 namespace nebula {
 namespace meta {
@@ -777,7 +778,8 @@ bool Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
         }
     }
 
-    while (true) {
+    int32_t loopTimes = 0;
+    while (loopTimes < FLAGS_leader_balance_times) {
         int32_t taskCount = 0;
         bool hasUnbalancedHost = false;
         for (const auto& hostEntry : leaderHostParts) {
@@ -814,6 +816,7 @@ bool Balancer::buildLeaderBalancePlan(HostLeaderMap* hostLeaderMap,
             LOG(INFO) << "Not need balance";
             break;
         }
+        loopTimes += 1;
     }
     return true;
 }
