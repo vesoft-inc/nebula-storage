@@ -1027,43 +1027,51 @@ TEST_F(TossTest, test40_string_vid_add_eg) {
     EXPECT_TRUE(s2->inEdgeExist(eg));
 }
 
-// /**
-//  * @brief add string edge in an string vid space
-//  */
-// TEST_F(TossTest, test50_multi_add_eg) {
-//     auto eg = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
-//     LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(eg.key));
+/**
+ * @brief update an edge in an string vid space
+ */
+TEST_F(TossTest, test40_string_vid_update_eg) {
+    auto e1 = TossTestUtils::makeEdgeS(b_, s2->getEdgeType());
+    LOG(INFO) << "b_=" << b_ << ", e1 hex: " << folly::hexlify(s2->strEdgeKey(e1.key));
 
-//     AddEdgeExecutor exec(s1, eg);
-//     EXPECT_TRUE(exec.ok());
-//     EXPECT_FALSE(s1->lockExist(eg));
-//     EXPECT_TRUE(s1->outEdgeExist(eg));
-//     EXPECT_TRUE(s1->inEdgeExist(eg));
-// }
+    s2->insertBiEdge(e1);
+    EXPECT_FALSE(s2->lockExist(e1));
+    EXPECT_TRUE(s2->outEdgeExist(e1));
+    EXPECT_TRUE(s2->inEdgeExist(e1));
 
+    auto e2 = TossTestUtils::makeTwinEdge(e1);
 
-// /**
-//  * @brief update an edge in an string vid space
-//  */
-// TEST_F(TossTest, test40_string_vid_update_eg) {
-//     auto e1 = TossTestUtils::makeEdgeS(b_, TossTest::edgeTypeS_);
-//     LOG(INFO) << "b_=" << b_ << ", eg hex: " << folly::hexlify(env->strEdgeKey(e1.key));
+    UpdateExecutor upd(s2, e2);
+    EXPECT_FALSE(s2->lockExist(e1));
+    EXPECT_TRUE(s2->outEdgeExist(e1));
+    EXPECT_TRUE(s2->inEdgeExist(e1));
 
-//     s1->insertBiEdge(e1);
-//     EXPECT_FALSE(s1->lockExist(e1));
-//     EXPECT_TRUE(s1->outEdgeExist(e1));
-//     EXPECT_TRUE(s1->inEdgeExist(e1));
+    GetPropsExecutor exec1(s2, e1);
+    EXPECT_EQ(e2.props, exec1.data());
+}
 
-//     auto e2 = TossTestUtils::makeTwinEdge(e1);
+/**
+ * @brief add string edge in an string vid space
+ */
+TEST_F(TossTest, test50_multi_add_eg) {
+    auto num = 100U;
+    std::vector<cpp2::NewEdge> edges;
+    for (auto i = 0U; i != num; ++i) {
+        edges.emplace_back(TossTestUtils::makeEdge(b_ + i, s1->edgeType_));
+    }
+    // auto e1 = TossTestUtils::makeEdge(b_, s1->edgeType_);
+    LOG(INFO) << "b_=" << b_;
 
-//     UpdateExecutor upd(s1, e2);
-//     EXPECT_FALSE(s1->lockExist(e1));
-//     EXPECT_TRUE(s1->outEdgeExist(e1));
-//     EXPECT_TRUE(s1->inEdgeExist(e1));
+    AddEdgeExecutor addEdge(s1, edges);
+    EXPECT_EQ(addEdge.code(), cpp2::ErrorCode::SUCCEEDED);
 
-//     GetPropsExecutor exec1(s1, e1);
-//     EXPECT_EQ(e2.props, exec1.data());
-// }
+    for (auto& eg : edges) {
+        EXPECT_FALSE(s1->lockExist(eg));
+        EXPECT_TRUE(s1->outEdgeExist(eg));
+        EXPECT_TRUE(s1->inEdgeExist(eg));
+    }
+}
+
 
 }  // namespace storage
 }  // namespace nebula

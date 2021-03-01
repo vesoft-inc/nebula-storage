@@ -1,4 +1,4 @@
-/* Copyright (c) 2020 vesoft inc. All rights reserved.
+/* Copyright (c) 2021 vesoft inc. All rights reserved.
  *
  * This source code is licensed under Apache 2.0 License,
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
@@ -201,11 +201,22 @@ struct AddEdgeExecutor {
 
 public:
     AddEdgeExecutor(TestSpace* s, cpp2::NewEdge edge) : s_(s) {
-        CHECK_GT(edge.key.edge_type, 0);
-        edges_.push_back(edge);
-        std::swap(edges_.back().key.src, edges_.back().key.dst);
-        edges_.back().key.edge_type = 0 - edges_.back().key.edge_type;
+        appendEdge(std::move(edge));
         rpc();
+    }
+
+    AddEdgeExecutor(TestSpace* s, std::vector<cpp2::NewEdge> edges) : s_(s) {
+        for (auto& eg : edges) {
+            appendEdge(std::move(eg));
+        }
+        rpc();
+    }
+
+    void appendEdge(cpp2::NewEdge&& edge) {
+        CHECK_GT(edge.key.edge_type, 0);
+        edges_.emplace_back(std::move(edge));
+        edges_.back().key.edge_type = 0 - edges_.back().key.edge_type;
+        std::swap(edges_.back().key.src, edges_.back().key.dst);
     }
 
     void rpc() {
@@ -237,65 +248,6 @@ public:
     cpp2::ErrorCode code() {
         return code_;
     }
-    // cpp2::ErrorCode syncAddMultiEdges(std::vector<cpp2::NewEdge>& edges, bool useToss) {
-    //     bool retLeaderChange = false;
-    //     int32_t retry = 0;
-    //     int32_t retryMax = 10;
-    //     do {
-    //         if (retry > 0 && retry != retryMax) {
-    //             LOG(INFO) << "\n leader changed, retry=" << retry;
-    //             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    //             retLeaderChange = false;
-    //         }
-    //         auto f = addEdgesAsync(edges, useToss);
-    //         f.wait();
-    //         if (!f.valid()) {
-    //             LOG(INFO) << cpp2::_ErrorCode_VALUES_TO_NAMES.at(cpp2::ErrorCode::E_UNKNOWN);
-    //             return cpp2::ErrorCode::E_UNKNOWN;
-    //         }
-    //         if (!f.value().succeeded()) {
-    //             LOG(INFO) << "addEdgeAsync() !f.value().succeeded()";
-    //             LOG(INFO) << "f.value().failedParts().size()=" << f.value().failedParts().size();
-    //             for (auto& part : f.value().failedParts()) {
-    //                 LOG(INFO) << "partId=" << part.first
-    //                           << ", ec=" << cpp2::_ErrorCode_VALUES_TO_NAMES.at(part.second);
-    //                 if (part.second == cpp2::ErrorCode::E_LEADER_CHANGED) {
-    //                     retLeaderChange = true;
-    //                 }
-    //             }
-    //         }
-
-    //         std::vector<cpp2::ExecResponse>& execResps = f.value().responses();
-    //         for (auto& execResp : execResps) {
-    //             // ResponseCommon
-    //             auto& respComn = execResp.result;
-    //             auto& failedParts = respComn.get_failed_parts();
-    //             for (auto& part : failedParts) {
-    //                 if (part.code == cpp2::ErrorCode::E_LEADER_CHANGED) {
-    //                     retLeaderChange = true;
-    //                     LOG(INFO) << "addEdgeAsync() !f.value().succeeded(), retry";
-    //                 }
-    //             }
-    //         }
-
-    //         if (++retry == retryMax) {
-    //             break;
-    //         }
-    //     } while (retLeaderChange);
-    //     LOG(INFO) << "addEdgeAsync() succeeded";
-    //     return cpp2::ErrorCode::SUCCEEDED;
-    // }
-
-    // cpp2::ErrorCode syncAddEdge(const cpp2::NewEdge& edge, bool useToss = true) {
-    //     std::vector<cpp2::NewEdge> edges{edge};
-    //     return syncAddMultiEdges(edges, useToss);
-    // }
-
-    // folly::SemiFuture<StorageRpcResponse<cpp2::ExecResponse>>
-    // addEdgesAsync(const std::vector<cpp2::NewEdge>& edges, bool useToss = true) {
-    //     auto propNames = TossTestUtils::makeColNames(edges.back().props.size());
-    //     return sClient_->addEdges(spaceId_, edges, propNames, true, nullptr, useToss);
-    // }
 };
 
 struct GetPropsExecutor {
