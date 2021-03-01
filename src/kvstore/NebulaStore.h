@@ -198,9 +198,9 @@ public:
                           KVCallback cb) override;
 
     void asyncAppendBatch(GraphSpaceID spaceId,
-                               PartitionID partId,
-                               std::string batch,
-                               KVCallback cb) override;
+                          PartitionID partId,
+                          std::string&& batch,
+                          KVCallback cb) override;
 
     void asyncAtomicOp(GraphSpaceID spaceId,
                        PartitionID partId,
