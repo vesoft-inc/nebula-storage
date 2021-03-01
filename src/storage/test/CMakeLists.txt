@@ -226,23 +226,23 @@ nebula_add_executable(
         boost_regex
 )
 
-# nebula_add_executable(
-#     NAME
-#         toss_bm
-#     SOURCES
-#         TossBenchmark.cpp
-#     OBJECTS
-#         ${storage_test_deps}
-#         $<TARGET_OBJECTS:common_graph_storage_client_obj>
-#         $<TARGET_OBJECTS:common_storage_client_base_obj>
-#     LIBRARIES
-#         ${ROCKSDB_LIBRARIES}
-#         ${THRIFT_LIBRARIES}
-#         ${PROXYGEN_LIBRARIES}
-#         wangle
-#         follybenchmark
-#         boost_regex
-# )
+nebula_add_executable(
+    NAME
+        toss_bm
+    SOURCES
+        TossBenchmark.cpp
+    OBJECTS
+        ${storage_test_deps}
+        $<TARGET_OBJECTS:common_graph_storage_client_obj>
+        $<TARGET_OBJECTS:common_storage_client_base_obj>
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
+)
 
 # nebula_add_test(
 #     NAME

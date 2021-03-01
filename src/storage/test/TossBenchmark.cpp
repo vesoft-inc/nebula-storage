@@ -11,239 +11,87 @@
 #include <gtest/gtest.h>
 
 #include "TossEnvironment.h"
+#include "TossTestExecutor.h"
 
-#define oneReqOneEdge         1
-#define oneReqTenEdges        1
-#define oneReqHundredEdges    1
-#define oneReqThousandEdges   1
+#define EDGES_PER_REQ_1      1
+#define EDGES_PER_REQ_10     0
+#define EDGES_PER_REQ_100    0
+#define EDGES_PER_REQ_1000   0
 
 
 namespace nebula {
 namespace storage {
 
-using StorageClient = storage::GraphStorageClient;
+const std::string kMetaName = "127.0.0.1";  // NOLINT
+constexpr int32_t kMetaPort = 6500;
+const std::string kSpaceName = "test";   // NOLINT
+const std::string kEdgeName = "test_edge";   // NOLINT
+constexpr int32_t kPart = 5;
+constexpr int32_t kReplica = 3;
 
-bool useToss = true;
-bool notToss = false;
-
-int32_t gRank = 0;
-std::map<int32_t, int32_t> gAddedEdges;
-
-std::vector<meta::cpp2::PropertyType> gTypes;
-
-std::vector<meta::cpp2::ColumnDef>
-genColDefs(const std::vector<meta::cpp2::PropertyType>& types) {
-    auto N = types.size();
-    auto colNames = TossEnvironment::makeColNames(N);
-    std::vector<meta::cpp2::ColumnDef> ret(N);
-    for (auto i = 0U; i != N; ++i) {
-        ret[i].set_name(colNames[i]);
-        meta::cpp2::ColumnTypeDef tpDef;
-        tpDef.set_type(types[i]);
-        ret[i].set_type(tpDef);
-        ret[i].set_nullable(true);
-    }
-    return ret;
-}
+TossEnvironment* gEnv{nullptr};
+std::unique_ptr<TestSpace> spaceToss;
+std::unique_ptr<TestSpace> spaceNoToss;
+std::vector<cpp2::NewEdge> edgesToss;
+std::vector<cpp2::NewEdge> edgesNoToss;
 
 void setupEnvironment() {
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<meta::cpp2::PropertyType> types;
-    gTypes.emplace_back(meta::cpp2::PropertyType::INT64);
-    gTypes.emplace_back(meta::cpp2::PropertyType::STRING);
+    gEnv = TossEnvironment::getInstance();
+    CHECK(gEnv->connectToMeta(kMetaName, kMetaPort));
 
-    auto colDefs = genColDefs(gTypes);
-    env->init(kSpaceName, kPart, kReplica, colDefs);
+    std::vector<meta::cpp2::PropertyType> colTypes{meta::cpp2::PropertyType::INT64,
+                                                   meta::cpp2::PropertyType::STRING};
+
+    auto intVid = meta::cpp2::PropertyType::INT64;
+    bool useToss = true;
+
+    spaceToss = std::make_unique<TestSpace>(
+        gEnv, "bm_toss", kPart, kReplica, intVid, kEdgeName, colTypes, useToss);
+
+    spaceNoToss = std::make_unique<TestSpace>(
+        gEnv, "bm_toss_no", kPart, kReplica, intVid, kEdgeName, colTypes, !useToss);
+
+    auto num = 10000U;
+    auto base = 10000;
+    for (auto i = 0U; i != num; ++i) {
+        edgesToss.emplace_back(TossTestUtils::makeEdge(base + i, spaceToss->edgeType_));
+    }
+
+    for (auto i = 0U; i != num; ++i) {
+        edgesNoToss.emplace_back(TossTestUtils::makeEdge(base + i, spaceNoToss->edgeType_));
+    }
 }
 
-#if oneReqOneEdge
-BENCHMARK(bmOneReqOneEdgeTossNo) {
-    int32_t srcId = 10000;
-    ++gAddedEdges[srcId];
-    auto dstId = gAddedEdges[srcId];
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("bmoneReqOneEdgeTossNo, src={}, dst={}", srcId, dstId));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    auto edge = env->generateEdge(srcId, gRank, vals, dstId);
-
-    env->syncAddEdge(edge, notToss);
+#if EDGES_PER_REQ_1
+BENCHMARK(bm_no_toss) {
+    AddEdgeExecutor exec(spaceNoToss.get(), edgesNoToss);
 }
 
-BENCHMARK_RELATIVE(bmOneReqOneEdgeTossYes) {
-    int32_t srcId = 20000;
-    ++gAddedEdges[srcId];
-    auto dstId = gAddedEdges[srcId];
-
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("bmoneReqOneEdgeTossYes, src={}, dst={}", srcId, dstId));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    auto edge = env->generateEdge(srcId, gRank, vals, dstId);
-
-    env->syncAddEdge(edge, useToss);
+BENCHMARK_RELATIVE(bm_toss) {
+    AddEdgeExecutor exec(spaceToss.get(), edgesToss);
 }
 
 
 BENCHMARK_DRAW_LINE();
-#endif
-
-#if oneReqTenEdges
-BENCHMARK(bmOneReqTenEdges) {
-    size_t cnt = 10;
-    int32_t srcId = 30000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, notToss).wait();
-}
-
-BENCHMARK_RELATIVE(bmOneReqTenEdgesToss) {
-    size_t cnt = 10;
-    int32_t srcId = 40000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, useToss).wait();
-}
-#endif
-
-#if oneReqHundredEdges
-BENCHMARK_DRAW_LINE();
-BENCHMARK(bmOneReqHundredEdges) {
-    size_t cnt = 100;
-    int32_t srcId = 50000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, notToss).wait();
-}
-
-BENCHMARK_RELATIVE(bmOneReqHundredEdgesToss) {
-    size_t cnt = 100;
-    int32_t srcId = 60000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, useToss).wait();
-}
-#endif
-
-#if oneReqThousandEdges
-BENCHMARK_DRAW_LINE();
-BENCHMARK(bmOneReqThousandEdges) {
-    size_t cnt = 1000;
-    int32_t srcId = 70000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, notToss).wait();
-}
-
-BENCHMARK_RELATIVE(bmOneReqThousandEdgesToss) {
-    size_t cnt = 1000;
-    int32_t srcId = 80000;
-    std::vector<nebula::Value> vals(gTypes.size());
-    vals[0].setInt(srcId);
-    vals[1].setStr(folly::sformat("{}", __func__));
-
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    std::vector<cpp2::NewEdge> edges;
-    edges.reserve(cnt);
-    for (auto i = 0U; i < cnt; ++i) {
-        ++gAddedEdges[srcId];
-        auto dstId = gAddedEdges[srcId];
-        edges.emplace_back(env->generateEdge(srcId, gRank, vals, dstId));
-    }
-    env->addEdgesAsync(edges, useToss).wait();
-}
 #endif
 
 }  // namespace storage
 }  // namespace nebula
 
-using namespace nebula::storage;  // NOLINT
+// using namespace nebula::storage;  // NOLINT
 
 int main(int argc, char** argv) {
     FLAGS_heartbeat_interval_secs = 1;
     FLAGS_logtostderr = 1;
 
     folly::init(&argc, &argv, false);
-    setupEnvironment();
+    nebula::storage::setupEnvironment();
     folly::runBenchmarks();
-    LOG(INFO) << "exit main";
 
-    auto env = TossEnvironment::getInstance(kMetaName, kMetaPort);
-    for (auto& item : gAddedEdges) {
-        std::vector<nebula::storage::cpp2::NewEdge> edges;
-        std::vector<nebula::Value> vals(gTypes.size());
-        edges.emplace_back(env->generateEdge(item.first, gRank, vals));
-        auto strNei = env->getNeiProps(edges);
-        auto cnt = env->countSquareBrackets(strNei);
-        LOG(INFO) << folly::sformat("testId={}, testCalled={}, cnt={}",
-                                    item.first, item.second, cnt);
-    }
+    LOG(INFO) << "exit main";
 }
 
 // ============================================================================
-// TossBenchmark.cpprelative                       (fcb6a91) time/iter  iters/s
-// ============================================================================
-// bmOneReqOneEdgeTossNo                                        1.82ms   549.76
-// bmOneReqOneEdgeTossYes                            42.83%     4.25ms   235.46
+// bm_no_toss                                                  36.66ms    27.28
+// bm_toss                                           54.64%    67.09ms    14.91
 // ----------------------------------------------------------------------------
-// bmOneReqTenEdges                                             1.96ms   511.07
-// bmOneReqTenEdgesToss                              20.05%     9.76ms   102.49
-// ----------------------------------------------------------------------------
-// bmOneReqHundredEdges                                         6.93ms   144.31
-// bmOneReqHundredEdgesToss                          49.95%    13.87ms    72.08
-// ----------------------------------------------------------------------------
-// bmOneReqThousandEdges                                       33.76ms    29.62
-// bmOneReqThousandEdgesToss                         69.75%    48.40ms    20.66
-// ============================================================================

@@ -220,14 +220,14 @@ public:
     }
 
     void rpc() {
-        LOG(INFO) << "AddEdgeExecutor::rpc(), spaceId=" << s_->getSpaceId();
+        // LOG(INFO) << "AddEdgeExecutor::rpc(), spaceId=" << s_->getSpaceId();
         auto propNames = TossTestUtils::makeColNames(edges_.back().props.size());
         bool overwritable = true;
         folly::EventBase* evb = nullptr;
-        bool useToss = true;
+        bool useToss = s_->useToss_;
         int retry = 10;
         do {
-            LOG(INFO) << "AddEdgeExecutor::rpc(), do retry = " << retry;
+            // LOG(INFO) << "AddEdgeExecutor::rpc(), do retry = " << retry;
             auto f = s_->sClient_->addEdges(
                 s_->getSpaceId(), edges_, propNames, overwritable, evb, useToss);
             f.wait();

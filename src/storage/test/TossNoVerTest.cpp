@@ -13,9 +13,6 @@
 namespace nebula {
 namespace storage {
 
-constexpr bool kUseToss = true;
-constexpr bool kNotUseToss = false;
-
 const std::string kMetaName = "127.0.0.1";  // NOLINT
 constexpr int32_t kMetaPort = 6500;
 const std::string kSpaceName = "test";   // NOLINT
@@ -387,9 +384,9 @@ TEST_F(TossTest, test8_e1_glk2_eg2) {
     EXPECT_EQ(lk.props, exec2.data());
 }
 
-// /**
-//  * @brief edge1 + bad lock2
-//  */
+/**
+ * @brief edge1 + bad lock2
+ */
 TEST_F(TossTest, test9_e1_blk2) {
     LOG(INFO) << "b_=" << b_;
 

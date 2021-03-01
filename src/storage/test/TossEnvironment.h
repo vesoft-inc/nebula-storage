@@ -64,6 +64,7 @@ struct TestSpace {
     int32_t edgeType_{};
     int32_t vIdLen_{0};
     std::string edgeName_;
+    bool useToss_;
 
     meta::MetaClient*                   mClient_;
     StorageClient*                      sClient_;
@@ -76,7 +77,8 @@ public:
               int nReplica,
               meta::cpp2::PropertyType vidType,
               const std::string& edgeName,
-              std::vector<meta::cpp2::PropertyType> colTypes) : env_(env), edgeName_(edgeName) {
+              std::vector<meta::cpp2::PropertyType> colTypes,
+              bool useToss = true) : env_(env), edgeName_(edgeName), useToss_(useToss) {
         mClient_ = env->mClient_.get();
         sClient_ = env->sClient_.get();
         iClient_ = env->iClient_.get();
@@ -105,7 +107,8 @@ public:
 
         colType.set_type(vidType);
         spaceDesc.set_vid_type(colType);
-        spaceDesc.set_isolation_level(meta::cpp2::IsolationLevel::TOSS);
+        auto lv = useToss_ ? meta::cpp2::IsolationLevel::TOSS : meta::cpp2::IsolationLevel::DEFAULT;
+        spaceDesc.set_isolation_level(lv);
 
         auto fCreateSpace = env_->mClient_->createSpace(spaceDesc, true);
         fCreateSpace.wait();
