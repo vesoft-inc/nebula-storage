@@ -28,8 +28,7 @@ folly::dynamic StorageHttpStatsHandler::getStats() const {
         if (statistics->getTickerMap(&stats_map)) {
             for (const auto& stat : stats_map) {
                 if (!statFiltered(stat.first)) {
-                    folly::dynamic statObj = folly::dynamic::object(stat.first, stat.second);
-                    stats.push_back(std::move(statObj));
+                    addOneStat(stats, stat.first, stat.second);
                 }
             }
         }
@@ -38,14 +37,9 @@ folly::dynamic StorageHttpStatsHandler::getStats() const {
                 if (!statFiltered(h.second)) {
                     rocksdb::HistogramData hData;
                     statistics->histogramData(h.first, &hData);
-
-                    folly::dynamic statObj =
-                        folly::dynamic::object(h.second + ".p50", hData.average);
-                    stats.push_back(std::move(statObj));
-                    statObj = folly::dynamic::object(h.second + ".p95", hData.average);
-                    stats.push_back(std::move(statObj));
-                    statObj = folly::dynamic::object(h.second + ".p99", hData.average);
-                    stats.push_back(std::move(statObj));
+                    addOneStat(stats, h.second + ".p50", hData.average);
+                    addOneStat(stats, h.second + ".p95", hData.percentile95);
+                    addOneStat(stats, h.second + ".p99", hData.percentile99);
                 }
             }
         }
