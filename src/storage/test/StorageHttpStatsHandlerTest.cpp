@@ -62,7 +62,7 @@ TEST(StorageHttpStatsHandlerTest, GetStatsTest) {
         ASSERT_TRUE(resp.ok());
     }
     {
-        auto url = "/rocksdb_stats?names=rocksdb.bytes.read";
+        auto url = "/rocksdb_stats?stats=rocksdb.bytes.read";
         auto request = folly::stringPrintf("http://%s:%d%s", FLAGS_ws_ip.c_str(),
                 FLAGS_ws_http_port, url);
         auto resp = http::HttpClient::get(request);
@@ -72,7 +72,7 @@ TEST(StorageHttpStatsHandlerTest, GetStatsTest) {
     }
     // Get multipple stats
     {
-        auto url = "/rocksdb_stats?names=rocksdb.bytes.read,rocksdb.block.cache.add";
+        auto url = "/rocksdb_stats?stats=rocksdb.bytes.read,rocksdb.block.cache.add";
         auto request = folly::stringPrintf("http://%s:%d%s", FLAGS_ws_ip.c_str(),
                 FLAGS_ws_http_port, url);
         auto resp = http::HttpClient::get(request);
@@ -82,7 +82,7 @@ TEST(StorageHttpStatsHandlerTest, GetStatsTest) {
     }
     // Get multiple stats and return json
     {
-        auto url = "/rocksdb_stats?names=rocksdb.bytes.read,rocksdb.block.cache.add&return=json";
+        auto url = "/rocksdb_stats?stats=rocksdb.bytes.read,rocksdb.block.cache.add&format=json";
         auto request = folly::stringPrintf("http://%s:%d%s", FLAGS_ws_ip.c_str(),
                 FLAGS_ws_http_port, url);
         auto resp = http::HttpClient::get(request);
