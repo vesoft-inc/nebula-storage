@@ -39,9 +39,9 @@ public:
 protected:
     virtual void onFinished() {
         if (counters_) {
-            stats::StatsManager::addValue(counters_->numCalls_);
+            counters_->addNumCalls();
             if (!this->result_.get_failed_parts().empty()) {
-                stats::StatsManager::addValue(counters_->numErrors_);
+                counters_->addNumErrors();
             }
         }
 
@@ -51,7 +51,7 @@ protected:
         this->promise_.setValue(std::move(this->resp_));
 
         if (counters_) {
-            stats::StatsManager::addValue(counters_->latency_, this->duration_.elapsedInUSec());
+            counters_->addLatency(this->duration_.elapsedInUSec());
         }
 
         delete this;

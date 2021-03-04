@@ -16,6 +16,8 @@
 namespace nebula {
 namespace storage {
 
+extern ProcessorCounters kGraphCounters;
+
 class StorageEnv;
 
 class GraphStorageServiceHandler final : public cpp2::GraphStorageServiceSvIf {
