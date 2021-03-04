@@ -144,7 +144,7 @@ public:
 
     virtual void asyncMultiPut(GraphSpaceID spaceId,
                                PartitionID partId,
-                               std::vector<KV> keyValues,
+                               std::vector<KV>&& keyValues,
                                KVCallback cb) = 0;
 
     // Asynchronous version of remove methods
@@ -155,7 +155,7 @@ public:
 
     virtual void asyncMultiRemove(GraphSpaceID spaceId,
                                   PartitionID partId,
-                                  std::vector<std::string> keys,
+                                  std::vector<std::string>&& keys,
                                   KVCallback cb) = 0;
 
     virtual void asyncRemoveRange(GraphSpaceID spaceId,

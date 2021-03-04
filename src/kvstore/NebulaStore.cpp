@@ -695,7 +695,7 @@ void NebulaStore::asyncAppendBatch(GraphSpaceID spaceId,
 
 void NebulaStore::asyncMultiPut(GraphSpaceID spaceId,
                                 PartitionID partId,
-                                std::vector<KV> keyValues,
+                                std::vector<KV>&& keyValues,
                                 KVCallback cb) {
     auto ret = part(spaceId, partId);
     if (!ok(ret)) {
@@ -723,7 +723,7 @@ void NebulaStore::asyncRemove(GraphSpaceID spaceId,
 
 void NebulaStore::asyncMultiRemove(GraphSpaceID spaceId,
                                    PartitionID  partId,
-                                   std::vector<std::string> keys,
+                                   std::vector<std::string>&& keys,
                                    KVCallback cb) {
     auto ret = part(spaceId, partId);
     if (!ok(ret)) {
