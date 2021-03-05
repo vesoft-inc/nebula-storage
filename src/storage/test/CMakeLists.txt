@@ -1,5 +1,4 @@
 set(storage_test_deps
-    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:mock_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:storage_admin_service_handler>
@@ -42,6 +41,7 @@ set(storage_test_deps
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
+    $<TARGET_OBJECTS:common_version_obj>
 )
 
 nebula_add_test(
@@ -649,4 +649,20 @@ nebula_add_executable(
         ${PROXYGEN_LIBRARIES}
         wangle
         gtest
+)
+
+nebula_add_executable(
+    NAME
+        mem_lock_bm
+    SOURCES
+        MemoryLockBenchmark.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        follybenchmark
+        boost_regex
 )

@@ -47,11 +47,10 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     CHECK_NOTNULL(env_->kvstore_);
     if (indexes_.empty()) {
         // Operate every part, the graph layer guarantees the unique of the edgeKey
-        std::vector<std::string> keys;
-        keys.reserve(32);
         for (auto& part : partEdges) {
+            std::vector<std::string> keys;
+            keys.reserve(32);
             auto partId = part.first;
-            keys.clear();
             for (auto& edgeKey : part.second) {
                 if (!NebulaKeyUtils::isValidVidLen(
                         spaceVidLen_, edgeKey.src.getStr(), edgeKey.dst.getStr())) {
@@ -91,7 +90,7 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                     iter->next();
                 }
             }
-            doRemove(spaceId_, partId, keys);
+            doRemove(spaceId_, partId, std::move(keys));
         }
     } else {
         for (auto& part : partEdges) {
@@ -156,7 +155,12 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
             return folly::none;
         }
 
-        if (iter->valid()) {
+        while (iter->valid() && NebulaKeyUtils::isLock(spaceVidLen_, iter->key())) {
+            batchHolder->remove(iter->key().str());
+            iter->next();
+        }
+
+        if (iter->valid() && NebulaKeyUtils::isEdge(spaceVidLen_, iter->key())) {
             /**
              * just get the latest version edge for index.
              */
