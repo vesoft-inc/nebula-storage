@@ -8,6 +8,7 @@ _build
 _build.log
 _install
 install_manifest.txt
+bin/
 
 # ccls
 .ccls
@@ -31,6 +32,7 @@ target/
 cluster.id
 pids/
 modules/
+src/version/Version.cpp
 
 # IDE
 .idea/
