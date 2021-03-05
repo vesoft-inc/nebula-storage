@@ -177,6 +177,7 @@ public:
                                            cpp2::SchemaProp& schemaProp,
                                            cpp2::SchemaProp alterSchemaProp,
                                            bool existIndex);
+    static std::string userPrefix();
 
     static std::string userKey(const std::string& account);
 
@@ -329,20 +330,21 @@ public:
                                   const HostAddr& ipv4To,
                                   bool direct = false);
     // backup
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
+    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndex(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,
         const std::vector<std::string>* spaceName);
+
     static std::function<bool(const folly::StringPiece& key)> spaceFilter(
         const std::unordered_set<GraphSpaceID>& spaces,
         std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
 
-    static folly::Optional<std::vector<std::string>> backup(
+    static folly::Optional<std::vector<std::string>> backupSpaces(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,
-        const std::vector<std::string>* spaceNames);
+        const std::vector<std::string>* spaceName);
 };
 
 }   // namespace meta

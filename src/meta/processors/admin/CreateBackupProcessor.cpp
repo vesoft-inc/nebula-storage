@@ -151,7 +151,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     // step 4 created backup for meta(export sst).
-    auto backupFiles = MetaServiceUtils::backup(kvstore_, spaces, backupName, backupSpaces);
+    auto backupFiles = MetaServiceUtils::backupSpaces(kvstore_, spaces, backupName, backupSpaces);
     if (!backupFiles.hasValue()) {
         LOG(ERROR) << "Failed backup meta";
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);

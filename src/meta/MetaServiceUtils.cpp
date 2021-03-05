@@ -76,6 +76,7 @@ const std::string kFTServiceTable = systemTableMaps.at("ft_service").first;     
 
 const int kMaxIpAddrLen = 15;   // '255.255.255.255'
 
+namespace {
 bool backupTable(kvstore::KVStore* kvstore,
                  const std::string& backupName,
                  const std::string& tableName,
@@ -95,6 +96,7 @@ bool backupTable(kvstore::KVStore* kvstore,
                  std::make_move_iterator(value(backupFilePath).end()));
     return true;
 }
+}   // namespace
 
 std::string MetaServiceUtils::lastUpdateTimeKey() {
     std::string key;
@@ -698,6 +700,10 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+std::string MetaServiceUtils::userPrefix() {
+    return kUsersTable;
+}
+
 std::string MetaServiceUtils::userKey(const std::string& account) {
     std::string key;
     key.reserve(kUsersTable.size() + account.size());
@@ -944,7 +950,7 @@ MetaServiceUtils::spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
     return sf;
 }
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexTable(
+ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndex(
     kvstore::KVStore* kvstore,
     const std::unordered_set<GraphSpaceID>& spaces,
     const std::string& backupName,
@@ -954,12 +960,15 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
         backupName,
         kIndexTable,
         [spaces, spaceName](const folly::StringPiece& key) -> bool {
-            if (spaces.empty() || spaceName == nullptr || spaceName->empty()) {
+            if (spaces.empty()) {
                 return false;
             }
 
             auto type = *reinterpret_cast<const EntryType*>(key.data() + kIndexTable.size());
             if (type == EntryType::SPACE) {
+                if (spaceName == nullptr) {
+                    return true;
+                }
                 auto sn = key.subpiece(kIndexTable.size() + sizeof(EntryType),
                                        key.size() - kIndexTable.size() - sizeof(EntryType))
                               .str();
@@ -984,13 +993,13 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
         });
 }
 
-folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
+folly::Optional<std::vector<std::string>> MetaServiceUtils::backupSpaces(
     kvstore::KVStore* kvstore,
     const std::unordered_set<GraphSpaceID>& spaces,
     const std::string& backupName,
     const std::vector<std::string>* spaceNames) {
     std::vector<std::string> files;
-    files.reserve(tableMaps.size() + systemTableMaps.size());
+    files.reserve(tableMaps.size());
 
     for (const auto& table : tableMaps) {
         if (table.second.second == nullptr) {
@@ -1007,19 +1016,21 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
         LOG(INFO) << table.first << " table backup successed";
     }
 
-    for (const auto& table : systemTableMaps) {
-        if (!table.second.second) {
-            LOG(INFO) << table.first << " table skipped";
-            continue;
+    if (spaceNames == nullptr) {
+        for (const auto& table : systemTableMaps) {
+            if (!table.second.second) {
+                LOG(INFO) << table.first << " table skipped";
+                continue;
+            }
+            if (!backupTable(kvstore, backupName, table.second.first, files, nullptr)) {
+                return folly::none;
+            }
+            LOG(INFO) << table.first << " table backup successed";
         }
-        if (!backupTable(kvstore, backupName, table.second.first, files, nullptr)) {
-            return folly::none;
-        }
-        LOG(INFO) << table.first << " table backup successed";
     }
 
     // The mapping of space name and space id needs to be handled separately.
-    auto ret = backupIndexTable(kvstore, spaces, backupName, spaceNames);
+    auto ret = backupIndex(kvstore, spaces, backupName, spaceNames);
     if (!ok(ret)) {
         auto result = error(ret);
         if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {

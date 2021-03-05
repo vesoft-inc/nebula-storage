@@ -71,6 +71,8 @@ TEST(RestoreProcessorTest, RestoreTest) {
                       std::string(reinterpret_cast<const char*>(&groupId), sizeof(GroupID)));
     data.emplace_back(MetaServiceUtils::groupKey(groupName), MetaServiceUtils::groupVal(zoneNames));
 
+    data.emplace_back(MetaServiceUtils::userKey("root"), MetaServiceUtils::userVal("root"));
+
     auto zoneId = 1;
     data.emplace_back(MetaServiceUtils::indexZoneKey(zoneName),
                       std::string(reinterpret_cast<const char*>(&zoneId), sizeof(ZoneID)));
@@ -87,11 +89,21 @@ TEST(RestoreProcessorTest, RestoreTest) {
     auto backupName = folly::format("BACKUP_{}", MetaServiceUtils::genTimestampStr()).str();
     auto spaceNames = std::make_unique<std::vector<std::string>>();
     spaceNames->emplace_back("test_space");
-    auto backupFiles = MetaServiceUtils::backup(kv.get(), spaces, backupName, spaceNames.get());
+    auto backupFiles =
+        MetaServiceUtils::backupSpaces(kv.get(), spaces, backupName, spaceNames.get());
     DCHECK(backupFiles.hasValue());
     {
         cpp2::RestoreMetaReq req;
         std::vector<std::string> files = backupFiles.value();
+        auto it = std::find_if(files.cbegin(), files.cend(), [](auto& f) {
+            auto const pos = f.find_last_of("/");
+            auto name = f.substr(pos + 1);
+            if (name == MetaServiceUtils::groupPrefix() || name == MetaServiceUtils::zonePrefix()) {
+                return true;
+            }
+            return false;
+        });
+        ASSERT_EQ(it, files.cend());
         req.set_files(std::move(files));
         std::vector<cpp2::HostPair> hostPairs;
         HostAddr host4("127.0.0.4", 3360);
@@ -105,8 +117,21 @@ TEST(RestoreProcessorTest, RestoreTest) {
         }
 
         req.set_hosts(std::move(hostPairs));
+        fs::TempDir restoreTootPath("/tmp/RestoreTest.XXXXXX");
+        std::unique_ptr<kvstore::KVStore> kvRestore(
+            MockCluster::initMetaKV(restoreTootPath.path()));
+        std::vector<nebula::kvstore::KV> restoreData;
+        restoreData.emplace_back(MetaServiceUtils::userKey("root"),
+                                 MetaServiceUtils::userVal("password"));
 
-        auto* processor = RestoreProcessor::instance(kv.get());
+        folly::Baton<true, std::atomic> restoreBaton;
+        kvRestore->asyncMultiPut(0, 0, std::move(restoreData), [&](kvstore::ResultCode code) {
+            ret = (code == kvstore::ResultCode::SUCCEEDED);
+            restoreBaton.post();
+        });
+        restoreBaton.wait();
+
+        auto* processor = RestoreProcessor::instance(kvRestore.get());
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
@@ -116,7 +141,7 @@ TEST(RestoreProcessorTest, RestoreTest) {
         std::unique_ptr<kvstore::KVIterator> iter;
 
         const auto& partPrefix = MetaServiceUtils::partPrefix(id);
-        result = kv->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
+        result = kvRestore->prefix(kDefaultSpaceId, kDefaultPartId, partPrefix, &iter);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, result);
 
         std::unordered_map<HostAddr, std::vector<size_t>> toPartInfo;
@@ -131,7 +156,6 @@ TEST(RestoreProcessorTest, RestoreTest) {
             }
             iter->next();
         }
-
         for (auto pi : partInfo) {
             auto parts = toPartInfo[hostMap[pi.first]];
             ASSERT_EQ(parts.size(), pi.second.size());
@@ -139,7 +163,7 @@ TEST(RestoreProcessorTest, RestoreTest) {
         }
 
         auto prefix = MetaServiceUtils::zonePrefix();
-        result = kv->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+        result = kvRestore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
         ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, result);
 
         std::vector<cpp2::Zone> zones;
@@ -153,6 +177,22 @@ TEST(RestoreProcessorTest, RestoreTest) {
             for (std::vector<nebula::HostAddr>::size_type i = 0; i < zoneHosts.size(); ++i) {
                 ASSERT_EQ(zoneHosts[i], restoredHosts[i]);
             }
+            iter->next();
+        }
+
+        prefix = MetaServiceUtils::groupPrefix();
+        result = kvRestore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+        // ASSERT_NE(kvstore::ResultCode::SUCCEEDED, result);
+        ASSERT_FALSE(iter->valid());
+
+        prefix = MetaServiceUtils::userPrefix();
+        result = kvRestore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+        ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, result);
+        while (iter->valid()) {
+            auto user = MetaServiceUtils::parseUser(iter->key());
+            auto password = MetaServiceUtils::parseUserPwd(iter->val());
+            ASSERT_EQ(user, std::string("root"));
+            ASSERT_EQ(password, std::string("password"));
             iter->next();
         }
     }
