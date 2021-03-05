@@ -171,11 +171,16 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                 RowReaderWrapper nReader;
                 RowReaderWrapper oReader;
                 auto obsIdx = findOldValue(partId, key);
-                if (obsIdx != folly::none && !obsIdx.value().empty()) {
-                    oReader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
-                                                                spaceId_,
-                                                                edgeKey.edge_type,
-                                                                std::move(obsIdx).value());
+                if (nebula::ok(obsIdx)) {
+                    if (!nebula::value(obsIdx).empty()) {
+                        oReader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
+                                                                      spaceId_,
+                                                                      edgeKey.edge_type,
+                                                                      nebula::value(obsIdx));
+                    }
+                } else {
+                    code = to(nebula::error(obsIdx));
+                    break;
                 }
                 if (!retEnc.value().empty()) {
                     nReader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
@@ -269,9 +274,8 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
     }
 }
 
-folly::Optional<std::string>
-AddEdgesProcessor::addEdges(PartitionID partId,
-                            const std::vector<kvstore::KV>& edges) {
+ErrorOr<kvstore::ResultCode, std::string>
+AddEdgesProcessor::addEdges(PartitionID partId, const std::vector<kvstore::KV>& edges) {
     IndexCountWrapper wrapper(env_);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
 
@@ -306,10 +310,10 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                  */
                 if (val.empty()) {
                     auto obsIdx = findOldValue(partId, e.first);
-                    if (obsIdx == folly::none) {
-                        return folly::none;
+                    if (!nebula::ok(obsIdx)) {
+                        return nebula::error(obsIdx);
                     }
-                    val = std::move(obsIdx).value();
+                    val = std::move(nebula::value(obsIdx));
                     if (!val.empty()) {
                         oReader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
                                                                       spaceId_,
@@ -317,7 +321,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                                                                       val);
                         if (oReader == nullptr) {
                             LOG(ERROR) << "Bad format row";
-                            return folly::none;
+                            return kvstore::ResultCode::ERR_INVALID_DATA;
                         }
                     }
                 }
@@ -332,7 +336,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else if (env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            return folly::none;
+                            return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
                         } else {
                             batchHolder->remove(std::move(oi));
                         }
@@ -349,7 +353,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                                                                   e.second);
                     if (nReader == nullptr) {
                         LOG(ERROR) << "Bad format row";
-                        return folly::none;
+                        return kvstore::ResultCode::ERR_INVALID_DATA;
                     }
                 }
 
@@ -363,7 +367,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
                         batchHolder->put(std::move(modifyOpKey), "");
                     } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        return folly::none;
+                        return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
                     } else {
                         batchHolder->put(std::move(ni), "");
                     }
@@ -380,7 +384,7 @@ AddEdgesProcessor::addEdges(PartitionID partId,
     return encodeBatchValue(batchHolder->getBatch());
 }
 
-folly::Optional<std::string>
+ErrorOr<kvstore::ResultCode, std::string>
 AddEdgesProcessor::findOldValue(PartitionID partId, const folly::StringPiece& rawKey) {
     auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_,
                                              partId,
@@ -393,7 +397,7 @@ AddEdgesProcessor::findOldValue(PartitionID partId, const folly::StringPiece& ra
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
                    << ", spaceId " << spaceId_;
-        return folly::none;
+        return ret;
     }
     if (iter && iter->valid()) {
         return iter->val().str();

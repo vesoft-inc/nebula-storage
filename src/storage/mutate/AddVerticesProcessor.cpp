@@ -177,11 +177,16 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 RowReaderWrapper nReader;
                 RowReaderWrapper oReader;
                 auto obsIdx = findOldValue(partId, vid, tagId);
-                if (obsIdx != folly::none && !obsIdx.value().empty()) {
-                    oReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
-                                                                 spaceId_,
-                                                                 tagId,
-                                                                 std::move(obsIdx).value());
+                if (nebula::ok(obsIdx)) {
+                    if (!nebula::value(obsIdx).empty()) {
+                        oReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
+                                                                     spaceId_,
+                                                                     tagId,
+                                                                     nebula::value(obsIdx));
+                    }
+                } else {
+                    code = to(nebula::error(obsIdx));
+                    break;
                 }
                 if (!retEnc.value().empty()) {
                     nReader = RowReaderWrapper::getTagPropReader(env_->schemaMan_,
@@ -280,7 +285,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
     }
 }
 
-folly::Optional<std::string>
+ErrorOr<kvstore::ResultCode, std::string>
 AddVerticesProcessor::findOldValue(PartitionID partId, const VertexID& vId, TagID tagId) {
     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
     std::unique_ptr<kvstore::KVIterator> iter;
@@ -288,7 +293,7 @@ AddVerticesProcessor::findOldValue(PartitionID partId, const VertexID& vId, TagI
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
                    << ", spaceId " << spaceId_;
-        return folly::none;
+        return ret;
     }
     if (iter && iter->valid()) {
         return iter->val().str();
