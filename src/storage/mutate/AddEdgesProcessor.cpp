@@ -262,9 +262,9 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
             continue;
         }
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
-            [l = std::move(lg), partId, this](kvstore::ResultCode code) {
+            [l = std::move(lg), partId, this](kvstore::ResultCode kvRet) {
                 UNUSED(l);
-                handleAsync(spaceId_, partId, code);
+                handleAsync(spaceId_, partId, kvRet);
             });
     }
 }
