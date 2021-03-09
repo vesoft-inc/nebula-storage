@@ -1073,7 +1073,7 @@ TEST(BalanceTest, SpecifyMultiHostTest) {
     verifyBalanceTask(kv, balanceId,
                       BalanceTaskStatus::END,
                       BalanceTaskResult::SUCCEEDED,
-                      partCount, 12);
+                      partCount, 13);
     ASSERT_EQ(9, partCount[HostAddr("0", 0)]);
     ASSERT_EQ(9, partCount[HostAddr("1", 1)]);
     ASSERT_EQ(0, partCount[HostAddr("2", 2)]);
