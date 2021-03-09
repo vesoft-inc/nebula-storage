@@ -91,7 +91,8 @@ void StatisJobExecutor::addStatis(cpp2::StatisItem& lhs, const cpp2::StatisItem&
 
     lhs.space_vertices += rhs.space_vertices;
     lhs.space_edges += rhs.space_edges;
-    // ignore part_corelativity, they shoule be same
+
+    lhs.part_corelativity.insert(rhs.part_corelativity.begin(), rhs.part_corelativity.end());
 }
 
 /**
@@ -131,7 +132,7 @@ std::string StatisJobExecutor::toTempKey(int32_t jobId) {
     return key.append(reinterpret_cast<const char*>(&jobId), sizeof(int32_t));
 }
 
-void StatisJobExecutor::finish(bool ExeSuccessed) {
+void StatisJobExecutor::finish(bool exeSuccessed) {
     auto statisKey = MetaServiceUtils::statisKey(space_);
     auto tempKey = toTempKey(jobId_);
     std::string val;
@@ -141,7 +142,7 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
         return;
     }
     auto statisItem = MetaServiceUtils::parseStatisVal(val);
-    if (ExeSuccessed) {
+    if (exeSuccessed) {
         statisItem.status = cpp2::JobStatus::FINISHED;
     } else {
         statisItem.status = cpp2::JobStatus::FAILED;
@@ -149,7 +150,6 @@ void StatisJobExecutor::finish(bool ExeSuccessed) {
     auto statisVal = MetaServiceUtils::statisVal(statisItem);
     save(statisKey, statisVal);
     doRemove(tempKey);
-    return;
 }
 
 cpp2::ErrorCode StatisJobExecutor::stop() {
@@ -168,7 +168,14 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
     }
 
     folly::collectAll(std::move(futures))
-        .thenValue([] (const auto& tries) mutable {
+        .thenValue([](const auto& tries) mutable {
+            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
+                return t.hasException();
+            })) {
+                LOG(ERROR) << "statis job stop() RPC failure.";
+                return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
+            }
+
             for (const auto& t : tries) {
                 if (!t.value().ok()) {
                     LOG(ERROR) << "Stop statis job Failed";
@@ -177,10 +184,11 @@ cpp2::ErrorCode StatisJobExecutor::stop() {
             }
             return cpp2::ErrorCode::SUCCEEDED;
         })
-        .thenError([] (auto &&e) {
+        .thenError([](auto&& e) {
             LOG(ERROR) << "Exception caught: " << e.what();
             return cpp2::ErrorCode::E_STOP_JOB_FAILURE;
-        }).wait();
+        })
+        .wait();
 
     return cpp2::ErrorCode::SUCCEEDED;
 }

@@ -179,7 +179,7 @@ TEST(IndexTest, SimpleEdgesTest) {
 
         LOG(INFO) << "Check insert data...";
         for (auto partId = 1; partId <= 6; partId++) {
-            auto prefix = NebulaKeyUtils::partPrefix(partId);
+            auto prefix = NebulaKeyUtils::edgePrefix(partId);
             auto retNum = verifyResultNum(1, partId, prefix, env->kvstore_);
             EXPECT_EQ(2, retNum);
         }
@@ -213,7 +213,7 @@ TEST(IndexTest, SimpleEdgesTest) {
 
         LOG(INFO) << "Check delete data...";
         for (auto partId = 1; partId <= 6; partId++) {
-            auto prefix = NebulaKeyUtils::partPrefix(partId);
+            auto prefix = NebulaKeyUtils::edgePrefix(partId);
             auto retNum = verifyResultNum(1, partId, prefix, env->kvstore_);
             EXPECT_EQ(0, retNum);
         }
@@ -351,7 +351,6 @@ TEST(IndexTest, VerticesValueTest) {
  * Test the all indexes works well.
  **/
 TEST(IndexTest, AlterTagIndexTest) {
-    FLAGS_enable_multi_versions = true;
     GraphSpaceID spaceId = 1;
     TagID tagId = 111;
     IndexID indexId1 = 222;
@@ -471,7 +470,7 @@ TEST(IndexTest, AlterTagIndexTest) {
             auto prefix = NebulaKeyUtils::vertexPrefix(vIdLen, partId,
                                                        convertVertexId(vIdLen, partId));
             auto retNum = verifyResultNum(spaceId, partId, prefix, env->kvstore_);
-            EXPECT_EQ(2, retNum);
+            EXPECT_EQ(1, retNum);
         }
 
         LOG(INFO) << "Check insert index1...";
@@ -488,7 +487,6 @@ TEST(IndexTest, AlterTagIndexTest) {
             EXPECT_EQ(1, retNum);
         }
     }
-    FLAGS_enable_multi_versions = false;
 }
 
 }  // namespace storage

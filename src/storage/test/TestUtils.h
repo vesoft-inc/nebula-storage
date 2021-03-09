@@ -134,7 +134,7 @@ void checkAddVerticesData(cpp2::AddVerticesRequest req,
             }
         }
         if (mode == 2) {
-            EXPECT_EQ(newVertexVec.size(), count / 2);
+            EXPECT_EQ(newVertexVec.size(), count);
         } else {
             // There is only one tag per vertex, either tagId is 1 or tagId is 2
             EXPECT_EQ(newVertexVec.size(), count);
@@ -160,9 +160,7 @@ void checkVerticesData(int32_t spaceVidLen,
                       env->kvstore_->prefix(spaceId, partId, prefix, &iter));
 
             while (iter && iter->valid()) {
-                if (NebulaKeyUtils::isVertex(spaceVidLen, iter->key())) {
-                    totalCount++;
-                }
+                totalCount++;
                 iter->next();
             }
         }

@@ -29,6 +29,7 @@ set(CODEC_TEST_LIBS
     $<TARGET_OBJECTS:common_expression_obj>
     $<TARGET_OBJECTS:common_function_manager_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
+    $<TARGET_OBJECTS:common_version_obj>
 )
 
 
@@ -38,8 +39,7 @@ nebula_add_test(
     OBJECTS ${CODEC_TEST_LIBS}
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenhttpserver
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -51,8 +51,7 @@ nebula_add_test(
     OBJECTS ${CODEC_TEST_LIBS}
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenhttpserver
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -64,8 +63,7 @@ nebula_add_test(
     OBJECTS ${CODEC_TEST_LIBS}
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenhttpserver
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         wangle
         gtest
 )
@@ -79,8 +77,7 @@ nebula_add_test(
     OBJECTS ${CODEC_TEST_LIBS}
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenhttpserver
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         follybenchmark
         wangle
         boost_regex
@@ -96,8 +93,7 @@ nebula_add_executable(
     OBJECTS ${CODEC_TEST_LIBS}
     LIBRARIES
         ${THRIFT_LIBRARIES}
-        proxygenhttpserver
-        proxygenlib
+        ${PROXYGEN_LIBRARIES}
         follybenchmark
         wangle
         boost_regex

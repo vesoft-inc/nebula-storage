@@ -97,10 +97,9 @@ MockCluster::initMetaKV(const char* dataPath, HostAddr addr) {
     return kv;
 }
 
-void MockCluster::startMeta(int32_t port,
-                            const std::string& rootPath,
-                            std::string hostname) {
-    metaKV_ = initMetaKV(rootPath.c_str(), {hostname, port});
+void MockCluster::startMeta(const std::string& rootPath,
+                            HostAddr addr) {
+    metaKV_ = initMetaKV(rootPath.c_str(), addr);
     metaServer_ = std::make_unique<RpcServer>();
     auto handler = std::make_shared<meta::MetaServiceHandler>(metaKV_.get(),
                                                               clusterId_);
@@ -221,6 +220,8 @@ void MockCluster::initStorageKV(const char* dataPath,
     storageEnv_->indexMan_ = indexMan_.get();
     storageEnv_->kvstore_ = storageKV_.get();
     storageEnv_->rebuildIndexGuard_ = std::make_unique<storage::IndexGuard>();
+    storageEnv_->verticesML_ = std::make_unique<storage::VerticesMemLock>();
+    storageEnv_->edgesML_ = std::make_unique<storage::EdgesMemLock>();
 }
 
 void MockCluster::startStorage(HostAddr addr,
@@ -250,7 +251,7 @@ void MockCluster::startStorage(HostAddr addr,
 
 std::unique_ptr<meta::SchemaManager>
 MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId, bool hasProp) {
-    auto schemaMan = std::make_unique<AdHocSchemaManager>();
+    auto schemaMan = std::make_unique<AdHocSchemaManager>(6);
     // if have multi version schema, need to add from oldest to newest
     for (SchemaVer ver = 0; ver < schemaVerCount; ver++) {
         // Vertex has two tags: players and teams

@@ -11,19 +11,20 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kGetValueCounters;
+
 void GetValueProcessor::process(const cpp2::GetValueRequest& req) {
     CHECK_NOTNULL(env_->kvstore_);
-
-    GraphSpaceID spaceId = req.get_space_id();
-    PartitionID partId = req.get_part_id();
-
+    auto spaceId = req.get_space_id();
+    auto partId = req.get_part_id();
     auto key = req.get_key();
 
     std::string value;
-    kvstore::ResultCode rc = env_->kvstore_->get(spaceId, partId, key, &value);
-    LOG_IF(INFO, FLAGS_trace_toss)
-        << "getValue for partId=" << partId << ", key=" << folly::hexlify(key)
-        << ", rc=" << static_cast<int>(rc);
+    auto rc = env_->kvstore_->get(spaceId, partId, key, &value);
+    LOG_IF(INFO, FLAGS_trace_toss) << "getValue for partId=" << partId
+                                   << ", key=" << folly::hexlify(key)
+                                   << ", rc=" << static_cast<int>(rc);
+
     if (rc != kvstore::ResultCode::SUCCEEDED) {
         handleErrorCode(rc, spaceId, partId);
     } else {

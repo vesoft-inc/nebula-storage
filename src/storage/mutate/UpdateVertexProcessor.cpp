@@ -15,7 +15,19 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kUpdateVertexCounters;
+
 void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
+    if (executor_ != nullptr) {
+        executor_->add([req, this] () {
+            this->doProcess(req);
+        });
+    } else {
+        doProcess(req);
+    }
+}
+
+void UpdateVertexProcessor::doProcess(const cpp2::UpdateVertexRequest& req) {
     spaceId_ = req.get_space_id();
     auto partId = req.get_part_id();
     auto vId = req.get_vertex_id();
@@ -51,9 +63,13 @@ void UpdateVertexProcessor::process(const cpp2::UpdateVertexRequest& req) {
 
     CHECK_NOTNULL(env_->indexMan_);
     auto iRet = env_->indexMan_->getTagIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
+    if (!iRet.ok()) {
+        LOG(ERROR) << iRet.status();
+        pushResultCode(cpp2::ErrorCode::E_SPACE_NOT_FOUND, partId);
+        onFinished();
+        return;
     }
+    indexes_ = std::move(iRet).value();
 
     VLOG(3) << "Update vertex, spaceId: " << spaceId_
             << ", partId: " << partId << ", vId: " << vId;

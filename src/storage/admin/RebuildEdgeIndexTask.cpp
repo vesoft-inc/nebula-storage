@@ -43,7 +43,7 @@ kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
 
     auto vidSize = vidSizeRet.value();
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto prefix = NebulaKeyUtils::partPrefix(part);
+    auto prefix = NebulaKeyUtils::edgePrefix(part);
     auto ret = env_->kvstore_->prefix(space, part, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "Processing Part " << part << " Failed";
@@ -73,10 +73,6 @@ kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
 
         auto key = iter->key();
         auto val = iter->val();
-        if (!NebulaKeyUtils::isEdge(vidSize, key)) {
-            iter->next();
-            continue;
-        }
 
         auto edgeType = NebulaKeyUtils::getEdgeType(vidSize, key);
         if (edgeType < 0) {

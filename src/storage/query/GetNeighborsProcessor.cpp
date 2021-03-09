@@ -16,7 +16,19 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kGetNeighborsCounters;
+
 void GetNeighborsProcessor::process(const cpp2::GetNeighborsRequest& req) {
+    if (executor_ != nullptr) {
+        executor_->add([req, this] () {
+            this->doProcess(req);
+        });
+    } else {
+        doProcess(req);
+    }
+}
+
+void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
     spaceId_ = req.get_space_id();
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {

@@ -13,6 +13,8 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kDelEdgesCounters;
+
 void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     spaceId_ = req.get_space_id();
     const auto& partEdges = req.get_parts();
@@ -32,27 +34,32 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
 
     CHECK_NOTNULL(env_->indexMan_);
     auto iRet = env_->indexMan_->getEdgeIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
+    if (!iRet.ok()) {
+        LOG(ERROR) << iRet.status();
+        for (auto& part : partEdges) {
+            pushResultCode(cpp2::ErrorCode::E_SPACE_NOT_FOUND, part.first);
+        }
+        onFinished();
+        return;
     }
+    indexes_ = std::move(iRet).value();
 
     CHECK_NOTNULL(env_->kvstore_);
     if (indexes_.empty()) {
         // Operate every part, the graph layer guarantees the unique of the edgeKey
-        std::vector<std::string> keys;
-        keys.reserve(32);
         for (auto& part : partEdges) {
+            std::vector<std::string> keys;
+            keys.reserve(32);
             auto partId = part.first;
-            keys.clear();
+            cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
             for (auto& edgeKey : part.second) {
                 if (!NebulaKeyUtils::isValidVidLen(
                         spaceVidLen_, edgeKey.src.getStr(), edgeKey.dst.getStr())) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_
                                << ", edge srcVid: " << edgeKey.src << " dstVid: " << edgeKey.dst;
-                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
-                    onFinished();
-                    return;
+                    code = cpp2::ErrorCode::E_INVALID_VID;
+                    break;
                 }
                 auto start = NebulaKeyUtils::edgeKey(spaceVidLen_,
                                                      partId,
@@ -67,15 +74,14 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                                                    edgeKey.edge_type,
                                                    edgeKey.ranking,
                                                    edgeKey.dst.getStr(),
-                                                   std::numeric_limits<int64_t>::max());
+                                                   std::numeric_limits<char>::max());
                 std::unique_ptr<kvstore::KVIterator> iter;
                 auto retRes = env_->kvstore_->range(spaceId_, partId, start, end, &iter);
                 if (retRes != kvstore::ResultCode::SUCCEEDED) {
                     VLOG(3) << "Error! ret = " << static_cast<int32_t>(retRes)
                             << ", spaceID " << spaceId_;
-                    handleErrorCode(retRes, spaceId_, partId);
-                    onFinished();
-                    return;
+                    code = to(retRes);
+                    break;
                 }
                 while (iter && iter->valid()) {
                     auto key = iter->key();
@@ -83,28 +89,56 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                     iter->next();
                 }
             }
-            doRemove(spaceId_, partId, keys);
+            if (code != cpp2::ErrorCode::SUCCEEDED) {
+                handleAsync(spaceId_, partId, code);
+                continue;
+            }
+            doRemove(spaceId_, partId, std::move(keys));
         }
     } else {
-        std::for_each(partEdges.begin(), partEdges.end(), [this](auto &part) {
+        for (auto& part : partEdges) {
             auto partId = part.first;
-            auto atomic = [partId, edges = std::move(part.second), this]()
-                          -> folly::Optional<std::string> {
-                return deleteEdges(partId, edges);
-            };
-
-            auto callback = [partId, this](kvstore::ResultCode code) {
-                handleAsync(spaceId_, partId, code);
-            };
-            env_->kvstore_->asyncAtomicOp(spaceId_, partId, atomic, callback);
-        });
+            std::vector<EMLI> dummyLock;
+            dummyLock.reserve(part.second.size());
+            for (const auto& edgeKey : part.second) {
+                dummyLock.emplace_back(std::make_tuple(spaceId_,
+                                                       partId,
+                                                       edgeKey.src.getStr(),
+                                                       edgeKey.edge_type,
+                                                       edgeKey.ranking,
+                                                       edgeKey.dst.getStr()));
+            }
+            auto batch = deleteEdges(partId, std::move(part.second));
+            if (!nebula::ok(batch)) {
+                handleAsync(spaceId_, partId, nebula::error(batch));
+                continue;
+            }
+            DCHECK(!nebula::value(batch).empty());
+            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), true);
+            if (!lg) {
+                auto conflict = lg.conflictKey();
+                LOG(ERROR) << "edge conflict "
+                        << std::get<0>(conflict) << ":"
+                        << std::get<1>(conflict) << ":"
+                        << std::get<2>(conflict) << ":"
+                        << std::get<3>(conflict) << ":"
+                        << std::get<4>(conflict) << ":"
+                        << std::get<5>(conflict);
+                handleAsync(spaceId_, partId, cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
+                continue;
+            }
+            env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(nebula::value(batch)),
+                [l = std::move(lg), partId, this](kvstore::ResultCode code) {
+                    UNUSED(l);
+                    handleAsync(spaceId_, partId, code);
+                });
+        }
     }
 }
 
 
-folly::Optional<std::string>
-DeleteEdgesProcessor::deleteEdges(PartitionID partId,
-                                  const std::vector<cpp2::EdgeKey>& edges) {
+ErrorOr<kvstore::ResultCode, std::string>
+DeleteEdgesProcessor::deleteEdges(PartitionID partId, const std::vector<cpp2::EdgeKey>& edges) {
     IndexCountWrapper wrapper(env_);
     std::unique_ptr<kvstore::BatchHolder> batchHolder = std::make_unique<kvstore::BatchHolder>();
     for (auto& edge : edges) {
@@ -118,10 +152,15 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             VLOG(3) << "Error! ret = " << static_cast<int32_t>(ret)
                     << ", spaceId " << spaceId_;
-            return folly::none;
+            return ret;
         }
 
-        if (iter->valid()) {
+        while (iter->valid() && NebulaKeyUtils::isLock(spaceVidLen_, iter->key())) {
+            batchHolder->remove(iter->key().str());
+            iter->next();
+        }
+
+        if (iter->valid() && NebulaKeyUtils::isEdge(spaceVidLen_, iter->key())) {
             /**
              * just get the latest version edge for index.
              */
@@ -137,7 +176,7 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                                                                      iter->val());
                         if (reader == nullptr) {
                             LOG(WARNING) << "Bad format row!";
-                            return folly::none;
+                            return kvstore::ResultCode::ERR_INVALID_DATA;
                         }
                     }
                     auto valuesRet = IndexKeyUtils::collectIndexValues(reader.get(),
@@ -158,7 +197,7 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId,
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                     } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        return folly::none;
+                        return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
                     } else {
                         batchHolder->remove(std::move(indexKey));
                     }
