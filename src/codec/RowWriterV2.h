@@ -115,7 +115,7 @@ public:
         return std::move(buf_);
     }
 
-    WriteResult finish(int64_t ts = std::numeric_limits<int64_t>::max()) noexcept;
+    WriteResult finish() noexcept;
 
     // Data write
     template<typename T>
