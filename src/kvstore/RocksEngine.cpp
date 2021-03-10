@@ -507,7 +507,15 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
         return ResultCode::ERR_BACKUP_EMPTY_TABLE;
     }
 
-    return backupPath;
+    if (backupPath[0] == '/') {
+        return backupPath;
+    }
+
+    auto* p = realpath(backupPath.c_str(), nullptr);
+    if (p == nullptr) {
+        return ResultCode::ERR_BACKUP_TABLE_FAILED;
+    }
+    return p;
 }
 
 }   // namespace kvstore

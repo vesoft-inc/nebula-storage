@@ -922,7 +922,14 @@ ErrorOr<ResultCode, std::string> NebulaStore::createCheckpoint(GraphSpaceID spac
             }
         }
     }
-    return cpPath;
+    if (cpPath[0] == '/') {
+        return cpPath;
+    }
+    auto* p = realpath(cpPath.c_str(), nullptr);
+    if (p == nullptr) {
+        return ResultCode::ERR_BACKUP_TABLE_FAILED;
+    }
+    return p;
 }
 
 ResultCode NebulaStore::dropCheckpoint(GraphSpaceID spaceId, const std::string& name) {
