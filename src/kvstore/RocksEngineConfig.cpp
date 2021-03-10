@@ -79,6 +79,15 @@ DEFINE_bool(enable_rocksdb_whole_key_filtering, true,
 DEFINE_int32(rocksdb_filtering_prefix_length, 12,
             "The prefix length, default value is 12 bytes(PartitionID+VertexID).");
 
+DEFINE_bool(rocksdb_compact_change_level, true,
+            "If true, compacted files will be moved to the minimum level capable "
+            "of holding the data or given level (specified non-negative target_level).");
+
+DEFINE_int32(rocksdb_compact_target_level, -1,
+             "If change_level is true and target_level have non-negative value, compacted files "
+             "will be moved to target_level. If change_level is true and target_level is -1, "
+             "compacted files will be moved to the minimum level capable of holding the data.");
+
 namespace nebula {
 namespace kvstore {
 
@@ -99,8 +108,8 @@ public:
     }
 
     bool InDomain(const rocksdb::Slice& src) const override {
-        return src.size() >= prefixLen_ && NebulaKeyUtils::isDataKey(
-                folly::StringPiece(src.data(), 1));
+        // todo(doodle): only need to consider tag and edge
+        return src.size() >= prefixLen_;
     }
 };
 
@@ -150,7 +159,7 @@ static rocksdb::Status initRocksdbCompression(rocksdb::Options &baseOpts) {
     return rocksdb::Status::OK();
 }
 
-rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts) {
+rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts, int32_t vidLen) {
     rocksdb::Status s;
     rocksdb::DBOptions dbOpts;
     rocksdb::ColumnFamilyOptions cfOpts;
@@ -225,8 +234,9 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options &baseOpts) {
             baseOpts.compaction_style == rocksdb::CompactionStyle::kCompactionStyleLevel;
     }
     if (FLAGS_enable_rocksdb_prefix_filtering) {
+        int lengthBeforeVid = 4;
         baseOpts.prefix_extractor.reset(
-                new GraphPrefixTransform(FLAGS_rocksdb_filtering_prefix_length));
+                new GraphPrefixTransform(lengthBeforeVid + vidLen));
     }
     bbtOpts.whole_key_filtering = FLAGS_enable_rocksdb_whole_key_filtering;
     baseOpts.table_factory.reset(NewBlockBasedTableFactory(bbtOpts));

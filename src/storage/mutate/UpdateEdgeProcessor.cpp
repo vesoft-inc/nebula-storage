@@ -15,7 +15,19 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kUpdateEdgeCounters;
+
 void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
+    if (executor_ != nullptr) {
+        executor_->add([req, this] () {
+            this->doProcess(req);
+        });
+    } else {
+        doProcess(req);
+    }
+}
+
+void UpdateEdgeProcessor::doProcess(const cpp2::UpdateEdgeRequest& req) {
     spaceId_ = req.get_space_id();
     auto partId = req.get_part_id();
     edgeKey_ = req.get_edge_key();
@@ -55,9 +67,13 @@ void UpdateEdgeProcessor::process(const cpp2::UpdateEdgeRequest& req) {
 
     CHECK_NOTNULL(env_->indexMan_);
     auto iRet = env_->indexMan_->getEdgeIndexes(spaceId_);
-    if (iRet.ok()) {
-        indexes_ = std::move(iRet).value();
+    if (!iRet.ok()) {
+        LOG(ERROR) << iRet.status();
+        pushResultCode(cpp2::ErrorCode::E_SPACE_NOT_FOUND, partId);
+        onFinished();
+        return;
     }
+    indexes_ = std::move(iRet).value();
 
     VLOG(3) << "Update edge, spaceId: " << spaceId_ << ", partId:  " << partId
             << ", src: " << edgeKey_.get_src() << ", edge_type: " << edgeKey_.get_edge_type()

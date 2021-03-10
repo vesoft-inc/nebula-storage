@@ -21,7 +21,7 @@ const uint8_t kFillMin = 0x00;
 const uint8_t kFillMax = 0xFF;
 const size_t kMaxRowKeyLength = sizeof(PartitionID) + sizeof(VertexID)
                               + sizeof(EdgeType) + sizeof(VertexID)
-                              + sizeof(EdgeRanking) + sizeof(EdgeVersion);
+                              + sizeof(EdgeRanking) + sizeof(EdgeVerPlaceHolder);
 
 HBaseStore::HBaseStore(KVOptions options)
         : options_(std::move(options)) {
@@ -319,7 +319,7 @@ ResultCode HBaseStore::prefix(GraphSpaceID spaceId,
 
 void HBaseStore::asyncMultiPut(GraphSpaceID spaceId,
                                PartitionID partId,
-                               std::vector<KV> keyValues,
+                               std::vector<KV>&& keyValues,
                                KVCallback cb) {
     UNUSED(partId);
     auto multiPut = [this, &spaceId, &keyValues] () -> ResultCode {

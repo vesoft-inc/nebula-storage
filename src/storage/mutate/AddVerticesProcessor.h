@@ -16,28 +16,35 @@
 namespace nebula {
 namespace storage {
 
+extern ProcessorCounters kAddVerticesCounters;
+
 class AddVerticesProcessor : public BaseProcessor<cpp2::ExecResponse> {
 public:
-    static AddVerticesProcessor* instance(StorageEnv* env,
-                                          stats::Stats* stats,
-                                          VertexCache* cache = nullptr) {
-        return new AddVerticesProcessor(env, stats, cache);
+    static AddVerticesProcessor* instance(
+            StorageEnv* env,
+            const ProcessorCounters* counters = &kAddVerticesCounters,
+            VertexCache* cache = nullptr) {
+        return new AddVerticesProcessor(env, counters, cache);
     }
 
     void process(const cpp2::AddVerticesRequest& req);
 
+    void doProcess(const cpp2::AddVerticesRequest& req);
+
+    void doProcessWithIndex(const cpp2::AddVerticesRequest& req);
+
 private:
-    AddVerticesProcessor(StorageEnv* env, stats::Stats* stats, VertexCache* cache)
-        : BaseProcessor<cpp2::ExecResponse>(env, stats)
+    AddVerticesProcessor(StorageEnv* env,
+                         const ProcessorCounters* counters,
+                         VertexCache* cache)
+        : BaseProcessor<cpp2::ExecResponse>(env, counters)
         , vertexCache_(cache) {}
 
-    folly::Optional<std::string>
-    addVertices(PartitionID partId,
-                const std::vector<kvstore::KV>& vertices);
+    ErrorOr<kvstore::ResultCode, std::string> findOldValue(PartitionID partId,
+                                                           const VertexID& vId,
+                                                           TagID tagId);
 
-    folly::Optional<std::string> findOldValue(PartitionID partId, VertexID vId, TagID tagId);
-
-    std::string indexKey(PartitionID partId, VertexID vId, RowReader* reader,
+    std::string indexKey(PartitionID partId, const VertexID& vId, RowReader* reader,
                          std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
 private:

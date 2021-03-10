@@ -1,5 +1,4 @@
 set(common_deps
-    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
@@ -31,6 +30,7 @@ set(common_deps
     $<TARGET_OBJECTS:common_function_manager_obj>
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
+    $<TARGET_OBJECTS:common_version_obj>
 )
 
 nebula_add_executable(
@@ -52,10 +52,10 @@ nebula_add_executable(
         $<TARGET_OBJECTS:storage_common_obj>
         ${common_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
 )
 
 
@@ -73,10 +73,10 @@ nebula_add_executable(
         $<TARGET_OBJECTS:old_meta_thrift_obj>
         ${common_deps}
     LIBRARIES
-        proxygenhttpserver
-        proxygenlib
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
 )
 
 install(

@@ -19,6 +19,7 @@
 #include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
 
 DECLARE_bool(null_type);
+DECLARE_uint32(string_index_limit);
 
 namespace nebula {
 namespace meta {
@@ -104,12 +105,12 @@ Status MetaDataUpgrade::rewriteIndexes(const folly::StringPiece &key,
     newItem.set_index_name(oldItem.get_index_name());
     cpp2::SchemaID schemaId;
     if (oldItem.get_schema_id().getType() == oldmeta::cpp2::SchemaID::Type::tag_id) {
-        schemaId.set_tag_id(oldItem.get_schema_id().getType());
+        schemaId.set_tag_id(oldItem.get_schema_id().get_tag_id());
     } else {
-        schemaId.set_edge_type(oldItem.get_schema_id().getType());
+        schemaId.set_edge_type(oldItem.get_schema_id().get_edge_type());
     }
     newItem.set_schema_id(schemaId);
-    NG_LOG_AND_RETURN_IF_ERROR(convertToNewColumns(oldItem.fields, newItem.fields));
+    NG_LOG_AND_RETURN_IF_ERROR(convertToNewIndexColumns(oldItem.fields, newItem.fields));
     NG_LOG_AND_RETURN_IF_ERROR(put(key, MetaServiceUtils::indexVal(newItem)));
     return Status::OK();
 }
@@ -251,6 +252,29 @@ Status MetaDataUpgrade::convertToNewColumns(const std::vector<oldmeta::cpp2::Col
     return Status::OK();
 }
 
+Status
+MetaDataUpgrade::convertToNewIndexColumns(const std::vector<oldmeta::cpp2::ColumnDef> &oldCols,
+                                          std::vector<cpp2::ColumnDef> &newCols) {
+    for (auto &colDef : oldCols) {
+        cpp2::ColumnDef columnDef;
+        columnDef.set_name(colDef.get_name());
+        if (colDef.get_type().get_type() == oldmeta::cpp2::SupportedType::STRING) {
+            cpp2::ColumnTypeDef type;
+            type.set_type(cpp2::PropertyType::FIXED_STRING);
+            type.set_type_length(FLAGS_string_index_limit);
+            columnDef.set_type(std::move(type));
+        } else {
+            columnDef.type.set_type(static_cast<cpp2::PropertyType>(colDef.get_type().get_type()));
+        }
+        DCHECK(!colDef.__isset.default_value);
+        if (FLAGS_null_type) {
+            columnDef.set_nullable(true);
+        }
+        newCols.emplace_back(std::move(columnDef));
+    }
+    return Status::OK();
+}
+
 void MetaDataUpgrade::printHost(const folly::StringPiece &key, const folly::StringPiece &val) {
     auto host = oldmeta::MetaServiceUtilsV1::parseHostKey(key);
     auto info = HostInfo::decodeV1(val);
@@ -330,6 +354,11 @@ void MetaDataUpgrade::printIndexes(const folly::StringPiece &val) {
     auto oldItem = oldmeta::MetaServiceUtilsV1::parseIndex(val);
     LOG(INFO) << "Index   id: " << oldItem.get_index_id();
     LOG(INFO) << "Index name: " << oldItem.get_index_name();
+    if (oldItem.get_schema_id().getType() == oldmeta::cpp2::SchemaID::Type::tag_id) {
+        LOG(INFO) << "Index on tag id: " << oldItem.get_schema_id().get_tag_id();
+    } else {
+        LOG(INFO) << "Index on edgetype: " << oldItem.get_schema_id().get_edge_type();
+    }
     for (auto &colDef : oldItem.get_fields()) {
         LOG(INFO) << "Index field name: " << colDef.get_name();
         LOG(INFO) << "Index field type: "

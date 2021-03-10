@@ -78,7 +78,7 @@ void NebulaStore::loadPartFromDataPath() {
         auto rootPath = folly::stringPrintf("%s/nebula", path.c_str());
         auto dirs = fs::FileUtils::listAllDirsInDir(rootPath.c_str());
         for (auto& dir : dirs) {
-            LOG(INFO) << "Scan path \"" << path << "/" << dir << "\"";
+            LOG(INFO) << "Scan path \"" << rootPath << "/" << dir << "\"";
             try {
                 GraphSpaceID spaceId;
                 try {
@@ -262,10 +262,8 @@ std::unique_ptr<KVEngine> NebulaStore::newEngine(GraphSpaceID spaceId,
         if (options_.cffBuilder_ != nullptr) {
             cfFactory = options_.cffBuilder_->buildCfFactory(spaceId);
         }
-        return std::make_unique<RocksEngine>(spaceId,
-                                             path,
-                                             options_.mergeOp_,
-                                             cfFactory);
+        auto vIdLen = getSpaceVidLen(spaceId);
+        return std::make_unique<RocksEngine>(spaceId, vIdLen, path, options_.mergeOp_, cfFactory);
     } else {
         LOG(FATAL) << "Unknown engine type " << FLAGS_engine_type;
         return nullptr;
@@ -309,6 +307,16 @@ void NebulaStore::addSpace(GraphSpaceID spaceId, bool isListener) {
     }
 }
 
+int32_t NebulaStore::getSpaceVidLen(GraphSpaceID spaceId) {
+    int vIdLen = 8;  // default value
+    if (options_.schemaMan_) {
+        auto stVidLen = options_.schemaMan_->getSpaceVidLen(spaceId);
+        if (stVidLen.ok()) {
+            vIdLen = stVidLen.value();
+        }
+    }
+    return vIdLen;
+}
 
 void NebulaStore::addPart(GraphSpaceID spaceId,
                           PartitionID partId,
@@ -674,7 +682,7 @@ ResultCode NebulaStore::sync(GraphSpaceID spaceId,
 
 void NebulaStore::asyncAppendBatch(GraphSpaceID spaceId,
                                    PartitionID partId,
-                                   std::string& batch,
+                                   std::string&& batch,
                                    KVCallback cb) {
     auto ret = part(spaceId, partId);
     if (!ok(ret)) {
@@ -682,12 +690,12 @@ void NebulaStore::asyncAppendBatch(GraphSpaceID spaceId,
         return;
     }
     auto part = nebula::value(ret);
-    part->asyncAppendBatch(batch, std::move(cb));
+    part->asyncAppendBatch(std::move(batch), std::move(cb));
 }
 
 void NebulaStore::asyncMultiPut(GraphSpaceID spaceId,
                                 PartitionID partId,
-                                std::vector<KV> keyValues,
+                                std::vector<KV>&& keyValues,
                                 KVCallback cb) {
     auto ret = part(spaceId, partId);
     if (!ok(ret)) {
@@ -715,7 +723,7 @@ void NebulaStore::asyncRemove(GraphSpaceID spaceId,
 
 void NebulaStore::asyncMultiRemove(GraphSpaceID spaceId,
                                    PartitionID  partId,
-                                   std::vector<std::string> keys,
+                                   std::vector<std::string>&& keys,
                                    KVCallback cb) {
     auto ret = part(spaceId, partId);
     if (!ok(ret)) {

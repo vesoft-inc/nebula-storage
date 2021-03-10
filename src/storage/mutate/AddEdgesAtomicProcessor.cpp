@@ -19,6 +19,8 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kAddEdgesAtomicCounters;
+
 // use localPart vs remotePart to identify different channel.
 using ChainId = std::pair<PartitionID, PartitionID>;
 
@@ -40,9 +42,6 @@ void AddEdgesAtomicProcessor::process(const cpp2::AddEdgesRequest& req) {
 }
 
 void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
-    auto ver = FLAGS_enable_multi_versions
-                       ? std::numeric_limits<int64_t>::max() - time::WallClock::fastNowInMicroSec()
-                       : 1L;
     std::unordered_map<ChainId, std::vector<KV>> edgesByChain;
     std::unordered_map<PartitionID, cpp2::ErrorCode> failedPart;
     // split req into chains
@@ -61,7 +60,7 @@ void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
                 LOG(INFO) << "ekey.src.hex=" << folly::hexlify(ekey.src.toString())
                           << ", ekey.dst.hex=" << folly::hexlify(ekey.dst.toString());
             }
-            auto key = TransactionUtils::edgeKey(vIdLen_, localPart, edge.get_key(), ver);
+            auto key = TransactionUtils::edgeKey(vIdLen_, localPart, edge.get_key());
             std::string val;
             auto code = encodeSingleEdgeProps(edge, val);
             if (code != cpp2::ErrorCode::SUCCEEDED) {
@@ -82,11 +81,16 @@ void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
 
     CHECK_NOTNULL(env_->indexMan_);
     auto stIndex = env_->indexMan_->getEdgeIndexes(spaceId_);
-    if (stIndex.ok()) {
-        if (!stIndex.value().empty()) {
-            processor_.reset(AddEdgesProcessor::instance(env_, nullptr));
-            processor_->indexes_ = stIndex.value();
+    if (!stIndex.ok()) {
+         for (auto& part : req.parts)  {
+            pushResultCode(cpp2::ErrorCode::E_SPACE_NOT_FOUND, part.first);
         }
+        onFinished();
+        return;
+    }
+    if (!stIndex.value().empty()) {
+        processor_.reset(AddEdgesProcessor::instance(env_));
+        processor_->indexes_ = stIndex.value();
     }
 
     std::list<folly::Future<folly::Unit>> futures;

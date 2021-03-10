@@ -71,7 +71,7 @@ void getVertices(storage::StorageEnv* env,
 
     auto req = buildVertexRequest(totalParts, vertices, tags);
 
-    auto* processor = GetPropProcessor::instance(env, nullptr, cache);
+    auto* processor = GetPropProcessor::instance(env, nullptr, nullptr, cache);
     auto fut = processor->getFuture();
     processor->process(req);
     auto resp = std::move(fut).get();
@@ -194,7 +194,7 @@ TEST(VertexCacheTest, OperationVertexTest) {
         req.set_insertable(false);
 
         LOG(INFO) << "Test UpdateVertexRequest...";
-        auto* processor = UpdateVertexProcessor::instance(env, nullptr, &cache);
+        auto* processor = UpdateVertexProcessor::instance(env, nullptr, nullptr, &cache);
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
@@ -318,7 +318,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
         // the vertexCache is empty at first, and the record is
         // placed in the vertexCache. evicts is 0, hits is 0, total is 1.
         {
-            auto* processor = GetNeighborsProcessor::instance(env, nullptr, &cache);
+            auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &cache);
             auto fut = processor->getFuture();
             processor->process(req);
             auto resp = std::move(fut).get();
@@ -332,7 +332,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
         // When the get neighbor is executed for the second time,
         // evicts is 0, hits is 1, total is 2.
         {
-            auto* processor = GetNeighborsProcessor::instance(env, nullptr, &cache);
+            auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &cache);
             auto fut = processor->getFuture();
             processor->process(req);
             auto resp = std::move(fut).get();
@@ -502,7 +502,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
 
         // TODO At present, when the ttl data expires, tag returns a vid,
         // other attributes are empty value, edge returns a row with an empty value fields.
-        getVertices(env, parts, &cache, tagId, vertices, 51);
+        getVertices(env, parts, &cache, tagId, vertices, 0);
         checkCache(&cache, 51, 51, 102);
     }
 

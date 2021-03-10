@@ -11,6 +11,7 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kForwardTranxCounters;
 
 void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
     int64_t txnId = req.get_txn_id();
@@ -21,7 +22,7 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
                                    << ", spaceId=" << spaceId << ", partId=" << partId;
     auto data = req.get_data()[req.get_position()].back();
 
-    env_->txnMan_->commitBatch(spaceId, partId, data)
+    env_->txnMan_->commitBatch(spaceId, partId, std::move(data))
         .via(env_->txnMan_->getExecutor())
         .thenValue([=](kvstore::ResultCode rc) {
             LOG_IF(INFO, FLAGS_trace_toss) << "txnId="
@@ -35,11 +36,11 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
             for (auto& p : codes_) {
                 if (p.__isset.leader) {
                     LOG(INFO) << "txnId=" << txnId << ", part=" << p.part_id
-                        << ", code=" << static_cast<int32_t>(p.code)
-                        << ", leader=" << p.leader;
+                              << ", code=" << static_cast<int32_t>(p.code)
+                              << ", leader=" << p.leader;
                 } else {
                     LOG(INFO) << "txnId=" << txnId << ", part=" << p.part_id
-                        << ", code=" << static_cast<int32_t>(p.code);
+                              << ", code=" << static_cast<int32_t>(p.code);
                 }
             }
             onFinished();

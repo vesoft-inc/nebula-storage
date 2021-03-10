@@ -13,19 +13,30 @@
 namespace nebula {
 namespace storage {
 
+extern ProcessorCounters kScanEdgeCounters;
+
 class ScanEdgeProcessor
     : public QueryBaseProcessor<cpp2::ScanEdgeRequest, cpp2::ScanEdgeResponse> {
 public:
-    static ScanEdgeProcessor* instance(StorageEnv* env,
-                                       stats::Stats* stats) {
-        return new ScanEdgeProcessor(env, stats);
+    static ScanEdgeProcessor* instance(
+            StorageEnv* env,
+            const ProcessorCounters* counters = &kScanEdgeCounters,
+            folly::Executor* executor = nullptr) {
+        return new ScanEdgeProcessor(env, counters, executor);
     }
 
     void process(const cpp2::ScanEdgeRequest& req) override;
 
+    void doProcess(const cpp2::ScanEdgeRequest& req);
+
 private:
-    ScanEdgeProcessor(StorageEnv* env, stats::Stats* stats)
-        : QueryBaseProcessor<cpp2::ScanEdgeRequest, cpp2::ScanEdgeResponse>(env, stats) {
+    ScanEdgeProcessor(StorageEnv* env,
+                      const ProcessorCounters* counters,
+                      folly::Executor* executor)
+        : QueryBaseProcessor<cpp2::ScanEdgeRequest,
+                             cpp2::ScanEdgeResponse>(env,
+                                                     counters,
+                                                     executor) {
     }
 
     cpp2::ErrorCode checkAndBuildContexts(const cpp2::ScanEdgeRequest& req) override;

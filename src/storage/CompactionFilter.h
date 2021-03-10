@@ -40,105 +40,81 @@ public:
             return false;
         }
 
-        if (NebulaKeyUtils::isDataKey(key)) {
-            if (!schemaValid(spaceId, key)) {
-                return true;
-            }
-            if (isInvalidReverseEdgeKey(key, val)) {
-                return true;
-            }
-            if (!ttlValid(spaceId, key, val)) {
-                VLOG(3) << "TTL invalid for key " << key;
-                return true;
-            }
-            if (filterVersions(key)) {
-                VLOG(3) << "Extra versions has been filtered!";
-                return true;
-            }
+        if (NebulaKeyUtils::isVertex(vIdLen_, key)) {
+            return !vertexValid(spaceId, key, val);
+        } else if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
+            return !edgeValid(spaceId, key, val);
         } else if (IndexKeyUtils::isIndexKey(key)) {
-            if (!indexValid(spaceId, key)) {
-                VLOG(3) << "Index invalid for the key " << key;
-                return true;
-            }
+            return !indexValid(spaceId, key);
+        } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
+            return !lockValid(spaceId, key);
         } else {
+            // skip uuid/system/operation
             VLOG(3) << "Skip the system key inside, key " << key;
         }
         return false;
     }
 
-    bool schemaValid(GraphSpaceID spaceId, const folly::StringPiece& key) const {
-        if (NebulaKeyUtils::isVertex(vIdLen_, key)) {
-            auto tagId = NebulaKeyUtils::getTagId(vIdLen_, key);
-            auto ret = schemaMan_->getLatestTagSchemaVersion(spaceId, tagId);
-            if (ret.ok() && ret.value() == -1) {
-                VLOG(3) << "Space " << spaceId << ", Tag " << tagId << " invalid";
-                return false;
-            }
-        } else if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
-            auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
-            if (edgeType < 0) {
-                edgeType = -edgeType;
-            }
-            auto ret = schemaMan_->getLatestEdgeSchemaVersion(spaceId, edgeType);
-            if (ret.ok() && ret.value() == -1) {
-                VLOG(3) << "Space " << spaceId << ", EdgeType " << edgeType << " invalid";
-                return false;
-            }
-        } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            auto edgeKey = NebulaKeyUtils::toEdgeKey(key, true);
-            return schemaValid(spaceId, edgeKey);
+private:
+    bool vertexValid(GraphSpaceID spaceId,
+                     const folly::StringPiece& key,
+                     const folly::StringPiece& val) const {
+        auto tagId = NebulaKeyUtils::getTagId(vIdLen_, key);
+        auto schema = schemaMan_->getTagSchema(spaceId, tagId);
+        if (!schema) {
+            VLOG(3) << "Space " << spaceId << ", Tag " << tagId << " invalid";
+            return false;
+        }
+        auto reader = RowReaderWrapper::getTagPropReader(schemaMan_, spaceId, tagId, val);
+        if (reader == nullptr) {
+            VLOG(3) << "Remove the bad format vertex";
+            return false;
+        }
+        if (ttlExpired(schema.get(), reader.get())) {
+            VLOG(3) << "Ttl expired";
+            return false;
         }
         return true;
     }
 
-    bool isInvalidReverseEdgeKey(const folly::StringPiece& key,
-                                 const folly::StringPiece& val) const {
-        if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
-            auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
-            return edgeType < 0 && val.empty();
+    bool edgeValid(GraphSpaceID spaceId,
+                   const folly::StringPiece& key,
+                   const folly::StringPiece& val) const {
+        auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
+        if (edgeType < 0 && val.empty()) {
+            VLOG(3) << "Invalid reverse edge key";
+            return false;
         }
-        return false;
+        auto schema = schemaMan_->getEdgeSchema(spaceId, std::abs(edgeType));
+        if (!schema) {
+            VLOG(3) << "Space " << spaceId << ", EdgeType " << edgeType << " invalid";
+            return false;
+        }
+        auto reader =
+            RowReaderWrapper::getEdgePropReader(schemaMan_, spaceId, std::abs(edgeType), val);
+        if (reader == nullptr) {
+            VLOG(3) << "Remove the bad format edge!";
+            return false;
+        }
+        if (ttlExpired(schema.get(), reader.get())) {
+            VLOG(3) << "Ttl expired";
+            return false;
+        }
+        return true;
     }
 
-    bool ttlValid(GraphSpaceID spaceId, const folly::StringPiece& key,
-                  const folly::StringPiece& val) const {
-        if (NebulaKeyUtils::isVertex(vIdLen_, key)) {
-            auto tagId = NebulaKeyUtils::getTagId(vIdLen_, key);
-            auto schema = schemaMan_->getTagSchema(spaceId, tagId);
-            if (!schema) {
-                VLOG(3) << "Space " << spaceId << ", Tag " << tagId << " invalid";
-                return false;
-            }
-            auto reader = nebula::RowReaderWrapper::getTagPropReader(
-                schemaMan_, spaceId, tagId, val);
-            if (reader == nullptr) {
-                VLOG(3) << "Remove the bad format vertex";
-                return false;
-            }
-            return checkDataTtlValid(schema.get(), reader.get());
-        } else if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
-            auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
-            auto schema = schemaMan_->getEdgeSchema(spaceId, std::abs(edgeType));
-            if (!schema) {
-                VLOG(3) << "Space " << spaceId << ", EdgeType " << edgeType << " invalid";
-                return false;
-            }
-            auto reader = nebula::RowReaderWrapper::getEdgePropReader(
-                schemaMan_, spaceId, std::abs(edgeType), val);
-            if (reader == nullptr) {
-                VLOG(3) << "Remove the bad format edge!";
-                return false;
-            }
-            return checkDataTtlValid(schema.get(), reader.get());
-        } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            auto edgeKey = NebulaKeyUtils::toEdgeKey(key, true);
-            return ttlValid(spaceId, edgeKey, val);
+    bool lockValid(GraphSpaceID spaceId, const folly::StringPiece& key) const {
+        auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen_, key);
+        auto schema = schemaMan_->getEdgeSchema(spaceId, std::abs(edgeType));
+        if (!schema) {
+            VLOG(3) << "Space " << spaceId << ", EdgeType " << edgeType << " invalid";
+            return false;
         }
         return true;
     }
 
     // TODO(panda) Optimize the method in the future
-    bool checkDataTtlValid(const meta::SchemaProviderIf* schema, nebula::RowReader* reader) const {
+    bool ttlExpired(const meta::SchemaProviderIf* schema, nebula::RowReader* reader) const {
         const auto* nschema = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
         if (nschema == NULL) {
             return true;
@@ -155,38 +131,11 @@ public:
 
         // Only support the specified ttl_col mode
         // Not specifying or non-positive ttl_duration behaves like ttl_duration = infinity
-        if (ttlCol.empty() ||  ttlDuration <= 0) {
-            return true;
+        if (ttlCol.empty() || ttlDuration <= 0) {
+            return false;
         }
 
-        return !nebula::storage::CommonUtils::checkDataExpiredForTTL(
-                    schema, reader, ttlCol, ttlDuration);
-    }
-
-    bool filterVersions(const folly::StringPiece& key) const {
-        if (NebulaKeyUtils::isLock(vIdLen_, key)) {
-            /*
-             * if MVCC enabled,
-             * only erase lock if there is a prev edge
-             * edges will not erase no matter if thers is a lock before
-             * e.g.
-             * LOCK (1)
-             * LOCK (2)
-             * EDGE (3)
-             * EDGE (4)
-             * LOCK (5)
-             * EDGE (6)
-             * 4, 5, 6 will erased by compaction, 1, 2, 3 won't
-             * */
-            return NebulaKeyUtils::lockWithNoVersion(key) == lastKeyWithNoVersion_;
-        }
-        folly::StringPiece keyWithNoVersion = NebulaKeyUtils::keyWithNoVersion(key);
-        if (keyWithNoVersion == lastKeyWithNoVersion_) {
-            // TODO(heng): we could support max-versions configuration in schema if needed.
-            return true;
-        }
-        lastKeyWithNoVersion_ = keyWithNoVersion.str();
-        return false;
+        return CommonUtils::checkDataExpiredForTTL(schema, reader, ttlCol, ttlDuration);
     }
 
     bool indexValid(GraphSpaceID spaceId, const folly::StringPiece& key) const {
@@ -204,7 +153,6 @@ public:
     }
 
 private:
-    mutable std::string lastKeyWithNoVersion_;
     meta::SchemaManager* schemaMan_ = nullptr;
     meta::IndexManager* indexMan_ = nullptr;
     size_t vIdLen_;

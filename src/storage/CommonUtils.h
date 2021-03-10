@@ -8,16 +8,45 @@
 #define STORAGE_COMMON_H_
 
 #include "common/base/Base.h"
+#include "common/stats/StatsManager.h"
 #include "common/meta/SchemaManager.h"
 #include "common/meta/IndexManager.h"
 #include "common/base/ConcurrentLRUCache.h"
 #include "common/interface/gen-cpp2/storage_types.h"
 #include "codec/RowReader.h"
 #include "kvstore/KVStore.h"
+#include "utils/MemoryLockWrapper.h"
 #include <folly/concurrency/ConcurrentHashMap.h>
+
 
 namespace nebula {
 namespace storage {
+
+struct ProcessorCounters {
+    stats::CounterId numCalls_;
+    stats::CounterId numErrors_;
+    stats::CounterId latency_;
+
+    virtual ~ProcessorCounters() = default;
+
+    virtual void init(const std::string& counterName) {
+        if (!numCalls_.valid()) {
+            numCalls_ = stats::StatsManager::registerStats("num_" + counterName,
+                                                           "rate, sum");
+            numErrors_ = stats::StatsManager::registerStats("num_" + counterName + "_errors",
+                                                            "rate, sum");
+            latency_ = stats::StatsManager::registerHisto(counterName + "_latency_us",
+                                                          1000,
+                                                          0,
+                                                          20000,
+                                                          "avg, p75, p95, p99");
+            VLOG(1) << "Succeeded in initializing the ProcessorCounters instance";
+        } else {
+            VLOG(1) << "ProcessorCounters instance has been initialized";
+        }
+    }
+};
+
 
 enum class IndexState {
     STARTING,  // The part is begin to build index.
@@ -31,6 +60,10 @@ using VertexCache = ConcurrentLRUCache<std::pair<VertexID, TagID>, std::string>;
 using IndexKey    = std::tuple<GraphSpaceID, PartitionID>;
 using IndexGuard  = folly::ConcurrentHashMap<IndexKey, IndexState>;
 
+using VMLI = std::tuple<GraphSpaceID, PartitionID, TagID, VertexID>;
+using EMLI = std::tuple<GraphSpaceID, PartitionID, VertexID, EdgeType, EdgeRanking, VertexID>;
+using VerticesMemLock = MemoryLockCore<VMLI>;
+using EdgesMemLock = MemoryLockCore<EMLI>;
 
 class TransactionManager;
 
@@ -47,6 +80,9 @@ public:
     std::unique_ptr<IndexGuard>                     rebuildIndexGuard_{nullptr};
     meta::MetaClient*                               metaClient_{nullptr};
     TransactionManager*                             txnMan_{nullptr};
+    std::unique_ptr<VerticesMemLock>                verticesML_{nullptr};
+    std::unique_ptr<EdgesMemLock>                   edgesML_{nullptr};
+
 
     IndexState getIndexState(GraphSpaceID space, PartitionID part) {
         auto key = std::make_tuple(space, part);
