@@ -125,7 +125,14 @@ kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                             ranking,
                                                             destination.toString(),
                                                             std::move(valuesRet).value());
-                data.emplace_back(std::move(indexKey), "");
+                auto schema = env_->schemaMan_->getEdgeSchema(space, edgeType);
+                if (!schema) {
+                    LOG(WARNING) << "Space " << space << ", edge " << edgeType << " invalid";
+                    continue;
+                }
+                auto ttlVal = CommonUtils::ttlValue(schema.get(), reader.get());
+                auto niv = ttlVal.ok() ? IndexKeyUtils::indexVal(std::move(ttlVal).value()) : "";
+                data.emplace_back(std::move(indexKey), std::move(niv));
             }
         }
         iter->next();

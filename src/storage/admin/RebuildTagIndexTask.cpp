@@ -110,7 +110,14 @@ kvstore::ResultCode RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                               item->get_index_id(),
                                                               vertex.toString(),
                                                               std::move(valuesRet).value());
-                data.emplace_back(std::move(indexKey), "");
+                auto schema = env_->schemaMan_->getTagSchema(space, tagID);
+                if (!schema) {
+                    LOG(WARNING) << "Space " << space << ", tag " << tagID << " invalid";
+                    continue;
+                }
+                auto ttlVal = CommonUtils::ttlValue(schema.get(), reader.get());
+                auto niv = ttlVal.ok() ? IndexKeyUtils::indexVal(std::move(ttlVal).value()) : "";
+                data.emplace_back(std::move(indexKey), std::move(niv));
             }
         }
         iter->next();

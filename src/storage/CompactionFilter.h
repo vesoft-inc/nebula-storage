@@ -45,7 +45,7 @@ public:
         } else if (NebulaKeyUtils::isEdge(vIdLen_, key)) {
             return !edgeValid(spaceId, key, val);
         } else if (IndexKeyUtils::isIndexKey(key)) {
-            return !indexValid(spaceId, key);
+            return !indexValid(spaceId, key, val);
         } else if (NebulaKeyUtils::isLock(vIdLen_, key)) {
             return !lockValid(spaceId, key);
         } else {
@@ -113,14 +113,10 @@ private:
         return true;
     }
 
-    // TODO(panda) Optimize the method in the future
-    bool ttlExpired(const meta::SchemaProviderIf* schema, nebula::RowReader* reader) const {
+    std::pair<int64_t, std::string> ttlPair(const meta::SchemaProviderIf* schema) const {
         const auto* nschema = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
-        if (nschema == NULL) {
-            return true;
-        }
         const auto schemaProp = nschema->getProp();
-        int ttlDuration = 0;
+        int64_t ttlDuration = 0;
         if (schemaProp.get_ttl_duration()) {
             ttlDuration = *schemaProp.get_ttl_duration();
         }
@@ -128,24 +124,73 @@ private:
         if (schemaProp.get_ttl_col()) {
             ttlCol = *schemaProp.get_ttl_col();
         }
+        return std::make_pair(ttlDuration, std::move(ttlCol));
+    }
+
+    // TODO(panda) Optimize the method in the future
+    bool ttlExpired(const meta::SchemaProviderIf* schema, nebula::RowReader* reader) const {
+        if (schema == nullptr) {
+            return true;
+        }
+        auto ttl = ttlPair(schema);
 
         // Only support the specified ttl_col mode
         // Not specifying or non-positive ttl_duration behaves like ttl_duration = infinity
-        if (ttlCol.empty() || ttlDuration <= 0) {
+        if (ttl.first <= 0 || ttl.second.empty()) {
             return false;
         }
 
-        return CommonUtils::checkDataExpiredForTTL(schema, reader, ttlCol, ttlDuration);
+        return CommonUtils::checkDataExpiredForTTL(schema, reader, ttl.second, ttl.first);
     }
 
-    bool indexValid(GraphSpaceID spaceId, const folly::StringPiece& key) const {
+    bool ttlExpired(const meta::SchemaProviderIf* schema, const Value& v) const {
+        if (schema == nullptr) {
+            return true;
+        }
+        auto ttl = ttlPair(schema);
+        if (ttl.first <= 0 || ttl.second.empty()) {
+            return false;
+        }
+        auto now = time::WallClock::fastNowInSec();
+        if (v.isInt() && (now > (v.getInt() + ttl.first))) {
+            VLOG(2) << "ttl expired";
+            return true;
+        }
+        return false;
+    }
+
+    bool indexValid(GraphSpaceID spaceId,
+                    const folly::StringPiece& key,
+                    const folly::StringPiece& val) const {
         auto indexId = IndexKeyUtils::getIndexId(key);
         auto eRet = indexMan_->getEdgeIndex(spaceId, indexId);
         if (eRet.ok()) {
+            if (!val.empty()) {
+                auto id = eRet.value()->get_schema_id().get_edge_type();
+                auto schema = schemaMan_->getEdgeSchema(spaceId, id);
+                if (!schema) {
+                    VLOG(3) << "Space " << spaceId << ", EdgeType " << id << " invalid";
+                    return false;
+                }
+                if (ttlExpired(schema.get(), IndexKeyUtils::parseIndexTTL(val))) {
+                    return false;
+                }
+            }
             return true;
         }
         auto tRet = indexMan_->getTagIndex(spaceId, indexId);
         if (tRet.ok()) {
+            if (!val.empty()) {
+                auto id = tRet.value()->get_schema_id().get_tag_id();
+                auto schema = schemaMan_->getTagSchema(spaceId, id);
+                if (!schema) {
+                    VLOG(3) << "Space " << spaceId << ", tagId " << id << " invalid";
+                    return false;
+                }
+                if (ttlExpired(schema.get(), IndexKeyUtils::parseIndexTTL(val))) {
+                    return false;
+                }
+            }
             return true;
         }
         return !(eRet.status() == Status::IndexNotFound() &&

@@ -91,14 +91,19 @@ bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
                                          RowReader* reader,
                                          const std::string& ttlCol,
                                          int64_t ttlDuration) {
+    auto v = reader->getValueByName(ttlCol);
+    return checkDataExpiredForTTL(schema, v, ttlCol, ttlDuration);
+}
+
+bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
+                                         const Value& v,
+                                         const std::string& ttlCol,
+                                         int64_t ttlDuration) {
     const auto& ftype = schema->getFieldType(ttlCol);
-    // could not support VID type anymore
-    // todo: could support DateTime later
     if (ftype != meta::cpp2::PropertyType::TIMESTAMP && ftype != meta::cpp2::PropertyType::INT64) {
         return false;
     }
     auto now = time::WallClock::fastNowInSec();
-    auto v = reader->getValueByName(ttlCol);
 
     // if the value is not INT type (sush as NULL), it will never expire.
     // TODO (sky) : DateTime
@@ -107,6 +112,20 @@ bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
         return true;
     }
     return false;
+}
+
+StatusOr<Value> CommonUtils::ttlValue(const meta::SchemaProviderIf* schema, RowReader* reader) {
+    DCHECK(schema != nullptr);
+    const auto* ns = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
+    const auto prop = ns->getProp();
+    std::string col;
+    if (prop.get_ttl_col()) {
+        col = *prop.get_ttl_col();
+    }
+    if (*prop.get_ttl_duration() <= 0 || col.empty()) {
+        return Status::Error();
+    }
+    return reader->getValueByName(std::move(col));
 }
 
 }  // namespace storage
