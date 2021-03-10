@@ -664,6 +664,42 @@ TEST(RowWriterV2, TimestampTest) {
                    (reader->getTimestamp() <= time::WallClock::fastNowInMicroSec());
         EXPECT_TRUE(ret);
     }
+    {
+        SchemaWriter schema(1);
+        schema.appendCol("Col01", PropertyType::STRING);
+
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", ""));
+        // rewrite, for processOutOfSpace test
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", "abc"));
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish());
+        std::string encoded = std::move(writer).moveEncodedStr();
+
+        RowWriterV2 writer2(&schema, encoded);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col01", "abc"));
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer2.finish());
+        std::string encoded2 = std::move(writer2).moveEncodedStr();
+        EXPECT_EQ(encoded.substr(0, encoded.size() - sizeof(int64_t)),
+                  encoded2.substr(0, encoded2.size() - sizeof(int64_t)));
+    }
+    {
+        SchemaWriter schema(1);
+        schema.appendCol("Col01", PropertyType::INT64);
+
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", 1));
+        // rewrite, for processOutOfSpace test
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", 2));
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish());
+        std::string encoded = std::move(writer).moveEncodedStr();
+
+        RowWriterV2 writer2(&schema, encoded);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer2.set("Col01", 2));
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer2.finish());
+        std::string encoded2 = std::move(writer2).moveEncodedStr();
+        EXPECT_EQ(encoded.substr(0, encoded.size() - sizeof(int64_t)),
+                  encoded2.substr(0, encoded2.size() - sizeof(int64_t)));
+    }
 }
 
 }  // namespace nebula

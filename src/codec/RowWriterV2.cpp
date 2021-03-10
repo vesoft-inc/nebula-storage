@@ -88,16 +88,17 @@ RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema)
 
 RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema, std::string&& encoded)
         : schema_(schema)
-        , buf_(std::move(encoded))
         , finished_(false)
         , outOfSpaceStr_(false) {
+    auto len = encoded.size();
+    buf_ = std::move(encoded).substr(0, len - sizeof(int64_t));
     processV2EncodedStr();
 }
 
 
 RowWriterV2::RowWriterV2(const meta::SchemaProviderIf* schema, const std::string& encoded)
         : schema_(schema)
-        , buf_(encoded)
+        , buf_(encoded.substr(0, encoded.size() - sizeof(int64_t)))
         , finished_(false)
         , outOfSpaceStr_(false) {
     processV2EncodedStr();
@@ -163,7 +164,7 @@ void RowWriterV2::processV2EncodedStr() noexcept {
         numNullBytes_ = 0;
     }
 
-    approxStrLen_ = buf_.size() - headerLen_ - numNullBytes_ - schema_->size();
+    approxStrLen_ = buf_.size() - headerLen_ - numNullBytes_ - schema_->size() - sizeof(int64_t);
     isSet_.resize(schema_->getNumFields(), true);
 }
 
