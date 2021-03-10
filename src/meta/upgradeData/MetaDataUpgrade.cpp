@@ -19,6 +19,7 @@
 #include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
 
 DECLARE_bool(null_type);
+DECLARE_uint32(string_index_limit);
 
 namespace nebula {
 namespace meta {
@@ -260,7 +261,7 @@ MetaDataUpgrade::convertToNewIndexColumns(const std::vector<oldmeta::cpp2::Colum
         if (colDef.get_type().get_type() == oldmeta::cpp2::SupportedType::STRING) {
             cpp2::ColumnTypeDef type;
             type.set_type(cpp2::PropertyType::FIXED_STRING);
-            type.set_type_length(256);
+            type.set_type_length(FLAGS_string_index_limit);
             columnDef.set_type(std::move(type));
         } else {
             columnDef.type.set_type(static_cast<cpp2::PropertyType>(colDef.get_type().get_type()));
@@ -353,6 +354,11 @@ void MetaDataUpgrade::printIndexes(const folly::StringPiece &val) {
     auto oldItem = oldmeta::MetaServiceUtilsV1::parseIndex(val);
     LOG(INFO) << "Index   id: " << oldItem.get_index_id();
     LOG(INFO) << "Index name: " << oldItem.get_index_name();
+    if (oldItem.get_schema_id().getType() == oldmeta::cpp2::SchemaID::Type::tag_id) {
+        LOG(INFO) << "Index on tag id: " << oldItem.get_schema_id().get_tag_id();
+    } else {
+        LOG(INFO) << "Index on edgetype: " << oldItem.get_schema_id().get_edge_type();
+    }
     for (auto &colDef : oldItem.get_fields()) {
         LOG(INFO) << "Index field name: " << colDef.get_name();
         LOG(INFO) << "Index field type: "

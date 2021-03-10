@@ -51,7 +51,7 @@ std::string NebulaKeyUtils::edgeKey(size_t vIdLen,
        .append(srcId.data(), srcId.size())
        .append(vIdLen - srcId.size(), '\0')
        .append(reinterpret_cast<const char*>(&type), sizeof(EdgeType))
-       .append(reinterpret_cast<const char*>(&rank), sizeof(EdgeRanking))
+       .append(NebulaKeyUtils::encodeRank(rank))
        .append(dstId.data(), dstId.size())
        .append(vIdLen - dstId.size(), '\0')
        .append(1, ev);
@@ -77,16 +77,6 @@ std::string NebulaKeyUtils::systemPartKey(PartitionID partId) {
     key.reserve(kSystemLen);
     key.append(reinterpret_cast<const char*>(&item), sizeof(PartitionID))
        .append(reinterpret_cast<const char*>(&type), sizeof(NebulaSystemKeyType));
-    return key;
-}
-
-// static
-std::string NebulaKeyUtils::uuidKey(PartitionID partId, const folly::StringPiece& name) {
-    std::string key;
-    key.reserve(sizeof(PartitionID) + name.size());
-    int32_t item = (partId << kPartitionOffset) | static_cast<uint32_t>(NebulaKeyType::kUUID);
-    key.append(reinterpret_cast<const char*>(&item), sizeof(int32_t))
-       .append(name.data(), name.size());
     return key;
 }
 
@@ -188,7 +178,7 @@ std::string NebulaKeyUtils::edgePrefix(size_t vIdLen,
        .append(srcId.data(), srcId.size())
        .append(vIdLen - srcId.size(), '\0')
        .append(reinterpret_cast<const char*>(&type), sizeof(EdgeType))
-       .append(reinterpret_cast<const char*>(&rank), sizeof(EdgeRanking))
+       .append(NebulaKeyUtils::encodeRank(rank))
        .append(dstId.data(), dstId.size())
        .append(vIdLen - dstId.size(), '\0');
     return key;

@@ -15,6 +15,18 @@ DEFINE_bool(hosts_whitelist_enabled, false, "Check host whether in whitelist whe
 namespace nebula {
 namespace meta {
 
+HBCounters kHBCounters;
+
+void HBProcessor::onFinished() {
+    if (counters_) {
+        stats::StatsManager::addValue(counters_->numCalls_);
+        stats::StatsManager::addValue(counters_->latency_, this->duration_.elapsedInUSec());
+    }
+
+    Base::onFinished();
+}
+
+
 void HBProcessor::process(const cpp2::HBReq& req) {
     HostAddr host(req.host.host, req.host.port);
     if (FLAGS_hosts_whitelist_enabled
@@ -26,8 +38,8 @@ void HBProcessor::process(const cpp2::HBReq& req) {
         return;
     }
 
-    LOG(INFO) << "Receive heartbeat from " << host
-              << ", role = " << meta::cpp2::_HostRole_VALUES_TO_NAMES.at(req.get_role());
+    VLOG(3) << "Receive heartbeat from " << host
+            << ", role = " << meta::cpp2::_HostRole_VALUES_TO_NAMES.at(req.get_role());
     auto ret = kvstore::ResultCode::SUCCEEDED;
     if (req.get_role() == cpp2::HostRole::STORAGE) {
         ClusterID peerCluserId = req.get_cluster_id();

@@ -17,7 +17,7 @@
 
 DECLARE_int32(heartbeat_interval_secs);
 DECLARE_uint32(raft_heartbeat_interval_secs);
-DECLARE_int32(expired_threshold_sec);
+DECLARE_uint32(expired_time_factor);
 
 namespace nebula {
 namespace meta {
@@ -25,7 +25,6 @@ namespace meta {
 TEST(BalanceIntegrationTest, BalanceTest) {
     FLAGS_heartbeat_interval_secs = 1;
     FLAGS_raft_heartbeat_interval_secs = 1;
-    FLAGS_expired_threshold_sec = 3;
     fs::TempDir rootPath("/tmp/balance_integration_test.XXXXXX");
     IPv4 localIp;
     network::NetworkUtils::ipv4ToInt("127.0.0.1", localIp);
@@ -196,7 +195,7 @@ TEST(BalanceIntegrationTest, BalanceTest) {
         metaClients.back()->stop();
         serverContexts.back().reset();
         // Wait for the host be expired on meta.
-        sleep(FLAGS_expired_threshold_sec + 1);
+        sleep(FLAGS_heartbeat_interval_secs * FLAGS_expired_time_factor + 1);
     }
 
     LOG(INFO) << "Let's balance";

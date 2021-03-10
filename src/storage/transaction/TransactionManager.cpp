@@ -92,8 +92,9 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                 processor->spaceVidLen_ = vIdLen;
                 std::vector<KV> data{std::make_pair(kv.first, kv.second)};
                 auto optVal = processor->addEdges(localPart, data);
-                if (optVal) {
-                    return std::make_pair(NebulaKeyUtils::toLockKey(kv.first), *optVal);
+                if (nebula::ok(optVal)) {
+                    return std::make_pair(NebulaKeyUtils::toLockKey(kv.first),
+                                          nebula::value(optVal));
                 } else {
                     addEdgeErrorCode = cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
                     return std::make_pair(NebulaKeyUtils::toLockKey(kv.first), std::string(""));
@@ -127,7 +128,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
     }
 
     auto c = folly::makePromiseContract<cpp2::ErrorCode>();
-    commitBatch(spaceId, localPart, batch)
+    commitBatch(spaceId, localPart, std::move(batch))
         .via(exec_.get())
         .thenTry([=, p = std::move(c.first)](auto&& t) mutable {
             auto code = cpp2::ErrorCode::SUCCEEDED;
@@ -208,7 +209,7 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                         }
                     }
                     auto _batch = kvstore::encodeBatchValue(bat.getBatch());
-                    commitBatch(spaceId, localPart, _batch)
+                    commitBatch(spaceId, localPart, std::move(_batch))
                         .via(exec_.get())
                         .thenValue([=, p = std::move(p)](auto&& rc) mutable {
                             auto commitBatchCode = CommonUtils::to(rc);
@@ -329,10 +330,11 @@ folly::Future<cpp2::ErrorCode> TransactionManager::resumeTransaction(size_t vIdL
 // this may sometimes reduce some raft operation
 folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitBatch(GraphSpaceID spaceId,
                                                                        PartitionID partId,
-                                                                       std::string& batch) {
+                                                                       std::string&& batch) {
     auto c = folly::makePromiseContract<kvstore::ResultCode>();
     env_->kvstore_->asyncAppendBatch(
-        spaceId, partId, batch, [pro = std::move(c.first)](kvstore::ResultCode rc) mutable {
+        spaceId, partId, std::move(batch),
+        [pro = std::move(c.first)](kvstore::ResultCode rc) mutable {
             pro.setValue(rc);
         });
     return std::move(c.second);
@@ -356,8 +358,13 @@ folly::SemiFuture<kvstore::ResultCode> TransactionManager::commitEdgeOut(GraphSp
         auto c = folly::makePromiseContract<kvstore::ResultCode>();
 
         auto atomic = [partId, edges = std::move(data), this]() -> folly::Optional<std::string> {
-            auto* processor = AddEdgesProcessor::instance(env_, nullptr);
-            return processor->addEdges(partId, edges);
+            auto* processor = AddEdgesProcessor::instance(env_);
+            auto ret = processor->addEdges(partId, edges);
+            if (nebula::ok(ret)) {
+                return nebula::value(ret);
+            } else {
+                return folly::Optional<std::string>();
+            }
         };
 
         auto cb = [pro = std::move(c.first)](kvstore::ResultCode rc) mutable {

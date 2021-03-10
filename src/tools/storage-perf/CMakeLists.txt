@@ -1,5 +1,4 @@
 set(perf_test_deps
-    $<TARGET_OBJECTS:version_obj>
     $<TARGET_OBJECTS:meta_service_handler>
     $<TARGET_OBJECTS:storage_admin_service_handler>
     $<TARGET_OBJECTS:graph_storage_service_handler>
@@ -38,6 +37,7 @@ set(perf_test_deps
     $<TARGET_OBJECTS:common_time_utils_obj>
     $<TARGET_OBJECTS:common_encryption_obj>
     $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
+    $<TARGET_OBJECTS:common_version_obj>
 )
 
 nebula_add_executable(
@@ -55,14 +55,14 @@ nebula_add_executable(
         gtest
 )
 
-install(
-    TARGETS
-        storage_perf
-    DESTINATION
-        bin
-    COMPONENT
-        tool
-)
+#install(
+#    TARGETS
+#        storage_perf
+#    DESTINATION
+#        bin
+#    COMPONENT
+#        tool
+#)
 
 nebula_add_executable(
     NAME
@@ -79,11 +79,11 @@ nebula_add_executable(
         gtest
 )
 
-install(
-    TARGETS
-        storage_integrity
-    DESTINATION
-        bin
-    COMPONENT
-        tool
-)
+#install(
+#    TARGETS
+#        storage_integrity
+#    DESTINATION
+#        bin
+#    COMPONENT
+#        tool
+#)

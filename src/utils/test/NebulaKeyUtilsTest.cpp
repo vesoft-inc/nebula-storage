@@ -165,6 +165,24 @@ TEST_F(V2LongTest, NegativeEdgeTypeTest) {
     verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
 }
 
+TEST_F(V2LongTest, RankTest) {
+    PartitionID partId = 123;
+    VertexID srcId = "0123456789", dstId = "9876543210";
+    EdgeType type = -1010;
+    EdgeRanking rank = 10L;
+    EdgeVerPlaceHolder edgeVersion = 1;
+    verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
+
+    rank = 0L;
+    verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
+
+    rank = -1L;
+    verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
+
+    rank = 9223372036854775807L;
+    verifyEdge(partId, srcId, type, rank, dstId, edgeVersion, 10);
+}
+
 TEST(KeyUtilsTest, MiscTest) {
     PartitionID partId = 123;
     auto commitKey = NebulaKeyUtils::systemCommitKey(partId);
@@ -174,9 +192,9 @@ TEST(KeyUtilsTest, MiscTest) {
     auto systemPrefix = NebulaKeyUtils::systemPrefix();
     ASSERT_EQ(commitKey.find(systemPrefix), 0);
     ASSERT_EQ(partKey.find(systemPrefix), 0);
-    auto uuidKey = NebulaKeyUtils::uuidKey(partId, "abc");
-    ASSERT_TRUE(NebulaKeyUtils::isUUIDKey(uuidKey));
 }
+
+
 
 }  // namespace nebula
 
