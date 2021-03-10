@@ -869,7 +869,7 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
 std::string RowWriterV2::processOutOfSpace() noexcept {
     std::string temp;
     // Reserve enough space to avoid memory re-allocation
-    temp.reserve(headerLen_ + numNullBytes_ + schema_->size() + approxStrLen_);
+    temp.reserve(headerLen_ + numNullBytes_ + schema_->size() + approxStrLen_ + sizeof(int64_t));
     // Copy the data except the strings
     temp.append(buf_.data(), headerLen_ + numNullBytes_ + schema_->size());
 
