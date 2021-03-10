@@ -927,7 +927,7 @@ ErrorOr<ResultCode, std::string> NebulaStore::createCheckpoint(GraphSpaceID spac
     }
     auto* p = realpath(cpPath.c_str(), nullptr);
     if (p == nullptr) {
-        return ResultCode::ERR_BACKUP_TABLE_FAILED;
+        return ResultCode::ERR_CHECKPOINT_ERROR;
     }
     return p;
 }
