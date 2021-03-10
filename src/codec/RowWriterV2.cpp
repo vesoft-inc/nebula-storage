@@ -916,7 +916,10 @@ std::string RowWriterV2::processOutOfSpace() noexcept {
 }
 
 
-WriteResult RowWriterV2::finish() noexcept {
+WriteResult RowWriterV2::finish(int64_t ts) noexcept {
+    // The timestamp will be saved to the tail of buf_
+    buf_.append(reinterpret_cast<char*>(&ts), sizeof(int64_t));
+
     // First to check whether all fields are set. If not, to check whether
     // it can be NULL or there is a default value for the field
     WriteResult res = checkUnsetFields();

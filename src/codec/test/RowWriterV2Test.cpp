@@ -621,6 +621,43 @@ TEST(RowWriterV2, NumericLimit) {
     }
 }
 
+TEST(RowWriterV2, TimestampTest) {
+    {
+        SchemaWriter schema(0);
+        schema.appendCol("Col01", PropertyType::STRING);
+
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", ""));
+        // default timestamp is std::numeric_limits<int64_t>::max()
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish());
+
+        std::string encoded = std::move(writer).moveEncodedStr();
+        auto reader = RowReaderWrapper::getRowReader(&schema, encoded);
+        Value v1 = reader->getValueByName("Col01");
+        Value v2 = reader->getValueByIndex(0);
+        EXPECT_EQ("", v1.getStr());
+        EXPECT_EQ("", v2.getStr());
+        EXPECT_EQ(std::numeric_limits<int64_t>::max(), reader->getTimestamp());
+    }
+    {
+        SchemaWriter schema(1);
+        schema.appendCol("Col01", PropertyType::STRING);
+
+        RowWriterV2 writer(&schema);
+        EXPECT_EQ(WriteResult::SUCCEEDED, writer.set("Col01", ""));
+        // timestamp is 123
+        ASSERT_EQ(WriteResult::SUCCEEDED, writer.finish(123));
+
+        std::string encoded = std::move(writer).moveEncodedStr();
+        auto reader = RowReaderWrapper::getRowReader(&schema, encoded);
+        Value v1 = reader->getValueByName("Col01");
+        Value v2 = reader->getValueByIndex(0);
+        EXPECT_EQ("", v1.getStr());
+        EXPECT_EQ("", v2.getStr());
+        EXPECT_EQ(123, reader->getTimestamp());
+    }
+}
+
 }  // namespace nebula
 
 
