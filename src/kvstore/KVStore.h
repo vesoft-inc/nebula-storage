@@ -211,6 +211,8 @@ public:
     virtual ResultCode multiPutWithoutReplicator(GraphSpaceID spaceId,
                                                 std::vector<KV> keyValues) = 0;
 
+    virtual std::vector<std::string> getDataRoot() const = 0;
+
 protected:
     KVStore() = default;
 };

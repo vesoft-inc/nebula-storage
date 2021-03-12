@@ -105,6 +105,9 @@ public:
                                            int32_t jobId,
                                            int32_t taskId);
 
+    virtual folly::Future<StatusOr<std::pair<std::string, std::vector<std::string>>>>
+    listClusterInfo(const HostAddr& host);
+
 private:
     template<class Request,
              class RemoteFunc,

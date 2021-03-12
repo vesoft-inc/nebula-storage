@@ -692,6 +692,40 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
                 }, 0, std::move(pro), 1);
     return f;
 }
+
+folly::Future<StatusOr<std::pair<std::string, std::vector<std::string>>>>
+AdminClient::listClusterInfo(const HostAddr& host) {
+    folly::Promise<StatusOr<std::pair<std::string, std::vector<std::string>>>> pro;
+    auto f = pro.getFuture();
+
+    auto* evb = ioThreadPool_->getEventBase();
+    auto storageHost = Utils::getAdminAddrFromStoreAddr(host);
+    folly::via(evb, [evb, storageHost, pro = std::move(pro), this]() mutable {
+        auto client = clientsMan_->client(storageHost, evb);
+        storage::cpp2::ListClusterInfoReq req;
+        client->future_listClusterInfo(std::move(req))
+            .via(evb)
+            .then([p = std::move(pro),
+                   storageHost](folly::Try<storage::cpp2::ListClusterInfoResp>&& t) mutable {
+                if (t.hasException()) {
+                    LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
+                                                      t.exception().what().c_str());
+                    p.setValue(Status::Error("RPC failure in listClusterInfo"));
+                    return;
+                }
+                auto&& resp = std::move(t).value();
+                auto&& result = resp.get_result();
+                if (result.get_failed_parts().empty()) {
+                    p.setValue(std::make_pair(resp.get_root_dir(), resp.get_data_dir()));
+                    return;
+                }
+                p.setValue(Status::Error("list clusterInfo failed"));
+            });
+    });
+
+    return f;
+}
+
 }  // namespace meta
 }  // namespace nebula
 

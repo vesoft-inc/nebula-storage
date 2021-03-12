@@ -114,6 +114,10 @@ public:
         return !options_.listenerPath_.empty();
     }
 
+    std::vector<std::string> getDataRoot() const override {
+        return options_.dataPaths_;
+    }
+
     ResultCode get(GraphSpaceID spaceId,
                    PartitionID partId,
                    const std::string& key,
