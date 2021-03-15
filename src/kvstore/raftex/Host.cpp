@@ -82,6 +82,11 @@ folly::Future<cpp2::AskForVoteResponse> Host::askForVote(
     }
     auto client =
         part_->clientMan_->client(addr_, eb, false, FLAGS_raft_heartbeat_interval_secs * 1000);
+    if (client == nullptr) {
+        cpp2::AskForVoteResponse resp;
+        resp.set_error_code(cpp2::ErrorCode::E_HOST_DISCONNECTED);
+        return resp;
+    }
     return client->future_askForVote(req);
 }
 
@@ -502,6 +507,11 @@ folly::Future<cpp2::AppendLogResponse> Host::sendAppendLogRequest(
               << ", last_log_id_sent " << req->get_last_log_id_sent();
     // Get client connection
     auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
+    if (client == nullptr) {
+        cpp2::AppendLogResponse resp;
+        resp.set_error_code(cpp2::ErrorCode::E_HOST_DISCONNECTED);
+        return resp;
+    }
     return client->future_appendLog(*req);
 }
 
