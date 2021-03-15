@@ -256,13 +256,13 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
                   return l.proportion < r.proportion;
               });
 
-    std::unordered_map<PartitionID, Correlativiyties> positivePartCorelativity;
-    positivePartCorelativity[part] = positiveCorrelativity;
-    statisItem.set_positive_part_corelativity(std::move(positivePartCorelativity));
+    std::unordered_map<PartitionID, Correlativiyties> positivePartCorrelativiyties;
+    positivePartCorrelativiyties[part] = positiveCorrelativity;
+    statisItem.set_positive_part_correlativity(std::move(positivePartCorrelativiyties));
 
-    std::unordered_map<PartitionID, Correlativiyties> negativePartCorelativity;
-    negativePartCorelativity[part] = negativeCorrelativity;
-    statisItem.set_negative_part_corelativity(std::move(negativePartCorelativity));
+    std::unordered_map<PartitionID, Correlativiyties> negativePartCorrelativiyties;
+    negativePartCorrelativiyties[part] = negativeCorrelativity;
+    statisItem.set_negative_part_correlativity(std::move(negativePartCorrelativiyties));
 
     statistics_.emplace(part, std::move(statisItem));
     LOG(INFO) << "Statis task finished";
@@ -303,10 +303,10 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
                 }
             }
 
-            result.positive_part_corelativity.insert(item.positive_part_corelativity.begin(),
-                                                     item.positive_part_corelativity.end());
-            result.negative_part_corelativity.insert(item.negative_part_corelativity.begin(),
-                                                     item.negative_part_corelativity.end());
+            result.positive_part_correlativity.insert(item.positive_part_correlativity.begin(),
+                                                      item.positive_part_correlativity.end());
+            result.negative_part_correlativity.insert(item.negative_part_correlativity.begin(),
+                                                      item.negative_part_correlativity.end());
         }
         result.set_status(nebula::meta::cpp2::JobStatus::FINISHED);
         ctx_.onFinish_(rc, result);
