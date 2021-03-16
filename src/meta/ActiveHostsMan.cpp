@@ -22,8 +22,20 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
     std::vector<kvstore::KV> data;
     data.emplace_back(MetaServiceUtils::hostKey(hostAddr.host, hostAddr.port),
                       HostInfo::encodeV2(info));
+    bool isUpdate = false;
     if (leaderParts != nullptr) {
-        data.emplace_back(MetaServiceUtils::leaderKey(hostAddr.host, hostAddr.port),
+        auto leaderKey = MetaServiceUtils::leaderKey(hostAddr.host, hostAddr.port);
+        std::string oldLeaderVal;
+        auto ret = kv->get(kDefaultSpaceId, kDefaultPartId, leaderKey, &oldLeaderVal);
+        if (ret == kvstore::ResultCode::SUCCEEDED) {
+            auto oldLeader = MetaServiceUtils::parseLeaderVal(oldLeaderVal);
+            if (oldLeader != *leaderParts) {
+                isUpdate = true;
+            }
+        } else if (ret == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+            isUpdate = true;
+        }
+        data.emplace_back(std::move(leaderKey),
                           MetaServiceUtils::leaderVal(*leaderParts));
     }
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
@@ -35,6 +47,12 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
         baton.post();
     });
     baton.wait();
+    if (isUpdate) {
+        ret = LastUpdateTimeMan::update(kv, time::WallClock::fastNowInMilliSec());
+        if (ret != kvstore::ResultCode::SUCCEEDED) {
+            return ret;
+        }
+    }
     return ret;
 }
 
