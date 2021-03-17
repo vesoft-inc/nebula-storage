@@ -52,47 +52,19 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
         iter->next();
     }
 
-    auto data_root = kvstore_->getDataRoot();
-
-    std::vector<std::string> realpaths;
-    bool failed = false;
-    std::transform(std::make_move_iterator(data_root.begin()),
-                   std::make_move_iterator(data_root.end()),
-                   std::back_inserter(realpaths),
-                   [&failed](auto f) {
-                       if (f[0] == '/') {
-                           return f;
-                       } else {
-                           char* p = realpath(f.c_str(), nullptr);
-                           if (p == nullptr) {
-                               failed = true;
-                               LOG(ERROR) << "Failed to get the absolute path of file: " << f;
-                               return f;
-                           }
-                           return std::string(p);
-                       }
-                   });
-    if (failed) {
-        handleErrorCode(cpp2::ErrorCode::E_LIST_CLUSTER_GET_ABS_PATH_FAILURE);
+    auto* pm = store->partManager();
+    auto* mpm = dynamic_cast<nebula::kvstore::MemPartManager*>(pm);
+    if (mpm == nullptr) {
+        resp_.set_code(cpp2::ErrorCode::E_LIST_CLUSTER_FAILURE);
         onFinished();
         return;
     }
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) == nullptr) {
-        handleErrorCode(cpp2::ErrorCode::E_LIST_CLUSTER_GET_ABS_PATH_FAILURE);
-        LOG(ERROR) << "Failed to get current dir ";
-        onFinished();
-        return;
-    }
-
-    nebula::cpp2::NodeInfo meta;
-    meta.set_data_dir(realpaths);
-    meta.set_root_dir(cwd);
-    meta.set_host(store->address());
+    auto& map = mpm->partsMap();
+    resp_.set_meta_servers(
+        std::move(map[nebula::meta::kDefaultSpaceId][nebula::meta::kDefaultPartId].hosts_));
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
-    resp_.set_meta(std::move(meta));
-    resp_.set_storage_cluster(std::move(storages));
+    resp_.set_storage_servers(std::move(storages));
     onFinished();
 }
 }   // namespace meta
