@@ -113,50 +113,35 @@ private:
         return true;
     }
 
-    std::pair<int64_t, std::string> ttlPair(const meta::SchemaProviderIf* schema) const {
-        const auto* nschema = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
-        const auto schemaProp = nschema->getProp();
-        int64_t ttlDuration = 0;
-        if (schemaProp.get_ttl_duration()) {
-            ttlDuration = *schemaProp.get_ttl_duration();
-        }
-        std::string ttlCol;
-        if (schemaProp.get_ttl_col()) {
-            ttlCol = *schemaProp.get_ttl_col();
-        }
-        return std::make_pair(ttlDuration, std::move(ttlCol));
-    }
-
     // TODO(panda) Optimize the method in the future
     bool ttlExpired(const meta::SchemaProviderIf* schema, nebula::RowReader* reader) const {
         if (schema == nullptr) {
             return true;
         }
-        auto ttl = ttlPair(schema);
-
+        auto ttl = CommonUtils::ttlProps(schema);
         // Only support the specified ttl_col mode
         // Not specifying or non-positive ttl_duration behaves like ttl_duration = infinity
-        if (ttl.first <= 0 || ttl.second.empty()) {
+        if (!ttl.first) {
             return false;
         }
-
-        return CommonUtils::checkDataExpiredForTTL(schema, reader, ttl.second, ttl.first);
+        return CommonUtils::checkDataExpiredForTTL(schema,
+                                                   reader,
+                                                   ttl.second.second,
+                                                   ttl.second.first);
     }
 
     bool ttlExpired(const meta::SchemaProviderIf* schema, const Value& v) const {
         if (schema == nullptr) {
             return true;
         }
-        auto ttl = ttlPair(schema);
-        if (ttl.first <= 0 || ttl.second.empty()) {
+        auto ttl = CommonUtils::ttlProps(schema);
+        if (!ttl.first) {
             return false;
         }
-        auto now = time::WallClock::fastNowInSec();
-        if (v.isInt() && (now > (v.getInt() + ttl.first))) {
-            VLOG(2) << "ttl expired";
-            return true;
-        }
-        return false;
+        return CommonUtils::checkDataExpiredForTTL(schema,
+                                                   v,
+                                                   ttl.second.second,
+                                                   ttl.second.first);
     }
 
     bool indexValid(GraphSpaceID spaceId,

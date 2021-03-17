@@ -63,6 +63,23 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
         }
     }
 
+    if (existIndex) {
+        int64_t duration = 0;
+        if (prop.get_ttl_duration()) {
+            duration = *prop.get_ttl_duration();
+        }
+        std::string col;
+        if (prop.get_ttl_col()) {
+            col = *prop.get_ttl_col();
+        }
+        if (!col.empty() && duration > 0) {
+            LOG(ERROR) << "Alter tag error, index and ttl conflict";
+            handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
+            onFinished();
+            return;
+        }
+    }
+
     for (auto& tagItem : tagItems) {
         auto &cols = tagItem.get_schema().get_columns();
         for (auto& col : cols) {
@@ -92,9 +109,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
         return;
     }
 
-    if (!existIndex) {
-        schema.set_schema_prop(std::move(prop));
-    }
+    schema.set_schema_prop(std::move(prop));
     schema.set_columns(std::move(columns));
 
     std::vector<kvstore::KV> data;

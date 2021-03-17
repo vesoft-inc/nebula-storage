@@ -35,24 +35,19 @@ public:
             return ret;
         }
 
-        const auto schemaProp = planContext_->tagSchema_->getProp();
-        int64_t duration = 0;
-        if (schemaProp.get_ttl_duration()) {
-            duration = *schemaProp.get_ttl_duration();
-        }
-        std::string col;
-        if (schemaProp.get_ttl_col()) {
-            col = *schemaProp.get_ttl_col();
-        }
+        auto ttlProp = CommonUtils::ttlProps(planContext_->tagSchema_);
 
         data_.clear();
         std::vector<VertexID> vids;
         auto* iter = static_cast<VertexIndexIterator*>(indexScanNode_->iterator());
         while (iter && iter->valid()) {
-            if (!iter->val().empty() && !(duration <= 0 || col.empty())) {
+            if (!iter->val().empty() && ttlProp.first) {
                 auto v = IndexKeyUtils::parseIndexTTL(iter->val());
                 if (CommonUtils::checkDataExpiredForTTL(planContext_->tagSchema_,
-                                                        std::move(v), col, duration)) {
+                                                        std::move(v),
+                                                        ttlProp.second.second,
+                                                        ttlProp.second.first)) {
+                    iter->next();
                     continue;
                 }
             }

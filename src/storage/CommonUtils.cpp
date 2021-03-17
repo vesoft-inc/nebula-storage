@@ -114,18 +114,30 @@ bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
     return false;
 }
 
+std::pair<bool, std::pair<int64_t, std::string>>
+    CommonUtils::ttlProps(const meta::SchemaProviderIf* schema) {
+    DCHECK(schema != nullptr);
+    const auto* ns = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
+    const auto sp = ns->getProp();
+    int64_t duration = 0;
+    if (sp.get_ttl_duration()) {
+        duration = *sp.get_ttl_duration();
+    }
+    std::string col;
+    if (sp.get_ttl_col()) {
+        col = *sp.get_ttl_col();
+    }
+    return std::make_pair(!(duration <= 0 || col.empty()), std::make_pair(duration, col));
+}
+
 StatusOr<Value> CommonUtils::ttlValue(const meta::SchemaProviderIf* schema, RowReader* reader) {
     DCHECK(schema != nullptr);
     const auto* ns = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
-    const auto prop = ns->getProp();
-    std::string col;
-    if (prop.get_ttl_col()) {
-        col = *prop.get_ttl_col();
-    }
-    if (*prop.get_ttl_duration() <= 0 || col.empty()) {
+    auto ttlProp = ttlProps(ns);
+    if (!ttlProp.first) {
         return Status::Error();
     }
-    return reader->getValueByName(std::move(col));
+    return reader->getValueByName(std::move(ttlProp).second.second);
 }
 
 }  // namespace storage
