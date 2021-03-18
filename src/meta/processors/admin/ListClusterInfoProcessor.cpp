@@ -10,6 +10,7 @@ namespace nebula {
 namespace meta {
 
 void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
+    UNUSED(req);
     auto* store = dynamic_cast<kvstore::NebulaStore*>(kvstore_);
     if (store == nullptr) {
         onFinished();
@@ -20,10 +21,6 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
         handleErrorCode(cpp2::ErrorCode::E_LEADER_CHANGED);
         onFinished();
         return;
-    }
-
-    if (req.get_spaces() != nullptr) {
-        onFinished();
     }
 
     const auto& prefix = MetaServiceUtils::hostPrefix();
