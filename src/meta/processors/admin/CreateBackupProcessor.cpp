@@ -4,6 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "common/time/TimeUtils.h"
+
 #include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/ActiveHostsMan.h"
 #include "meta/processors/admin/SnapShot.h"
@@ -211,6 +213,12 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     backup.set_meta_files(std::move(backupFiles.value()));
     backup.set_backup_info(std::move(backupInfo));
     backup.set_backup_name(std::move(backupName));
+    if (backupSpaces == nullptr) {
+        backup.set_full(true);
+    } else {
+        backup.set_full(false);
+    }
+    backup.set_create_time(time::WallClock::fastNowInMilliSec());
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_meta(std::move(backup));
