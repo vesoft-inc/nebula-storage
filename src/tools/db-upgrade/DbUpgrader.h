@@ -104,7 +104,7 @@ private:
                             std::shared_ptr<nebula::meta::cpp2::IndexItem> index);
 
     WriteResult convertValue(const meta::NebulaSchemaProvider* newSchema,
-                             const meta::NebulaSchemaProvider* oldSchema,
+                             const meta::SchemaProviderIf* oldSchema,
                              std::string& name,
                              Value& val);
     void runPartV1();

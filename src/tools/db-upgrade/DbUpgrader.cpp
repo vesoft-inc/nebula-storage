@@ -692,7 +692,7 @@ void UpgraderSpace::encodeVertexValue(PartitionID partId,
 
 // If the field types are inconsistent, can be converted
 WriteResult UpgraderSpace::convertValue(const meta::NebulaSchemaProvider* nSchema,
-                                        const meta::NebulaSchemaProvider* oSchema,
+                                        const meta::SchemaProviderIf* oSchema,
                                         std::string& name,
                                         Value& val) {
     auto newpropType = nSchema->getFieldType(name);
@@ -853,7 +853,7 @@ WriteResult UpgraderSpace::convertValue(const meta::NebulaSchemaProvider* nSchem
 std::string UpgraderSpace::encodeRowVal(const RowReader* reader,
                                         const meta::NebulaSchemaProvider* schema,
                                         std::vector<std::string>& fieldName) {
-    auto oldSchema = dynamic_cast<const meta::NebulaSchemaProvider*>(reader->getSchema());
+    auto oldSchema = reader->getSchema();
     if (oldSchema == nullptr) {
         LOG(ERROR)  << "Schema not found from RowReader.";
         return "";
