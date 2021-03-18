@@ -172,13 +172,24 @@ TEST(ProcessorTest, CreateBackupTest) {
 
         ASSERT_NE(it, metaFiles.cend());
 
+        it = std::find_if(metaFiles.cbegin(), metaFiles.cend(), [](auto const& m) {
+            auto name = m.substr(m.size() - sizeof("__users__.sst") + 1);
+
+            if (name == "__users__.sst") {
+                return true;
+            }
+            return false;
+        });
+        ASSERT_EQ(it, metaFiles.cend());
+
         ASSERT_EQ(1, meta.get_backup_info().size());
         for (auto s : meta.get_backup_info()) {
             ASSERT_EQ(1, s.first);
             ASSERT_EQ(1, s.second.get_cp_dirs().size());
             auto checkInfo = s.second.get_cp_dirs()[0];
             ASSERT_EQ("snapshot_path", checkInfo.get_checkpoint_dir());
-            ASSERT_FALSE(meta.get_full());
+            ASSERT_TRUE(meta.get_full());
+            ASSERT_FALSE(meta.get_include_system_space());
         }
     }
 }

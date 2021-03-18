@@ -213,10 +213,11 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     backup.set_meta_files(std::move(backupFiles.value()));
     backup.set_backup_info(std::move(backupInfo));
     backup.set_backup_name(std::move(backupName));
+    backup.set_full(true);
     if (backupSpaces == nullptr) {
-        backup.set_full(true);
+        backup.set_include_system_space(true);
     } else {
-        backup.set_full(false);
+        backup.set_include_system_space(false);
     }
     backup.set_create_time(time::WallClock::fastNowInMilliSec());
 
