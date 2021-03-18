@@ -23,6 +23,8 @@ public:
 private:
     explicit GetPartsAllocProcessor(kvstore::KVStore* kvstore)
             : BaseProcessor<cpp2::GetPartsAllocResp>(kvstore) {}
+
+    std::unordered_map<PartitionID, TermID> getTerm(GraphSpaceID space);
 };
 
 }  // namespace meta

@@ -16,6 +16,7 @@
 #include "kvstore/NebulaStore.h"
 #include "storage/CommonUtils.h"
 #include "storage/admin/AdminTaskManager.h"
+#include "storage/transaction/TransactionManager.h"
 
 namespace nebula {
 
@@ -84,7 +85,9 @@ private:
     std::string listenerPath_;
 
     AdminTaskManager* taskMgr_{nullptr};
-    std::unique_ptr<TransactionManager> txnMan_;
+    // used for communicate between one storaged to another
+    std::unique_ptr<InternalStorageClient>  interClient_;
+    std::unique_ptr<TransactionManager> txnMan_{nullptr};
 };
 
 }  // namespace storage

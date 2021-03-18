@@ -5,6 +5,7 @@
  */
 
 #include "LookupBaseProcessor.h"
+#include "folly/container/Enumerate.h"
 namespace nebula {
 namespace storage {
 

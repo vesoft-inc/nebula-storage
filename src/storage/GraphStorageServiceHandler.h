@@ -51,8 +51,11 @@ public:
     folly::Future<cpp2::LookupIndexResp>
     future_lookupIndex(const cpp2::LookupIndexRequest& req) override;
 
+    folly::Future<cpp2::UpdateResponse>
+    future_chainUpdateEdge(const cpp2::UpdateEdgeRequest& req) override;
+
     folly::Future<cpp2::ExecResponse>
-    future_addEdgesAtomic(const cpp2::AddEdgesRequest& req) override;
+    future_chainAddEdges(const cpp2::AddEdgesRequest& req) override;
 
     folly::Future<cpp2::ScanVertexResponse>
     future_scanVertex(const cpp2::ScanVertexRequest& req) override;

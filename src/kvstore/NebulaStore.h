@@ -273,8 +273,8 @@ public:
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
-    int32_t allLeader(std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>&
-                          leaderIds) override;
+    int32_t allLeader(
+        std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>& leaderIds) override;
 
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>>
     backupTable(GraphSpaceID spaceId,

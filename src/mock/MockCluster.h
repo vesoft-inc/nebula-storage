@@ -17,6 +17,7 @@
 #include "kvstore/NebulaStore.h"
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/StorageAdminServiceHandler.h"
+#include "storage/transaction/TransactionManager.h"
 #include "storage/BaseProcessor.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 #include <thrift/lib/cpp/concurrency/ThreadManager.h>
@@ -138,6 +139,7 @@ public:
     std::unique_ptr<kvstore::NebulaStore>           esListener_{nullptr};
     std::unique_ptr<meta::SchemaManager>            lSchemaMan_;
     std::unique_ptr<meta::MetaClient>               lMetaClient_{nullptr};
+    std::unique_ptr<storage::TransactionManager>    txnMan_{nullptr};
 
     ObjectPool                                      pool_;
 };
