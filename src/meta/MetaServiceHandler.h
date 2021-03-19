@@ -271,6 +271,12 @@ public:
     folly::Future<cpp2::ExecResp>
     future_reportTaskFinish(const cpp2::ReportTaskReq& req) override;
 
+    folly::Future<cpp2::ListClusterInfoResp>
+    future_listCluster(const cpp2::ListClusterInfoReq &req) override;
+
+    folly::Future<cpp2::GetMetaDirInfoResp>
+    future_getMetaDirInfo(const cpp2::GetMetaDirInfoReq &req) override;
+
 private:
     kvstore::KVStore* kvstore_ = nullptr;
     ClusterID clusterId_{0};

@@ -27,6 +27,7 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
+        LOG(ERROR) << "prefix failed:" << ret;
         handleErrorCode(cpp2::ErrorCode::E_LIST_CLUSTER_FAILURE);
         onFinished();
         return;
@@ -35,8 +36,16 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
     std::vector<nebula::cpp2::NodeInfo> storages;
     while (iter->valid()) {
         auto host = MetaServiceUtils::parseHostKey(iter->key());
+        HostInfo info = HostInfo::decode(iter->val());
+
+        if (info.role_ != cpp2::HostRole::STORAGE) {
+            iter->next();
+            continue;
+        }
+
         auto status = client_->listClusterInfo(host).get();
         if (!status.ok()) {
+            LOG(ERROR) << "listcluster info from storage failed, host: " << host;
             handleErrorCode(cpp2::ErrorCode::E_LIST_CLUSTER_FAILURE);
             onFinished();
             return;
@@ -57,8 +66,9 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
         return;
     }
     auto& map = mpm->partsMap();
-    resp_.set_meta_servers(
-        std::move(map[nebula::meta::kDefaultSpaceId][nebula::meta::kDefaultPartId].hosts_));
+    auto hosts = map[nebula::meta::kDefaultSpaceId][nebula::meta::kDefaultPartId].hosts_;
+    LOG(INFO) << "meta servers count: " << hosts.size();
+    resp_.set_meta_servers(std::move(hosts));
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
     resp_.set_storage_servers(std::move(storages));
