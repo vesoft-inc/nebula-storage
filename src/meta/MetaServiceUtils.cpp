@@ -967,7 +967,7 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
             auto type = *reinterpret_cast<const EntryType*>(key.data() + kIndexTable.size());
             if (type == EntryType::SPACE) {
                 if (spaceName == nullptr) {
-                    return true;
+                    return false;
                 }
                 auto sn = key.subpiece(kIndexTable.size() + sizeof(EntryType),
                                        key.size() - kIndexTable.size() - sizeof(EntryType))
