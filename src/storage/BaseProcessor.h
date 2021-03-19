@@ -83,6 +83,11 @@ protected:
                   PartitionID partId,
                   std::vector<std::string>&& keys);
 
+    void doRemoveRange(GraphSpaceID spaceId,
+                       PartitionID partId,
+                       const std::string& start,
+                       const std::string& end);
+
     cpp2::ErrorCode to(kvstore::ResultCode code);
 
     cpp2::ErrorCode writeResultTo(WriteResult code, bool isEdge);
@@ -101,6 +106,10 @@ protected:
     void handleAsync(GraphSpaceID spaceId,
                      PartitionID partId,
                      kvstore::ResultCode code);
+
+    void handleAsync(GraphSpaceID spaceId,
+                     PartitionID partId,
+                     cpp2::ErrorCode code);
 
     StatusOr<std::string> encodeRowVal(const meta::NebulaSchemaProvider* schema,
                                        const std::vector<std::string>& propNames,

@@ -106,7 +106,6 @@ include_directories(AFTER ${CMAKE_CURRENT_BINARY_DIR}/src/kvstore/plugins/hbase)
 nebula_add_subdirectory(src)
 nebula_add_subdirectory(conf)
 nebula_add_subdirectory(scripts)
-nebula_add_subdirectory(resources)
 
 add_custom_target(
     clean-modules
