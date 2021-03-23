@@ -458,9 +458,6 @@ JobManager::showJob(JobID iJob) {
             if (optJob != folly::none) {
                 ret.first = optJob->toJobDesc();
             }
-        } else {
-            TaskDescription td(iter->key(), iter->val());
-            ret.second.emplace_back(td.toTaskDesc());
         }
     }
     return ret;
