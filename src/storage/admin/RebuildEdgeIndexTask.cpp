@@ -110,6 +110,33 @@ kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
+        auto schema = env_->schemaMan_->getEdgeSchema(space, edgeType);
+        if (!schema) {
+            LOG(WARNING) << "Space " << space << ", edge " << edgeType << " invalid";
+            iter->next();
+            continue;
+        }
+
+        auto ttlProp = CommonUtils::ttlProps(schema.get());
+        if (ttlProp.first && CommonUtils::checkDataExpiredForTTL(schema.get(),
+                                                                 reader.get(),
+                                                                 ttlProp.second.second,
+                                                                 ttlProp.second.first)) {
+            VLOG(3) << "ttl expired : "
+                    << "Source " << source << " Destination " << destination
+                    << " Ranking " << ranking << " Edge Type " << edgeType;
+            iter->next();
+            continue;
+        }
+
+        std::string indexVal = "";
+        if (ttlProp.first) {
+            auto ttlValRet = CommonUtils::ttlValue(schema.get(), reader.get());
+            if (ttlValRet.ok()) {
+                indexVal = IndexKeyUtils::indexVal(std::move(ttlValRet).value());
+            }
+        }
+
         for (const auto& item : items) {
             if (item->get_schema_id().get_edge_type() == edgeType) {
                 auto valuesRet =
@@ -125,14 +152,7 @@ kvstore::ResultCode RebuildEdgeIndexTask::buildIndexGlobal(GraphSpaceID space,
                                                             ranking,
                                                             destination.toString(),
                                                             std::move(valuesRet).value());
-                auto schema = env_->schemaMan_->getEdgeSchema(space, edgeType);
-                if (!schema) {
-                    LOG(WARNING) << "Space " << space << ", edge " << edgeType << " invalid";
-                    continue;
-                }
-                auto ttlVal = CommonUtils::ttlValue(schema.get(), reader.get());
-                auto niv = ttlVal.ok() ? IndexKeyUtils::indexVal(std::move(ttlVal).value()) : "";
-                data.emplace_back(std::move(indexKey), std::move(niv));
+                data.emplace_back(std::move(indexKey), indexVal);
             }
         }
         iter->next();
