@@ -113,9 +113,10 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
                 continue;
             }
             env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(nebula::value(batch)),
-                [l = std::move(lg), &wrapper, partId, this](kvstore::ResultCode code) {
+                [l = std::move(lg), icw = std::move(wrapper), partId, this] (
+                    kvstore::ResultCode code) {
                     UNUSED(l);
-                    UNUSED(wrapper);
+                    UNUSED(icw);
                     handleAsync(spaceId_, partId, code);
                 });
         }
