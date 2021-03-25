@@ -444,7 +444,7 @@ TEST(IndexWithTTLTest, RebuildTagIndexWithTTL) {
 
     // Wait for the task finished
     do {
-        usleep(50);
+        usleep(500);
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     manager_->shutdown();
@@ -513,7 +513,7 @@ TEST(IndexWithTTLTest, RebuildEdgeIndexWithTTL) {
 
     // Wait for the task finished
     do {
-        usleep(50);
+        usleep(500);
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     manager_->shutdown();
@@ -584,7 +584,7 @@ TEST(IndexWithTTLTest, RebuildTagIndexWithTTLExpired) {
 
     // Wait for the task finished
     do {
-        usleep(50);
+        usleep(500);
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     manager_->shutdown();
@@ -655,9 +655,8 @@ TEST(IndexWithTTLTest, RebuildEdgeIndexWithTTLExpired) {
 
     // Wait for the task finished
     do {
-        usleep(50);
+        usleep(500);
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
-
     manager_->shutdown();
 
     LOG(INFO) << "Check data after rebuild ...";
