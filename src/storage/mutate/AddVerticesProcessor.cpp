@@ -103,7 +103,7 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
                 auto retEnc = encodeRowVal(schema.get(), propNames, props, wRet);
                 if (!retEnc.ok()) {
                     LOG(ERROR) << retEnc.status();
-                    code = writeResultTo(wRet, true);
+                    code = writeResultTo(wRet, false);
                     break;
                 }
                 data.emplace_back(std::move(key), std::move(retEnc.value()));
@@ -135,6 +135,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
         std::vector<VMLI> dummyLock;
         dummyLock.reserve(vertices.size());
         cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
+
         for (auto& vertex : vertices) {
             auto vid = vertex.get_id().getStr();
             const auto& newTags = vertex.get_tags();
@@ -278,8 +279,9 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
             continue;
         }
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
-            [l = std::move(lg), partId, this](kvstore::ResultCode kvRet) {
+            [l = std::move(lg), icw = std::move(wrapper), partId, this](kvstore::ResultCode kvRet) {
                 UNUSED(l);
+                UNUSED(icw);
                 handleAsync(spaceId_, partId, kvRet);
             });
     }
