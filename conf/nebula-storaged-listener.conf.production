@@ -6,7 +6,7 @@
 --pid_file=pids_listener/nebula-storaged.pid
 
 ########## logging ##########
-# The directory to host logging files, which must already exists
+# The directory to host logging files
 --log_dir=logs_listener
 # Log level, 0, 1, 2, 3 for INFO, WARNING, ERROR, FATAL respectively
 --minloglevel=0
@@ -39,7 +39,10 @@
 --heartbeat_interval_secs=10
 
 ########## storage ##########
+# Listener wal directory. only one path is allowed.
 --listener_path=data/listener
+# This parameter can be ignored for compatibility. let's fill A default value of "data"
+--data_path=data
 # The type of part manager, [memory | meta]
 --part_man_type=memory
 # The default reserved bytes for one batch operation
