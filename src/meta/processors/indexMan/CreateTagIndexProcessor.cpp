@@ -151,6 +151,9 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     item.set_schema_id(schemaID);
     item.set_schema_name(tagName);
     item.set_fields(std::move(columns));
+    if (req.__isset.comment) {
+        item.set_comment(*req.get_comment());
+    }
 
     data.emplace_back(MetaServiceUtils::indexIndexKey(space, indexName),
                       std::string(reinterpret_cast<const char*>(&tagIndex), sizeof(IndexID)));

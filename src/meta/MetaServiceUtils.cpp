@@ -695,6 +695,10 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
         return cpp2::ErrorCode::E_UNSUPPORTED;
     }
 
+    if (alterSchemaProp.__isset.comment) {
+        schemaProp.set_comment(*alterSchemaProp.get_comment());
+    }
+
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
