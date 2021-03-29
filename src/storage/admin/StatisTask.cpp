@@ -253,7 +253,7 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
 
     std::sort(negativeCorrelativity.begin(), negativeCorrelativity.end(),
               [&] (const auto& l, const auto& r) {
-                  return l.proportion < r.proportion;
+                  return *l.proportion_ref() < *r.proportion_ref();
               });
 
     std::unordered_map<PartitionID, Correlativiyties> positivePartCorrelativiyties;
@@ -303,10 +303,12 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
                 }
             }
 
-            result.positive_part_correlativity.insert(item.positive_part_correlativity.begin(),
-                                                      item.positive_part_correlativity.end());
-            result.negative_part_correlativity.insert(item.negative_part_correlativity.begin(),
-                                                      item.negative_part_correlativity.end());
+            (*result.positive_part_correlativity_ref()).insert(
+                    (*item.positive_part_correlativity_ref()).begin(),
+                    (*item.positive_part_correlativity_ref()).end());
+            (*result.negative_part_correlativity_ref()).insert(
+                    (*item.negative_part_correlativity_ref()).begin(),
+                    (*item.negative_part_correlativity_ref()).end());
         }
         result.set_status(nebula::meta::cpp2::JobStatus::FINISHED);
         ctx_.onFinish_(rc, result);
