@@ -319,7 +319,7 @@ private:
         auto tokens = tokenBucket_.consumeOrDrain(FLAGS_concurrency, FLAGS_qps, FLAGS_concurrency);
         for (auto i = 0; i < tokens; i++) {
             auto start = time::WallClock::fastNowInMicroSec();
-            graphStorageClient_->addVertices(spaceId_, genVertices(), tagProps_, true)
+            graphStorageClient_->addVertices(spaceId_, genVertices(), tagProps_, true, true)
                 .via(evb).thenValue([this, start](auto&& resps) {
                     if (!resps.succeeded()) {
                         for (auto& entry : resps.failedParts()) {

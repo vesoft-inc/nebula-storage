@@ -1,0 +1,10 @@
+./storage/mutate/DeleteVerticesProcessor.cpp:81:                        vertexCache_->evict(std::make_pair(vid.getStr(), tagId));
+./storage/mutate/DeleteVerticesProcessor.cpp:186:                vertexCache_->evict(std::make_pair(vertex.getStr(), tagId));
+./storage/mutate/UpdateVertexProcessor.cpp:193:        tagContext_.vertexCache_->evict(std::make_pair(vId.getStr(), tagId_));
+./storage/mutate/AddVerticesProcessor.cpp:112:                    vertexCache_->evict(std::make_pair(vid, tagId));
+./storage/mutate/AddVerticesProcessor.cpp:254:                    vertexCache_->evict(std::make_pair(vid, tagId));
+./storage/exec/HashJoinNode.h:88:                        tagContext_->vertexCache_->insert(std::make_pair(vId, tagId),
+./storage/exec/GetPropNode.h:72:                        vertexCache_->insert(std::make_pair(vId, tagId), reader->getData());
+./storage/exec/IndexVertexNode.h:47:                auto result = vertexCache_->get(std::make_pair(vId, planContext_->tagId_));
+./storage/exec/TagNode.h:54:            auto cache = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_));
+./storage/exec/TagNode.h:121:                tagContext_->vertexCache_->evict(std::make_pair(vId, tagId_));
