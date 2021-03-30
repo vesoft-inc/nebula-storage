@@ -17,15 +17,38 @@ namespace meta {
 kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
                                                    const HostAddr& hostAddr,
                                                    const HostInfo& info,
-                                                   const LeaderParts* leaderParts) {
+                                                   const AllLeaders* allLeaders) {
     CHECK_NOTNULL(kv);
     std::vector<kvstore::KV> data;
     data.emplace_back(MetaServiceUtils::hostKey(hostAddr.host, hostAddr.port),
                       HostInfo::encodeV2(info));
-    if (leaderParts != nullptr) {
-        data.emplace_back(MetaServiceUtils::leaderKey(hostAddr.host, hostAddr.port),
-                          MetaServiceUtils::leaderVal(*leaderParts));
+    std::vector<std::string> leaderKeys;
+    std::vector<int64_t> terms;
+    if (allLeaders != nullptr) {
+        for (auto& spaceLeaders : *allLeaders) {
+            auto spaceId = spaceLeaders.first;
+            for (auto& partLeader : spaceLeaders.second) {
+                auto key = MetaServiceUtils::leaderKey(spaceId, partLeader.get_part_id());
+                leaderKeys.emplace_back(std::move(key));
+                terms.emplace_back(partLeader.get_term());
+            }
+        }
+        auto keys = leaderKeys;
+        std::vector<std::string> values;
+        auto ret = kv->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &values);
+        for (auto i = 0U; i != ret.second.size(); ++i) {
+            if (ret.second[i].ok()) {
+                auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(values[i]);
+                if (terms[i] <= hostAndTerm.second) {
+                    continue;
+                }
+            }
+            // write directly if not exist, or update if has greater term
+            auto val = MetaServiceUtils::leaderValV3(hostAddr, terms[i]);
+            data.emplace_back(std::make_pair(leaderKeys[i], std::move(val)));
+        }
     }
+    std::vector<std::string> leaderVals(leaderKeys.size());
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode ret;
