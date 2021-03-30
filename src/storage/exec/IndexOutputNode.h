@@ -161,21 +161,13 @@ private:
         }
         for (const auto& val : data) {
             Row row;
-<<<<<<< HEAD
             auto reader = RowReaderWrapper::getRowReader(schemas, val.second);
-=======
-            auto reader = RowReaderWrapper::getRowReader(schema, val.second);
->>>>>>> improve dedupNode
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_TAG_NOT_FOUND;
             }
             for (const auto& col : result_->colNames) {
-<<<<<<< HEAD
                 auto ret = addIndexValue(row, reader.get(), val, col, schemas.back().get());
-=======
-                auto ret = addIndexValue(row, reader.get(), val, col, schema);
->>>>>>> improve dedupNode
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -208,21 +200,13 @@ private:
         }
         for (const auto& val : data) {
             Row row;
-<<<<<<< HEAD
             auto reader = RowReaderWrapper::getRowReader(schemas, val.second);
-=======
-            auto reader = RowReaderWrapper::getRowReader(schema, val.second);
->>>>>>> improve dedupNode
             if (!reader) {
                 VLOG(1) << "Can't get tag reader";
                 return kvstore::ResultCode::ERR_EDGE_NOT_FOUND;
             }
             for (const auto& col : result_->colNames) {
-<<<<<<< HEAD
                 auto ret = addIndexValue(row, reader.get(), val, col, schemas.back().get());
-=======
-                auto ret = addIndexValue(row, reader.get(), val, col, schema);
->>>>>>> improve dedupNode
                 if (!ret.ok()) {
                     return kvstore::ResultCode::ERR_INVALID_DATA;
                 }
@@ -246,18 +230,10 @@ private:
         return kvstore::ResultCode::SUCCEEDED;
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    // Add the value by data val
-    Status addIndexValue(Row& row, RowReader* reader,
-                         const kvstore::KV& data, const std::string& col,
-                         const meta::NebulaSchemaProvider* schema) {
-=======
     Status addIndexValue(Row& row, RowReader* reader,
                          const kvstore::KV& data, const std::string& col,
                          const meta::NebulaSchemaProvider* schema) {
         nebula::Value v;
->>>>>>> improve dedupNode
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = NebulaKeyUtils::getVertexId(planContext_->vIdLen_, data.first);
@@ -298,23 +274,15 @@ private:
                     VLOG(3) << "Bad value for field : " << col;
                     return retVal.status();
                 }
-                row.emplace_back(std::move(retVal.value()));
+                v = std::move(retVal.value());
             }
         }
-<<<<<<< HEAD
-        return Status::OK();
-    }
-
-    // Add the value by index key
-    Status addIndexValue(Row& row, const kvstore::KV& data, const std::string& col) {
-=======
         row.emplace_back(std::move(v));
         return Status::OK();
     }
 
     Status addIndexValue(Row& row, const kvstore::KV& data, const std::string& col) {
         nebula::Value v;
->>>>>>> improve dedupNode
         switch (QueryUtils::toReturnColType(col)) {
             case QueryUtils::ReturnColType::kVid : {
                 auto vId = IndexKeyUtils::getIndexVertexID(planContext_->vIdLen_, data.first);
@@ -358,10 +326,6 @@ private:
                                                         hasNullableCol_);
             }
         }
-<<<<<<< HEAD
-=======
-
->>>>>>> improve dedupNode
         row.emplace_back(std::move(v));
         return Status::OK();
     }
