@@ -68,8 +68,8 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
         std::vector<kvstore::KV> data;
         data.reserve(32);
         cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
-        std::unordered_set<std::string> visitCache;
-        visitCache.reserve(vertices.size());
+        std::unordered_set<std::string> visited;
+        visited.reserve(vertices.size());
         for (auto& vertex : vertices) {
             auto vid = vertex.get_id().getStr();
             const auto& newTags = vertex.get_tags();
@@ -95,7 +95,7 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
 
                 auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid, tagId);
                 if (ifNotExists_) {
-                    if (!visitCache.emplace(key).second) {
+                    if (!visited.emplace(key).second) {
                         continue;
                     }
                     auto obsIdx = findOldValue(partId, vid, tagId);
@@ -153,8 +153,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
         cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
 
         // cache vertexKey
-        std::unordered_set<std::string> visitCache;
-        visitCache.reserve(vertices.size());
+        std::unordered_set<std::string> visited;
+        visited.reserve(vertices.size());
         for (auto& vertex : vertices) {
             auto vid = vertex.get_id().getStr();
             const auto& newTags = vertex.get_tags();
@@ -179,7 +179,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 }
 
                 auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vid, tagId);
-                if (ifNotExists_ && !visitCache.emplace(key).second) {
+                if (ifNotExists_ && !visited.emplace(key).second) {
                     continue;
                 }
                 auto props = newTag.get_props();
