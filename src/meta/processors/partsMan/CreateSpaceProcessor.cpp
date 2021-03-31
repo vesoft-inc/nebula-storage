@@ -105,7 +105,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     data.emplace_back(MetaServiceUtils::spaceKey(spaceId),
                       MetaServiceUtils::spaceVal(properties));
 
-    if (properties.__isset.group_name) {
+    if (properties.__isset.group_name && *properties.get_group_name() != defaultGroup) {
         std::string* groupName = properties.get_group_name();
         LOG(INFO) << "Create Space on group: " << *groupName;
         auto groupKey = MetaServiceUtils::groupKey(*groupName);
@@ -189,6 +189,8 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
                               MetaServiceUtils::partVal(partHosts));
         }
     } else {
+        // Create space in default group
+        // If don't specify group or specify to default group
         auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
         if (hosts.empty()) {
             LOG(ERROR) << "Create Space Failed : No Hosts!";
