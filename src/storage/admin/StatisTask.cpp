@@ -50,8 +50,8 @@ StatisTask::getSchemas(GraphSpaceID spaceId) {
 
 ErrorOr<cpp2::ErrorCode, std::vector<AdminSubTask>>
 StatisTask::genSubTasks() {
-    spaceId_ = ctx_.parameters_.space_id;
-    auto parts = ctx_.parameters_.parts;
+    spaceId_ = *ctx_.parameters_.space_id_ref();
+    auto parts = *ctx_.parameters_.parts_ref();
     subTaskSize_ = parts.size();
 
     auto ret = getSchemas(spaceId_);
@@ -119,7 +119,8 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
 
     std::unordered_map<TagID, int64_t>       tagsVertices;
     std::unordered_map<EdgeType, int64_t>    edgetypeEdges;
-    std::unordered_map<PartitionID, int64_t> relevancy;
+    std::unordered_map<PartitionID, int64_t> positiveRelevancy;
+    std::unordered_map<PartitionID, int64_t> negativeRelevancy;
     int64_t                                  spaceVertices = 0;
     int64_t                                  spaceEdges = 0;
 
@@ -176,26 +177,35 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
         auto edgeType = NebulaKeyUtils::getEdgeType(vIdLen, key);
         // Because edge lock in toss and edge are the same except for the last byte.
         // But only the in-edge has a lock.
-        if (edgeType < 0 || edgetypeEdges.find(edgeType) == edgetypeEdges.end()) {
+        if (edgetypeEdges.find(std::abs(edgeType)) == edgetypeEdges.end()) {
             edgeIter->next();
             continue;
         }
 
+        auto source = NebulaKeyUtils::getSrcId(vIdLen, key).str();
         auto destination = NebulaKeyUtils::getDstId(vIdLen, key).str();
+        if (edgeType > 0) {
+            spaceEdges++;
+            edgetypeEdges[edgeType] += 1;
 
-        spaceEdges++;
-        edgetypeEdges[edgeType] += 1;
-
-        uint64_t vid = 0;
-        if (isIntId) {
-            memcpy(static_cast<void*>(&vid), destination.data(), 8);
+            uint64_t destinationVid = 0;
+            if (isIntId) {
+                memcpy(static_cast<void*>(&destinationVid), destination.data(), 8);
+            } else {
+                nebula::MurmurHash2 hash;
+                destinationVid = hash(destination.data());
+            }
+            positiveRelevancy[destinationVid % partitionNum + 1]++;
         } else {
-            nebula::MurmurHash2 hash;
-            vid = hash(destination.data());
+            uint64_t sourceVid = 0;
+            if (isIntId) {
+                memcpy(static_cast<void*>(&sourceVid), source.data(), 8);
+            } else {
+                nebula::MurmurHash2 hash;
+                sourceVid = hash(source.data());
+            }
+            negativeRelevancy[sourceVid % partitionNum + 1]++;
         }
-
-        PartitionID partId = vid % partitionNum + 1;
-        relevancy[partId]++;
         edgeIter->next();
     }
 
@@ -205,39 +215,55 @@ StatisTask::genSubTask(GraphSpaceID spaceId,
     for (auto &tagElem : tagsVertices) {
         auto iter = tags_.find(tagElem.first);
         if (iter != tags_.end()) {
-            statisItem.tag_vertices.emplace(iter->second, tagElem.second);
+            (*statisItem.tag_vertices_ref()).emplace(iter->second, tagElem.second);
         }
     }
     for (auto &edgeElem : edgetypeEdges) {
         auto iter = edges_.find(edgeElem.first);
         if (iter != edges_.end()) {
-            statisItem.edges.emplace(iter->second, edgeElem.second);
+            (*statisItem.edges_ref()).emplace(iter->second, edgeElem.second);
         }
     }
 
     statisItem.set_space_vertices(spaceVertices);
     statisItem.set_space_edges(spaceEdges);
-
     using Correlativiyties = std::vector<nebula::meta::cpp2::Correlativity>;
-    Correlativiyties correlativity;
-    for (const auto& entry : relevancy) {
+    Correlativiyties positiveCorrelativity;
+    for (const auto& entry : positiveRelevancy) {
         nebula::meta::cpp2::Correlativity partProportion;
         partProportion.set_part_id(entry.first);
-        LOG(INFO) << "parts edges " << entry.second << " total " << spaceEdges;
         double proportion = static_cast<double>(entry.second) / static_cast<double>(spaceEdges);
         partProportion.set_proportion(proportion);
-        LOG(INFO) << "Part " << entry.first << " proportion " << proportion;
-        correlativity.emplace_back(std::move(partProportion));
+        positiveCorrelativity.emplace_back(std::move(partProportion));
     }
 
-    std::sort(correlativity.begin(), correlativity.end(),
+    Correlativiyties negativeCorrelativity;
+    for (const auto& entry : negativeRelevancy) {
+        nebula::meta::cpp2::Correlativity partProportion;
+        partProportion.set_part_id(entry.first);
+        double proportion = static_cast<double>(entry.second) / static_cast<double>(spaceEdges);
+        partProportion.set_proportion(proportion);
+        negativeCorrelativity.emplace_back(std::move(partProportion));
+    }
+
+    std::sort(positiveCorrelativity.begin(), positiveCorrelativity.end(),
               [&] (const auto& l, const auto& r) {
-                  return l.proportion < r.proportion;
+                  return *l.proportion_ref() < *r.proportion_ref();
               });
 
-    std::unordered_map<PartitionID, Correlativiyties> partCorelativity;
-    partCorelativity[part] = correlativity;
-    statisItem.set_part_corelativity(std::move(partCorelativity));
+    std::sort(negativeCorrelativity.begin(), negativeCorrelativity.end(),
+              [&] (const auto& l, const auto& r) {
+                  return *l.proportion_ref() < *r.proportion_ref();
+              });
+
+    std::unordered_map<PartitionID, Correlativiyties> positivePartCorrelativiyties;
+    positivePartCorrelativiyties[part] = positiveCorrelativity;
+    statisItem.set_positive_part_correlativity(std::move(positivePartCorrelativiyties));
+
+    std::unordered_map<PartitionID, Correlativiyties> negativePartCorrelativiyties;
+    negativePartCorrelativiyties[part] = negativeCorrelativity;
+    statisItem.set_negative_part_correlativity(std::move(negativePartCorrelativiyties));
+
     statistics_.emplace(part, std::move(statisItem));
     LOG(INFO) << "Statis task finished";
     return kvstore::ResultCode::SUCCEEDED;
@@ -250,32 +276,39 @@ void StatisTask::finish(cpp2::ErrorCode rc) {
     result.set_status(nebula::meta::cpp2::JobStatus::FAILED);
 
     if (rc == cpp2::ErrorCode::SUCCEEDED && statistics_.size() == subTaskSize_) {
-        result.space_vertices = 0;
-        result.space_edges = 0;
+        result.set_space_vertices(0);
+        result.set_space_edges(0);
         for (auto& elem : statistics_) {
             auto item = elem.second;
-            result.space_vertices += item.space_vertices;
-            result.space_edges += item.space_edges;
+            *result.space_vertices_ref() += *item.space_vertices_ref();
+            *result.space_edges_ref() += *item.space_edges_ref();
 
-            for (auto& tagElem : item.tag_vertices) {
+            for (auto& tagElem : *item.tag_vertices_ref()) {
                 auto tagId = tagElem.first;
-                auto iter = result.tag_vertices.find(tagId);
-                if (iter == result.tag_vertices.end()) {
-                    result.tag_vertices.emplace(tagId, tagElem.second);
+                auto iter = (*result.tag_vertices_ref()).find(tagId);
+                if (iter == (*result.tag_vertices_ref()).end()) {
+                    (*result.tag_vertices_ref()).emplace(tagId, tagElem.second);
                 } else {
-                    result.tag_vertices[tagId] += tagElem.second;
+                    (*result.tag_vertices_ref())[tagId] += tagElem.second;
                 }
             }
 
-            for (auto& edgeElem : item.edges) {
+            for (auto& edgeElem : *item.edges_ref()) {
                 auto edgetype = edgeElem.first;
-                auto iter = result.edges.find(edgetype);
-                if (iter == result.edges.end()) {
-                    result.edges.emplace(edgetype, edgeElem.second);
+                auto iter = (*result.edges_ref()).find(edgetype);
+                if (iter == (*result.edges_ref()).end()) {
+                    (*result.edges_ref()).emplace(edgetype, edgeElem.second);
                 } else {
-                    result.edges[edgetype] += edgeElem.second;
+                    (*result.edges_ref())[edgetype] += edgeElem.second;
                 }
             }
+
+            (*result.positive_part_correlativity_ref()).insert(
+                    (*item.positive_part_correlativity_ref()).begin(),
+                    (*item.positive_part_correlativity_ref()).end());
+            (*result.negative_part_correlativity_ref()).insert(
+                    (*item.negative_part_correlativity_ref()).begin(),
+                    (*item.negative_part_correlativity_ref()).end());
         }
         result.set_status(nebula::meta::cpp2::JobStatus::FINISHED);
         ctx_.onFinish_(rc, result);

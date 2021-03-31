@@ -77,7 +77,6 @@ jobs:
                   -DCMAKE_BUILD_TYPE=Release \
                   -DENABLE_TESTING=on \
                   -DCMAKE_PREFIX_PATH=modules/common \
-                  -DNEBULA_THIRDPARTY_ROOT=/opt/vesoft/third-party/ \
                   -B build
               ;;
             ubuntu1804)
@@ -88,7 +87,6 @@ jobs:
                   -DCMAKE_BUILD_TYPE=Debug \
                   -DENABLE_TESTING=on \
                   -DCMAKE_PREFIX_PATH=modules/common \
-                  -DNEBULA_THIRDPARTY_ROOT=/opt/vesoft/third-party/ \
                   -B build
               ;;
             esac
@@ -102,7 +100,6 @@ jobs:
                 -DENABLE_ASAN=on \
                 -DENABLE_TESTING=on \
                 -DCMAKE_PREFIX_PATH=modules/common \
-                -DNEBULA_THIRDPARTY_ROOT=/opt/vesoft/third-party \
                 -B build
             ;;
           esac
