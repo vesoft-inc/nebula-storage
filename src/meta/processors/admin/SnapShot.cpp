@@ -22,6 +22,7 @@ Snapshot::createSnapshot(const std::string& name) {
     if (!retSpacesHosts.ok()) {
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
+    // This structure is used for the subsequent construction of the common.PartitionBackupInfo
     std::unordered_map<
         GraphSpaceID,
         std::pair<nebula::cpp2::PartitionBackupInfo, std::vector<cpp2::CheckpointInfo>>>
@@ -35,13 +36,12 @@ Snapshot::createSnapshot(const std::string& name) {
             }
             auto infoPair = status.value();
             auto it = info.find(spaceHosts.first);
+            cpp2::CheckpointInfo cpInfo;
+            cpInfo.set_host(host);
+            cpInfo.set_checkpoint_dir(std::move(infoPair.first));
             if (it != info.cend()) {
-                it->second.second.emplace_back(
-                    apache::thrift::FRAGILE, host, std::move(infoPair.first));
+                it->second.second.emplace_back(std::move(cpInfo));
             } else {
-                cpp2::CheckpointInfo cpInfo;
-                cpInfo.set_host(host);
-                cpInfo.set_checkpoint_dir(std::move(infoPair.first));
                 std::vector<cpp2::CheckpointInfo> cpV = {std::move(cpInfo)};
                 info[spaceHosts.first] = std::make_pair(std::move(infoPair.second), std::move(cpV));
             }
