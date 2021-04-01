@@ -569,10 +569,14 @@ TEST(FileBasedWal, LinkTest) {
     }
     auto snapshotFile = folly::stringPrintf("%s/snapshot", walDir.path());
     CHECK(wal->linkCurrentWAL(snapshotFile.c_str()));
-    auto it = wal->walFiles_.rbegin();
     auto files = fs::FileUtils::listAllFilesInDir(snapshotFile.data(), true);
-    ASSERT_EQ(1, files.size());
-    EXPECT_EQ(FileUtils::fileSize(it->second->path()), FileUtils::fileSize(files[0].c_str()));
+    ASSERT_EQ(3, files.size());
+    int i = 0;
+    for (auto it = wal->walFiles_.rbegin(); it != wal->walFiles_.rend(); ++it) {
+        EXPECT_EQ(FileUtils::fileSize(it->second->path()), FileUtils::fileSize(files[i].c_str()));
+        i++;
+    }
+
     auto num = wal->walFiles_.size();
     EXPECT_TRUE(
             wal->appendLog(1001 /*id*/, 1 /*term*/, 0 /*cluster*/,
