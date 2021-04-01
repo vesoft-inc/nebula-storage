@@ -189,7 +189,6 @@ cpp2::ErrorCode MetaJobExecutor::execute() {
             continue;
         }
     }
-
     return rc;
 }
 
