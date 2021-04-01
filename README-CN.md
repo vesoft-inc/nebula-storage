@@ -33,14 +33,6 @@
 * 类 SQL 查询语言
 * 用户鉴权
 
-## 产品路线图
-
-**Nebula Graph** 产品规划路线图请参见 [roadmap](https://github.com/vesoft-inc/nebula/wiki/Nebula-Graph-Roadmap-2019)。
-
-## 图可视化
-
-查看[图可视化](https://github.com/vesoft-inc/nebula-web-docker)，开启图数据可视化探索之旅。
-
 ## 支持的客户端
 * [Go](https://github.com/vesoft-inc/nebula-go)
 * [Python](https://github.com/vesoft-inc/nebula-python)
@@ -62,8 +54,8 @@
 
 ## 文档
 
-* [简体中文](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-CN/README.md)
-* [English](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-EN/README.md)
+<!--* [简体中文](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-CN/README.md)-->
+* [English](https://docs.nebula-graph.io/2.0/)
 
 ## Nebula Graph 产品架构图
 
