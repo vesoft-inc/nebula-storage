@@ -176,26 +176,19 @@ cpp2::ErrorCode MetaJobExecutor::execute() {
     }
 
     auto rc = cpp2::ErrorCode::SUCCEEDED;
-    folly::collectAll(std::move(futs))
-        .thenValue([&](const std::vector<folly::Try<Status>>& tries) {
-            for (auto& t : tries) {
-                if (t.hasException()) {
-                    LOG(ERROR) << t.exception().what();
-                    rc = cpp2::ErrorCode::E_RPC_FAILURE;
-                    continue;
-                }
-                if (!t.value().ok()) {
-                    LOG(ERROR) << t.value().toString();
-                    rc = cpp2::ErrorCode::E_RPC_FAILURE;
-                    continue;
-                }
-            }
-        })
-        .thenError([&](auto&& e) {
-            LOG(ERROR) << "MetaJobExecutor::execute() except: " << e.what();
-            rc = cpp2::ErrorCode::E_UNKNOWN;
-        })
-        .wait();
+    auto tries = folly::collectAll(std::move(futs)).get();
+    for (auto& t : tries) {
+        if (t.hasException()) {
+            LOG(ERROR) << t.exception().what();
+            rc = cpp2::ErrorCode::E_RPC_FAILURE;
+            continue;
+        }
+        if (!t.value().ok()) {
+            LOG(ERROR) << t.value().toString();
+            rc = cpp2::ErrorCode::E_RPC_FAILURE;
+            continue;
+        }
+    }
 
     return rc;
 }
