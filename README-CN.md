@@ -54,8 +54,8 @@
 
 ## 文档
 
-* [简体中文](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-CN/README.md)
-* [English](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-EN/README.md)
+<!--* [简体中文](https://github.com/vesoft-inc/nebula/blob/master/docs/manual-CN/README.md)-->
+* [English](https://docs.nebula-graph.io/2.0/)
 
 ## Nebula Graph 产品架构图
 
