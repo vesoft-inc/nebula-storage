@@ -124,14 +124,12 @@ bool JobManager::runJobInternal(const JobDescription& jobDesc) {
         return false;
     }
 
-    auto rc = jobExec->prepare();
-    if (rc != cpp2::ErrorCode::SUCCEEDED) {
+    if (jobExec->prepare() != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Job Executor prepare failed";
         return false;
     }
 
-    rc = jobExec->execute();
-    if (rc != cpp2::ErrorCode::SUCCEEDED) {
+    if (jobExec->execute() != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Job dispatch failed";
         return false;
     }
