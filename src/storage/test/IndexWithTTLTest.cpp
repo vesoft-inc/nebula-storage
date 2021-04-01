@@ -117,7 +117,7 @@ void insertVertex(storage::StorageEnv* env, size_t vIdLen, TagID tagId) {
         newTags.push_back(std::move(newTag));
         newVertex.set_id(convertVertexId(vIdLen, partId));
         newVertex.set_tags(std::move(newTags));
-        req.parts[partId].emplace_back(std::move(newVertex));
+        (*req.parts_ref())[partId].emplace_back(std::move(newVertex));
     }
     auto* processor = AddVerticesProcessor::instance(env, nullptr);
     auto fut = processor->getFuture();
@@ -142,9 +142,9 @@ void insertEdge(storage::StorageEnv* env, size_t vIdLen, EdgeType edgeType) {
         props.emplace_back(Value(1L));
         props.emplace_back(Value(time::WallClock::fastNowInSec()));
         newEdge.set_props(std::move(props));
-        req.parts[partId].emplace_back(newEdge);
-        newEdge.key.set_edge_type(-edgeType);
-        req.parts[partId].emplace_back(std::move(newEdge));
+        (*req.parts_ref())[partId].emplace_back(newEdge);
+        (*newEdge.key_ref()).set_edge_type(-edgeType);
+        (*req.parts_ref())[partId].emplace_back(std::move(newEdge));
     }
     auto* processor = AddEdgesProcessor::instance(env, nullptr);
     auto fut = processor->getFuture();
@@ -428,7 +428,7 @@ TEST(IndexWithTTLTest, RebuildTagIndexWithTTL) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
-    parameter.task_specfic_paras.emplace_back("2021002");
+    parameter.set_task_specfic_paras({"2021002"});
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
@@ -497,7 +497,7 @@ TEST(IndexWithTTLTest, RebuildEdgeIndexWithTTL) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
-    parameter.task_specfic_paras.emplace_back("2021002");
+    parameter.set_task_specfic_paras({"2021002"});
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
@@ -568,7 +568,7 @@ TEST(IndexWithTTLTest, RebuildTagIndexWithTTLExpired) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
-    parameter.task_specfic_paras.emplace_back("2021002");
+    parameter.set_task_specfic_paras({"2021002"});
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_TAG_INDEX);
@@ -639,7 +639,7 @@ TEST(IndexWithTTLTest, RebuildEdgeIndexWithTTLExpired) {
     parameter.set_space_id(1);
     std::vector<PartitionID> parts = {1, 2, 3, 4, 5, 6};
     parameter.set_parts(parts);
-    parameter.task_specfic_paras.emplace_back("2021002");
+    parameter.set_task_specfic_paras({"2021002"});
 
     cpp2::AddAdminTaskRequest request;
     request.set_cmd(meta::cpp2::AdminCmd::REBUILD_EDGE_INDEX);
@@ -687,16 +687,16 @@ TEST(IndexWithTTLTest, LookupTagIndexWithTTL) {
 
     auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
     cpp2::LookupIndexRequest req;
-    decltype(req.indices) indices;
+    nebula::storage::cpp2::IndexSpec indices;
     req.set_space_id(1);
     indices.set_tag_or_edge_id(2021001);
     indices.set_is_edge(false);
-    decltype(req.parts) parts;
+    std::vector<PartitionID> parts;
     for (int32_t p = 1; p <= 6; p++) {
         parts.emplace_back(p);
     }
     req.set_parts(std::move(parts));
-    decltype(req.return_columns) returnCols;
+    std::vector<std::string> returnCols;
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
@@ -733,16 +733,16 @@ TEST(IndexWithTTLTest, LookupEdgeIndexWithTTL) {
 
     auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
     cpp2::LookupIndexRequest req;
-    decltype(req.indices) indices;
+    nebula::storage::cpp2::IndexSpec indices;
     req.set_space_id(1);
     indices.set_tag_or_edge_id(2021001);
     indices.set_is_edge(true);
-    decltype(req.parts) parts;
+    std::vector<PartitionID> parts;
     for (int32_t p = 1; p <= 6; p++) {
         parts.emplace_back(p);
     }
     req.set_parts(std::move(parts));
-    decltype(req.return_columns) returnCols;
+    std::vector<std::string> returnCols;
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
@@ -781,16 +781,16 @@ TEST(IndexWithTTLTest, LookupTagIndexWithTTLExpired) {
 
     auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
     cpp2::LookupIndexRequest req;
-    decltype(req.indices) indices;
+    nebula::storage::cpp2::IndexSpec indices;
     req.set_space_id(1);
     indices.set_tag_or_edge_id(2021001);
     indices.set_is_edge(false);
-    decltype(req.parts) parts;
+    std::vector<PartitionID> parts;
     for (int32_t p = 1; p <= 6; p++) {
         parts.emplace_back(p);
     }
     req.set_parts(std::move(parts));
-    decltype(req.return_columns) returnCols;
+    std::vector<std::string> returnCols;
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
@@ -829,16 +829,16 @@ TEST(IndexWithTTLTest, LookupEdgeIndexWithTTLExpired) {
 
     auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
     cpp2::LookupIndexRequest req;
-    decltype(req.indices) indices;
+    nebula::storage::cpp2::IndexSpec indices;
     req.set_space_id(1);
     indices.set_tag_or_edge_id(2021001);
     indices.set_is_edge(true);
-    decltype(req.parts) parts;
+    std::vector<PartitionID> parts;
     for (int32_t p = 1; p <= 6; p++) {
         parts.emplace_back(p);
     }
     req.set_parts(std::move(parts));
-    decltype(req.return_columns) returnCols;
+    std::vector<std::string> returnCols;
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
