@@ -945,6 +945,9 @@ void RaftPart::processAppendLogResponses(
             if (commitLogs(std::move(walIt))) {
                 committedLogId_ = lastLogId;
                 firstLogId = lastLogId_ + 1;
+                lastMsgAcceptedCostMs_ = lastMsgSentDur_.elapsedInMSec();
+                lastMsgAcceptedTime_ = time::WallClock::fastNowInMilliSec();
+                commitInThisTerm_ = true;
             } else {
                 LOG(FATAL) << idStr_ << "Failed to commit logs";
             }
@@ -1029,10 +1032,7 @@ void RaftPart::processAppendLogResponses(
 
 bool RaftPart::needToSendHeartbeat() {
     std::lock_guard<std::mutex> g(raftLock_);
-    return status_ == Status::RUNNING &&
-           role_ == Role::LEADER &&
-           time::WallClock::fastNowInMilliSec() - lastMsgAcceptedTime_ >=
-               FLAGS_raft_heartbeat_interval_secs * 1000 * 2 / 5;
+    return status_ == Status::RUNNING && role_ == Role::LEADER;
 }
 
 
@@ -1262,8 +1262,9 @@ bool RaftPart::leaderElection() {
                     });
                     lastMsgAcceptedTime_ = 0;
                 }
+                weight_ = 1;
+                commitInThisTerm_ = false;
             }
-            weight_ = 1;
             sendHeartbeat();
             return true;
         }
@@ -1531,7 +1532,7 @@ void RaftPart::processAppendLogRequest(
         return;
     }
     // Check leadership
-    cpp2::ErrorCode err = verifyLeader(req);
+    cpp2::ErrorCode err = verifyLeader<cpp2::AppendLogRequest>(req);
     if (err != cpp2::ErrorCode::SUCCEEDED) {
         // Wrong leadership
         VLOG(2) << idStr_ << "Will not follow the leader";
@@ -1680,35 +1681,45 @@ void RaftPart::processAppendLogRequest(
         return;
     }
 
-    if (req.get_committed_log_id() > committedLogId_) {
+    LogID lastLogIdCanCommit = std::min(lastLogId_, req.get_committed_log_id());
+    if (lastLogIdCanCommit > committedLogId_) {
         // Commit some logs
         // We can only commit logs from firstId to min(lastLogId_, leader's commit log id),
         // follower can't always commit to leader's commit id because of lack of log
-        LogID lastLogIdCanCommit = std::min(lastLogId_, req.get_committed_log_id());
-        CHECK_LE(committedLogId_ + 1, lastLogIdCanCommit);
-        if (commitLogs(wal_->iterator(committedLogId_ + 1, lastLogIdCanCommit))) {
+        auto code = commitLogs(wal_->iterator(committedLogId_ + 1, lastLogIdCanCommit), false);
+        if (code == nebula::cpp2::ErrorCode::SUCCEEDED) {
             VLOG(1) << idStr_ << "Follower succeeded committing log "
                               << committedLogId_ + 1 << " to "
                               << lastLogIdCanCommit;
             committedLogId_ = lastLogIdCanCommit;
             resp.set_committed_log_id(lastLogIdCanCommit);
+            resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
+        } else if (code == nebula::cpp2::ErrorCode::E_WRITE_STALLED) {
+            VLOG(1) << idStr_ << "Follower delay committing log "
+                              << committedLogId_ + 1 << " to "
+                              << lastLogIdCanCommit;
+            // Even if log is not applied to state machine, still regard as succeded:
+            // 1. As a follower, upcoming request will try to commit them
+            // 2. If it is elected as leader later, it will try to commit them as well
+            resp.set_committed_log_id(committedLogId_);
+            resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
         } else {
             LOG(ERROR) << idStr_ << "Failed to commit log "
                        << committedLogId_ + 1 << " to "
                        << req.get_committed_log_id();
             resp.set_error_code(cpp2::ErrorCode::E_WAL_FAIL);
-            return;
         }
+    } else {
+        resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
     }
 
     // Reset the timeout timer again in case wal and commit takes longer time than expected
     lastMsgRecvDur_.reset();
-    resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
 }
 
 
-cpp2::ErrorCode RaftPart::verifyLeader(
-        const cpp2::AppendLogRequest& req) {
+template<typename REQ>
+cpp2::ErrorCode RaftPart::verifyLeader(const REQ& req) {
     CHECK(!raftLock_.try_lock());
     auto candidate = HostAddr(req.get_leader_addr(), req.get_leader_port());
     auto code = checkPeer(candidate);
@@ -1792,6 +1803,64 @@ cpp2::ErrorCode RaftPart::verifyLeader(
     return cpp2::ErrorCode::SUCCEEDED;
 }
 
+void RaftPart::processHeartbeatRequest(
+        const cpp2::HeartbeatRequest& req,
+        cpp2::HeartbeatResponse& resp) {
+    if (FLAGS_trace_raft) {
+        LOG(INFO) << idStr_
+                  << "Received heartbeat "
+                  << ": GraphSpaceId = " << req.get_space()
+                  << ", partition = " << req.get_part()
+                  << ", leaderIp = " << req.get_leader_addr()
+                  << ", leaderPort = " << req.get_leader_port()
+                  << ", current_term = " << req.get_current_term()
+                  << ", lastLogId = " << req.get_last_log_id()
+                  << ", committedLogId = " << req.get_committed_log_id()
+                  << ", lastLogIdSent = " << req.get_last_log_id_sent()
+                  << ", lastLogTermSent = " << req.get_last_log_term_sent()
+                  << ", local lastLogId = " << lastLogId_
+                  << ", local lastLogTerm = " << lastLogTerm_
+                  << ", local committedLogId = " << committedLogId_
+                  << ", local current term = " << term_;
+    }
+    std::lock_guard<std::mutex> g(raftLock_);
+
+    resp.set_current_term(term_);
+    resp.set_leader_addr(leader_.host);
+    resp.set_leader_port(leader_.port);
+    resp.set_committed_log_id(committedLogId_);
+    resp.set_last_log_id(lastLogId_ < committedLogId_ ? committedLogId_ : lastLogId_);
+    resp.set_last_log_term(lastLogTerm_);
+
+    // Check status
+    if (UNLIKELY(status_ == Status::STOPPED)) {
+        VLOG(2) << idStr_
+                << "The part has been stopped, skip the request";
+        resp.set_error_code(cpp2::ErrorCode::E_BAD_STATE);
+        return;
+    }
+    if (UNLIKELY(status_ == Status::STARTING)) {
+        VLOG(2) << idStr_ << "The partition is still starting";
+        resp.set_error_code(cpp2::ErrorCode::E_NOT_READY);
+        return;
+    }
+    // Check leadership
+    cpp2::ErrorCode err = verifyLeader<cpp2::HeartbeatRequest>(req);
+    if (err != cpp2::ErrorCode::SUCCEEDED) {
+        // Wrong leadership
+        VLOG(2) << idStr_ << "Will not follow the leader";
+        resp.set_error_code(err);
+        return;
+    }
+
+    // Reset the timeout timer
+    lastMsgRecvDur_.reset();
+
+    // As for heartbeat, return ok after verifyLeader
+    resp.set_error_code(cpp2::ErrorCode::SUCCEEDED);
+    return;
+}
+
 void RaftPart::processSendSnapshotRequest(const cpp2::SendSnapshotRequest& req,
                                           cpp2::SendSnapshotResponse& resp) {
     VLOG(1) << idStr_ << "Receive snapshot, total rows " << req.get_rows().size()
@@ -1863,10 +1932,73 @@ void RaftPart::processSendSnapshotRequest(const cpp2::SendSnapshotRequest& req,
     return;
 }
 
-folly::Future<AppendLogResult> RaftPart::sendHeartbeat() {
+void RaftPart::sendHeartbeat() {
+    // If leader has not commit any logs in this term, it must commit all logs in previous term,
+    // so heartbeat is send by appending one empty log.
+    if (!replicatingLogs_.load(std::memory_order_acquire)) {
+        folly::via(executor_.get(), [this] {
+            std::string log = "";
+            appendLogAsync(clusterId_, LogType::NORMAL, std::move(log));
+        });
+    }
+
+    using namespace folly;  // NOLINT since the fancy overload of | operator
     VLOG(2) << idStr_ << "Send heartbeat";
-    std::string log = "";
-    return appendLogAsync(clusterId_, LogType::NORMAL, std::move(log));
+    TermID currTerm = 0;
+    LogID latestLogId = 0;
+    LogID commitLogId = 0;
+    TermID prevLogTerm = 0;
+    LogID prevLogId = 0;
+    size_t replica = 0;
+    decltype(hosts_) hosts;
+    {
+        std::lock_guard<std::mutex> g(raftLock_);
+        currTerm = term_;
+        latestLogId = wal_->lastLogId();
+        commitLogId = committedLogId_;
+        prevLogTerm = lastLogTerm_;
+        prevLogId = lastLogId_;
+        replica = quorum_;
+        hosts = hosts_;
+    }
+    auto eb = ioThreadPool_->getEventBase();
+    auto startMs = time::WallClock::fastNowInMilliSec();
+    collectNSucceeded(
+        gen::from(hosts)
+        | gen::map([self = shared_from_this(), eb, currTerm, latestLogId, commitLogId,
+                    prevLogId, prevLogTerm] (std::shared_ptr<Host> hostPtr) {
+            VLOG(2) << self->idStr_ << "Send heartbeat to " << hostPtr->idStr();
+            return via(eb, [=]() -> Future<cpp2::HeartbeatResponse> {
+                return hostPtr->sendHeartbeat(
+                    eb, currTerm, latestLogId, commitLogId, prevLogTerm, prevLogId);
+            });
+        })
+        | gen::as<std::vector>(),
+        // Number of succeeded required
+        hosts.size(),
+        // Result evaluator
+        [hosts] (size_t index, cpp2::HeartbeatResponse& resp) {
+            return resp.get_error_code() == cpp2::ErrorCode::SUCCEEDED
+                    && !hosts[index]->isLearner();
+    })
+    .then([replica, hosts = std::move(hosts), startMs, this]
+          (folly::Try<HeartbeatResponses>&& resps) {
+        CHECK(!resps.hasException());
+        size_t numSucceeded = 0;
+        for (auto& resp : *resps) {
+            if (!hosts[resp.first]->isLearner()
+                    && resp.second.get_error_code() == cpp2::ErrorCode::SUCCEEDED) {
+                ++numSucceeded;
+            }
+        }
+        if (numSucceeded >= replica) {
+            VLOG(2) << idStr_ << "Heartbeat is accepted by quorum";
+            std::lock_guard<std::mutex> g(raftLock_);
+            auto now = time::WallClock::fastNowInMilliSec();
+            lastMsgAcceptedCostMs_ = now - startMs;
+            lastMsgAcceptedTime_ = now;
+        }
+    });
 }
 
 std::vector<std::shared_ptr<Host>> RaftPart::followers() const {
@@ -1997,6 +2129,9 @@ bool RaftPart::leaseValid() {
     std::lock_guard<std::mutex> g(raftLock_);
     if (hosts_.empty()) {
         return true;
+    }
+    if (!commitInThisTerm_) {
+        return false;
     }
     // When majority has accepted a log, leader obtains a lease which last for heartbeat.
     // However, we need to take off the net io time. On the left side of the inequality is

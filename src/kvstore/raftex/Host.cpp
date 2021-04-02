@@ -151,11 +151,6 @@ folly::Future<cpp2::AppendLogResponse> Host::appendLogs(
                       << ", lastLogIdSent = " << lastLogIdSent_
                       << ", lastLogTermSent = " << lastLogTermSent_;
         }
-        if (prevLogTerm < lastLogTermSent_ || prevLogId < lastLogIdSent_) {
-            LOG(INFO) << idStr_ << "We have sended this log, so go on from id " << lastLogIdSent_
-                      << ", term " << lastLogTermSent_ << "; current prev log id " << prevLogId
-                      << ", current prev log term " << prevLogTerm;
-        }
         logTermToSend_ = term;
         logIdToSend_ = logId;
         committedLogId_ = committedLogId;
@@ -504,6 +499,72 @@ folly::Future<cpp2::AppendLogResponse> Host::sendAppendLogRequest(
     // Get client connection
     auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
     return client->future_appendLog(*req);
+}
+
+folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeat(folly::EventBase* eb,
+                                                           TermID term,
+                                                           LogID latestLogId,
+                                                           LogID commitLogId,
+                                                           TermID lastLogTerm,
+                                                           LogID lastLogId) {
+    auto req = std::make_shared<cpp2::HeartbeatRequest>();
+    req->set_space(part_->spaceId());
+    req->set_part(part_->partitionId());
+    req->set_current_term(term);
+    req->set_last_log_id(latestLogId);
+    req->set_committed_log_id(commitLogId);
+    req->set_leader_addr(part_->address().host);
+    req->set_leader_port(part_->address().port);
+    req->set_last_log_term_sent(lastLogTerm);
+    req->set_last_log_id_sent(lastLogId);
+    folly::Promise<cpp2::HeartbeatResponse> promise;
+    sendHeartbeatRequest(eb, std::move(req))
+        .via(eb)
+        .then([self = shared_from_this(), pro = std::move(promise)]
+              (folly::Try<cpp2::HeartbeatResponse>&& t) mutable {
+            VLOG(3) << self->idStr_ << "heartbeat call got response";
+            if (t.hasException()) {
+                cpp2::HeartbeatResponse resp;
+                resp.set_error_code(cpp2::ErrorCode::E_EXCEPTION);
+                pro.setValue(std::move(resp));
+                return;
+            } else {
+                pro.setValue(std::move(t.value()));
+            }
+        });
+    return promise.getFuture();
+}
+
+folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeatRequest(
+        folly::EventBase* eb,
+        std::shared_ptr<cpp2::HeartbeatRequest> req) {
+    VLOG(2) << idStr_ << "Entering Host::sendHeartbeatRequest()";
+
+    {
+        std::lock_guard<std::mutex> g(lock_);
+        auto res = checkStatus();
+        if (res != cpp2::ErrorCode::SUCCEEDED) {
+            LOG(WARNING) << idStr_
+                         << "The Host is not in a proper status, do not send";
+            cpp2::HeartbeatResponse resp;
+            resp.set_error_code(res);
+            return resp;
+        }
+    }
+
+    if (FLAGS_trace_raft) {
+        LOG(INFO) << idStr_
+                  << "Sending heartbeat space " << req->get_space()
+                  << ", part " << req->get_part()
+                  << ", current term " << req->get_current_term()
+                  << ", last_log_id " << req->get_last_log_id()
+                  << ", committed_id " << req->get_committed_log_id()
+                  << ", last_log_term_sent " << req->get_last_log_term_sent()
+                  << ", last_log_id_sent " << req->get_last_log_id_sent();
+    }
+    // Get client connection
+    auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
+    return client->future_heartbeat(*req);
 }
 
 bool Host::noRequest() const {
