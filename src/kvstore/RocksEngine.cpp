@@ -517,11 +517,11 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
         return backupPath;
     }
 
-    auto* p = realpath(backupPath.c_str(), nullptr);
-    if (p == nullptr) {
+    auto result = nebula::fs::FileUtils::realPath(backupPath.c_str());
+    if (!result.ok()) {
         return ResultCode::ERR_BACKUP_TABLE_FAILED;
     }
-    return p;
+    return result.value();
 }
 
 }   // namespace kvstore

@@ -5,6 +5,7 @@
  */
 
 #include "meta/processors/admin/GetMetaDirInfoProcessor.h"
+#include "common/fs/FileUtils.h"
 
 namespace nebula {
 namespace meta {
@@ -30,13 +31,13 @@ void GetMetaDirInfoProcessor::process(const cpp2::GetMetaDirInfoReq& req) {
                        if (f[0] == '/') {
                            return f;
                        } else {
-                           char* p = realpath(f.c_str(), nullptr);
-                           if (p == nullptr) {
+                           auto result = nebula::fs::FileUtils::realPath(f.c_str());
+                           if (!result.ok()) {
                                failed = true;
                                LOG(ERROR) << "Failed to get the absolute path of file: " << f;
                                return f;
                            }
-                           return std::string(p);
+                           return std::string(result.value());
                        }
                    });
     if (failed) {

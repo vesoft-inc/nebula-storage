@@ -924,11 +924,11 @@ ErrorOr<ResultCode, std::string> NebulaStore::createCheckpoint(GraphSpaceID spac
     if (cpPath[0] == '/') {
         return cpPath;
     }
-    auto* p = realpath(cpPath.c_str(), nullptr);
-    if (p == nullptr) {
+    auto result = nebula::fs::FileUtils::realPath(cpPath.c_str());
+    if (!result.ok()) {
         return ResultCode::ERR_CHECKPOINT_ERROR;
     }
-    return p;
+    return result.value();
 }
 
 ResultCode NebulaStore::dropCheckpoint(GraphSpaceID spaceId, const std::string& name) {

@@ -5,6 +5,7 @@
  */
 
 #include "storage/admin/ListClusterInfoProcessor.h"
+#include "common/fs/FileUtils.h"
 
 namespace nebula {
 namespace storage {
@@ -24,13 +25,13 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
                        if (f[0] == '/') {
                            return f;
                        }
-                       char* p = realpath(f.c_str(), nullptr);
-                       if (p == nullptr) {
+                       auto result = nebula::fs::FileUtils::realPath(f.c_str());
+                       if (!result.ok()) {
                            LOG(ERROR) << "Failed to get the absolute path of file: " << f;
                            failed = true;
                            return f;
                        }
-                       return std::string(p);
+                       return std::string(result.value());
                    });
     if (failed) {
         cpp2::PartitionResult thriftRet;
