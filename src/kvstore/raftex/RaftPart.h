@@ -12,6 +12,7 @@
 #include "common/interface/gen-cpp2/RaftexServiceAsyncClient.h"
 #include "common/time/Duration.h"
 #include "common/thread/GenericThreadPool.h"
+#include "kvstore/Common.h"
 #include "kvstore/raftex/SnapshotManager.h"
 #include "kvstore/DiskManager.h"
 #include <folly/futures/SharedPromise.h>
@@ -298,7 +299,7 @@ protected:
 
     // The inherited classes need to implement this method to commit
     // a batch of log messages
-    virtual bool commitLogs(std::unique_ptr<LogIterator> iter) = 0;
+    virtual nebula::cpp2::ErrorCode commitLogs(std::unique_ptr<LogIterator> iter, bool wait) = 0;
 
     virtual bool preProcessLog(LogID logId,
                                TermID termId,

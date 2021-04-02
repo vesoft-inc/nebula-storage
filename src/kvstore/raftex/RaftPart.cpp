@@ -957,7 +957,7 @@ void RaftPart::processAppendLogResponses(
             auto walIt = wal_->iterator(committedId + 1, lastLogId);
             SlowOpTracker tracker;
             // Step 3: Commit the batch
-            if (commitLogs(std::move(walIt))) {
+            if (commitLogs(std::move(walIt), true) == nebula::cpp2::ErrorCode::SUCCEEDED) {
                 std::lock_guard<std::mutex> g(raftLock_);
                 committedLogId_ = lastLogId;
                 firstLogId = lastLogId_ + 1;
