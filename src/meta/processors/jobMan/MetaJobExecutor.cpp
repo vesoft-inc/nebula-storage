@@ -163,7 +163,8 @@ cpp2::ErrorCode MetaJobExecutor::execute() {
                                 });
         baton.wait();
         if (rc != nebula::kvstore::ResultCode::SUCCEEDED) {
-            return cpp2::ErrorCode::E_UNKNOWN;
+            LOG(INFO) << "write to kv store failed. E_STORE_FAILURE";
+            return cpp2::ErrorCode::E_STORE_FAILURE;
         }
     }
 
@@ -175,20 +176,19 @@ cpp2::ErrorCode MetaJobExecutor::execute() {
     }
 
     auto rc = cpp2::ErrorCode::SUCCEEDED;
-    folly::collectAll(std::move(futs))
-        .thenValue([&](const std::vector<folly::Try<Status>>& tries) {
-            if (std::any_of(tries.begin(), tries.end(), [](auto& t) {
-                    return t.hasException() || !t.value().ok();
-                })) {
-                rc = cpp2::ErrorCode::E_RPC_FAILURE;
-            }
-        })
-        .thenError([&](auto&& e) {
-            LOG(ERROR) << "MetaJobExecutor::execute() except: " << e.what();
-            rc = cpp2::ErrorCode::E_UNKNOWN;
-        })
-        .wait();
-
+    auto tries = folly::collectAll(std::move(futs)).get();
+    for (auto& t : tries) {
+        if (t.hasException()) {
+            LOG(ERROR) << t.exception().what();
+            rc = cpp2::ErrorCode::E_RPC_FAILURE;
+            continue;
+        }
+        if (!t.value().ok()) {
+            LOG(ERROR) << t.value().toString();
+            rc = cpp2::ErrorCode::E_RPC_FAILURE;
+            continue;
+        }
+    }
     return rc;
 }
 

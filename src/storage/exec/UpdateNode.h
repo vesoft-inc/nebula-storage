@@ -461,12 +461,12 @@ public:
     kvstore::ResultCode execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         CHECK_NOTNULL(planContext_->env_->kvstore_);
         auto ret = kvstore::ResultCode::SUCCEEDED;
-        // folly::Function<folly::Optional<std::string>(void)>
+        IndexCountWrapper wrapper(planContext_->env_);
+
         auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
-            IndexCountWrapper wrapper(planContext_->env_);
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
-                if (edgeKey.edge_type != this->edgeType_) {
+                if (*edgeKey.edge_type_ref() != this->edgeType_) {
                     this->exeResult_ = kvstore::ResultCode::ERR_KEY_NOT_FOUND;
                     return folly::none;
                 }
@@ -520,8 +520,14 @@ public:
             if (batch == folly::none) {
                 return this->exeResult_;
             }
-            std::vector<EMLI> dummyLock = {std::make_tuple(planContext_->spaceId_, partId,
-            edgeKey.src.getStr(), edgeKey.edge_type, edgeKey.ranking, edgeKey.dst.getStr())};
+            std::vector<EMLI> dummyLock = {
+                std::make_tuple(planContext_->spaceId_, partId,
+                        edgeKey.get_src().getStr(),
+                        edgeKey.get_edge_type(),
+                        edgeKey.get_ranking(),
+                        edgeKey.get_dst().getStr()
+                        )
+            };
             nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(),
                                              std::move(dummyLock));
             if (!lg) {
@@ -585,10 +591,10 @@ public:
 
         // build expression context
         // add kSrc, kType, kRank, kDst
-        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
-        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
-        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
-        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.edge_type);
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.get_src());
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.get_dst());
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.get_ranking());
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.get_edge_type());
 
         for (auto &e : props_) {
             expCtx_->setEdgeProp(edgeName_, e.first, e.second);
@@ -596,10 +602,10 @@ public:
 
         key_ = NebulaKeyUtils::edgeKey(planContext_->vIdLen_,
                                        partId,
-                                       edgeKey.src.getStr(),
-                                       edgeKey.edge_type,
-                                       edgeKey.ranking,
-                                       edgeKey.dst.getStr());
+                                       edgeKey.get_src().getStr(),
+                                       edgeKey.get_edge_type(),
+                                       edgeKey.get_ranking(),
+                                       edgeKey.get_dst().getStr());
         rowWriter_ = std::make_unique<RowWriterV2>(schema_);
 
         return kvstore::ResultCode::SUCCEEDED;
@@ -630,10 +636,10 @@ public:
 
         // build expression context
         // add _src, _type, _rank, _dst
-        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.src);
-        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.dst);
-        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.ranking);
-        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.edge_type);
+        expCtx_->setEdgeProp(edgeName_, kSrc, edgeKey.get_src());
+        expCtx_->setEdgeProp(edgeName_, kDst, edgeKey.get_dst());
+        expCtx_->setEdgeProp(edgeName_, kRank, edgeKey.get_ranking());
+        expCtx_->setEdgeProp(edgeName_, kType, edgeKey.get_edge_type());
 
         for (auto &e : props_) {
             expCtx_->setEdgeProp(edgeName_, e.first, e.second);
