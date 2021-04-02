@@ -156,7 +156,8 @@ public:
 
     int32_t totalPartsNum() override;
 
-    ResultCode ingest(const std::vector<std::string>& files) override;
+    ResultCode ingest(const std::vector<std::string>& files,
+                      bool verify_file_checksum = false) override;
 
     ResultCode setOption(const std::string& configKey, const std::string& configValue) override;
 

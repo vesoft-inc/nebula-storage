@@ -1110,7 +1110,7 @@ ResultCode NebulaStore::restoreFromFiles(GraphSpaceID spaceId,
     auto space = nebula::value(spaceRet);
 
     for (auto& engine : space->engines_) {
-        auto ret = engine->ingest(files);
+        auto ret = engine->ingest(files, true);
         if (ret != ResultCode::SUCCEEDED) {
             return ret;
         }

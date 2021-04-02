@@ -101,7 +101,8 @@ public:
     virtual int32_t totalPartsNum() = 0;
 
     // Ingest sst files
-    virtual ResultCode ingest(const std::vector<std::string>& files) = 0;
+    virtual ResultCode ingest(const std::vector<std::string>& files,
+                              bool verify_file_checksum = false) = 0;
 
     // Set Config Option
     virtual ResultCode setOption(const std::string& configKey,

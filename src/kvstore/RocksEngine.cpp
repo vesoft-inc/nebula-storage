@@ -337,9 +337,10 @@ int32_t RocksEngine::totalPartsNum() {
     return partsNum_;
 }
 
-ResultCode RocksEngine::ingest(const std::vector<std::string>& files) {
+ResultCode RocksEngine::ingest(const std::vector<std::string>& files, bool verify_file_checksum) {
     rocksdb::IngestExternalFileOptions options;
     options.move_files = FLAGS_move_files;
+    options.verify_file_checksum = verify_file_checksum;
     rocksdb::Status status = db_->IngestExternalFile(files, options);
     if (status.ok()) {
         return ResultCode::SUCCEEDED;
@@ -468,6 +469,7 @@ ErrorOr<ResultCode, std::string> RocksEngine::backupTable(
     }
 
     rocksdb::Options options;
+    options.file_checksum_gen_factory = rocksdb::GetFileChecksumGenCrc32cFactory();
     rocksdb::SstFileWriter sstFileWriter(rocksdb::EnvOptions(), options);
 
     std::unique_ptr<KVIterator> iter;
