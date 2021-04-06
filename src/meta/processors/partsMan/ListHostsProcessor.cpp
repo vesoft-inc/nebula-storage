@@ -172,7 +172,7 @@ Status ListHostsProcessor::fillLeaders() {
         }
 
         auto& spaceName = spaceIdNameMap_[spaceIdAndPartId.first];
-        hostIt->leader_parts[spaceName].emplace_back(spaceIdAndPartId.second);
+        hostIt->leader_parts_ref()[spaceName].emplace_back(spaceIdAndPartId.second);
     }
 
     return Status::OK();
