@@ -132,7 +132,6 @@ Status ListHostsProcessor::allHostsWithStatus(cpp2::HostRole role) {
 }
 
 Status ListHostsProcessor::fillLeaders() {
-    LOG(INFO) << "showhosts: fillLeaders";
     auto status = allHostsWithStatus(cpp2::HostRole::STORAGE);
     if (!status.ok()) {
         LOG(ERROR) << "Get all host's status failed";
@@ -167,7 +166,7 @@ Status ListHostsProcessor::fillLeaders() {
         });
 
         if (hostIt == hostItems_.end()) {
-            LOG(INFO) << "skip inactive host 2";
+            LOG(INFO) << "skip inactive host";
             continue;
         }
 
@@ -179,7 +178,6 @@ Status ListHostsProcessor::fillLeaders() {
 }
 
 Status ListHostsProcessor::fillAllParts() {
-    LOG(INFO) << "showhosts: fillAllParts";
     std::unique_ptr<kvstore::KVIterator> iter;
     using SpaceNameAndPartitions = std::unordered_map<std::string, std::vector<PartitionID>>;
     std::unordered_map<HostAddr, SpaceNameAndPartitions> allParts;
