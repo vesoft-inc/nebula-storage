@@ -152,8 +152,8 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     item.set_schema_id(schemaID);
     item.set_schema_name(edgeName);
     item.set_fields(std::move(columns));
-    if (req.__isset.comment) {
-        item.set_comment(*req.get_comment());
+    if (req.comment_ref().has_value()) {
+        item.set_comment(*req.comment_ref());
     }
 
     data.emplace_back(MetaServiceUtils::indexIndexKey(space, indexName),
