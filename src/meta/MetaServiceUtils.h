@@ -110,7 +110,6 @@ public:
 
     static LeaderParts parseLeaderVal1(folly::StringPiece val);
 
-    // static cpp2::LeaderInfo parseLeaderValV3(folly::StringPiece val);
     static std::pair<HostAddr, int64_t> parseLeaderValV3(folly::StringPiece val);
 
     static std::string schemaVal(const std::string& name, const cpp2::Schema& schema);
