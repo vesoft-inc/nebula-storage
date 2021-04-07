@@ -1169,7 +1169,7 @@ nebula::storage::cpp2::AddVerticesRequest
 MockData::mockAddVerticesSpecifiedOrderReq(int32_t parts) {
     nebula::storage::cpp2::AddVerticesRequest req;
     req.set_space_id(1);
-    req.set_if_not_exists(true);
+    req.set_if_not_exists(false);
     auto retRecs = mockVerticesSpecifiedOrder();
 
     for (auto& rec : retRecs) {
@@ -1205,7 +1205,7 @@ MockData::mockAddEdgesSpecifiedOrderReq(int32_t parts) {
     nebula::storage::cpp2::AddEdgesRequest req;
     // Use space id is 1 when mock
     req.set_space_id(1);
-    req.set_if_not_exists(true);
+    req.set_if_not_exists(false);
 
     auto retRecs = mockEdgesSpecifiedOrder();
 
