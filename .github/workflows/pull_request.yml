@@ -110,7 +110,7 @@ jobs:
           ASAN_OPTIONS: fast_unwind_on_malloc=1
         run: ctest -j $(($(nproc)/2+1)) --timeout 600 --output-on-failure
         working-directory: build/
-        timeout-minutes: 15
+        timeout-minutes: 20
       - name: Cleanup
         if: ${{ always() }}
         run: rm -rf build modules/common
