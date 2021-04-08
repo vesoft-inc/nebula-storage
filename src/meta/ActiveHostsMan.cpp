@@ -5,6 +5,7 @@
  */
 
 #include "meta/ActiveHostsMan.h"
+#include <thrift/lib/cpp/util/EnumUtils.h>
 #include "meta/processors/Common.h"
 #include "utils/Utils.h"
 
@@ -39,7 +40,11 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
         for (auto i = 0U; i != ret.second.size(); ++i) {
             if (ret.second[i].ok()) {
                 auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(values[i]);
-                if (terms[i] <= hostAndTerm.second) {
+                if (std::get<2>(hostAndTerm) != cpp2::ErrorCode::SUCCEEDED) {
+                    LOG(WARNING) << apache::thrift::util::enumNameSafe(std::get<2>(hostAndTerm));
+                    continue;
+                }
+                if (terms[i] <= std::get<1>(hostAndTerm)) {
                     continue;
                 }
             }

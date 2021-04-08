@@ -108,9 +108,9 @@ public:
 
     static HostAddr parseLeaderKeyV2(folly::StringPiece key);
 
-    static LeaderParts parseLeaderVal1(folly::StringPiece val);
+    static LeaderParts parseLeaderValV1(folly::StringPiece val);
 
-    static std::pair<HostAddr, int64_t> parseLeaderValV3(folly::StringPiece val);
+    static std::tuple<HostAddr, int64_t, cpp2::ErrorCode> parseLeaderValV3(folly::StringPiece val);
 
     static std::string schemaVal(const std::string& name, const cpp2::Schema& schema);
 

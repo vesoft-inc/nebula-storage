@@ -100,8 +100,8 @@ TEST(MetaServiceUtilsTest, storeStrIpCodecTest) {
         auto leaderVal = MetaServiceUtils::leaderValV3(host, termId);
         auto parsedVal = MetaServiceUtils::parseLeaderValV3(leaderVal);
 
-        EXPECT_EQ(parsedVal.first, host);
-        EXPECT_EQ(parsedVal.second, termId);
+        EXPECT_EQ(std::get<0>(parsedVal), host);
+        EXPECT_EQ(std::get<1>(parsedVal), termId);
     }
 }
 

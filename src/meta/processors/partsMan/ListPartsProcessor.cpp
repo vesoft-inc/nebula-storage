@@ -116,7 +116,7 @@ void ListPartsProcessor::getLeaderDist(std::vector<cpp2::PartItem>& partItems) {
             continue;
         }
         auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(values[i]);
-        auto& host = hostAndTerm.first;
+        auto& host = std::get<0>(hostAndTerm);
         if (std::find(activeHosts.begin(), activeHosts.end(), host) == activeHosts.end()) {
             LOG(INFO) << "ignore inactive host: " << host;
             continue;

@@ -329,8 +329,14 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 }
 
 // v3: dataVer(int) + lenOfHost(8) + HostAddr(varchar) + term(int64_t)
-std::pair<HostAddr, int64_t> MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
-    std::pair<HostAddr, int64_t> hostAndTerm;
+std::tuple<HostAddr, int64_t, cpp2::ErrorCode>
+MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
+    std::tuple<HostAddr, int64_t, cpp2::ErrorCode> ret;
+    int dataVer = *reinterpret_cast<const int*>(val.data());
+    if (dataVer != 3) {
+        std::get<2>(ret) = cpp2::ErrorCode::E_INVALID_PARM;
+        return ret;
+    }
 
     CHECK_GE(val.size(), sizeof(int));
     val.advance(sizeof(int));
@@ -339,12 +345,12 @@ std::pair<HostAddr, int64_t> MetaServiceUtils::parseLeaderValV3(folly::StringPie
 
     val.advance(sizeof(size_t));
     CHECK_GE(val.size(), lenOfHost);
-    hostAndTerm.first = MetaServiceUtils::deserializeHostAddr(val.subpiece(0, lenOfHost));
+    std::get<0>(ret) = MetaServiceUtils::deserializeHostAddr(val.subpiece(0, lenOfHost));
 
     val.advance(lenOfHost);
-    hostAndTerm.second = *reinterpret_cast<const GraphSpaceID*>(val.data());
-    LOG(INFO) << folly::sformat("term={}", hostAndTerm.second);
-    return hostAndTerm;
+    std::get<1>(ret) = *reinterpret_cast<const GraphSpaceID*>(val.data());
+    LOG(INFO) << folly::sformat("term={}", std::get<1>(ret));
+    return ret;
 }
 
 const std::string& MetaServiceUtils::leaderPrefix() {
@@ -372,13 +378,12 @@ HostAddr MetaServiceUtils::parseLeaderKeyV1(folly::StringPiece key) {
 }
 
 HostAddr MetaServiceUtils::parseLeaderKeyV2(folly::StringPiece key) {
-    LOG(FATAL) << "deprecated function called";
+    LOG(FATAL) << "deprecated function";
     key.advance(kLeadersTable.size());
     return MetaServiceUtils::deserializeHostAddr(key);
 }
 
 std::pair<GraphSpaceID, PartitionID> MetaServiceUtils::parseLeaderKeyV3(folly::StringPiece key) {
-    LOG(ERROR) << "check input";
     std::pair<GraphSpaceID, PartitionID> ret;
     ret.first = *reinterpret_cast<const GraphSpaceID*>(key.data() + kLeaderTermsTable.size());
     ret.second = *reinterpret_cast<const PartitionID*>(key.data() + kLeaderTermsTable.size() +
@@ -386,8 +391,8 @@ std::pair<GraphSpaceID, PartitionID> MetaServiceUtils::parseLeaderKeyV3(folly::S
     return ret;
 }
 
-LeaderParts MetaServiceUtils::parseLeaderVal1(folly::StringPiece val) {
-    LOG(FATAL) << "deprecated function called";
+LeaderParts MetaServiceUtils::parseLeaderValV1(folly::StringPiece val) {
+    LOG(FATAL) << "deprecated function";
     LeaderParts leaderParts;
     size_t size = val.size();
     // decode leader info

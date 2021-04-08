@@ -131,6 +131,10 @@ TEST(ActiveHostsManTest, LeaderTest) {
     EXPECT_EQ(3, ActiveHostsMan::getActiveHosts(kv.get()).size());
     using Key = std::pair<GraphSpaceID, PartitionID>;
     using Value = std::pair<HostAddr, int64_t>;
+    auto converter = [](auto& result) {
+        return std::make_pair(std::get<0>(result), std::get<1>(result));
+    };
+
     std::map<Key, Value> results;
     {
         const auto& prefix = MetaServiceUtils::leaderPrefix();
@@ -141,7 +145,7 @@ TEST(ActiveHostsManTest, LeaderTest) {
         while (iter->valid()) {
             auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(iter->key());
             auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(iter->val());
-            results[spaceAndPart] = hostAndTerm;
+            results[spaceAndPart] = converter(hostAndTerm);
             iter->next();
             i++;
         }
