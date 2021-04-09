@@ -156,23 +156,23 @@ Value RowReaderV2::getValueByIndex(const int64_t index) const noexcept {
         }
         case meta::cpp2::PropertyType::DATETIME: {
             DateTime dt;
-            memcpy(reinterpret_cast<void*>(&dt.year), &data_[offset], sizeof(int16_t));
-            memcpy(reinterpret_cast<void*>(&dt.month),
+            memcpy(reinterpret_cast<void*>(&dt.d.year), &data_[offset], sizeof(int16_t));
+            memcpy(reinterpret_cast<void*>(&dt.d.month),
                    &data_[offset + sizeof(int16_t)],
                    sizeof(int8_t));
-            memcpy(reinterpret_cast<void*>(&dt.day),
+            memcpy(reinterpret_cast<void*>(&dt.d.day),
                    &data_[offset + sizeof(int16_t) + sizeof(int8_t)],
                    sizeof(int8_t));
-            memcpy(reinterpret_cast<void*>(&dt.hour),
+            memcpy(reinterpret_cast<void*>(&dt.t.hour),
                    &data_[offset + sizeof(int16_t) + 2 * sizeof(int8_t)],
                    sizeof(int8_t));
-            memcpy(reinterpret_cast<void*>(&dt.minute),
+            memcpy(reinterpret_cast<void*>(&dt.t.minute),
                    &data_[offset + sizeof(int16_t) + 3 * sizeof(int8_t)],
                    sizeof(int8_t));
-            memcpy(reinterpret_cast<void*>(&dt.sec),
+            memcpy(reinterpret_cast<void*>(&dt.t.sec),
                    &data_[offset + sizeof(int16_t) + 4 * sizeof(int8_t)],
                    sizeof(int8_t));
-            memcpy(reinterpret_cast<void*>(&dt.microsec),
+            memcpy(reinterpret_cast<void*>(&dt.t.microsec),
                    &data_[offset + sizeof(int16_t) + 5 * sizeof(int8_t)],
                    sizeof(int32_t));
             return dt;

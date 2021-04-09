@@ -782,19 +782,19 @@ WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
     auto offset = headerLen_ + numNullBytes_ + field->offset();
     switch (field->type()) {
         case meta::cpp2::PropertyType::DATE:
-            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.year), sizeof(int16_t));
-            buf_[offset + sizeof(int16_t)] = v.month;
-            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.day;
+            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.d.year), sizeof(int16_t));
+            buf_[offset + sizeof(int16_t)] = v.d.month;
+            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.d.day;
             break;
         case meta::cpp2::PropertyType::DATETIME:
-            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.year), sizeof(int16_t));
-            buf_[offset + sizeof(int16_t)] = v.month;
-            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.day;
-            buf_[offset + sizeof(int16_t) + 2 * sizeof(int8_t)] = v.hour;
-            buf_[offset + sizeof(int16_t) + 3 * sizeof(int8_t)] = v.minute;
-            buf_[offset + sizeof(int16_t) + 4 * sizeof(int8_t)] = v.sec;
+            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.d.year), sizeof(int16_t));
+            buf_[offset + sizeof(int16_t)] = v.d.month;
+            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.d.day;
+            buf_[offset + sizeof(int16_t) + 2 * sizeof(int8_t)] = v.t.hour;
+            buf_[offset + sizeof(int16_t) + 3 * sizeof(int8_t)] = v.t.minute;
+            buf_[offset + sizeof(int16_t) + 4 * sizeof(int8_t)] = v.t.sec;
             memcpy(&buf_[offset + sizeof(int16_t) + 5 * sizeof(int8_t)],
-                   reinterpret_cast<const void*>(&v.microsec),
+                   reinterpret_cast<const void*>(&v.t.microsec),
                    sizeof(int32_t));
             break;
         default:
