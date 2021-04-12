@@ -543,7 +543,6 @@ public:
             if (batch == folly::none) {
                 return this->exeResult_;
             }
-            
             folly::Baton<true, std::atomic> baton;
             auto callback = [&ret, &baton] (kvstore::ResultCode code) {
                 ret = code;
