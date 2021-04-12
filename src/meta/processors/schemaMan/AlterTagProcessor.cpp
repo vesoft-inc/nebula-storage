@@ -63,14 +63,16 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
         }
     }
 
+    auto& alterSchemaProp = req.get_schema_prop();
+
     if (existIndex) {
         int64_t duration = 0;
-        if (prop.get_ttl_duration()) {
-            duration = *prop.get_ttl_duration();
+        if (alterSchemaProp.get_ttl_duration()) {
+            duration = *alterSchemaProp.get_ttl_duration();
         }
         std::string col;
-        if (prop.get_ttl_col()) {
-            col = *prop.get_ttl_col();
+        if (alterSchemaProp.get_ttl_col()) {
+            col = *alterSchemaProp.get_ttl_col();
         }
         if (!col.empty() && duration > 0) {
             LOG(ERROR) << "Alter tag error, index and ttl conflict";
@@ -100,7 +102,6 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
     }
 
     // Update schema property if tag not index
-    auto& alterSchemaProp = req.get_schema_prop();
     auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Alter tag property error " << static_cast<int32_t>(retCode);

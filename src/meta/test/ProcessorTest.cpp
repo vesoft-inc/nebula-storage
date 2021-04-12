@@ -1776,6 +1776,57 @@ TEST(ProcessorTest, AlterTagTest) {
         EXPECT_EQ(*schema.get_schema_prop().get_ttl_col(),
                   *tag.get_schema().get_schema_prop().get_ttl_col());
     }
+    // verify alter ttl prop with index exists
+    {
+        {
+            cpp2::Schema schema;
+            cpp2::SchemaProp schemaProp;
+            std::vector<cpp2::ColumnDef> cols;
+            cols.emplace_back(TestUtils::columnDef(0, PropertyType::INT64));
+            schemaProp.set_ttl_duration(100);
+            schemaProp.set_ttl_col("col_0");
+            schema.set_schema_prop(std::move(schemaProp));
+            schema.set_columns(std::move(cols));
+
+            cpp2::CreateTagReq req;
+            req.set_space_id(1);
+            req.set_tag_name("ttl");
+            req.set_schema(schema);
+            auto* processor = CreateTagProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        }
+        {
+            cpp2::CreateTagIndexReq req;
+            req.set_space_id(1);
+            req.set_tag_name("ttl");
+            cpp2::IndexFieldDef field;
+            field.set_name("col_0");
+            req.set_fields({field});
+            req.set_index_name("ttl_index");
+            auto* processor = CreateTagIndexProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        }
+        {
+            cpp2::AlterTagReq req;
+            cpp2::SchemaProp schemaProp;
+            schemaProp.set_ttl_duration(1000);
+            schemaProp.set_ttl_col("col_0");
+            req.set_space_id(1);
+            req.set_tag_name("ttl");
+            req.set_schema_prop(std::move(schemaProp));
+            auto* processor = AlterTagProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        }
+    }
     // Verify ErrorCode of add
     {
         cpp2::AlterTagReq req;
@@ -2269,6 +2320,57 @@ TEST(ProcessorTest, AlterEdgeTest) {
                   *edge.get_schema().get_schema_prop().get_ttl_duration());
         EXPECT_EQ(*schema.get_schema_prop().get_ttl_col(),
                   *edge.get_schema().get_schema_prop().get_ttl_col());
+    }
+    // verify alter ttl prop with index exists
+    {
+        {
+            cpp2::Schema schema;
+            cpp2::SchemaProp schemaProp;
+            std::vector<cpp2::ColumnDef> cols;
+            cols.emplace_back(TestUtils::columnDef(0, PropertyType::INT64));
+            schemaProp.set_ttl_duration(100);
+            schemaProp.set_ttl_col("col_0");
+            schema.set_schema_prop(std::move(schemaProp));
+            schema.set_columns(std::move(cols));
+
+            cpp2::CreateEdgeReq req;
+            req.set_space_id(1);
+            req.set_edge_name("ttl");
+            req.set_schema(schema);
+            auto* processor = CreateEdgeProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        }
+        {
+            cpp2::CreateEdgeIndexReq req;
+            req.set_space_id(1);
+            req.set_edge_name("ttl");
+            cpp2::IndexFieldDef field;
+            field.set_name("col_0");
+            req.set_fields({field});
+            req.set_index_name("ttl_index");
+            auto* processor = CreateEdgeIndexProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        }
+        {
+            cpp2::AlterEdgeReq req;
+            cpp2::SchemaProp schemaProp;
+            schemaProp.set_ttl_duration(1000);
+            schemaProp.set_ttl_col("col_0");
+            req.set_space_id(1);
+            req.set_edge_name("ttl");
+            req.set_schema_prop(std::move(schemaProp));
+            auto* processor = AlterEdgeProcessor::instance(kv.get());
+            auto f = processor->getFuture();
+            processor->process(req);
+            auto resp = std::move(f).get();
+            ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        }
     }
     // Verify ErrorCode of add
     {
