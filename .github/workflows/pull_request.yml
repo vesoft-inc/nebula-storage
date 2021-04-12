@@ -64,6 +64,7 @@ jobs:
           repository: ${{ github.repository_owner }}/nebula-common
           token: ${{ github.token }}
           path: modules/common
+          ref: ${{ github.base_ref }}
       - name: CMake
         run: |
           case ${{ matrix.compiler }} in
