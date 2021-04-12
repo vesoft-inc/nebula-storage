@@ -543,25 +543,7 @@ public:
             if (batch == folly::none) {
                 return this->exeResult_;
             }
-<<<<<<< HEAD
-            std::vector<EMLI> dummyLock = {std::make_tuple(planContext_->spaceId_, partId,
-            edgeKey.src.getStr(), edgeKey.edge_type, edgeKey.ranking, edgeKey.dst.getStr())};
-            nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(),
-                                             std::move(dummyLock));
-            if (!lg) {
-                auto conflict = lg.conflictKey();
-                LOG(ERROR) << "edge conflict "
-                           << std::get<0>(conflict) << ":"
-                           << std::get<1>(conflict) << ":"
-                           << std::get<2>(conflict) << ":"
-                           << std::get<3>(conflict) << ":"
-                           << std::get<4>(conflict) << ":"
-                           << std::get<5>(conflict);
-                return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
-            }
-=======
-
->>>>>>> 253338d1... fix update atomic operation (#428)
+            
             folly::Baton<true, std::atomic> baton;
             auto callback = [&ret, &baton] (kvstore::ResultCode code) {
                 ret = code;
