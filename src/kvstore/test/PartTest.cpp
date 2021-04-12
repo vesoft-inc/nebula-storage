@@ -27,8 +27,8 @@ TEST(PartTest, RocksTest) {
         kvs.emplace_back(folly::stringPrintf("key%d", i),
                          folly::stringPrintf("val%d", i));
     }
-    for (auto& kv : kvs) {
-        updates.Put(rocksdb::Slice(kv.first), rocksdb::Slice(kv.second));
+    for (auto& [key, value] : kvs) {
+        updates.Put(rocksdb::Slice(key), rocksdb::Slice(value));
     }
     rocksdb::WriteOptions woptions;
     status = db->Write(woptions, &updates);

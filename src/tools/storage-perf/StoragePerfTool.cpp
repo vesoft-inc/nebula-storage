@@ -322,9 +322,9 @@ private:
             graphStorageClient_->addVertices(spaceId_, genVertices(), tagProps_, true)
                 .via(evb).thenValue([this, start](auto&& resps) {
                     if (!resps.succeeded()) {
-                        for (auto& entry : resps.failedParts()) {
-                            LOG(ERROR) << "Request failed, part " << entry.first
-                                       << ", error " << static_cast<int32_t>(entry.second);
+                        for (auto& [part, errCode] : resps.failedParts()) {
+                            LOG(ERROR) << "Request failed, part " << part
+                                       << ", error " << static_cast<int32_t>(errCode);
                         }
                     } else {
                         VLOG(1) << "request successed!";

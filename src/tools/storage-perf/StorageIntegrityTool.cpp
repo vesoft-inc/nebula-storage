@@ -173,9 +173,9 @@ private:
                                            genVertices(prev, cur, startId), propNames, true);
         auto resp = std::move(future).get();
         if (!resp.succeeded()) {
-            for (auto& err : resp.failedParts()) {
-                VLOG(2) << "Partition " << err.first
-                        << " failed: " << static_cast<int32_t>(err.second);
+            for (auto& [part, errCode] : resp.failedParts()) {
+                VLOG(2) << "Partition " << part
+                        << " failed: " << static_cast<int32_t>(errCode);
             }
         }
     }

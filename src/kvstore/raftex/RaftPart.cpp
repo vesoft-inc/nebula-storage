@@ -1129,18 +1129,18 @@ typename RaftPart::Role RaftPart::processElectionResponses(
     }
 
     size_t numSucceeded = 0;
-    for (auto& r : results) {
-        if (r.second.get_error_code() == cpp2::ErrorCode::SUCCEEDED) {
+    for (auto& [index, response] : results) {
+        if (response.get_error_code() == cpp2::ErrorCode::SUCCEEDED) {
             ++numSucceeded;
-        } else if (r.second.get_error_code() == cpp2::ErrorCode::E_LOG_STALE) {
-            LOG(INFO) << idStr_ << "My last log id is less than " << hosts[r.first]->address()
+        } else if (response.get_error_code() == cpp2::ErrorCode::E_LOG_STALE) {
+            LOG(INFO) << idStr_ << "My last log id is less than " << hosts[index]->address()
                       << ", double my election interval.";
             uint64_t curWeight = weight_.load();
             weight_.store(curWeight * 2);
         } else {
             LOG(ERROR) << idStr_ << "Receive response about askForVote from "
-                       << hosts[r.first]->address()
-                       << ", error code is " << static_cast<int32_t>(r.second.get_error_code());
+                       << hosts[index]->address()
+                       << ", error code is " << static_cast<int32_t>(response.get_error_code());
         }
     }
 

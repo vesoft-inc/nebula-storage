@@ -401,11 +401,11 @@ void DbDumper::run() {
     std::cout << "VERTEX COUNT: " << vertexCount_ << "\n";
     std::cout << "EDGE COUNT: " << edgeCount_ << "\n";
     std::cout << "TAG STATISTICS: \n";
-    for (auto &t : tagStat_) {
+    for (auto& t : tagStat_) {
         std::cout << "\t" << getTagName(t.first) << " : " << t.second << "\n";
     }
     std::cout << "EDGE STATISTICS: \n";
-    for (auto &e : edgeStat_) {
+    for (auto& e : edgeStat_) {
         std::cout << "\t" << getEdgeName(e.first) << " : " << e.second << "\n";
     }
     std::cout << "============================STATISTICS===========================\n";

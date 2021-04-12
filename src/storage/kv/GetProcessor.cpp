@@ -24,11 +24,9 @@ void GetProcessor::process(const cpp2::KVGetRequest& req) {
     }
     pairs.reserve(size);
 
-    for (auto& part : req.get_parts()) {
-        auto partId = part.first;
-        auto& keys = part.second;
+    for (auto& [partId, keys] : req.get_parts()) {
         std::vector<std::string> kvKeys;
-        kvKeys.reserve(part.second.size());
+        kvKeys.reserve(keys.size());
         std::transform(keys.begin(), keys.end(), std::back_inserter(kvKeys),
                        [partId] (const auto& key) { return NebulaKeyUtils::kvKey(partId, key); });
         std::vector<std::string> values;

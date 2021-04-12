@@ -184,8 +184,8 @@ Status ListHostsProcessor::fillLeaderAndPartInfoPerHost() {
             iter->next();
         }
 
-        for (const auto& hostEntry : hostParts) {
-            allParts[hostEntry.first][spaceName] = std::move(hostEntry.second);
+        for (const auto& [host, parts] : hostParts) {
+            allParts[host][spaceName] = std::move(parts);
         }
     }
 

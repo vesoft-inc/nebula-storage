@@ -121,8 +121,8 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
         lockData.back().first = NebulaKeyUtils::toLockKey(localEdges.back().first);
         batch = *optBatch;
         auto decodeKV = kvstore::decodeBatchValue(batch);
-        localEdges.back().first = decodeKV.back().second.first.str();
-        localEdges.back().second = decodeKV.back().second.second.str();
+        localEdges.back().first = std::get<1>(decodeKV.back());
+        localEdges.back().second = std::get<2>(decodeKV.back());
 
         lockData.back().first = localEdges.back().first;
         lockData.back().second = batch;
@@ -190,22 +190,20 @@ folly::Future<cpp2::ErrorCode> TransactionManager::addSamePartEdges(
                             << ", txnId=" << txnId;
                         bat.remove(std::move(lock.first));
                         auto operations = kvstore::decodeBatchValue(lock.second);
-                        for (auto& op : operations) {
-                            auto opType = op.first;
-                            auto& kv = op.second;
+                        for (auto& [type, key, value] : operations) {
                             LOG_IF(INFO, FLAGS_trace_toss)
-                                        << "bat op=" << static_cast<int32_t>(opType)
-                                        << ", hex=" << folly::hexlify(kv.first)
+                                        << "bat op=" << static_cast<int32_t>(type)
+                                        << ", hex=" << folly::hexlify(key)
                                         << ", txnId=" << txnId;
-                            switch (opType) {
+                            switch (type) {
                                 case kvstore::BatchLogType::OP_BATCH_PUT:
-                                    bat.put(kv.first.str(), kv.second.str());
+                                    bat.put(std::move(key), std::move(value));
                                     break;
                                 case kvstore::BatchLogType::OP_BATCH_REMOVE:
-                                    bat.remove(kv.first.str());
+                                    bat.remove(std::move(key));
                                     break;
                                 default:
-                                    LOG(ERROR) << "unexpected opType: " << static_cast<int>(opType);
+                                    LOG(ERROR) << "unexpected opType: " << static_cast<int>(type);
                             }
                         }
                     }

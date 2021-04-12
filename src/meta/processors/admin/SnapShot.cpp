@@ -21,13 +21,13 @@ Snapshot::createSnapshot(const std::string& name) {
     }
     std::unordered_map<GraphSpaceID, std::vector<cpp2::CheckpointInfo>> info;
     auto spacesHosts = retSpacesHosts.value();
-    for (const auto& spaceHosts : spacesHosts) {
-        for (const auto& host : spaceHosts.second) {
-            auto status = client_->createSnapshot(spaceHosts.first, name, host).get();
+    for (const auto& [space, hosts] : spacesHosts) {
+        for (const auto& host : hosts) {
+            auto status = client_->createSnapshot(space, name, host).get();
             if (!status.ok()) {
                 return cpp2::ErrorCode::E_RPC_FAILURE;
             }
-            info[spaceHosts.first].emplace_back(
+            info[space].emplace_back(
                 apache::thrift::FRAGILE, host, status.value());
         }
     }
@@ -41,15 +41,15 @@ cpp2::ErrorCode Snapshot::dropSnapshot(const std::string& name,
         return cpp2::ErrorCode::E_STORE_FAILURE;
     }
     auto spacesHosts = retSpacesHosts.value();
-    for (const auto& spaceHosts : spacesHosts) {
-        for (const auto& host : spaceHosts.second) {
-            if (std::find(hosts.begin(), hosts.end(), host) != hosts.end()) {
-                auto status = client_->dropSnapshot(spaceHosts.first, name, host).get();
+    for (const auto& [space, addresses] : spacesHosts) {
+        for (const auto& address : addresses) {
+            if (std::find(hosts.begin(), hosts.end(), address) != hosts.end()) {
+                auto status = client_->dropSnapshot(space, name, address).get();
                 if (!status.ok()) {
                     auto msg = "failed drop checkpoint : \"%s\". on host %s. error %s";
                     auto error = folly::stringPrintf(msg,
                                                      name.c_str(),
-                                                     host.toString().c_str(),
+                                                     address.toString().c_str(),
                                                      status.toString().c_str());
                     LOG(ERROR) << error;
                 }
@@ -66,10 +66,10 @@ cpp2::ErrorCode Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
     }
     auto spacesHosts = retSpacesHosts.value();
     auto ret = cpp2::ErrorCode::SUCCEEDED;
-    for (const auto& spaceHosts : spacesHosts) {
-        for (const auto& host : spaceHosts.second) {
+    for (const auto& [space, hosts] : spacesHosts) {
+        for (const auto& host : hosts) {
             LOG(INFO) << "will block write host: " << host;
-            auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
+            auto status = client_->blockingWrites(space, sign, host).get();
             if (!status.ok()) {
                 LOG(ERROR) << " Send blocking sign error on host : " << host;
                 ret = cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;

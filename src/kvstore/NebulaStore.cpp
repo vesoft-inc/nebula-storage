@@ -205,11 +205,10 @@ void NebulaStore::loadPartFromDataPath() {
 void NebulaStore::loadPartFromPartManager() {
     LOG(INFO) << "Init data from partManager for " << storeSvcAddr_;
     auto partsMap = options_.partMan_->parts(storeSvcAddr_);
-    for (auto& entry : partsMap) {
-        auto spaceId = entry.first;
+    for (auto& [spaceId, partHosts] : partsMap) {
         addSpace(spaceId);
         std::vector<PartitionID> partIds;
-        for (auto it = entry.second.begin(); it != entry.second.end(); it++) {
+        for (auto it = partHosts.begin(); it != partHosts.end(); it++) {
             partIds.emplace_back(it->first);
         }
         std::sort(partIds.begin(), partIds.end());
@@ -223,11 +222,9 @@ void NebulaStore::loadLocalListenerFromPartManager() {
     // Initialize listener on the storeSvcAddr_, and start these listener
     LOG(INFO) << "Init listener from partManager for " << storeSvcAddr_;
     auto listenersMap = options_.partMan_->listeners(storeSvcAddr_);
-    for (const auto& spaceEntry : listenersMap) {
-        auto spaceId = spaceEntry.first;
-        for (const auto& partEntry : spaceEntry.second) {
-            auto partId = partEntry.first;
-            for (const auto& listener : partEntry.second) {
+    for (const auto& [spaceId, partListenerHosts] : listenersMap) {
+        for (const auto& [partId, listenerHosts] : partListenerHosts) {
+            for (const auto& listener : listenerHosts) {
                 addListener(spaceId, partId, std::move(listener.type_), std::move(listener.peers_));
             }
         }
@@ -1018,11 +1015,9 @@ int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
                                                   std::vector<PartitionID>>& leaderIds) {
     folly::RWSpinLock::ReadHolder rh(&lock_);
     int32_t count = 0;
-    for (const auto& spaceIt : spaces_) {
-        auto spaceId = spaceIt.first;
-        for (const auto& partIt : spaceIt.second->parts_) {
-            auto partId = partIt.first;
-            if (partIt.second->isLeader()) {
+    for (const auto& [spaceId, info] : spaces_) {
+        for (const auto& [partId, part] : info->parts_) {
+            if (part->isLeader()) {
                 leaderIds[spaceId].emplace_back(partId);
                 ++count;
             }

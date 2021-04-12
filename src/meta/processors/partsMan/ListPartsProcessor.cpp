@@ -42,10 +42,10 @@ void ListPartsProcessor::process(const cpp2::ListPartsReq& req) {
     }
     std::vector<cpp2::PartItem> partItems;
     auto activeHosts = ActiveHostsMan::getActiveHosts(kvstore_);
-    for (auto& partEntry : partHostsMap) {
+    for (auto& [part, peers] : partHostsMap) {
         cpp2::PartItem partItem;
-        partItem.set_part_id(partEntry.first);
-        partItem.set_peers(std::move(partEntry.second));
+        partItem.set_part_id(part);
+        partItem.set_peers(peers);
         std::vector<HostAddr> losts;
         for (auto& host : partItem.get_peers()) {
             if (std::find(activeHosts.begin(), activeHosts.end(),
@@ -54,7 +54,7 @@ void ListPartsProcessor::process(const cpp2::ListPartsReq& req) {
             }
         }
         partItem.set_losts(std::move(losts));
-        partIdIndex_.emplace(partEntry.first, partItems.size());
+        partIdIndex_.emplace(part, partItems.size());
         partItems.emplace_back(std::move(partItem));
     }
     if (partItems.size() != partHostsMap.size()) {

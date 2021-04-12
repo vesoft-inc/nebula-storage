@@ -100,9 +100,9 @@ TEST(StorageClientTest, VerticesInterfacesTest) {
         LOG(INFO) << "Waiting for the response...";
         auto resp = std::move(f).get();
         if (!resp.succeeded()) {
-            for (auto& err : resp.failedParts()) {
-                LOG(ERROR) << "Partition " << err.first
-                           << " failed: " << static_cast<int32_t>(err.second);
+            for (auto& [part, errCode] : resp.failedParts()) {
+                LOG(ERROR) << "Partition " << part
+                           << " failed: " << static_cast<int32_t>(errCode);
             }
             ASSERT_TRUE(resp.succeeded());
         }

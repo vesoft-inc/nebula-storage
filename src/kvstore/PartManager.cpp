@@ -151,11 +151,11 @@ void MetaServerBasedPartManager::onSpaceOptionUpdated(
 
     std::unordered_map<std::string, std::string> opt;
     std::unordered_map<std::string, std::string> dbOpt;
-    for (const auto& option : options) {
-        if (supportedOpt.find(option.first) != supportedOpt.end()) {
-            opt[option.first] = option.second;
-        } else if (supportedDbOpt.find(option.first) != supportedDbOpt.end()) {
-            dbOpt[option.first] = option.second;
+    for (const auto& [key, value] : options) {
+        if (supportedOpt.find(key) != supportedOpt.end()) {
+            opt[key] = value;
+        } else if (supportedDbOpt.find(key) != supportedDbOpt.end()) {
+            dbOpt[key] = value;
         }
     }
 

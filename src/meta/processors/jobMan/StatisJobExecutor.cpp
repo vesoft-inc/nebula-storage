@@ -68,12 +68,12 @@ void showStatisItem(const cpp2::StatisItem& item, const std::string& msg) {
     std::stringstream oss;
     oss << msg << ": ";
     oss << "tag_vertices: ";
-    for (auto& it : *item.tag_vertices_ref()) {
-        oss << folly::sformat("[{}, {}] ", it.first, it.second);
+    for (auto& [tagName, count] : *item.tag_vertices_ref()) {
+        oss << folly::sformat("[{}, {}] ", tagName, count);
     }
     oss << ", edges: ";
-    for (auto& it : *item.edges_ref()) {
-        oss << folly::sformat("[{}, {}] ", it.first, it.second);
+    for (auto& [edgeName, count] : *item.edges_ref()) {
+        oss << folly::sformat("[{}, {}] ", edgeName, count);
     }
     oss << folly::sformat(", space_vertices={}", *item.space_vertices_ref());
     oss << folly::sformat(", space_edges={}", *item.space_edges_ref());
@@ -81,12 +81,12 @@ void showStatisItem(const cpp2::StatisItem& item, const std::string& msg) {
 }
 
 void StatisJobExecutor::addStatis(cpp2::StatisItem& lhs, const cpp2::StatisItem& rhs) {
-    for (auto& it : *rhs.tag_vertices_ref()) {
-        (*lhs.tag_vertices_ref())[it.first] += it.second;
+    for (auto& [tagName, count] : *rhs.tag_vertices_ref()) {
+        (*lhs.tag_vertices_ref())[tagName] += count;
     }
 
-    for (auto& it : *rhs.edges_ref()) {
-        (*lhs.edges_ref())[it.first] += it.second;
+    for (auto& [edgeName, count] : *rhs.edges_ref()) {
+        (*lhs.edges_ref())[edgeName] += count;
     }
 
     *lhs.space_vertices_ref() += *rhs.space_vertices_ref();

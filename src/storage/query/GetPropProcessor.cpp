@@ -26,8 +26,8 @@ void GetPropProcessor::doProcess(const cpp2::GetPropRequest& req) {
     spaceId_ = req.get_space_id();
     auto retCode = getSpaceVidLen(spaceId_);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
-        for (auto& p : req.get_parts()) {
-            pushResultCode(retCode, p.first);
+        for (auto& [part, _] : req.get_parts()) {
+            pushResultCode(retCode, part);
         }
         onFinished();
         return;
@@ -36,8 +36,8 @@ void GetPropProcessor::doProcess(const cpp2::GetPropRequest& req) {
 
     retCode = checkAndBuildContexts(req);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
-        for (auto& p : req.get_parts()) {
-            pushResultCode(retCode, p.first);
+        for (auto& [part, _] : req.get_parts()) {
+            pushResultCode(retCode, part);
         }
         onFinished();
         return;
@@ -46,32 +46,30 @@ void GetPropProcessor::doProcess(const cpp2::GetPropRequest& req) {
     std::unordered_set<PartitionID> failedParts;
     if (!isEdge_) {
         auto plan = buildTagPlan(&resultDataSet_);
-        for (const auto& partEntry : req.get_parts()) {
-            auto partId = partEntry.first;
-            for (const auto& row : partEntry.second) {
+        for (const auto& [part, rows] : req.get_parts()) {
+            for (const auto& row : rows) {
                 auto vId = row.values[0].getStr();
 
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
-                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, part);
                     onFinished();
                     return;
                 }
 
-                auto ret = plan.go(partId, vId);
+                auto ret = plan.go(part, vId);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
-                    failedParts.find(partId) == failedParts.end()) {
-                    failedParts.emplace(partId);
-                    handleErrorCode(ret, spaceId_, partId);
+                    failedParts.find(part) == failedParts.end()) {
+                    failedParts.emplace(part);
+                    handleErrorCode(ret, spaceId_, part);
                 }
             }
         }
     } else {
         auto plan = buildEdgePlan(&resultDataSet_);
-        for (const auto& partEntry : req.get_parts()) {
-            auto partId = partEntry.first;
-            for (const auto& row : partEntry.second) {
+        for (const auto& [part, rows] : req.get_parts()) {
+            for (const auto& row : rows) {
                 cpp2::EdgeKey edgeKey;
                 edgeKey.set_src(row.values[0].getStr());
                 edgeKey.set_edge_type(row.values[1].getInt());
@@ -86,16 +84,16 @@ void GetPropProcessor::doProcess(const cpp2::GetPropRequest& req) {
                                << "space vid len: " << spaceVidLen_
                                << ", edge srcVid: " << *edgeKey.src_ref()
                                << ", dstVid: " << *edgeKey.dst_ref();
-                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, partId);
+                    pushResultCode(cpp2::ErrorCode::E_INVALID_VID, part);
                     onFinished();
                     return;
                 }
 
-                auto ret = plan.go(partId, edgeKey);
+                auto ret = plan.go(part, edgeKey);
                 if (ret != kvstore::ResultCode::SUCCEEDED &&
-                    failedParts.find(partId) == failedParts.end()) {
-                    failedParts.emplace(partId);
-                    handleErrorCode(ret, spaceId_, partId);
+                    failedParts.find(part) == failedParts.end()) {
+                    failedParts.emplace(part);
+                    handleErrorCode(ret, spaceId_, part);
                 }
             }
         }
