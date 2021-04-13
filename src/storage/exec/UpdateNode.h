@@ -167,10 +167,24 @@ public:
 
     kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
         CHECK_NOTNULL(planContext_->env_->kvstore_);
-        auto ret = kvstore::ResultCode::SUCCEEDED;
         IndexCountWrapper wrapper(planContext_->env_);
-        ret = RelNode::execute(partId, vId);
 
+        // Update is read-modify-write, which is an atomic operation.
+        std::vector<VMLI> dummyLock = {std::make_tuple(planContext_->spaceId_,
+                                                       partId, tagId_, vId)};
+        nebula::MemoryLockGuard<VMLI> lg(planContext_->env_->verticesML_.get(),
+                                         std::move(dummyLock));
+        if (!lg) {
+            auto conflict = lg.conflictKey();
+            LOG(ERROR) << "vertex conflict "
+                       << std::get<0>(conflict) << ":"
+                       << std::get<1>(conflict) << ":"
+                       << std::get<2>(conflict) << ":"
+                       << std::get<3>(conflict);
+            return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
+        }
+
+        auto ret = RelNode::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
@@ -203,20 +217,6 @@ public:
         auto batch = this->updateAndWriteBack(partId, vId);
         if (batch == folly::none) {
             return kvstore::ResultCode::ERR_INVALID_DATA;
-        }
-
-        std::vector<VMLI> dummyLock = {std::make_tuple(planContext_->spaceId_,
-                                                       partId, tagId_, vId)};
-        nebula::MemoryLockGuard<VMLI> lg(planContext_->env_->verticesML_.get(),
-                                         std::move(dummyLock));
-        if (!lg) {
-            auto conflict = lg.conflictKey();
-            LOG(ERROR) << "vertex conflict "
-                       << std::get<0>(conflict) << ":"
-                       << std::get<1>(conflict) << ":"
-                       << std::get<2>(conflict) << ":"
-                       << std::get<3>(conflict);
-            return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
         }
 
         folly::Baton<true, std::atomic> baton;
@@ -393,17 +393,19 @@ public:
                     }
                     auto ni = indexKey(partId, vId, nReader.get(), index);
                     if (!ni.empty()) {
+                        auto v = CommonUtils::ttlValue(schema_, nReader.get());
+                        auto niv = v.ok()  ? IndexKeyUtils::indexVal(std::move(v).value()) : "";
                         auto indexState = planContext_->env_->getIndexState(planContext_->spaceId_,
                                                                             partId);
                         if (planContext_->env_->checkRebuilding(indexState)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
                                                                                    std::move(ni));
-                            batchHolder->put(std::move(modifyKey), "");
+                            batchHolder->put(std::move(modifyKey), std::move(niv));
                         } else if (planContext_->env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                             return folly::none;
                         } else {
-                            batchHolder->put(std::move(ni), "");
+                            batchHolder->put(std::move(ni), std::move(niv));
                         }
                     }
                 }
@@ -463,6 +465,29 @@ public:
         auto ret = kvstore::ResultCode::SUCCEEDED;
         IndexCountWrapper wrapper(planContext_->env_);
 
+        // Update is read-modify-write, which is an atomic operation.
+        std::vector<EMLI> dummyLock = {
+            std::make_tuple(planContext_->spaceId_,
+                            partId,
+                            edgeKey.get_src().getStr(),
+                            edgeKey.get_edge_type(),
+                            edgeKey.get_ranking(),
+                            edgeKey.get_dst().getStr())
+        };
+        nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(),
+                                         std::move(dummyLock));
+        if (!lg) {
+            auto conflict = lg.conflictKey();
+            LOG(ERROR) << "edge conflict "
+                       << std::get<0>(conflict) << ":"
+                       << std::get<1>(conflict) << ":"
+                       << std::get<2>(conflict) << ":"
+                       << std::get<3>(conflict) << ":"
+                       << std::get<4>(conflict) << ":"
+                       << std::get<5>(conflict);
+            return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
+        }
+
         auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
             this->exeResult_ = RelNode::execute(partId, edgeKey);
             if (this->exeResult_ == kvstore::ResultCode::SUCCEEDED) {
@@ -520,32 +545,13 @@ public:
             if (batch == folly::none) {
                 return this->exeResult_;
             }
-            std::vector<EMLI> dummyLock = {
-                std::make_tuple(planContext_->spaceId_, partId,
-                        edgeKey.get_src().getStr(),
-                        edgeKey.get_edge_type(),
-                        edgeKey.get_ranking(),
-                        edgeKey.get_dst().getStr()
-                        )
-            };
-            nebula::MemoryLockGuard<EMLI> lg(planContext_->env_->edgesML_.get(),
-                                             std::move(dummyLock));
-            if (!lg) {
-                auto conflict = lg.conflictKey();
-                LOG(ERROR) << "edge conflict "
-                           << std::get<0>(conflict) << ":"
-                           << std::get<1>(conflict) << ":"
-                           << std::get<2>(conflict) << ":"
-                           << std::get<3>(conflict) << ":"
-                           << std::get<4>(conflict) << ":"
-                           << std::get<5>(conflict);
-                return kvstore::ResultCode::ERR_DATA_CONFLICT_ERROR;
-            }
+
             folly::Baton<true, std::atomic> baton;
             auto callback = [&ret, &baton] (kvstore::ResultCode code) {
                 ret = code;
                 baton.post();
             };
+
             planContext_->env_->kvstore_->asyncAppendBatch(
                 planContext_->spaceId_, partId, std::move(batch).value(), callback);
             baton.wait();
@@ -728,19 +734,21 @@ public:
                         LOG(ERROR) << "Bad format row";
                         return folly::none;
                     }
-                    auto ni = indexKey(partId, nReader.get(), edgeKey, index);
-                    if (!ni.empty()) {
+                    auto nik = indexKey(partId, nReader.get(), edgeKey, index);
+                    if (!nik.empty()) {
+                        auto v = CommonUtils::ttlValue(schema_, nReader.get());
+                        auto niv = v.ok()  ? IndexKeyUtils::indexVal(std::move(v).value()) : "";
                         auto indexState = planContext_->env_->getIndexState(planContext_->spaceId_,
                                                                             partId);
                         if (planContext_->env_->checkRebuilding(indexState)) {
                             auto modifyKey = OperationKeyUtils::modifyOperationKey(partId,
-                                                                                   std::move(ni));
-                            batchHolder->put(std::move(modifyKey), "");
+                                                                                   std::move(nik));
+                            batchHolder->put(std::move(modifyKey), std::move(niv));
                         } else if (planContext_->env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
                             return folly::none;
                         } else {
-                            batchHolder->put(std::move(ni), "");
+                            batchHolder->put(std::move(nik), std::move(niv));
                         }
                     }
                 }
