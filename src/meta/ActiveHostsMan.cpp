@@ -36,10 +36,7 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
         }
         auto keys = leaderKeys;
         std::vector<std::string> vals;
-        // auto rc = kvstore::ResultCode::SUCCEEDED;
-        // std::vector<Status> statuses;
-        // std::tie(rc, statuses) =
-        // try this c++17 syntax
+        // let see if this c++17 syntax can pass
         auto [rc, statuses] = kv->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &vals);
         if (rc != kvstore::ResultCode::SUCCEEDED && rc != kvstore::ResultCode::ERR_PARTIAL_RESULT) {
             LOG(INFO) << "error rc = " << static_cast<int>(rc);

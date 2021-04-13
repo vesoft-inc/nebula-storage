@@ -328,9 +328,9 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 }
 
 // v3: dataVer(int) + lenOfHost(8) + HostAddr(varchar) + term(int64_t)
-std::tuple<HostAddr, int64_t, cpp2::ErrorCode>
+std::tuple<HostAddr, TermID, cpp2::ErrorCode>
 MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
-    std::tuple<HostAddr, int64_t, cpp2::ErrorCode> ret;
+    std::tuple<HostAddr, TermID, cpp2::ErrorCode> ret;
     std::get<2>(ret) = cpp2::ErrorCode::SUCCEEDED;
     int dataVer = *reinterpret_cast<const int*>(val.data());
     if (dataVer != 3) {
@@ -347,7 +347,7 @@ MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
     std::get<0>(ret) = MetaServiceUtils::deserializeHostAddr(val.subpiece(0, lenOfHost));
 
     val.advance(lenOfHost);
-    std::get<1>(ret) = *reinterpret_cast<const GraphSpaceID*>(val.data());
+    std::get<1>(ret) = *reinterpret_cast<const TermID*>(val.data());
     return ret;
 }
 
