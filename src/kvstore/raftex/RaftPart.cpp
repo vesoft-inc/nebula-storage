@@ -1497,28 +1497,24 @@ void RaftPart::processAskForVoteRequest(
 void RaftPart::processAppendLogRequest(
         const cpp2::AppendLogRequest& req,
         cpp2::AppendLogResponse& resp) {
-    if (FLAGS_trace_raft) {
-        LOG(INFO) << idStr_
-                  << "Received logAppend "
-                  << ": GraphSpaceId = " << req.get_space()
-                  << ", partition = " << req.get_part()
-                  << ", leaderIp = " << req.get_leader_addr()
-                  << ", leaderPort = " << req.get_leader_port()
-                  << ", current_term = " << req.get_current_term()
-                  << ", lastLogId = " << req.get_last_log_id()
-                  << ", committedLogId = " << req.get_committed_log_id()
-                  << ", lastLogIdSent = " << req.get_last_log_id_sent()
-                  << ", lastLogTermSent = " << req.get_last_log_term_sent()
-                  << folly::stringPrintf(
-                        ", num_logs = %ld, logTerm = %ld",
-                        req.get_log_str_list().size(),
-                        req.get_log_term())
-                  << ", sendingSnapshot = " << req.get_sending_snapshot()
-                  << ", local lastLogId = " << lastLogId_
-                  << ", local lastLogTerm = " << lastLogTerm_
-                  << ", local committedLogId = " << committedLogId_
-                  << ", local current term = " << term_;
-    }
+    LOG_IF(INFO, FLAGS_trace_raft) << idStr_
+        << "Received logAppend"
+        << ": GraphSpaceId = " << req.get_space()
+        << ", partition = " << req.get_part()
+        << ", leaderIp = " << req.get_leader_addr()
+        << ", leaderPort = " << req.get_leader_port()
+        << ", current_term = " << req.get_current_term()
+        << ", lastLogId = " << req.get_last_log_id()
+        << ", committedLogId = " << req.get_committed_log_id()
+        << ", lastLogIdSent = " << req.get_last_log_id_sent()
+        << ", lastLogTermSent = " << req.get_last_log_term_sent()
+        << ", num_logs = " << req.get_log_str_list().size()
+        << ", logTerm = " << req.get_log_term()
+        << ", sendingSnapshot = " << req.get_sending_snapshot()
+        << ", local lastLogId = " << lastLogId_
+        << ", local lastLogTerm = " << lastLogTerm_
+        << ", local committedLogId = " << committedLogId_
+        << ", local current term = " << term_;
     std::lock_guard<std::mutex> g(raftLock_);
 
     resp.set_current_term(term_);
@@ -1815,23 +1811,21 @@ cpp2::ErrorCode RaftPart::verifyLeader(const REQ& req) {
 void RaftPart::processHeartbeatRequest(
         const cpp2::HeartbeatRequest& req,
         cpp2::HeartbeatResponse& resp) {
-    if (FLAGS_trace_raft) {
-        LOG(INFO) << idStr_
-                  << "Received heartbeat "
-                  << ": GraphSpaceId = " << req.get_space()
-                  << ", partition = " << req.get_part()
-                  << ", leaderIp = " << req.get_leader_addr()
-                  << ", leaderPort = " << req.get_leader_port()
-                  << ", current_term = " << req.get_current_term()
-                  << ", lastLogId = " << req.get_last_log_id()
-                  << ", committedLogId = " << req.get_committed_log_id()
-                  << ", lastLogIdSent = " << req.get_last_log_id_sent()
-                  << ", lastLogTermSent = " << req.get_last_log_term_sent()
-                  << ", local lastLogId = " << lastLogId_
-                  << ", local lastLogTerm = " << lastLogTerm_
-                  << ", local committedLogId = " << committedLogId_
-                  << ", local current term = " << term_;
-    }
+    LOG_IF(INFO, FLAGS_trace_raft) << idStr_
+        << "Received heartbeat"
+        << ": GraphSpaceId = " << req.get_space()
+        << ", partition = " << req.get_part()
+        << ", leaderIp = " << req.get_leader_addr()
+        << ", leaderPort = " << req.get_leader_port()
+        << ", current_term = " << req.get_current_term()
+        << ", lastLogId = " << req.get_last_log_id()
+        << ", committedLogId = " << req.get_committed_log_id()
+        << ", lastLogIdSent = " << req.get_last_log_id_sent()
+        << ", lastLogTermSent = " << req.get_last_log_term_sent()
+        << ", local lastLogId = " << lastLogId_
+        << ", local lastLogTerm = " << lastLogTerm_
+        << ", local committedLogId = " << committedLogId_
+        << ", local current term = " << term_;
     std::lock_guard<std::mutex> g(raftLock_);
 
     resp.set_current_term(term_);

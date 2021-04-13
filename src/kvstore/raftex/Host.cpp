@@ -96,15 +96,6 @@ folly::Future<cpp2::AppendLogResponse> Host::appendLogs(
         LogID prevLogId) {
     VLOG(3) << idStr_ << "Entering Host::appendLogs()";
 
-    if (FLAGS_trace_raft) {
-        LOG(INFO) << idStr_
-                  << "Append logs to the host [term = " << term
-                  << ", logId = " << logId
-                  << ", committedLogId = " << committedLogId
-                  << ", lastLogTermSent = " << prevLogTerm
-                  << ", lastLogIdSent = " << prevLogId
-                  << "]";
-    }
     auto ret = folly::Future<cpp2::AppendLogResponse>::makeEmpty();
     std::shared_ptr<cpp2::AppendLogRequest> req;
     {
@@ -198,17 +189,15 @@ void Host::appendLogsInternal(folly::EventBase* eb,
         }
 
         cpp2::AppendLogResponse resp = std::move(t).value();
-        if (FLAGS_trace_raft) {
-            LOG(INFO)
-                << self->idStr_ << "AppendLogResponse "
-                << "code " << apache::thrift::util::enumNameSafe(resp.get_error_code())
-                << ", currTerm " << resp.get_current_term()
-                << ", lastLogId " << resp.get_last_log_id()
-                << ", lastLogTerm " << resp.get_last_log_term()
-                << ", commitLogId " << resp.get_committed_log_id()
-                << ", lastLogIdSent_ " << self->lastLogIdSent_
-                << ", lastLogTermSent_ " << self->lastLogTermSent_;
-        }
+        LOG_IF(INFO, FLAGS_trace_raft)
+            << self->idStr_ << "AppendLogResponse "
+            << "code " << apache::thrift::util::enumNameSafe(resp.get_error_code())
+            << ", currTerm " << resp.get_current_term()
+            << ", lastLogId " << resp.get_last_log_id()
+            << ", lastLogTerm " << resp.get_last_log_term()
+            << ", commitLogId " << resp.get_committed_log_id()
+            << ", lastLogIdSent_ " << self->lastLogIdSent_
+            << ", lastLogTermSent_ " << self->lastLogTermSent_;
         switch (resp.get_error_code()) {
             case cpp2::ErrorCode::SUCCEEDED: {
                 VLOG(2) << self->idStr_
@@ -226,7 +215,7 @@ void Host::appendLogsInternal(folly::EventBase* eb,
                         r.set_error_code(res);
                         self->setResponse(r);
                     } else if (self->lastLogIdSent_ >= resp.get_last_log_id()) {
-                        VLOG(1) << self->idStr_
+                        VLOG(2) << self->idStr_
                                 << "We send nothing in the last request"
                                 << ", so we don't send the same logs again";
                         self->followerCommittedLogId_ = resp.get_committed_log_id();
@@ -291,7 +280,7 @@ void Host::appendLogsInternal(folly::EventBase* eb,
                         r.set_error_code(res);
                         self->setResponse(r);
                     } else if (self->lastLogIdSent_ == resp.get_last_log_id()) {
-                        VLOG(1) << self->idStr_
+                        VLOG(2) << self->idStr_
                                 << "We send nothing in the last request"
                                 << ", so we don't send the same logs again";
                         self->lastLogIdSent_ = resp.get_last_log_id();
@@ -359,7 +348,7 @@ void Host::appendLogsInternal(folly::EventBase* eb,
                         r.set_error_code(res);
                         self->setResponse(r);
                     } else if (self->logIdToSend_ <= resp.get_last_log_id()) {
-                        VLOG(1) << self->idStr_
+                        VLOG(2) << self->idStr_
                                 << "It means the request has been received by follower";
                         self->lastLogIdSent_ = self->logIdToSend_ - 1;
                         self->lastLogTermSent_ = resp.get_last_log_term();
@@ -489,13 +478,14 @@ folly::Future<cpp2::AppendLogResponse> Host::sendAppendLogRequest(
         }
     }
 
-    VLOG(1) << idStr_ << "Sending request space " << req->get_space()
-              << ", part " << req->get_part()
-              << ", current term " << req->get_current_term()
-              << ", last_log_id " << req->get_last_log_id()
-              << ", committed_id " << req->get_committed_log_id()
-              << ", last_log_term_sent" << req->get_last_log_term_sent()
-              << ", last_log_id_sent " << req->get_last_log_id_sent();
+    LOG_IF(INFO, FLAGS_trace_raft) << idStr_
+        << "Sending appendLog: space " << req->get_space()
+        << ", part " << req->get_part()
+        << ", current term " << req->get_current_term()
+        << ", last_log_id " << req->get_last_log_id()
+        << ", committed_id " << req->get_committed_log_id()
+        << ", last_log_term_sent" << req->get_last_log_term_sent()
+        << ", last_log_id_sent " << req->get_last_log_id_sent();
     // Get client connection
     auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
     return client->future_appendLog(*req);
@@ -552,16 +542,14 @@ folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeatRequest(
         }
     }
 
-    if (FLAGS_trace_raft) {
-        LOG(INFO) << idStr_
-                  << "Sending heartbeat space " << req->get_space()
-                  << ", part " << req->get_part()
-                  << ", current term " << req->get_current_term()
-                  << ", last_log_id " << req->get_last_log_id()
-                  << ", committed_id " << req->get_committed_log_id()
-                  << ", last_log_term_sent " << req->get_last_log_term_sent()
-                  << ", last_log_id_sent " << req->get_last_log_id_sent();
-    }
+    LOG_IF(INFO, FLAGS_trace_raft) << idStr_
+        << "Sending heartbeat: space " << req->get_space()
+        << ", part " << req->get_part()
+        << ", current term " << req->get_current_term()
+        << ", last_log_id " << req->get_last_log_id()
+        << ", committed_id " << req->get_committed_log_id()
+        << ", last_log_term_sent " << req->get_last_log_term_sent()
+        << ", last_log_id_sent " << req->get_last_log_id_sent();
     // Get client connection
     auto client = part_->clientMan_->client(addr_, eb, false, FLAGS_raft_rpc_timeout_ms);
     return client->future_heartbeat(*req);

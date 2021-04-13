@@ -462,7 +462,6 @@ nebula::cpp2::ErrorCode Part::toResultCode(raftex::AppendLogResult res) {
         case raftex::AppendLogResult::E_ATOMIC_OP_FAILURE:
             return nebula::cpp2::ErrorCode::E_ATOMIC_OP_FAILED;
         case raftex::AppendLogResult::E_BUFFER_OVERFLOW:
-            LOG_EVERY_N(ERROR, 100) << idStr_ << "RaftPart buffer is full";
             return nebula::cpp2::ErrorCode::E_CONSENSUS_ERROR;
         default:
             LOG(ERROR) << idStr_ << "Consensus error "
