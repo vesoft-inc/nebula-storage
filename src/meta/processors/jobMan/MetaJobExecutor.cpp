@@ -115,11 +115,15 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     }
 
     std::vector<std::pair<HostAddr, std::vector<PartitionID>>> hosts;
+    HostAddr host;
+    cpp2::ErrorCode code;
     while (leaderIter->valid()) {
         auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(leaderIter->key());
         auto partId = spaceAndPart.second;
-        auto tpVal = MetaServiceUtils::parseLeaderValV3(leaderIter->val());
-        HostAddr host = std::get<0>(tpVal);
+        std::tie(host, std::ignore, code) = MetaServiceUtils::parseLeaderValV3(leaderIter->val());
+        if (code != cpp2::ErrorCode::SUCCEEDED) {
+            continue;
+        }
         auto it = std::find_if(hosts.begin(), hosts.end(), [&](auto& item){
             return item.first == host;
         });

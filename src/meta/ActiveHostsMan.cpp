@@ -35,16 +35,26 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
             }
         }
         auto keys = leaderKeys;
-        std::vector<std::string> values;
-        auto ret = kv->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &values);
-        for (auto i = 0U; i != ret.second.size(); ++i) {
-            if (ret.second[i].ok()) {
-                auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(values[i]);
-                if (std::get<2>(hostAndTerm) != cpp2::ErrorCode::SUCCEEDED) {
-                    LOG(WARNING) << apache::thrift::util::enumNameSafe(std::get<2>(hostAndTerm));
+        std::vector<std::string> vals;
+        // auto rc = kvstore::ResultCode::SUCCEEDED;
+        // std::vector<Status> statuses;
+        // std::tie(rc, statuses) =
+        // try this c++17 syntax
+        auto [rc, statuses] = kv->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &vals);
+        if (rc != kvstore::ResultCode::SUCCEEDED && rc != kvstore::ResultCode::ERR_PARTIAL_RESULT) {
+            LOG(INFO) << "error rc = " << static_cast<int>(rc);
+            return rc;
+        }
+        TermID term;
+        cpp2::ErrorCode code;
+        for (auto i = 0U; i != statuses.size(); ++i) {
+            if (statuses[i].ok()) {
+                std::tie(std::ignore, term, code) = MetaServiceUtils::parseLeaderValV3(vals[i]);
+                if (code != cpp2::ErrorCode::SUCCEEDED) {
+                    LOG(WARNING) << apache::thrift::util::enumNameSafe(code);
                     continue;
                 }
-                if (terms[i] <= std::get<1>(hostAndTerm)) {
+                if (terms[i] <= term) {
                     continue;
                 }
             }
@@ -53,7 +63,6 @@ kvstore::ResultCode ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
             data.emplace_back(std::make_pair(leaderKeys[i], std::move(val)));
         }
     }
-    std::vector<std::string> leaderVals(leaderKeys.size());
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     folly::Baton<true, std::atomic> baton;
     kvstore::ResultCode ret;

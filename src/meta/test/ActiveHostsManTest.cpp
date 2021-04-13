@@ -129,13 +129,12 @@ TEST(ActiveHostsManTest, LeaderTest) {
     ActiveHostsMan::updateHostInfo(kv.get(), host, hInfo2, &leaderIds);
 
     EXPECT_EQ(3, ActiveHostsMan::getActiveHosts(kv.get()).size());
-    using Key = std::pair<GraphSpaceID, PartitionID>;
-    using Value = std::pair<HostAddr, int64_t>;
-    auto converter = [](auto& result) {
-        return std::make_pair(std::get<0>(result), std::get<1>(result));
-    };
+    using SpaceAndPart = std::pair<GraphSpaceID, PartitionID>;
+    using HostAndTerm = std::pair<HostAddr, int64_t>;
 
-    std::map<Key, Value> results;
+    TermID term;
+    cpp2::ErrorCode code;
+    std::map<SpaceAndPart, HostAndTerm> results;
     {
         const auto& prefix = MetaServiceUtils::leaderPrefix();
         std::unique_ptr<kvstore::KVIterator> iter;
@@ -144,8 +143,12 @@ TEST(ActiveHostsManTest, LeaderTest) {
         int i = 0;
         while (iter->valid()) {
             auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(iter->key());
-            auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(iter->val());
-            results[spaceAndPart] = converter(hostAndTerm);
+            std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(iter->val());
+            if (code != cpp2::ErrorCode::SUCCEEDED) {
+                LOG(INFO) << "error: " << apache::thrift::util::enumNameSafe(code);
+                continue;
+            }
+            results[spaceAndPart] = std::make_pair(host, term);
             iter->next();
             i++;
         }

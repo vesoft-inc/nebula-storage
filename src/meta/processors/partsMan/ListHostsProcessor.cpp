@@ -149,12 +149,17 @@ Status ListHostsProcessor::fillLeaders() {
     }
 
     // get hosts which have send heartbeat recently
+    HostAddr host;
+    TermID term;
+    cpp2::ErrorCode code;
     for (; iter->valid(); iter->next()) {
         auto spaceIdAndPartId = MetaServiceUtils::parseLeaderKeyV3(iter->key());
         LOG(INFO) << "show hosts: space = " << spaceIdAndPartId.first
                   << ", part = " << spaceIdAndPartId.second;
-        auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(iter->val());
-        auto& host = std::get<0>(hostAndTerm);
+        std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(iter->val());
+        if (code != cpp2::ErrorCode::SUCCEEDED) {
+            continue;
+        }
         auto it = std::find(activeHosts.begin(), activeHosts.end(), host);
         if (it == activeHosts.end()) {
             LOG(INFO) << "skip inactive host: " << host;

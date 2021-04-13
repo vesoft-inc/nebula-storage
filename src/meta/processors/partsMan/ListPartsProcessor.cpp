@@ -109,14 +109,24 @@ void ListPartsProcessor::getLeaderDist(std::vector<cpp2::PartItem>& partItems) {
         leaderKeys.emplace_back(std::move(key));
     }
 
+    kvstore::ResultCode rc;
+    std::vector<Status> statuses;
     std::vector<std::string> values;
-    auto ret = kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(leaderKeys), &values);
-    for (auto i = 0U; i != ret.second.size(); ++i) {
-        if (!ret.second[i].ok()) {
+    std::tie(rc, statuses) =
+        kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(leaderKeys), &values);
+    if (rc != kvstore::ResultCode::SUCCEEDED) {
+        return;
+    }
+    HostAddr host;
+    cpp2::ErrorCode code;
+    for (auto i = 0U; i != statuses.size(); ++i) {
+        if (!statuses[i].ok()) {
             continue;
         }
-        auto hostAndTerm = MetaServiceUtils::parseLeaderValV3(values[i]);
-        auto& host = std::get<0>(hostAndTerm);
+        std::tie(host, std::ignore, code) = MetaServiceUtils::parseLeaderValV3(values[i]);
+        if (code != cpp2::ErrorCode::SUCCEEDED) {
+            continue;
+        }
         if (std::find(activeHosts.begin(), activeHosts.end(), host) == activeHosts.end()) {
             LOG(INFO) << "ignore inactive host: " << host;
             continue;

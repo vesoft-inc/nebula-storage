@@ -1020,7 +1020,7 @@ int32_t NebulaStore::allLeader(
                 meta::cpp2::LeaderInfo partInfo;
                 partInfo.set_part_id(partId);
                 partInfo.set_term(partIt.second->termId());
-                leaderIds[spaceId].emplace_back(partInfo);
+                leaderIds[spaceId].emplace_back(std::move(partInfo));
                 ++count;
             }
         }

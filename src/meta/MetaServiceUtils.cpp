@@ -319,7 +319,6 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 
     auto sHost = serializeHostAddr(h);
     auto lenOfHost = sHost.size();
-    LOG(INFO) << "lenOfHost = " << lenOfHost;
 
     leaderVal.append(reinterpret_cast<const char*>(&dataVersion), sizeof(dataVersion))
              .append(reinterpret_cast<const char*>(&lenOfHost), sizeof(lenOfHost))
@@ -332,6 +331,7 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 std::tuple<HostAddr, int64_t, cpp2::ErrorCode>
 MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
     std::tuple<HostAddr, int64_t, cpp2::ErrorCode> ret;
+    std::get<2>(ret) = cpp2::ErrorCode::SUCCEEDED;
     int dataVer = *reinterpret_cast<const int*>(val.data());
     if (dataVer != 3) {
         std::get<2>(ret) = cpp2::ErrorCode::E_INVALID_PARM;
@@ -341,7 +341,6 @@ MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
     CHECK_GE(val.size(), sizeof(int));
     val.advance(sizeof(int));
     auto lenOfHost = *reinterpret_cast<const size_t*>(val.data());
-    LOG(INFO) << "lenOfHost = " << lenOfHost;
 
     val.advance(sizeof(size_t));
     CHECK_GE(val.size(), lenOfHost);
@@ -349,7 +348,6 @@ MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
 
     val.advance(lenOfHost);
     std::get<1>(ret) = *reinterpret_cast<const GraphSpaceID*>(val.data());
-    LOG(INFO) << folly::sformat("term={}", std::get<1>(ret));
     return ret;
 }
 
