@@ -109,12 +109,12 @@ jobs:
       - name: Make storage
         run: |
           ccache -z
-          cmake --build build/ -j $(nproc)
+          cmake --build build/ -j $($(nproc)/2)
           ccache -s
       - name: CTest
         env:
           ASAN_OPTIONS: fast_unwind_on_malloc=1
-        run: ctest -j $(($(nproc)/2+1)) --timeout 600 --output-on-failure
+        run: ctest -j $($(nproc)/2) --timeout 600 --output-on-failure
         working-directory: build/
         timeout-minutes: 20
       - name: Cleanup
