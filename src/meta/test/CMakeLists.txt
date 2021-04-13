@@ -9,6 +9,9 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_storage_client_base_obj>
     $<TARGET_OBJECTS:common_internal_storage_client_obj>
     $<TARGET_OBJECTS:storage_common_obj>
+    $<TARGET_OBJECTS:kafka_listener_obj>
+    $<TARGET_OBJECTS:common_kafka_client_obj>
+    $<TARGET_OBJECTS:es_listener_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
@@ -63,6 +66,7 @@ nebula_add_test(
         $<TARGET_OBJECTS:common_encryption_obj>
         $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
         gtest
@@ -76,6 +80,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -91,6 +96,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -106,6 +112,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -121,6 +128,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -136,6 +144,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -153,6 +162,7 @@ nebula_add_test(
         $<TARGET_OBJECTS:meta_http_handler>
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -171,6 +181,7 @@ nebula_add_test(
         $<TARGET_OBJECTS:meta_http_handler>
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -186,6 +197,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -225,6 +237,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -241,6 +254,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -256,6 +270,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -288,6 +303,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -304,6 +320,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -320,6 +337,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -335,6 +353,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -350,6 +369,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -365,6 +385,7 @@ nebula_add_test(
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}

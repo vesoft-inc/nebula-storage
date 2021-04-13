@@ -1373,19 +1373,19 @@ std::string MetaServiceUtils::fulltextServiceKey() {
     return key;
 }
 
-std::string MetaServiceUtils::fulltextServiceVal(cpp2::FTServiceType type,
-                                                 const std::vector<cpp2::FTClient>& clients) {
+std::string MetaServiceUtils::fulltextServiceVal(cpp2::ServiceType type,
+                                                 const std::vector<cpp2::ServiceClient>& clients) {
     std::string val, cval;
     apache::thrift::CompactSerializer::serialize(clients, &cval);
-    val.reserve(sizeof(cpp2::FTServiceType) + cval.size());
-    val.append(reinterpret_cast<const char*>(&type), sizeof(cpp2::FTServiceType))
+    val.reserve(sizeof(cpp2::ServiceType) + cval.size());
+    val.append(reinterpret_cast<const char*>(&type), sizeof(cpp2::ServiceType))
        .append(cval);
     return val;
 }
 
-std::vector<cpp2::FTClient> MetaServiceUtils::parseFTClients(folly::StringPiece rawData) {
-    std::vector<cpp2::FTClient> clients;
-    int32_t offset = sizeof(cpp2::FTServiceType);
+std::vector<cpp2::ServiceClient> MetaServiceUtils::parseServiceClients(folly::StringPiece rawData) {
+    std::vector<cpp2::ServiceClient> clients;
+    int32_t offset = sizeof(cpp2::ServiceType);
     auto clientsRaw = rawData.subpiece(offset, rawData.size() - offset);
     apache::thrift::CompactSerializer::deserialize(clientsRaw, clients);
     return clients;

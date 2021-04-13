@@ -9,7 +9,7 @@
 namespace nebula {
 namespace meta {
 
-void SignInFTServiceProcessor::process(const cpp2::SignInFTServiceReq& req) {
+void SignInServiceProcessor::process(const cpp2::SignInServiceReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::fulltextServicesLock());
     auto serviceKey = MetaServiceUtils::fulltextServiceKey();
     auto ret = doGet(serviceKey);
@@ -35,7 +35,7 @@ void SignInFTServiceProcessor::process(const cpp2::SignInFTServiceReq& req) {
     doSyncPutAndUpdate(std::move(data));
 }
 
-void SignOutFTServiceProcessor::process(const cpp2::SignOutFTServiceReq&) {
+void SignOutServiceProcessor::process(const cpp2::SignOutServiceReq&) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::fulltextServicesLock());
     auto serviceKey = MetaServiceUtils::fulltextServiceKey();
     auto ret = doGet(serviceKey);
@@ -55,7 +55,7 @@ void SignOutFTServiceProcessor::process(const cpp2::SignOutFTServiceReq&) {
     doSyncMultiRemoveAndUpdate({std::move(serviceKey)});
 }
 
-void ListFTClientsProcessor::process(const cpp2::ListFTClientsReq&) {
+void ListServiceClientsProcessor::process(const cpp2::ListServiceClientsReq&) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::fulltextServicesLock());
     const auto& prefix = MetaServiceUtils::fulltextServiceKey();
     auto iterRet = doPrefix(prefix);
@@ -69,9 +69,9 @@ void ListFTClientsProcessor::process(const cpp2::ListFTClientsReq&) {
     }
 
     auto iter = nebula::value(iterRet).get();
-    std::vector<nebula::meta::cpp2::FTClient> clients;
+    std::vector<nebula::meta::cpp2::ServiceClient> clients;
     if (iter->valid()) {
-        clients = MetaServiceUtils::parseFTClients(iter->val());
+        clients = MetaServiceUtils::parseServiceClients(iter->val());
     }
     resp_.set_clients(std::move(clients));
     handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);

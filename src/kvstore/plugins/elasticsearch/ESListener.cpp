@@ -5,24 +5,28 @@
  */
 
 #include "utils/NebulaKeyUtils.h"
+#include "codec/RowReaderWrapper.h"
 #include "kvstore/plugins/elasticsearch/ESListener.h"
 #include "common/plugin/fulltext/elasticsearch/ESStorageAdapter.h"
 
-DECLARE_int32(ft_request_retry_times);
-DECLARE_int32(ft_bulk_batch_size);
+DEFINE_int32(ft_request_retry_times, 3, "Retry times if fulltext request failed");
+DEFINE_int32(ft_bulk_batch_size, 100, "Max batch size when bulk insert");
 
 namespace nebula {
 namespace kvstore {
-void ESListener::init() {
+
+bool ESListener::init() {
     auto vRet = schemaMan_->getSpaceVidLen(spaceId_);
     if (!vRet.ok()) {
-        LOG(FATAL) << "vid length error";
+        LOG(ERROR) << "vid length error";
+        return false;
     }
-    vIdLen_ = vRet.value();
 
-    auto cRet = schemaMan_->getFTClients();
+    vIdLen_ = vRet.value();
+    auto cRet = schemaMan_->getServiceClients(nebula::meta::cpp2::ServiceType::ELASTICSEARCH);
     if (!cRet.ok() || cRet.value().empty()) {
-        LOG(FATAL) << "elasticsearch clients error";
+        LOG(ERROR) << "Get elasticsearch clients error";
+        return false;
     }
     for (const auto& c : cRet.value()) {
         nebula::plugin::HttpClient hc;
@@ -33,12 +37,7 @@ void ESListener::init() {
         }
         esClients_.emplace_back(std::move(hc));
     }
-
-    auto sRet = schemaMan_->toGraphSpaceName(spaceId_);
-    if (!sRet.ok()) {
-        LOG(FATAL) << "space name error";
-    }
-    spaceName_ = std::make_unique<std::string>(sRet.value());
+    return true;
 }
 
 bool ESListener::apply(const std::vector<KV>& data) {
@@ -63,88 +62,6 @@ bool ESListener::apply(const std::vector<KV>& data) {
         return writeData(docItems);
     }
     return true;
-}
-
-bool ESListener::persist(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
-    if (!writeAppliedId(lastId, lastTerm, lastApplyLogId)) {
-        LOG(FATAL) << "last apply ids write failed";
-    }
-    return true;
-}
-
-std::pair<LogID, TermID> ESListener::lastCommittedLogId() {
-    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
-        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
-        return {0, 0};
-    }
-    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
-    if (fd < 0) {
-        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
-                   << errno << "): " << strerror(errno);
-    }
-    // read last logId from listener wal file.
-    LogID logId;
-    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), 0),
-             static_cast<ssize_t>(sizeof(LogID)));
-
-    // read last termId from listener wal file.
-    TermID termId;
-    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&termId), sizeof(TermID), sizeof(LogID)),
-             static_cast<ssize_t>(sizeof(TermID)));
-    close(fd);
-    return {logId, termId};
-}
-
-LogID ESListener::lastApplyLogId() {
-    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
-        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
-        return 0;
-    }
-    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
-    if (fd < 0) {
-        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
-                   << errno << "): " << strerror(errno);
-    }
-    // read last applied logId from listener wal file.
-    LogID logId;
-    auto offset = sizeof(LogID) + sizeof(TermID);
-    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), offset),
-             static_cast<ssize_t>(sizeof(LogID)));
-    close(fd);
-    return logId;
-}
-
-bool ESListener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
-    int32_t fd = open(
-        lastApplyLogFile_->c_str(),
-        O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC,
-        0644);
-    if (fd < 0) {
-        VLOG(3) << "Failed to open file \"" << lastApplyLogFile_->c_str()
-                << "\" (errno: " << errno << "): "
-                << strerror(errno);
-        return false;
-    }
-    auto raw = encodeAppliedId(lastId, lastTerm, lastApplyLogId);
-    ssize_t written = write(fd, raw.c_str(), raw.size());
-    if (written != (ssize_t)raw.size()) {
-        VLOG(3) << idStr_ << "bytesWritten:" << written << ", expected:" << raw.size()
-                << ", error:" << strerror(errno);
-        close(fd);
-        return false;
-    }
-    close(fd);
-    return true;
-}
-
-std::string
-ESListener::encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) const noexcept {
-    std::string val;
-    val.reserve(sizeof(LogID) * 2 + sizeof(TermID));
-    val.append(reinterpret_cast<const char*>(&lastId), sizeof(LogID))
-       .append(reinterpret_cast<const char*>(&lastTerm), sizeof(TermID))
-       .append(reinterpret_cast<const char*>(&lastApplyLogId), sizeof(LogID));
-    return val;
 }
 
 bool ESListener::appendDocItem(std::vector<DocItem>& items, const KV& kv) const {
@@ -175,7 +92,7 @@ bool ESListener::appendTagDocItem(std::vector<DocItem>& items, const KV& kv) con
     auto ftIndex = schemaMan_->getFTIndex(spaceId_, tagId);
     if (!ftIndex.ok()) {
         VLOG(3) << "get text search index failed";
-        return (ftIndex.status() == nebula::Status::IndexNotFound()) ? true : false;
+        return ftIndex.status() == nebula::Status::IndexNotFound();
     }
     auto reader = RowReaderWrapper::getTagPropReader(schemaMan_,
                                                      spaceId_,
@@ -193,10 +110,9 @@ bool ESListener::appendDocs(std::vector<DocItem>& items,
                             const std::pair<std::string, nebula::meta::cpp2::FTIndex>& fti) const {
     for (const auto& field : fti.second.get_fields()) {
         auto v = reader->getValueByName(field);
-        if (v.type() != Value::Type::STRING) {
-            continue;
+        if (v.isStr()) {
+            items.emplace_back(fti.first, field, partId_, std::move(v).getStr());
         }
-        items.emplace_back(DocItem(fti.first, field, partId_, std::move(v).getStr()));
     }
     return true;
 }

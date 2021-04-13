@@ -70,7 +70,7 @@ derived class.
     // extra initialize work could do here
     void init()
 
-    // read last commit log id and term from external storage, used in initialization
+    // read last committed log id and term from external storage, used in initialization
     std::pair<LogID, TermID> lastCommittedLogId()
 
     // read last apply id from external storage, used in initialization
@@ -122,14 +122,11 @@ public:
     bool pursueLeaderDone();
 
 protected:
-    virtual void init() = 0;
-
-    // Last apply id, need to be persisted, used in initialization
-    virtual LogID lastApplyLogId() = 0;
+    virtual bool init() = 0;
 
     virtual bool apply(const std::vector<KV>& data) = 0;
 
-    virtual bool persist(LogID, TermID, LogID) = 0;
+    bool persist(LogID lastId, TermID lastTerm, LogID lastApplyLogId);
 
     void onLostLeadership(TermID) override {
         LOG(FATAL) << "Should not reach here";
@@ -173,12 +170,28 @@ protected:
 
     void doApply();
 
+    bool writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId);
+
+    std::string encodeAppliedId(LogID lastId,
+                                TermID lastTerm,
+                                LogID lastApplyLogId) const noexcept;
+
+    std::pair<LogID, TermID> lastCommittedLogId() override;
+
+    LogID lastApplyLogId();
+
 protected:
-    LogID leaderCommitId_ = 0;
-    LogID lastApplyLogId_ = 0;
-    int64_t lastApplyTime_ = 0;
-    std::set<HostAddr> peers_;
-    meta::SchemaManager* schemaMan_{nullptr};
+    // lastId_ and lastTerm_ is same as committedLogId_ and term_
+    LogID                            leaderCommitId_ = 0;
+    LogID                            lastId_ = -1;
+    TermID                           lastTerm_ = -1;
+    LogID                            lastApplyLogId_ = 0;
+    int64_t                          lastCommitTime_ = 0;
+    int64_t                          lastApplyTime_ = 0;
+    int32_t                          vIdLen_;
+    std::set<HostAddr>               peers_;
+    meta::SchemaManager*             schemaMan_ = nullptr;
+    std::unique_ptr<std::string>     lastApplyLogFile_ = nullptr;
 };
 
 }  // namespace kvstore

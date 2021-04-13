@@ -11,43 +11,43 @@
 namespace nebula {
 namespace meta {
 
-class SignInFTServiceProcessor : public BaseProcessor<cpp2::ExecResp> {
+class SignInServiceProcessor : public BaseProcessor<cpp2::ExecResp> {
 public:
-    static SignInFTServiceProcessor* instance(kvstore::KVStore* kvstore) {
-        return new SignInFTServiceProcessor(kvstore);
+    static SignInServiceProcessor* instance(kvstore::KVStore* kvstore) {
+        return new SignInServiceProcessor(kvstore);
     }
 
-    void process(const cpp2::SignInFTServiceReq& req);
+    void process(const cpp2::SignInServiceReq& req);
 
 private:
-    explicit SignInFTServiceProcessor(kvstore::KVStore* kvstore)
+    explicit SignInServiceProcessor(kvstore::KVStore* kvstore)
         : BaseProcessor<cpp2::ExecResp>(kvstore) {}
 };
 
-class SignOutFTServiceProcessor : public BaseProcessor<cpp2::ExecResp> {
+class SignOutServiceProcessor : public BaseProcessor<cpp2::ExecResp> {
 public:
-    static SignOutFTServiceProcessor* instance(kvstore::KVStore* kvstore) {
-        return new SignOutFTServiceProcessor(kvstore);
+    static SignOutServiceProcessor* instance(kvstore::KVStore* kvstore) {
+        return new SignOutServiceProcessor(kvstore);
     }
 
-    void process(const cpp2::SignOutFTServiceReq& req);
+    void process(const cpp2::SignOutServiceReq& req);
 
 private:
-    explicit SignOutFTServiceProcessor(kvstore::KVStore* kvstore)
+    explicit SignOutServiceProcessor(kvstore::KVStore* kvstore)
         : BaseProcessor<cpp2::ExecResp>(kvstore) {}
 };
 
-class ListFTClientsProcessor : public BaseProcessor<cpp2::ListFTClientsResp> {
+class ListServiceClientsProcessor : public BaseProcessor<cpp2::ListServiceClientsResp> {
 public:
-    static ListFTClientsProcessor* instance(kvstore::KVStore* kvstore) {
-        return new ListFTClientsProcessor(kvstore);
+    static ListServiceClientsProcessor* instance(kvstore::KVStore* kvstore) {
+        return new ListServiceClientsProcessor(kvstore);
     }
 
-    void process(const cpp2::ListFTClientsReq& req);
+    void process(const cpp2::ListServiceClientsReq& req);
 
 private:
-    explicit ListFTClientsProcessor(kvstore::KVStore* kvstore)
-        : BaseProcessor<cpp2::ListFTClientsResp>(kvstore) {}
+    explicit ListServiceClientsProcessor(kvstore::KVStore* kvstore)
+        : BaseProcessor<cpp2::ListServiceClientsResp>(kvstore) {}
 };
 }  // namespace meta
 }  // namespace nebula

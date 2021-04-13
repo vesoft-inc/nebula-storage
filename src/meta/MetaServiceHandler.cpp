@@ -291,20 +291,20 @@ MetaServiceHandler::future_listEdgeIndexStatus(const cpp2::ListIndexStatusReq& r
 }
 
 folly::Future<cpp2::ExecResp>
-MetaServiceHandler::future_signInFTService(const cpp2::SignInFTServiceReq& req) {
-    auto* processor = SignInFTServiceProcessor::instance(kvstore_);
+MetaServiceHandler::future_signInService(const cpp2::SignInServiceReq& req) {
+    auto* processor = SignInServiceProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 
 folly::Future<cpp2::ExecResp>
-MetaServiceHandler::future_signOutFTService(const cpp2::SignOutFTServiceReq& req) {
-    auto* processor = SignOutFTServiceProcessor::instance(kvstore_);
+MetaServiceHandler::future_signOutService(const cpp2::SignOutServiceReq& req) {
+    auto* processor = SignOutServiceProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 
-folly::Future<cpp2::ListFTClientsResp>
-MetaServiceHandler::future_listFTClients(const cpp2::ListFTClientsReq& req) {
-    auto* processor = ListFTClientsProcessor::instance(kvstore_);
+folly::Future<cpp2::ListServiceClientsResp>
+MetaServiceHandler::future_listServiceClients(const cpp2::ListServiceClientsReq& req) {
+    auto* processor = ListServiceClientsProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 

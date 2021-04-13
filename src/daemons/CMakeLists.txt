@@ -1,4 +1,7 @@
 set(common_deps
+    $<TARGET_OBJECTS:kafka_listener_obj>
+    $<TARGET_OBJECTS:common_kafka_client_obj>
+    $<TARGET_OBJECTS:es_listener_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>
@@ -54,6 +57,7 @@ nebula_add_executable(
         $<TARGET_OBJECTS:storage_common_obj>
         ${common_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}
@@ -75,6 +79,7 @@ nebula_add_executable(
         $<TARGET_OBJECTS:old_meta_thrift_obj>
         ${common_deps}
     LIBRARIES
+        ${KAFKA_LIBRARIES}
         ${ROCKSDB_LIBRARIES}
         ${THRIFT_LIBRARIES}
         ${PROXYGEN_LIBRARIES}

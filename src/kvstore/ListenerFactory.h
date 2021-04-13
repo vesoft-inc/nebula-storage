@@ -9,6 +9,7 @@
 
 #include "kvstore/Listener.h"
 #include "kvstore/plugins/elasticsearch/ESListener.h"
+#include "kvstore/plugins/kafka/KafkaListener.h"
 
 namespace nebula {
 namespace kvstore {
@@ -19,8 +20,12 @@ public:
     static std::shared_ptr<Listener> createListener(meta::cpp2::ListenerType type, Args&&... args) {
         if (type == meta::cpp2::ListenerType::ELASTICSEARCH) {
             return std::make_shared<ESListener>(std::forward<Args>(args)...);
+        } else if (type == meta::cpp2::ListenerType::KAFKA) {
+            LOG(INFO) << "Create Kafka Listener";
+            return std::make_shared<KafkaListener>(std::forward<Args>(args)...);
+        } else {
+            LOG(FATAL) << "Should not reach here";
         }
-        LOG(FATAL) << "Should not reach here";
         return nullptr;
     }
 };

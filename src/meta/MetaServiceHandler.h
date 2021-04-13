@@ -138,13 +138,13 @@ public:
     future_listEdgeIndexStatus(const cpp2::ListIndexStatusReq& req) override;
 
     folly::Future<cpp2::ExecResp>
-    future_signInFTService(const cpp2::SignInFTServiceReq& req) override;
+    future_signInService(const cpp2::SignInServiceReq& req) override;
 
     folly::Future<cpp2::ExecResp>
-    future_signOutFTService(const cpp2::SignOutFTServiceReq& req) override;
+    future_signOutService(const cpp2::SignOutServiceReq& req) override;
 
-    folly::Future<cpp2::ListFTClientsResp>
-    future_listFTClients(const cpp2::ListFTClientsReq& req) override;
+    folly::Future<cpp2::ListServiceClientsResp>
+    future_listServiceClients(const cpp2::ListServiceClientsReq& req) override;
 
     folly::Future<cpp2::ExecResp>
     future_createFTIndex(const cpp2::CreateFTIndexReq& req) override;
@@ -223,6 +223,7 @@ public:
 
     folly::Future<cpp2::CreateBackupResp>
     future_createBackup(const cpp2::CreateBackupReq& req) override;
+
     /**
      * Zone manager
      **/
@@ -285,6 +286,7 @@ public:
 
     folly::Future<cpp2::GetMetaDirInfoResp>
     future_getMetaDirInfo(const cpp2::GetMetaDirInfoReq &req) override;
+
     folly::Future<cpp2::CreateSessionResp>
     future_createSession(const cpp2::CreateSessionReq& req) override;
 

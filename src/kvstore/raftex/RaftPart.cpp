@@ -21,8 +21,7 @@
 #include "kvstore/raftex/RaftPart.h"
 #include <thrift/lib/cpp/util/EnumUtils.h>
 
-DEFINE_uint32(raft_heartbeat_interval_secs, 5,
-             "Seconds between each heartbeat");
+DEFINE_uint32(raft_heartbeat_interval_secs, 5, "Seconds between each heartbeat");
 
 DEFINE_uint64(raft_snapshot_timeout, 60 * 5, "Max seconds between two snapshot requests");
 

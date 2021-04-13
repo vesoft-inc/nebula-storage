@@ -309,11 +309,12 @@ StatusOr<EdgeSchema> AdHocSchemaManager::getAllLatestVerEdgeSchema(GraphSpaceID 
 }
 
 
-StatusOr<std::vector<nebula::meta::cpp2::FTClient>> AdHocSchemaManager::getFTClients() {
+StatusOr<std::vector<nebula::meta::cpp2::ServiceClient>>
+AdHocSchemaManager::getServiceClients(nebula::meta::cpp2::ServiceType /*type*/) {
     return ftClients_;
 }
 
-void AdHocSchemaManager::addFTClient(const nebula::meta::cpp2::FTClient& client) {
+void AdHocSchemaManager::addFTClient(const nebula::meta::cpp2::ServiceClient& client) {
     ftClients_.emplace_back(client);
 }
 }  // namespace mock

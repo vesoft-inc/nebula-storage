@@ -11,8 +11,6 @@
 
 DEFINE_int32(listener_commit_interval_secs, 1, "Listener commit interval");
 DEFINE_int32(listener_commit_batch_size, 1000, "Max batch size when listener commit");
-DEFINE_int32(ft_request_retry_times, 3, "Retry times if fulltext request failed");
-DEFINE_int32(ft_bulk_batch_size, 100, "Max batch size when bulk insert");
 DEFINE_int32(listener_pursue_leader_threshold, 1000, "Catch up with the leader's threshold");
 
 namespace nebula {
@@ -51,7 +49,7 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
 
     if (lastLogId_ < committedLogId_) {
         LOG(INFO) << idStr_ << "Reset lastLogId " << lastLogId_
-                << " to be the committedLogId " << committedLogId_;
+                  << " to be the committedLogId " << committedLogId_;
         lastLogId_ = committedLogId_;
         lastLogTerm_ = term_;
         wal_->reset();
@@ -60,12 +58,12 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
     lastApplyLogId_ = lastApplyLogId();
 
     LOG(INFO) << idStr_ << "Listener start"
-                        << ", there are " << peers.size() << " peer hosts"
-                        << ", lastLogId " << lastLogId_
-                        << ", lastLogTerm " << lastLogTerm_
-                        << ", committedLogId " << committedLogId_
-                        << ", lastApplyLogId " << lastApplyLogId_
-                        << ", term " << term_;
+              << ", there are " << peers.size() << " peer hosts"
+              << ", lastLogId " << lastLogId_
+              << ", lastLogTerm " << lastLogTerm_
+              << ", committedLogId " << committedLogId_
+              << ", lastApplyLogId " << lastApplyLogId_
+              << ", term " << term_;
 
     // As for listener, we don't need Host actually. However, listener need to be aware of
     // membership change, it can be handled in preProcessLog.
@@ -89,11 +87,10 @@ void Listener::stop() {
     }
 }
 
-bool Listener::preProcessLog(LogID logId,
-                             TermID termId,
-                             ClusterID clusterId,
+bool Listener::preProcessLog(LogID,
+                             TermID,
+                             ClusterID,
                              const std::string& log) {
-    UNUSED(logId); UNUSED(termId); UNUSED(clusterId);
     if (!log.empty()) {
         // todo(doodle): handle membership change
         switch (log[sizeof(int64_t)]) {
@@ -221,17 +218,95 @@ void Listener::doApply() {
     });
 }
 
+bool Listener::persist(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
+    return writeAppliedId(lastId, lastTerm, lastApplyLogId);
+}
+
+bool Listener::writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) {
+    int32_t fd = open(
+        lastApplyLogFile_->c_str(),
+        O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC,
+        0644);
+    if (fd < 0) {
+        VLOG(3) << "Failed to open file \"" << lastApplyLogFile_->c_str()
+                << "\" (errno: " << errno << "): "
+                << strerror(errno);
+        return false;
+    }
+    auto raw = encodeAppliedId(lastId, lastTerm, lastApplyLogId);
+    ssize_t written = write(fd, raw.c_str(), raw.size());
+    if (written != (ssize_t)raw.size()) {
+        VLOG(3) << idStr_ << "bytesWritten:" << written << ", expected:" << raw.size()
+                << ", error:" << strerror(errno);
+        close(fd);
+        return false;
+    }
+    close(fd);
+    return true;
+}
+
+std::string
+Listener::encodeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId) const noexcept {
+    std::string val;
+    val.reserve(sizeof(LogID) * 2 + sizeof(TermID));
+    val.append(reinterpret_cast<const char*>(&lastId), sizeof(LogID))
+       .append(reinterpret_cast<const char*>(&lastTerm), sizeof(TermID))
+       .append(reinterpret_cast<const char*>(&lastApplyLogId), sizeof(LogID));
+    return val;
+}
+
+std::pair<LogID, TermID> Listener::lastCommittedLogId() {
+    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
+        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
+        return {0, 0};
+    }
+    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
+    if (fd < 0) {
+        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
+                   << errno << "): " << strerror(errno);
+    }
+    // read last logId from listener wal file.
+    LogID logId;
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), 0),
+             static_cast<ssize_t>(sizeof(LogID)));
+
+    // read last termId from listener wal file.
+    TermID termId;
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&termId), sizeof(TermID), sizeof(LogID)),
+             static_cast<ssize_t>(sizeof(TermID)));
+    close(fd);
+    return {logId, termId};
+}
+
+LogID Listener::lastApplyLogId() {
+    if (access(lastApplyLogFile_->c_str(), 0) != 0) {
+        VLOG(3) << "Invalid or non-existent file : " << *lastApplyLogFile_;
+        return 0;
+    }
+    int32_t fd = open(lastApplyLogFile_->c_str(), O_RDONLY);
+    if (fd < 0) {
+        LOG(FATAL) << "Failed to open the file \"" << lastApplyLogFile_->c_str() << "\" ("
+                   << errno << "): " << strerror(errno);
+    }
+    // read last applied logId from listener wal file.
+    LogID logId;
+    auto offset = sizeof(LogID) + sizeof(TermID);
+    CHECK_EQ(pread(fd, reinterpret_cast<char*>(&logId), sizeof(LogID), offset),
+             static_cast<ssize_t>(sizeof(LogID)));
+    close(fd);
+    return logId;
+}
+
 std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::string>& rows,
                                                      LogID committedLogId,
                                                      TermID committedLogTerm,
                                                      bool finished) {
     VLOG(1) << idStr_ << "Listener is committing snapshot.";
-    int64_t count = 0;
     int64_t size = 0;
+    int64_t count = rows.size();
     std::vector<KV> data;
     data.reserve(rows.size());
     for (const auto& row : rows) {
-        count++;
         size += row.size();
         auto kv = decodeKV(row);
         data.emplace_back(kv.first, kv.second);

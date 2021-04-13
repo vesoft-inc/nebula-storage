@@ -4,6 +4,9 @@ set(perf_test_deps
     $<TARGET_OBJECTS:graph_storage_service_handler>
     $<TARGET_OBJECTS:storage_transaction_executor>
     $<TARGET_OBJECTS:storage_common_obj>
+    $<TARGET_OBJECTS:kafka_listener_obj>
+    $<TARGET_OBJECTS:common_kafka_client_obj>
+    $<TARGET_OBJECTS:es_listener_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>

@@ -1,2 +1,3 @@
-nebula_add_subdirectory(hbase)
+#nebula_add_subdirectory(hbase)
+nebula_add_subdirectory(kafka)
 nebula_add_subdirectory(elasticsearch)

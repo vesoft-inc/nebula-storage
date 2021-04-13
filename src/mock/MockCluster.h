@@ -87,7 +87,7 @@ public:
                        SchemaVer schemaVerCount = 1,
                        bool hasProp = true,
                        bool hasListener = false,
-                       const std::vector<meta::cpp2::FTClient>& clients = {},
+                       const std::vector<meta::cpp2::ServiceClient>& clients = {},
                        bool needCffBuilder = false);
 
     std::shared_ptr<apache::thrift::concurrency::PriorityThreadManager> getWorkers();
@@ -113,8 +113,8 @@ public:
         if (storageKV_) {
             storageKV_->stop();
         }
-        if (esListener_) {
-            esListener_->stop();
+        if (listener_) {
+            listener_->stop();
         }
     }
 
@@ -135,7 +135,7 @@ public:
     std::unique_ptr<meta::IndexManager>             indexMan_;
     nebula::ClusterID                               clusterId_ = 10;
     int32_t                                         totalParts_;
-    std::unique_ptr<kvstore::NebulaStore>           esListener_{nullptr};
+    std::unique_ptr<kvstore::NebulaStore>           listener_{nullptr};
     std::unique_ptr<meta::SchemaManager>            lSchemaMan_;
     std::unique_ptr<meta::MetaClient>               lMetaClient_{nullptr};
 

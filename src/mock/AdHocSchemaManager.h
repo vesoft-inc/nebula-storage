@@ -104,9 +104,10 @@ public:
                          EdgeType edge,
                          SchemaVer ver);
 
-    StatusOr<std::vector<nebula::meta::cpp2::FTClient>> getFTClients() override;
+    StatusOr<std::vector<nebula::meta::cpp2::ServiceClient>>
+    getServiceClients(nebula::meta::cpp2::ServiceType type) override;
 
-    void addFTClient(const nebula::meta::cpp2::FTClient& client);
+    void addFTClient(const nebula::meta::cpp2::ServiceClient& client);
 
     StatusOr<std::pair<std::string, nebula::meta::cpp2::FTIndex>>
     getFTIndex(GraphSpaceID, int32_t) override {
@@ -147,7 +148,7 @@ private:
         std::unordered_map<std::pair<EdgeType, SchemaVer>,
             std::shared_ptr<const nebula::meta::NebulaSchemaProvider>>> edgeSchemasInMap_;
 
-    std::vector<nebula::meta::cpp2::FTClient> ftClients_;
+    std::vector<nebula::meta::cpp2::ServiceClient> ftClients_;
     int32_t partNum_;
 };
 

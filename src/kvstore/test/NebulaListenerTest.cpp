@@ -41,6 +41,8 @@ public:
                   meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, localAddr, walPath,
                    ioPool, workers, handlers, nullptr, nullptr, nullptr, schemaMan) {
+        lastApplyLogFile_ = std::make_unique<std::string>(
+                folly::stringPrintf("%s/dummy_last_apply_log_%d", walPath.c_str(), partId));
     }
 
     std::vector<KV> data() {
@@ -75,7 +77,8 @@ public:
     }
 
 protected:
-    void init() override {
+    bool init() override {
+        return true;
     }
 
     bool apply(const std::vector<KV>& kvs) override {
@@ -85,7 +88,7 @@ protected:
         return true;
     }
 
-    bool persist(LogID, TermID, LogID) override {
+    bool persist(LogID, TermID, LogID) {
         return true;
     }
 
@@ -93,7 +96,7 @@ protected:
         return std::make_pair(committedLogId_, lastLogTerm_);
     }
 
-    LogID lastApplyLogId() override {
+    LogID lastApplyLogId() {
         return lastApplyLogId_;
     }
 
@@ -222,7 +225,7 @@ protected:
             listeners_[index]->raftService_->addPartition(dummy);
             std::vector<HostAddr> raftPeers;
             std::transform(peers_.begin(), peers_.end(), std::back_inserter(raftPeers),
-                        [] (const auto& host) {
+                           [] (const auto& host) {
                 return NebulaStore::getRaftAddr(host);
             });
             dummy->start(std::move(raftPeers));

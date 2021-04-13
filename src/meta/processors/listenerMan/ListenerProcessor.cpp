@@ -55,7 +55,7 @@ void AddListenerProcessor::process(const cpp2::AddListenerReq& req) {
     std::vector<kvstore::KV> data;
     for (size_t i = 0; i < parts.size(); i++) {
         data.emplace_back(MetaServiceUtils::listenerKey(space, parts[i], type),
-                          MetaServiceUtils::serializeHostAddr(hosts[i%hosts.size()]));
+                          MetaServiceUtils::serializeHostAddr(hosts[i % hosts.size()]));
     }
     doSyncPutAndUpdate(std::move(data));
 }

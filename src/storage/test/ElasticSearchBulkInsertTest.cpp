@@ -164,12 +164,11 @@ protected:
     std::unique_ptr<thread::GenericWorker> bgThread_;
     GraphSpaceID spaceId_;
     TagID tagId_;
-    // std::unique_ptr<storage::StorageEnv> env_{nullptr};
 };
 
 TEST_F(ElasticSearchBasicTest, SimpleTest) {
     FLAGS_heartbeat_interval_secs = 1;
-    meta::cpp2::FTClient ftClient;
+    meta::cpp2::ServiceClient ftClient;
     ftClient.set_host(HostAddr("127.0.0.1", esPort_));
     const nebula::ClusterID kClusterId = 10;
     mock::MockCluster cluster;

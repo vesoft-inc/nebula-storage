@@ -6,6 +6,9 @@ set(tools_test_deps
     $<TARGET_OBJECTS:common_internal_storage_client_obj>
     $<TARGET_OBJECTS:common_storage_client_base_obj>
     $<TARGET_OBJECTS:storage_common_obj>
+    $<TARGET_OBJECTS:kafka_listener_obj>
+    $<TARGET_OBJECTS:common_kafka_client_obj>
+    $<TARGET_OBJECTS:es_listener_obj>
     $<TARGET_OBJECTS:kvstore_obj>
     $<TARGET_OBJECTS:raftex_obj>
     $<TARGET_OBJECTS:wal_obj>

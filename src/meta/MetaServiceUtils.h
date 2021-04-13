@@ -319,10 +319,10 @@ public:
 
     static std::string fulltextServiceKey();
 
-    static std::string fulltextServiceVal(cpp2::FTServiceType type,
-                                          const std::vector<cpp2::FTClient>& clients);
+    static std::string fulltextServiceVal(cpp2::ServiceType type,
+                                          const std::vector<cpp2::ServiceClient>& clients);
 
-    static std::vector<cpp2::FTClient> parseFTClients(folly::StringPiece rawData);
+    static std::vector<cpp2::ServiceClient> parseServiceClients(folly::StringPiece rawData);
 
     static const std::string& sessionPrefix();
 
