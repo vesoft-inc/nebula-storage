@@ -35,18 +35,17 @@ public:
             return ret;
         }
 
-        auto ttlProp = CommonUtils::ttlProps(planContext_->tagSchema_);
-
         data_.clear();
+        const auto& [effective, duration, col] = CommonUtils::ttlProps(planContext_->tagSchema_);
         std::vector<VertexID> vids;
         auto* iter = static_cast<VertexIndexIterator*>(indexScanNode_->iterator());
         while (iter && iter->valid()) {
-            if (!iter->val().empty() && ttlProp.first) {
+            if (!iter->val().empty() && effective) {
                 auto v = IndexKeyUtils::parseIndexTTL(iter->val());
                 if (CommonUtils::checkDataExpiredForTTL(planContext_->tagSchema_,
                                                         std::move(v),
-                                                        ttlProp.second.second,
-                                                        ttlProp.second.first)) {
+                                                        col,
+                                                        duration)) {
                     iter->next();
                     continue;
                 }

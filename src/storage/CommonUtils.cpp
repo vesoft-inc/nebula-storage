@@ -114,8 +114,8 @@ bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
     return false;
 }
 
-std::pair<bool, std::pair<int64_t, std::string>>
-    CommonUtils::ttlProps(const meta::SchemaProviderIf* schema) {
+std::tuple<bool, int64_t, std::string>
+CommonUtils::ttlProps(const meta::SchemaProviderIf* schema) {
     DCHECK(schema != nullptr);
     const auto* ns = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
     const auto sp = ns->getProp();
@@ -127,17 +127,18 @@ std::pair<bool, std::pair<int64_t, std::string>>
     if (sp.get_ttl_col()) {
         col = *sp.get_ttl_col();
     }
-    return std::make_pair(!(duration <= 0 || col.empty()), std::make_pair(duration, col));
+    return std::make_tuple(!(duration <= 0 || col.empty()), duration, col);
 }
 
 StatusOr<Value> CommonUtils::ttlValue(const meta::SchemaProviderIf* schema, RowReader* reader) {
     DCHECK(schema != nullptr);
     const auto* ns = dynamic_cast<const meta::NebulaSchemaProvider*>(schema);
-    auto ttlProp = ttlProps(ns);
-    if (!ttlProp.first) {
+    auto tuple = ttlProps(ns);
+    auto& [effective, _, column] = tuple;
+    if (!effective) {
         return Status::Error();
     }
-    return reader->getValueByName(std::move(ttlProp).second.second);
+    return reader->getValueByName(std::move(column));
 }
 
 }  // namespace storage

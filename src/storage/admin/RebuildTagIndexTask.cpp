@@ -104,18 +104,18 @@ kvstore::ResultCode RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
             continue;
         }
 
-        auto ttlProp = CommonUtils::ttlProps(schema.get());
-        if (ttlProp.first && CommonUtils::checkDataExpiredForTTL(schema.get(),
-                                                                 reader.get(),
-                                                                 ttlProp.second.second,
-                                                                 ttlProp.second.first)) {
+        const auto& [effective, duration, column] = CommonUtils::ttlProps(schema.get());
+        if (effective && CommonUtils::checkDataExpiredForTTL(schema.get(),
+                                                             reader.get(),
+                                                             column,
+                                                             duration)) {
             VLOG(3) << "ttl expired : " << "Tag ID " << tagID << " Vertex ID " << vertex;
             iter->next();
             continue;
         }
 
         std::string indexVal = "";
-        if (ttlProp.first) {
+        if (effective) {
             auto ttlValRet = CommonUtils::ttlValue(schema.get(), reader.get());
             if (ttlValRet.ok()) {
                 indexVal = IndexKeyUtils::indexVal(std::move(ttlValRet).value());

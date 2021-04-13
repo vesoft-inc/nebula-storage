@@ -118,30 +118,32 @@ private:
         if (schema == nullptr) {
             return true;
         }
-        auto ttl = CommonUtils::ttlProps(schema);
+
+        const auto& [effective, duration, column] = CommonUtils::ttlProps(schema);
         // Only support the specified ttl_col mode
         // Not specifying or non-positive ttl_duration behaves like ttl_duration = infinity
-        if (!ttl.first) {
+        if (!effective) {
             return false;
         }
         return CommonUtils::checkDataExpiredForTTL(schema,
                                                    reader,
-                                                   ttl.second.second,
-                                                   ttl.second.first);
+                                                   std::move(column),
+                                                   duration);
     }
 
     bool ttlExpired(const meta::SchemaProviderIf* schema, const Value& v) const {
         if (schema == nullptr) {
             return true;
         }
-        auto ttl = CommonUtils::ttlProps(schema);
-        if (!ttl.first) {
+
+        const auto& [effective, duration, column] = CommonUtils::ttlProps(schema);
+        if (!effective) {
             return false;
         }
         return CommonUtils::checkDataExpiredForTTL(schema,
                                                    v,
-                                                   ttl.second.second,
-                                                   ttl.second.first);
+                                                   column,
+                                                   duration);
     }
 
     bool indexValid(GraphSpaceID spaceId,

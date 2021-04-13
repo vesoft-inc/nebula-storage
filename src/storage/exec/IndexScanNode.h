@@ -73,15 +73,15 @@ public:
 
     std::vector<kvstore::KV> moveData() {
         auto* sh = planContext_->isEdge_ ? planContext_->edgeSchema_ : planContext_->tagSchema_;
-        auto ttlProp = CommonUtils::ttlProps(sh);
+        const auto& [effective, duration, column] = CommonUtils::ttlProps(sh);
         data_.clear();
         while (!!iter_ && iter_->valid()) {
-            if (!iter_->val().empty() && ttlProp.first) {
+            if (!iter_->val().empty() && effective) {
                 auto v = IndexKeyUtils::parseIndexTTL(iter_->val());
                 if (CommonUtils::checkDataExpiredForTTL(sh,
                                                         std::move(v),
-                                                        ttlProp.second.second,
-                                                        ttlProp.second.first)) {
+                                                        column,
+                                                        duration)) {
                     iter_->next();
                     continue;
                 }
