@@ -49,7 +49,7 @@ std::vector<folly::StringPiece> decodeMultiValues(folly::StringPiece encoded);
 std::string
 encodeBatchValue(const std::vector<std::tuple<BatchLogType, std::string, std::string>>& batch);
 
-std::vector<std::pair<BatchLogType, std::pair<folly::StringPiece, folly::StringPiece>>>
+std::vector<std::tuple<BatchLogType, std::string, std::string>>
 decodeBatchValue(folly::StringPiece encoded);
 
 std::string encodeHost(LogType type, const HostAddr& learner);

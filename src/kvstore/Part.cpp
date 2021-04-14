@@ -260,14 +260,14 @@ bool Part::commitLogs(std::unique_ptr<LogIterator> iter) {
         }
         case OP_BATCH_WRITE: {
             auto data = decodeBatchValue(log);
-            for (auto& op : data) {
+            for (auto& [type, key, value] : data) {
                 ResultCode code = ResultCode::SUCCEEDED;
-                if (op.first == BatchLogType::OP_BATCH_PUT) {
-                    code = batch->put(op.second.first, op.second.second);
-                } else if (op.first == BatchLogType::OP_BATCH_REMOVE) {
-                    code = batch->remove(op.second.first);
-                } else if (op.first == BatchLogType::OP_BATCH_REMOVE_RANGE) {
-                    code = batch->removeRange(op.second.first, op.second.second);
+                if (type == BatchLogType::OP_BATCH_PUT) {
+                    code = batch->put(key, value);
+                } else if (type == BatchLogType::OP_BATCH_REMOVE) {
+                    code = batch->remove(key);
+                } else if (type == BatchLogType::OP_BATCH_REMOVE_RANGE) {
+                    code = batch->removeRange(key, value);
                 }
                 if (code != ResultCode::SUCCEEDED) {
                     LOG(ERROR) << idStr_ << "Failed to call WriteBatch";

@@ -49,13 +49,13 @@ public:
         if (!scanRet.ok()) {
             return kvstore::ResultCode::ERR_INVALID_FIELD_VALUE;
         }
-        scanPair_ = scanRet.value();
+        const auto& [start, end] = scanRet.value();
         std::unique_ptr<kvstore::KVIterator> iter;
         ret = isRangeScan_
               ? planContext_->env_->kvstore_->range(planContext_->spaceId_, partId,
-                  scanPair_.first, scanPair_.second, &iter)
+                  start, end, &iter)
               : planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId,
-                  scanPair_.first, &iter);
+                  start, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
             planContext_->isEdge_
             ? iter_.reset(new EdgeIndexIterator(std::move(iter), planContext_->vIdLen_))
@@ -177,7 +177,6 @@ private:
     IndexID                             indexId_;
     bool                                isRangeScan_{false};
     std::unique_ptr<IndexIterator>      iter_;
-    std::pair<std::string, std::string> scanPair_;
     std::vector<cpp2::IndexColumnHint>  columnHints_;
     std::vector<kvstore::KV>            data_;
 };

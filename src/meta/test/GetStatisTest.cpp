@@ -332,13 +332,13 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
     std::unordered_map<HostAddr, LeaderParts> leaders = {{HostAddr("0", 0), {{1, {1}}}}};
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
     TestUtils::assembleSpace(kv_.get(), 1, 1, 1, 1);
-    for (const auto& entry : leaders) {
+    for (const auto& [address, leaderParts] : leaders) {
         auto now = time::WallClock::fastNowInMilliSec();
         auto ret = ActiveHostsMan::updateHostInfo(
             kv_.get(),
-            entry.first,
+            address,
             HostInfo(now, cpp2::HostRole::STORAGE, gitInfoSha()),
-            &entry.second);
+            &leaderParts);
         CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
     }
 

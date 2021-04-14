@@ -60,10 +60,10 @@ void ListEdgeIndexStatusProcessor::process(const cpp2::ListIndexStatusReq& req) 
         paras.pop_back();
         tmp.emplace(folly::join(",", paras), jobDesc.get_status());
     }
-    for (auto &kv : tmp) {
+    for (auto& [name, jobStatus] : tmp) {
         cpp2::IndexStatus status;
-        status.set_name(std::move(kv.first));
-        status.set_status(apache::thrift::util::enumNameSafe(kv.second));
+        status.set_name(name);
+        status.set_status(apache::thrift::util::enumNameSafe(jobStatus));
         statuses.emplace_back(std::move(status));
     }
     resp_.set_statuses(std::move(statuses));

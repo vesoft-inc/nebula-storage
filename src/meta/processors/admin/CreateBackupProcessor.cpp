@@ -29,13 +29,14 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
                 return MetaServiceUtils::indexSpaceKey(name);
             });
 
-        auto ret = kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(keys), &values);
-        if (ret.first != kvstore::ResultCode::SUCCEEDED) {
-            LOG(ERROR) << "Failed to get space id, error: " << ret.first;
-            if (ret.first == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
+        auto [code, _] = kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId,
+                                            std::move(keys), &values);
+        if (code != kvstore::ResultCode::SUCCEEDED) {
+            LOG(ERROR) << "Failed to get space id, error: " << code;
+            if (code == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
                 handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
             } else {
-                handleErrorCode(MetaCommon::to(ret.first));
+                handleErrorCode(MetaCommon::to(code));
             }
             return folly::none;
         }

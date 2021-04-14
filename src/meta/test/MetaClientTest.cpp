@@ -1525,8 +1525,8 @@ public:
     void onSpaceOptionUpdated(GraphSpaceID,
                               const std::unordered_map<std::string, std::string>& update)
                               override {
-        for (const auto& kv : update) {
-            options[kv.first] = kv.second;
+        for (const auto& [key, value] : update) {
+            options[key] = value;
         }
     }
 

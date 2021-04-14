@@ -26,9 +26,9 @@ void ListConfigsProcessor::process(const cpp2::ListConfigsReq& req) {
         auto key = iter->key();
         auto value = iter->val();
         auto item = MetaServiceUtils::parseConfigValue(value);
-        auto configName = MetaServiceUtils::parseConfigKey(key);
-        item.set_module(configName.first);
-        item.set_name(configName.second);
+        const auto& [module, name] = MetaServiceUtils::parseConfigKey(key);
+        item.set_module(module);
+        item.set_name(name);
         items.emplace_back(std::move(item));
         iter->next();
     }

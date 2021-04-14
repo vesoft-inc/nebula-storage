@@ -119,11 +119,11 @@ ResultCode HBaseClient::put(const std::string& tableName,
     TPut tPut;
     tPut.set_row(rowKey);
     std::vector<TColumnValue> tColumnValueList;
-    for (auto& kv : data) {
+    for (auto& [key, value] : data) {
         TColumnValue tColumnValue;
         tColumnValue.set_family(kColumnFamilyName);
-        tColumnValue.set_qualifier(kv.first);
-        tColumnValue.set_value(kv.second);
+        tColumnValue.set_qualifier(key);
+        tColumnValue.set_value(value);
         tColumnValueList.emplace_back(tColumnValue);
     }
     tPut.set_columnValues(tColumnValueList);

@@ -126,12 +126,10 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
 void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& req) {
     const auto& partVertices = req.get_parts();
     const auto& propNamesMap = req.get_prop_names();
-    for (auto& part : partVertices) {
+    for (auto& [partId, vertices] : partVertices) {
         IndexCountWrapper wrapper(env_);
         std::unique_ptr<kvstore::BatchHolder> batchHolder =
         std::make_unique<kvstore::BatchHolder>();
-        auto partId = part.first;
-        const auto& vertices = part.second;
         std::vector<VMLI> dummyLock;
         dummyLock.reserve(vertices.size());
         cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;

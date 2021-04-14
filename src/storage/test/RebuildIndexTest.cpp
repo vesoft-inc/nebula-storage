@@ -282,11 +282,11 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithDelete) {
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
-    for (auto& key : mock::MockData::mockPlayerIndexKeys()) {
+    for (auto& [part, key] : mock::MockData::mockPlayerIndexKeys()) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         if (code == kvstore::ResultCode::SUCCEEDED) {
-            LOG(INFO) << "Check Key " << key.first << " " << key.second;
+            LOG(INFO) << "Check Key " << part << " " << key;
         }
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
@@ -342,9 +342,9 @@ TEST_F(RebuildIndexTest, RebuildTagIndexWithAppend) {
     } while (!manager_->isFinished(context.jobId_, context.taskId_));
 
     LOG(INFO) << "Check rebuild tag index...";
-    for (auto& key : mock::MockData::mockPlayerIndexKeys(true)) {
+    for (auto& [part, key] : mock::MockData::mockPlayerIndexKeys(true)) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
@@ -387,9 +387,9 @@ TEST_F(RebuildIndexTest, RebuildTagIndex) {
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
-    for (auto& key : mock::MockData::mockPlayerIndexKeys()) {
+    for (auto& [part, key] : mock::MockData::mockPlayerIndexKeys()) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
@@ -445,11 +445,11 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithDelete) {
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";
-    for (auto& key : mock::MockData::mockServeIndexKeys()) {
+    for (auto& [part, key] : mock::MockData::mockServeIndexKeys()) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         if (code == kvstore::ResultCode::SUCCEEDED) {
-            LOG(INFO) << "Check Key " << key.first << " " << key.second;
+            LOG(INFO) << "Check Key " << part << " " << key;
         }
         EXPECT_EQ(kvstore::ResultCode::ERR_KEY_NOT_FOUND, code);
     }
@@ -505,9 +505,9 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndexWithAppend) {
 
     // Check the result
     LOG(INFO) << "Check rebuild tag index...";
-    for (auto& key : mock::MockData::mockServeIndexKeys()) {
+    for (auto& [part, key] : mock::MockData::mockServeIndexKeys()) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 
@@ -549,9 +549,9 @@ TEST_F(RebuildIndexTest, RebuildEdgeIndex) {
 
     // Check the result
     LOG(INFO) << "Check rebuild edge index...";
-    for (auto& key : mock::MockData::mockServeIndexKeys()) {
+    for (auto& [part, key] : mock::MockData::mockServeIndexKeys()) {
         std::string value;
-        auto code = RebuildIndexTest::env_->kvstore_->get(1, key.first, key.second, &value);
+        auto code = RebuildIndexTest::env_->kvstore_->get(1, part, key, &value);
         EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, code);
     }
 }

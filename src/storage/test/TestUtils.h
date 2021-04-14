@@ -31,10 +31,7 @@ void checkAddVerticesData(cpp2::AddVerticesRequest req,
     auto spaceVidLen = ret.value();
 
     int totalCount = 0;
-    for (auto& part : *req.parts_ref()) {
-        auto partId = part.first;
-        auto newVertexVec = part.second;
-
+    for (auto& [partId, newVertexVec] : *req.parts_ref()) {
         auto count = 0;
         for (auto& newVertex : newVertexVec) {
             auto vid = newVertex.get_id();
@@ -150,9 +147,7 @@ void checkVerticesData(int32_t spaceVidLen,
                        StorageEnv* env,
                        int expectNum) {
     int totalCount = 0;
-    for (auto& part : parts) {
-        auto partId = part.first;
-        auto deleteVidVec = part.second;
+    for (auto& [partId, deleteVidVec] : parts) {
         for (auto& vid : deleteVidVec) {
             auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen, partId, vid.getStr());
             std::unique_ptr<kvstore::KVIterator> iter;
@@ -180,9 +175,7 @@ void checkAddEdgesData(cpp2::AddEdgesRequest req,
     auto spaceVidLen = ret.value();
 
     int totalCount = 0;
-    for (auto& part : *req.parts_ref()) {
-        auto partId = part.first;
-        auto newEdgeVec = part.second;
+    for (auto& [partId, newEdgeVec] : *req.parts_ref()) {
         for (auto& newEdge : newEdgeVec) {
             auto edgekey = newEdge.get_key();
             auto newEdgeProp = newEdge.get_props();
@@ -262,9 +255,7 @@ void checkEdgesData(int32_t spaceVidLen,
                      StorageEnv* env,
                      int expectNum) {
     int totalCount = 0;
-    for (auto& part : parts) {
-        auto partId = part.first;
-        auto deleteEdgeKeyVec = part.second;
+    for (auto& [partId, deleteEdgeKeyVec] : parts) {
         for (auto& edgeKey : deleteEdgeKeyVec) {
             auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen,
                                                      partId,

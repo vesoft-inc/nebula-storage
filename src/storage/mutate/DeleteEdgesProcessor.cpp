@@ -47,12 +47,11 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     CHECK_NOTNULL(env_->kvstore_);
     if (indexes_.empty()) {
         // Operate every part, the graph layer guarantees the unique of the edgeKey
-        for (auto& part : partEdges) {
+        for (auto& [partId, edgeKeys] : partEdges) {
             std::vector<std::string> keys;
             keys.reserve(32);
-            auto partId = part.first;
             cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
-            for (auto& edgeKey : part.second) {
+            for (auto& edgeKey : edgeKeys) {
                 if (!NebulaKeyUtils::isValidVidLen(
                         spaceVidLen_,
                         (*edgeKey.src_ref()).getStr(),

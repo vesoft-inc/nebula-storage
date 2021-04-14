@@ -49,9 +49,7 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
         // Operate every part, the graph layer guarantees the unique of the vid
         std::vector<std::string> keys;
         keys.reserve(32);
-        for (auto& part : partVertices) {
-            auto partId = part.first;
-            const auto& vertexIds = part.second;
+        for (auto& [partId, vertexIds] : partVertices) {
             keys.clear();
             cpp2::ErrorCode code = cpp2::ErrorCode::SUCCEEDED;
             for (auto& vid : vertexIds) {
