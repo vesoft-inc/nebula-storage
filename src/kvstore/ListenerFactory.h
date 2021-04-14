@@ -20,7 +20,6 @@ public:
         if (type == meta::cpp2::ListenerType::ELASTICSEARCH) {
             return std::make_shared<ESListener>(std::forward<Args>(args)...);
         }
-        LOG(FATAL) << "Should not reach here";
         return nullptr;
     }
 };
