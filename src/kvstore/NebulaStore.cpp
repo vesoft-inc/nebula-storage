@@ -19,6 +19,7 @@ DEFINE_string(engine_type, "rocksdb", "rocksdb, memory...");
 DEFINE_int32(custom_filter_interval_secs, 24 * 3600,
              "interval to trigger custom compaction, < 0 means always do default minor compaction");
 DEFINE_int32(num_workers, 4, "Number of worker threads");
+DEFINE_bool(check_leader, true, "Check leader or not");
 DEFINE_int32(clean_wal_interval_secs, 600, "inerval to trigger clean expired wal");
 DEFINE_bool(auto_remove_invalid_space, false, "whether remove data of invalid space when restart");
 
@@ -39,6 +40,8 @@ NebulaStore::~NebulaStore() {
     spaceListeners_.clear();
     bgWorkers_->stop();
     bgWorkers_->wait();
+    cleanWalWorker_->stop();
+    cleanWalWorker_->wait();
     LOG(INFO) << "~NebulaStore()";
 }
 
@@ -46,6 +49,8 @@ bool NebulaStore::init() {
     LOG(INFO) << "Start the raft service...";
     bgWorkers_ = std::make_shared<thread::GenericThreadPool>();
     bgWorkers_->start(FLAGS_num_workers, "nebula-bgworkers");
+    cleanWalWorker_ = std::make_shared<thread::GenericWorker>();
+    CHECK(cleanWalWorker_->start());
     snapshot_.reset(new SnapshotManagerImpl(this));
     raftService_ = raftex::RaftexService::createService(ioPool_,
                                                         workers_,
@@ -63,7 +68,8 @@ bool NebulaStore::init() {
         loadLocalListenerFromPartManager();
     }
 
-    bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+    cleanWalWorker_->addDelayTask(
+        FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     LOG(INFO) << "Register handler...";
     options_.partMan_->registerHandler(this);
     return true;
@@ -1015,8 +1021,8 @@ ErrorOr<ResultCode, std::shared_ptr<SpacePartInfo>> NebulaStore::space(GraphSpac
     return it->second;
 }
 
-int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
-                                                  std::vector<PartitionID>>& leaderIds) {
+int32_t NebulaStore::allLeader(
+    std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>& leaderIds) {
     folly::RWSpinLock::ReadHolder rh(&lock_);
     int32_t count = 0;
     for (const auto& spaceIt : spaces_) {
@@ -1024,7 +1030,10 @@ int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
         for (const auto& partIt : spaceIt.second->parts_) {
             auto partId = partIt.first;
             if (partIt.second->isLeader()) {
-                leaderIds[spaceId].emplace_back(partId);
+                meta::cpp2::LeaderInfo partInfo;
+                partInfo.set_part_id(partId);
+                partInfo.set_term(partIt.second->termId());
+                leaderIds[spaceId].emplace_back(std::move(partInfo));
                 ++count;
             }
         }
@@ -1033,14 +1042,15 @@ int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
 }
 
 bool NebulaStore::checkLeader(std::shared_ptr<Part> part, bool canReadFromFollower) const {
-    return canReadFromFollower || (part->isLeader() && part->leaseValid());
+    return !FLAGS_check_leader || canReadFromFollower || (part->isLeader() && part->leaseValid());
 }
 
 void NebulaStore::cleanWAL() {
+    folly::RWSpinLock::ReadHolder rh(&lock_);
     SCOPE_EXIT {
-        bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000,
-                                 &NebulaStore::cleanWAL,
-                                 this);
+        cleanWalWorker_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000,
+                                      &NebulaStore::cleanWAL,
+                                      this);
     };
     for (const auto& spaceEntry : spaces_) {
         if (FLAGS_rocksdb_disable_wal) {

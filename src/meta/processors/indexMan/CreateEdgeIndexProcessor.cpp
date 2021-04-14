@@ -94,13 +94,6 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     }
 
     auto latestEdgeSchema = schemaRet.value();
-    if (tagOrEdgeHasTTL(latestEdgeSchema)) {
-       LOG(ERROR) << "Edge: " << edgeName  << " has ttl, not create index";
-       handleErrorCode(cpp2::ErrorCode::E_INDEX_WITH_TTL);
-       onFinished();
-       return;
-    }
-
     const auto& schemaCols = latestEdgeSchema.get_columns();
     std::vector<cpp2::ColumnDef> columns;
     for (auto &field : fields) {
@@ -152,6 +145,9 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     item.set_schema_id(schemaID);
     item.set_schema_name(edgeName);
     item.set_fields(std::move(columns));
+    if (req.comment_ref().has_value()) {
+        item.set_comment(*req.comment_ref());
+    }
 
     data.emplace_back(MetaServiceUtils::indexIndexKey(space, indexName),
                       std::string(reinterpret_cast<const char*>(&edgeIndex), sizeof(IndexID)));
