@@ -356,21 +356,26 @@ void RaftPart::stop() {
 
 
 AppendLogResult RaftPart::canAppendLogs() {
-    CHECK(!raftLock_.try_lock());
-    if (status_ == Status::STARTING) {
-        LOG(ERROR) << idStr_ << "The partition is still starting";
-        return AppendLogResult::E_NOT_READY;
-    }
-    if (status_ == Status::STOPPED) {
-        LOG(ERROR) << idStr_ << "The partition is stopped";
+    DCHECK(!raftLock_.try_lock());
+    if (UNLIKELY(status_ != Status::RUNNING)) {
+        LOG(ERROR) << idStr_ << "The partition is not running";
         return AppendLogResult::E_STOPPED;
     }
-    if (role_ != Role::LEADER) {
-        LOG_EVERY_N(ERROR, 100) << idStr_ << "The partition is not a leader";
+    if (UNLIKELY(role_ != Role::LEADER)) {
+        LOG_EVERY_N(WARNING, 1000) << idStr_ << "The partition is not a leader";
         return AppendLogResult::E_NOT_A_LEADER;
     }
-
     return AppendLogResult::SUCCEEDED;
+}
+
+AppendLogResult RaftPart::canAppendLogs(TermID termId) {
+    DCHECK(!raftLock_.try_lock());
+    if (UNLIKELY(term_ != termId)) {
+        VLOG(2) << idStr_ << "Term has been updated, origin "
+                << termId << ", new " << term_;
+        return AppendLogResult::E_TERM_OUT_OF_DATE;
+    }
+    return canAppendLogs();
 }
 
 void RaftPart::addLearner(const HostAddr& addr) {
@@ -694,7 +699,7 @@ folly::Future<AppendLogResult> RaftPart::appendLogAsync(ClusterID source,
 
     if (!checkAppendLogResult(res)) {
         // Mosy likely failed because the parttion is not leader
-        LOG_EVERY_N(ERROR, 100) << idStr_ << "Cannot append logs, clean the buffer";
+        LOG_EVERY_N(WARNING, 1000) << idStr_ << "Cannot append logs, clean the buffer";
         return res;
     }
     // Replicate buffered logs to all followers
@@ -738,23 +743,8 @@ void RaftPart::appendLogsInternal(AppendLogsIterator iter, TermID termId) {
     AppendLogResult res = AppendLogResult::SUCCEEDED;
     do {
         std::lock_guard<std::mutex> g(raftLock_);
-        if (status_ != Status::RUNNING) {
-            // The partition is not running
-            VLOG(2) << idStr_ << "The partition is stopped";
-            res = AppendLogResult::E_STOPPED;
-            break;
-        }
-
-        if (role_ != Role::LEADER) {
-            // Is not a leader any more
-            VLOG(2) << idStr_ << "The leader has changed";
-            res = AppendLogResult::E_NOT_A_LEADER;
-            break;
-        }
-        if (term_ != termId) {
-            VLOG(2) << idStr_ << "Term has been updated, origin "
-                    << termId << ", new " << term_;
-            res = AppendLogResult::E_TERM_OUT_OF_DATE;
+        res = canAppendLogs(termId);
+        if (res != AppendLogResult::SUCCEEDED) {
             break;
         }
         currTerm = term_;
@@ -807,28 +797,11 @@ void RaftPart::replicateLogs(folly::EventBase* eb,
     AppendLogResult res = AppendLogResult::SUCCEEDED;
     do {
         std::lock_guard<std::mutex> g(raftLock_);
-
-        if (status_ != Status::RUNNING) {
-            // The partition is not running
-            VLOG(2) << idStr_ << "The partition is stopped";
-            res = AppendLogResult::E_STOPPED;
+        res = canAppendLogs(currTerm);
+        if (res != AppendLogResult::SUCCEEDED) {
             break;
         }
-
-        if (role_ != Role::LEADER) {
-            // Is not a leader any more
-            VLOG(2) << idStr_ << "The leader has changed";
-            res = AppendLogResult::E_NOT_A_LEADER;
-            break;
-        }
-
         hosts = hosts_;
-
-        if (term_ != currTerm) {
-            VLOG(2) << idStr_ << "Term has been updated, previous "
-                    << currTerm << ", current " << term_;
-            currTerm = term_;
-        }
     } while (false);
 
     if (!checkAppendLogResult(res)) {
@@ -929,19 +902,8 @@ void RaftPart::processAppendLogResponses(
         AppendLogResult res = AppendLogResult::SUCCEEDED;
         do {
             std::lock_guard<std::mutex> g(raftLock_);
-            if (status_ != Status::RUNNING) {
-                LOG(INFO) << idStr_ << "The partition is stopped";
-                res = AppendLogResult::E_STOPPED;
-                break;
-            }
-            if (role_ != Role::LEADER) {
-                LOG(INFO) << idStr_ << "The leader has changed";
-                res = AppendLogResult::E_NOT_A_LEADER;
-                break;
-            }
-            if (currTerm != term_) {
-                LOG(INFO) << idStr_ << "The leader has changed, ABA problem.";
-                res = AppendLogResult::E_TERM_OUT_OF_DATE;
+            res = canAppendLogs(currTerm);
+            if (res != AppendLogResult::SUCCEEDED) {
                 break;
             }
             lastLogId_ = lastLogId;
@@ -1725,7 +1687,7 @@ void RaftPart::processAppendLogRequest(
 
 template<typename REQ>
 cpp2::ErrorCode RaftPart::verifyLeader(const REQ& req) {
-    CHECK(!raftLock_.try_lock());
+    DCHECK(!raftLock_.try_lock());
     auto candidate = HostAddr(req.get_leader_addr(), req.get_leader_port());
     auto code = checkPeer(candidate);
     if (code != cpp2::ErrorCode::SUCCEEDED) {

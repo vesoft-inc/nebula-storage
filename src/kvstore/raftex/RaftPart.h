@@ -387,6 +387,10 @@ private:
     // Pre-condition: The caller needs to hold the raftLock_
     AppendLogResult canAppendLogs();
 
+    // Also check if term has changed
+    // Pre-condition: The caller needs to hold the raftLock_
+    AppendLogResult canAppendLogs(TermID currTerm);
+
     folly::Future<AppendLogResult> appendLogAsync(ClusterID source,
                                                   LogType logType,
                                                   std::string log,
