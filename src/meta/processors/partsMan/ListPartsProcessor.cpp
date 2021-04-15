@@ -106,7 +106,7 @@ void ListPartsProcessor::getLeaderDist(std::vector<cpp2::PartItem>& partItems) {
     std::vector<std::string> values;
     std::tie(rc, statuses) =
         kvstore_->multiGet(kDefaultSpaceId, kDefaultPartId, std::move(leaderKeys), &values);
-    if (rc != kvstore::ResultCode::SUCCEEDED) {
+    if (rc != kvstore::ResultCode::SUCCEEDED && rc != kvstore::ResultCode::ERR_PARTIAL_RESULT) {
         return;
     }
     HostAddr host;
