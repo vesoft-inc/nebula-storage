@@ -106,7 +106,7 @@ ErrOrHosts MetaJobExecutor::getTargetHost(GraphSpaceID spaceId) {
 }
 
 ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
-    const auto& hostPrefix = MetaServiceUtils::leaderPrefix();
+    const auto& hostPrefix = MetaServiceUtils::leaderPrefix(space);
     std::unique_ptr<kvstore::KVIterator> leaderIter;
     auto result = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, hostPrefix, &leaderIter);
     if (result != kvstore::ResultCode::SUCCEEDED) {
@@ -117,7 +117,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     std::vector<std::pair<HostAddr, std::vector<PartitionID>>> hosts;
     HostAddr host;
     cpp2::ErrorCode code;
-    while (leaderIter->valid()) {
+    for (; leaderIter->valid(); leaderIter->next()) {
         auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(leaderIter->key());
         auto partId = spaceAndPart.second;
         std::tie(host, std::ignore, code) = MetaServiceUtils::parseLeaderValV3(leaderIter->val());
@@ -132,7 +132,6 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
         } else {
             it->second.emplace_back(partId);
         }
-        leaderIter->next();
     }
     return hosts;
 }

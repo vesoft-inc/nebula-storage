@@ -355,8 +355,16 @@ const std::string& MetaServiceUtils::leaderPrefix() {
     return kLeaderTermsTable;
 }
 
+std::string MetaServiceUtils::leaderPrefix(GraphSpaceID spaceId) {
+    std::string key;
+    key.reserve(kLeaderTermsTable.size() + sizeof(GraphSpaceID));
+    key.append(kLeaderTermsTable.data(), kLeaderTermsTable.size())
+        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
+    return key;
+}
+
 HostAddr MetaServiceUtils::parseLeaderKey(folly::StringPiece key) {
-    LOG(FATAL) << "called deprecated function";
+    LOG(ERROR) << "deprecated function\n" << boost::stacktrace::stacktrace();
     if (key.size() == kLeadersTable.size() + sizeof(int64_t)) {
         return parseLeaderKeyV1(key);
     }
@@ -365,7 +373,7 @@ HostAddr MetaServiceUtils::parseLeaderKey(folly::StringPiece key) {
 
 // input should be a pair of int32_t
 HostAddr MetaServiceUtils::parseLeaderKeyV1(folly::StringPiece key) {
-    LOG(FATAL) << "deprecated function called";
+    LOG(ERROR) << "deprecated function\n" << boost::stacktrace::stacktrace();
     HostAddr host;
     CHECK_EQ(key.size(), kLeadersTable.size() + sizeof(int64_t));
     key.advance(kLeadersTable.size());
@@ -376,7 +384,7 @@ HostAddr MetaServiceUtils::parseLeaderKeyV1(folly::StringPiece key) {
 }
 
 HostAddr MetaServiceUtils::parseLeaderKeyV2(folly::StringPiece key) {
-    LOG(FATAL) << "deprecated function";
+    LOG(ERROR) << "deprecated function\n" << boost::stacktrace::stacktrace();
     key.advance(kLeadersTable.size());
     return MetaServiceUtils::deserializeHostAddr(key);
 }
@@ -390,7 +398,7 @@ std::pair<GraphSpaceID, PartitionID> MetaServiceUtils::parseLeaderKeyV3(folly::S
 }
 
 LeaderParts MetaServiceUtils::parseLeaderValV1(folly::StringPiece val) {
-    LOG(FATAL) << "deprecated function";
+    LOG(ERROR) << "deprecated function\n" << boost::stacktrace::stacktrace();
     LeaderParts leaderParts;
     size_t size = val.size();
     // decode leader info

@@ -213,10 +213,6 @@ TEST(ProcessorTest, ListPartsTest) {
         ret = ActiveHostsMan::updateHostInfo(kv.get(), {"1", 1}, info, &allLeaders);
         CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
 
-
-        // for (int i = 9; i <= 9; ++i) {
-        //     allLeaders[spaceId].emplace_back(makeLeaderInfo(i));
-        // }
         allLeaders.clear();
         allLeaders[spaceId].emplace_back(makeLeaderInfo(9));
         ret = ActiveHostsMan::updateHostInfo(kv.get(), {"2", 2}, info, &allLeaders);

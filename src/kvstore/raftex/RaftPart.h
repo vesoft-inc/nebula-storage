@@ -128,7 +128,6 @@ public:
     }
 
     TermID termId() const {
-        std::lock_guard<std::mutex> g(raftLock_);
         return term_;
     }
 

@@ -140,8 +140,8 @@ Status ListHostsProcessor::fillLeaders() {
 
     auto activeHosts = ActiveHostsMan::getActiveHosts(kvstore_);
     std::unique_ptr<kvstore::KVIterator> iter;
-    const auto& leaderPrefix = MetaServiceUtils::leaderPrefix();
-    auto rc = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, leaderPrefix, &iter);
+    const auto& prefix = MetaServiceUtils::leaderPrefix();
+    auto rc = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (rc != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "List Hosts Failed: No leaders";
         handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);

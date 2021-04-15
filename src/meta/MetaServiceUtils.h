@@ -98,6 +98,8 @@ public:
 
     static std::string leaderValV3(const HostAddr& h, int64_t term);
 
+    static std::string leaderPrefix(GraphSpaceID spaceId);
+
     static const std::string& leaderPrefix();
 
     static HostAddr parseLeaderKey(folly::StringPiece key);
