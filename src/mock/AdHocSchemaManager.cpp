@@ -294,6 +294,10 @@ StatusOr<EdgeSchemas> AdHocSchemaManager::getAllVerEdgeSchema(GraphSpaceID space
     return iter->second;
 }
 
+StatusOr<meta::EdgeSchema> AdHocSchemaManager::getAllLatestVerEdgeSchema(GraphSpaceID /*space*/) {
+    return Status::OK();
+}
+
 StatusOr<std::vector<nebula::meta::cpp2::FTClient>> AdHocSchemaManager::getFTClients() {
     return ftClients_;
 }

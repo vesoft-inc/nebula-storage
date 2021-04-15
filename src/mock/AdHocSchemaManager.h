@@ -101,6 +101,8 @@ public:
                          EdgeType edge,
                          SchemaVer ver);
 
+    StatusOr<EdgeSchema> getAllLatestVerEdgeSchema(GraphSpaceID space) override;
+
     StatusOr<std::vector<nebula::meta::cpp2::FTClient>> getFTClients() override;
 
     void addFTClient(const nebula::meta::cpp2::FTClient& client);
