@@ -6,14 +6,14 @@
 
 #include "common/time/TimeUtils.h"
 
-#include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/ActiveHostsMan.h"
+#include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/processors/admin/SnapShot.h"
 
 namespace nebula {
 namespace meta {
 
-folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNameToId(
+ErrorOr<cpp2::ErrorCode, std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNameToId(
     const std::vector<std::string>* backupSpaces) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     std::unordered_set<GraphSpaceID> spaces;
@@ -35,11 +35,9 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
         if (ret.first != kvstore::ResultCode::SUCCEEDED) {
             LOG(ERROR) << "Failed to get space id, error: " << ret.first;
             if (ret.first == kvstore::ResultCode::ERR_KEY_NOT_FOUND) {
-                handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
-            } else {
-                handleErrorCode(MetaCommon::to(ret.first));
+                return cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND;
             }
-            return folly::none;
+            return MetaCommon::to(ret.first);
         }
 
         std::transform(std::make_move_iterator(values.begin()),
@@ -54,8 +52,7 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
         std::unique_ptr<kvstore::KVIterator> iter;
         auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
-            handleErrorCode(MetaCommon::to(ret));
-            return folly::none;
+            return MetaCommon::to(ret);
         }
 
         while (iter->valid()) {
@@ -69,8 +66,7 @@ folly::Optional<std::unordered_set<GraphSpaceID>> CreateBackupProcessor::spaceNa
 
     if (spaces.empty()) {
         LOG(ERROR) << "Failed to create a full backup because there is currently no space.";
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND);
-        return folly::none;
+        return cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND;
     }
 
     return spaces;
@@ -86,14 +82,14 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
-    if (result == folly::none) {
+    if (!nebula::ok(result)) {
         LOG(ERROR) << "Index is rebuilding, not allowed to create backup.";
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
+        handleErrorCode(MetaCommon::to(nebula::error(result)));
         onFinished();
         return;
     }
 
-    if (result.value()) {
+    if (nebula::value(result)) {
         handleErrorCode(cpp2::ErrorCode::E_BACKUP_BUILDING_INDEX);
         onFinished();
         return;
@@ -110,12 +106,13 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     auto spaceIdRet = spaceNameToId(backupSpaces);
-    if (spaceIdRet == folly::none) {
+    if (!nebula::ok(spaceIdRet)) {
+        handleErrorCode(nebula::error(spaceIdRet));
         onFinished();
         return;
     }
 
-    auto spaces = spaceIdRet.value();
+    auto spaces = nebula::value(spaceIdRet);
 
     // The entire process follows mostly snapshot logic.
     std::vector<kvstore::KV> data;
@@ -154,9 +151,9 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     // step 4 created backup for meta(export sst).
     auto backupFiles = MetaServiceUtils::backupSpaces(kvstore_, spaces, backupName, backupSpaces);
-    if (!backupFiles.hasValue()) {
+    if (!nebula::ok(backupFiles)) {
         LOG(ERROR) << "Failed backup meta";
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
+        handleErrorCode(MetaCommon::to(nebula::error(backupFiles)));
         onFinished();
         return;
     }
@@ -209,8 +206,8 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         backupInfo.emplace(id, std::move(spaceInfo));
     }
     cpp2::BackupMeta backup;
-    LOG(INFO) << "sst files count was:" << backupFiles.value().size();
-    backup.set_meta_files(std::move(backupFiles.value()));
+    LOG(INFO) << "sst files count was:" << nebula::value(backupFiles).size();
+    backup.set_meta_files(std::move(nebula::value(backupFiles)));
     backup.set_backup_info(std::move(backupInfo));
     backup.set_backup_name(std::move(backupName));
     backup.set_full(true);

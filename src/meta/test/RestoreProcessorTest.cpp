@@ -102,10 +102,10 @@ TEST(RestoreProcessorTest, RestoreTest) {
     spaceNames->emplace_back("test_space");
     auto backupFiles =
         MetaServiceUtils::backupSpaces(kv.get(), spaces, backupName, spaceNames.get());
-    DCHECK(backupFiles.hasValue());
+    DCHECK(nebula::hasValue(backupFiles));
     {
         cpp2::RestoreMetaReq req;
-        std::vector<std::string> files = backupFiles.value();
+        std::vector<std::string> files = nebula::value(backupFiles);
         auto it = std::find_if(files.cbegin(), files.cend(), [](auto& f) {
             auto const pos = f.find_last_of("/");
             auto name = f.substr(pos + 1);
@@ -309,10 +309,10 @@ TEST(RestoreProcessorTest, RestoreFullTest) {
     std::unordered_set<GraphSpaceID> spaces = {id};
     auto backupName = folly::format("BACKUP_{}", MetaServiceUtils::genTimestampStr()).str();
     auto backupFiles = MetaServiceUtils::backupSpaces(kv.get(), spaces, backupName, nullptr);
-    DCHECK(backupFiles.hasValue());
+    DCHECK(nebula::hasValue(backupFiles));
     {
         cpp2::RestoreMetaReq req;
-        std::vector<std::string> files = backupFiles.value();
+        std::vector<std::string> files = nebula::value(backupFiles);
         auto it = std::find_if(files.cbegin(), files.cend(), [](auto& f) {
             auto const pos = f.find_last_of("/");
             auto name = f.substr(pos + 1);

@@ -77,24 +77,24 @@ const std::string kFTServiceTable = systemTableMaps.at("ft_service").first;     
 const int kMaxIpAddrLen = 15;   // '255.255.255.255'
 
 namespace {
-bool backupTable(kvstore::KVStore* kvstore,
-                 const std::string& backupName,
-                 const std::string& tableName,
-                 std::vector<std::string>& files,
-                 std::function<bool(const folly::StringPiece& key)> filter) {
+kvstore::ResultCode backupTable(kvstore::KVStore* kvstore,
+                                const std::string& backupName,
+                                const std::string& tableName,
+                                std::vector<std::string>& files,
+                                std::function<bool(const folly::StringPiece& key)> filter) {
     auto backupFilePath = kvstore->backupTable(kDefaultSpaceId, backupName, tableName, filter);
     if (!ok(backupFilePath)) {
         auto result = error(backupFilePath);
         if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
-            return true;
+            return kvstore::ResultCode::SUCCEEDED;
         }
-        return false;
+        return result;
     }
 
     files.insert(files.end(),
                  std::make_move_iterator(value(backupFilePath).begin()),
                  std::make_move_iterator(value(backupFilePath).end()));
-    return true;
+    return kvstore::ResultCode::SUCCEEDED;
 }
 }   // namespace
 
@@ -915,14 +915,14 @@ std::string MetaServiceUtils::genTimestampStr() {
     return ch;
 }
 
-folly::Optional<bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvstore) {
+ErrorOr<kvstore::ResultCode, bool> MetaServiceUtils::isIndexRebuilding(kvstore::KVStore* kvstore) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     auto prefix = rebuildIndexStatusPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "prefix index rebuilding state failed, result code: " << ret;
-        return folly::none;
+        return ret;
     }
 
     while (iter->valid()) {
@@ -998,7 +998,7 @@ ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupI
         });
 }
 
-folly::Optional<std::vector<std::string>> MetaServiceUtils::backupSpaces(
+ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupSpaces(
     kvstore::KVStore* kvstore,
     const std::unordered_set<GraphSpaceID>& spaces,
     const std::string& backupName,
@@ -1011,12 +1011,13 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backupSpaces(
             LOG(INFO) << table.first << " table skipped";
             continue;
         }
-        if (!backupTable(kvstore,
-                         backupName,
-                         table.second.first,
-                         files,
-                         spaceFilter(spaces, table.second.second))) {
-            return folly::none;
+        auto result = backupTable(kvstore,
+                                  backupName,
+                                  table.second.first,
+                                  files,
+                                  spaceFilter(spaces, table.second.second));
+        if (result != kvstore::ResultCode::SUCCEEDED) {
+            return result;
         }
         LOG(INFO) << table.first << " table backup successed";
     }
@@ -1027,8 +1028,9 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backupSpaces(
                 LOG(INFO) << table.first << " table skipped";
                 continue;
             }
-            if (!backupTable(kvstore, backupName, table.second.first, files, nullptr)) {
-                return folly::none;
+            auto result = backupTable(kvstore, backupName, table.second.first, files, nullptr);
+            if (result != kvstore::ResultCode::SUCCEEDED) {
+                return result;
             }
             LOG(INFO) << table.first << " table backup successed";
         }
@@ -1041,7 +1043,7 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backupSpaces(
         if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
             return files;
         }
-        return folly::none;
+        return result;
     }
 
     files.insert(files.end(),

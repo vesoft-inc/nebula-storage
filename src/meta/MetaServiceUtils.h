@@ -310,7 +310,7 @@ public:
 
     static std::string genTimestampStr();
 
-    static folly::Optional<bool> isIndexRebuilding(kvstore::KVStore*);
+    static ErrorOr<kvstore::ResultCode, bool> isIndexRebuilding(kvstore::KVStore*);
 
     static GraphSpaceID parseEdgesKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseTagsKeySpaceID(folly::StringPiece key);
@@ -340,7 +340,7 @@ public:
         const std::unordered_set<GraphSpaceID>& spaces,
         std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
 
-    static folly::Optional<std::vector<std::string>> backupSpaces(
+    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupSpaces(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,

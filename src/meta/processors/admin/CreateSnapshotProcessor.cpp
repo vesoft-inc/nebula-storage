@@ -16,13 +16,13 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     // check the index rebuild. not allowed to create snapshot when index rebuilding.
 
     auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
-    if (result == folly::none) {
-        handleErrorCode(cpp2::ErrorCode::E_SNAPSHOT_FAILURE);
+    if (!nebula::ok(result)) {
+        handleErrorCode(MetaCommon::to(nebula::error(result)));
         onFinished();
         return;
     }
 
-    if (result.value()) {
+    if (nebula::value(result)) {
         LOG(ERROR) << "Index is rebuilding, not allowed to create snapshot.";
         handleErrorCode(cpp2::ErrorCode::E_SNAPSHOT_FAILURE);
         onFinished();
