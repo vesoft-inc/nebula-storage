@@ -694,9 +694,8 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
     return f;
 }
 
-folly::Future<StatusOr<std::pair<std::string, std::vector<std::string>>>>
-AdminClient::listClusterInfo(const HostAddr& host) {
-    folly::Promise<StatusOr<std::pair<std::string, std::vector<std::string>>>> pro;
+folly::Future<StatusOr<nebula::cpp2::DirInfo>> AdminClient::listClusterInfo(const HostAddr& host) {
+    folly::Promise<StatusOr<nebula::cpp2::DirInfo>> pro;
     auto f = pro.getFuture();
 
     auto* evb = ioThreadPool_->getEventBase();
@@ -717,7 +716,7 @@ AdminClient::listClusterInfo(const HostAddr& host) {
                 auto&& resp = std::move(t).value();
                 auto&& result = resp.get_result();
                 if (result.get_failed_parts().empty()) {
-                    p.setValue(std::make_pair(resp.get_root_dir(), resp.get_data_dir()));
+                    p.setValue(resp.get_dir());
                     return;
                 }
                 p.setValue(Status::Error("list clusterInfo failed"));

@@ -31,8 +31,10 @@ public:
         std::vector<storage::cpp2::PartitionResult> partRetCode;
         result.set_failed_parts(partRetCode);
         resp.set_result(result);
-        resp.set_root_dir(root_dir);
-        resp.set_data_dir({data_dir});
+        nebula::cpp2::DirInfo dir;
+        dir.set_root(root_dir);
+        dir.set_data({data_dir});
+        resp.set_dir(std::move(dir));
         pro.setValue(std::move(resp));
         return f;
     }
@@ -69,8 +71,8 @@ TEST(ProcessorTest, ListClusterInfoTest) {
 
         for (auto s : resp.get_storage_servers()) {
             ASSERT_EQ(storageHost, s.get_host());
-            ASSERT_EQ(s.get_root_dir(), root_dir);
-            ASSERT_EQ(s.get_data_dir()[0], data_dir);
+            ASSERT_EQ(s.get_dir().get_root(), root_dir);
+            ASSERT_EQ(s.get_dir().get_data()[0], data_dir);
         }
     }
 }

@@ -4,6 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include <filesystem>
 #include "storage/admin/ListClusterInfoProcessor.h"
 #include "common/fs/FileUtils.h"
 
@@ -40,18 +41,11 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
         onFinished();
         return;
     }
-    resp_.set_data_dir(std::move(realpaths));
+    nebula::cpp2::DirInfo dir;
+    dir.set_data(std::move(realpaths));
+    dir.set_root(std::filesystem::current_path().string());
 
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) == nullptr) {
-        LOG(ERROR) << "Failed to get current dir";
-        cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(cpp2::ErrorCode::E_FAILED_GET_ABS_PATH);
-        codes_.emplace_back(std::move(thriftRet));
-        onFinished();
-        return;
-    }
-    resp_.set_root_dir(cwd);
+    resp_.set_dir(std::move(dir));
 
     onFinished();
 }

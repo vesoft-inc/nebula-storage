@@ -51,10 +51,8 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
             return;
         }
 
-        storages.emplace_back(apache::thrift::FragileConstructor(),
-                              std::move(host),
-                              status.value().first,
-                              status.value().second);
+        storages.emplace_back(
+            apache::thrift::FragileConstructor(), std::move(host), status.value());
         iter->next();
     }
 

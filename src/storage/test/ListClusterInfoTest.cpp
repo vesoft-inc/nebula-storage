@@ -28,14 +28,15 @@ TEST(ListClusterInfoTest, simpleTest) {
         auto resp = std::move(fut).get();
         EXPECT_EQ(0, resp.result.failed_parts.size());
         auto data_root = env->kvstore_->getDataRoot();
-        ASSERT_EQ(resp.get_data_dir().size(), data_root.size());
+        auto dir = resp.get_dir();
+        ASSERT_EQ(dir.get_data().size(), data_root.size());
         int i = 0;
-        for (auto d : resp.get_data_dir()) {
+        for (auto d : dir.get_data()) {
             ASSERT_EQ(d, data_root[i]);
             i++;
         }
-        std::cout << resp.get_root_dir() << std::endl;
-        ASSERT_FALSE(resp.get_data_dir().empty());
+        std::cout << dir.get_root() << std::endl;
+        ASSERT_FALSE(dir.get_data().empty());
     }
 }
 

@@ -5,6 +5,7 @@
  */
 
 #include "meta/processors/admin/GetMetaDirInfoProcessor.h"
+#include <filesystem>
 #include "common/fs/FileUtils.h"
 
 namespace nebula {
@@ -12,13 +13,6 @@ namespace meta {
 
 void GetMetaDirInfoProcessor::process(const cpp2::GetMetaDirInfoReq& req) {
     UNUSED(req);
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) == nullptr) {
-        resp_.set_code(cpp2::ErrorCode::E_GET_META_DIR_FAILURE);
-        LOG(ERROR) << "Failed to get current dir ";
-        onFinished();
-        return;
-    }
 
     auto data_root = kvstore_->getDataRoot();
 
@@ -45,8 +39,10 @@ void GetMetaDirInfoProcessor::process(const cpp2::GetMetaDirInfoReq& req) {
         onFinished();
         return;
     }
-    resp_.set_data_dir(realpaths);
-    resp_.set_root_dir(cwd);
+    nebula::cpp2::DirInfo dir;
+    dir.set_data(realpaths);
+    dir.set_root(std::filesystem::current_path().string());
+    resp_.set_dir(std::move(dir));
 
     resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
     onFinished();
