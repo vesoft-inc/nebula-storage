@@ -1136,7 +1136,7 @@ bool MetaServiceUtils::replaceHostInPartition(kvstore::KVStore* kvstore,
     folly::SharedMutex::WriteHolder wHolder(LockUtils::spaceLock());
     const auto& spacePrefix = MetaServiceUtils::spacePrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, spacePrefix, &iter);
+    auto kvRet = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, spacePrefix, &iter, true);
     if (kvRet != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << folly::stringPrintf("can't get space prefix=%s", spacePrefix.c_str());
         return false;

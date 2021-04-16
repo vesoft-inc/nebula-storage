@@ -25,7 +25,7 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
 
     const auto& prefix = MetaServiceUtils::hostPrefix();
     std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter, true);
     if (ret != kvstore::ResultCode::SUCCEEDED) {
         LOG(ERROR) << "prefix failed:" << ret;
         handleErrorCode(cpp2::ErrorCode::E_LIST_CLUSTER_FAILURE);
