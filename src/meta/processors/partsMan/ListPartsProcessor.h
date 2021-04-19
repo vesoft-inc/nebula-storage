@@ -27,16 +27,16 @@ private:
 
 
     // Get parts alloc information
-    StatusOr<std::unordered_map<PartitionID, std::vector<HostAddr>>> getAllParts();
+    ErrorOr<cpp2::ErrorCode, std::unordered_map<PartitionID, std::vector<HostAddr>>>
+    getAllParts();
 
     // Get all parts with storage leader distribution
-    void getLeaderDist(std::vector<cpp2::PartItem>& partItems);
+    cpp2::ErrorCode getLeaderDist(std::vector<cpp2::PartItem>& partItems);
 
 private:
     GraphSpaceID                                        spaceId_;
     std::vector<PartitionID>                            partIds_;
     bool                                                showAllParts_{true};
-    std::unordered_map<PartitionID, size_t>             partIdIndex_;
 };
 
 }  // namespace meta

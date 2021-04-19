@@ -32,7 +32,14 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     auto snapshot = folly::format("SNAPSHOT_{}", MetaServiceUtils::genTimestampStr()).str();
     folly::SharedMutex::WriteHolder wHolder(LockUtils::snapshotLock());
 
-    auto hosts = ActiveHostsMan::getActiveHosts(kvstore_);
+    auto activeHostsRet = ActiveHostsMan::getActiveHosts(kvstore_);
+    if (!nebula::ok(activeHostsRet)) {
+        handleErrorCode(nebula::error(activeHostsRet));
+        onFinished();
+        return;
+    }
+    auto hosts = std::move(nebula::value(activeHostsRet));
+
     if (hosts.empty()) {
         LOG(ERROR) << "There is no active hosts";
         handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
@@ -48,9 +55,9 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
                                                     NetworkUtils::toHostsStr(hosts)));
 
     auto putRet = doSyncPut(std::move(data));
-    if (putRet != kvstore::ResultCode::SUCCEEDED) {
+    if (putRet != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Write snapshot meta error";
-        handleErrorCode(MetaCommon::to(putRet));
+        handleErrorCode(putRet);
         onFinished();
         return;
     }
@@ -67,9 +74,9 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     // step 3 : Create checkpoint for all storage engines and meta engine.
     auto csRet = Snapshot::instance(kvstore_,  client_)->createSnapshot(snapshot);
-    if (csRet.isLeftType()) {
+    if (!nebula::ok(csRet)) {
         LOG(ERROR) << "Checkpoint create error on storage engine";
-        handleErrorCode(csRet.left());
+        handleErrorCode(nebula::error(csRet));
         cancelWriteBlocking();
         onFinished();
         return;
@@ -99,11 +106,11 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
                                                     NetworkUtils::toHostsStr(hosts)));
 
     putRet = doSyncPut(std::move(data));
-    if (putRet != kvstore::ResultCode::SUCCEEDED) {
+    if (putRet != cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "All checkpoint creations are done, "
                       "but update checkpoint status error. "
                       "snapshot : " << snapshot;
-        handleErrorCode(MetaCommon::to(putRet));
+        handleErrorCode(putRet);
     }
 
     LOG(INFO) << "Create snapshot " << snapshot << " successfully";
