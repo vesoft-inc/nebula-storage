@@ -50,7 +50,6 @@ DEFINE_int32(num_worker_threads, 32, "Number of workers");
 DEFINE_string(pid_file, "pids/nebula-metad.pid", "File to hold the process id");
 DEFINE_bool(daemonize, true, "Whether run as a daemon process");
 
-
 static std::unique_ptr<apache::thrift::ThriftServer> gServer;
 static std::unique_ptr<nebula::kvstore::KVStore> gKVStore;
 static void signalHandler(int sig);

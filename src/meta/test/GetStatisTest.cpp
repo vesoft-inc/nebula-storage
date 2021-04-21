@@ -99,6 +99,19 @@ protected:
         rootPath_.reset();
     }
 
+    // using AllLeaders = std::unordered_map<GraphSpaceID, std::vector<cpp2::LeaderInfo>>;
+    using FakeHost = std::pair<HostAddr, ActiveHostsMan::AllLeaders>;
+    FakeHost fakeHost(std::string ip, int port, int space, std::vector<int> parts) {
+        HostAddr host(ip, port);
+        ActiveHostsMan::AllLeaders leaders;
+        for (auto i = 0U; i != parts.size(); ++i) {
+            leaders[space].emplace_back();
+            leaders[space].back().set_part_id(parts[i]);
+            leaders[space].back().set_term(9999);
+        }
+        return std::make_pair(host, leaders);
+    }
+
     std::unique_ptr<fs::TempDir> rootPath_{nullptr};
     std::unique_ptr<kvstore::KVStore> kv_{nullptr};
     JobManager* jobMgr{nullptr};
@@ -114,15 +127,16 @@ TEST_F(GetStatisTest, StatisJob) {
     NiceMock<MockAdminClient> adminClient;
     jobMgr->adminClient_ = &adminClient;
     auto rc = jobMgr->save(statisJob.jobKey(), statisJob.jobVal());
-    ASSERT_EQ(rc, nebula::kvstore::ResultCode::SUCCEEDED);
+    ASSERT_EQ(rc, cpp2::ErrorCode::SUCCEEDED);
 
     {
         // Job is not executed, job status is QUEUE.
         // Statis data does not exist.
-        auto job1 = JobDescription::loadJobDescription(statisJob.id_, kv_.get());
-        ASSERT_TRUE(job1);
-        ASSERT_EQ(statisJob.id_, job1.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::QUEUE, job1.value().status_);
+        auto job1Ret = JobDescription::loadJobDescription(statisJob.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(job1Ret));
+        auto job1 = nebula::value(job1Ret);
+        ASSERT_EQ(statisJob.id_, job1.id_);
+        ASSERT_EQ(cpp2::JobStatus::QUEUE, job1.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);
@@ -138,10 +152,10 @@ TEST_F(GetStatisTest, StatisJob) {
         auto ret = kv_->get(kDefaultSpaceId, kDefaultPartId, key, &val);
         ASSERT_NE(kvstore::ResultCode::SUCCEEDED, ret);
 
-        auto res = job1->setStatus(cpp2::JobStatus::RUNNING);
+        auto res = job1.setStatus(cpp2::JobStatus::RUNNING);
         ASSERT_TRUE(res);
-        auto retsav = jobMgr->save(job1->jobKey(), job1->jobVal());
-        ASSERT_EQ(retsav, nebula::kvstore::ResultCode::SUCCEEDED);
+        auto retsav = jobMgr->save(job1.jobKey(), job1.jobVal());
+        ASSERT_EQ(retsav, cpp2::ErrorCode::SUCCEEDED);
     }
 
     // Run statis job, job finished.
@@ -160,10 +174,11 @@ TEST_F(GetStatisTest, StatisJob) {
     copyData(kv_.get(), 0, 0, statisKey, tempKey);
     jobMgr->jobFinished(jobId, cpp2::JobStatus::FINISHED);
     {
-        auto job2 = JobDescription::loadJobDescription(statisJob.id_, kv_.get());
-        ASSERT_TRUE(job2);
-        ASSERT_EQ(statisJob.id_, job2.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::FINISHED, job2.value().status_);
+        auto job2Ret = JobDescription::loadJobDescription(statisJob.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(job2Ret));
+        auto job2 = nebula::value(job2Ret);
+        ASSERT_EQ(statisJob.id_, job2.id_);
+        ASSERT_EQ(cpp2::JobStatus::FINISHED, job2.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);
@@ -172,7 +187,7 @@ TEST_F(GetStatisTest, StatisJob) {
         processor->process(req);
         auto resp = std::move(f).get();
         if (resp.get_code() != cpp2::ErrorCode::SUCCEEDED) {
-            LOG(INFO) << "resp.code=" << static_cast<int>(resp.get_code());
+            LOG(INFO) << "resp.code=" << apache::thrift::util::enumNameSafe(resp.get_code());
         }
         ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
 
@@ -201,14 +216,15 @@ TEST_F(GetStatisTest, StatisJob) {
     std::vector<std::string> paras1{"test_space"};
     JobDescription statisJob2(13, cpp2::AdminCmd::STATS, paras1);
     auto rc2 = jobMgr->save(statisJob2.jobKey(), statisJob2.jobVal());
-    ASSERT_EQ(rc2, nebula::kvstore::ResultCode::SUCCEEDED);
+    ASSERT_EQ(rc2, cpp2::ErrorCode::SUCCEEDED);
     {
         // Job is not executed, job status is QUEUE.
         // Statis data exists, but it is the result of the last statis job execution.
-        auto job1 = JobDescription::loadJobDescription(statisJob2.id_, kv_.get());
-        ASSERT_TRUE(job1);
-        ASSERT_EQ(statisJob2.id_, job1.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::QUEUE, job1.value().status_);
+        auto job1Ret = JobDescription::loadJobDescription(statisJob2.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(job1Ret));
+        auto job1 = nebula::value(job1Ret);
+        ASSERT_EQ(statisJob2.id_, job1.id_);
+        ASSERT_EQ(cpp2::JobStatus::QUEUE, job1.status_);
 
         // Success,  but statis data is the result of the last statis job.
         cpp2::GetStatisReq req;
@@ -239,24 +255,27 @@ TEST_F(GetStatisTest, StatisJob) {
         ASSERT_EQ(0, statisItem1.get_space_vertices());
         ASSERT_EQ(0, statisItem1.get_space_edges());
 
-        auto res = job1->setStatus(cpp2::JobStatus::RUNNING);
+        auto res = job1.setStatus(cpp2::JobStatus::RUNNING);
         ASSERT_TRUE(res);
-        auto retsav = jobMgr->save(job1->jobKey(), job1->jobVal());
-        ASSERT_EQ(retsav, nebula::kvstore::ResultCode::SUCCEEDED);
+        auto retsav = jobMgr->save(job1.jobKey(), job1.jobVal());
+        ASSERT_EQ(retsav, cpp2::ErrorCode::SUCCEEDED);
     }
 
     // Remove statis data.
     {
         auto key = MetaServiceUtils::statisKey(spaceId);
         folly::Baton<true, std::atomic> baton;
+        auto retCode = nebula::kvstore::ResultCode::SUCCEEDED;
         kv_->asyncRemove(kDefaultSpaceId, kDefaultPartId, key,
                          [&](nebula::kvstore::ResultCode code) {
                              if (code != kvstore::ResultCode::SUCCEEDED) {
+                                 retCode = code;
                                  LOG(ERROR) << "kvstore asyncRemove failed: " << code;
                              }
                              baton.post();
                          });
         baton.wait();
+        ASSERT_EQ(nebula::kvstore::ResultCode::SUCCEEDED, retCode);
 
         // Directly find statis data in kvstore, statis data does not exist.
         std::string val;
@@ -291,10 +310,11 @@ TEST_F(GetStatisTest, StatisJob) {
     jobMgr->save(statisJob2.jobKey(), statisJob2.jobVal());
 
     {
-        auto job2 = JobDescription::loadJobDescription(statisJob2.id_, kv_.get());
-        ASSERT_TRUE(job2);
-        ASSERT_EQ(statisJob2.id_, job2.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::FINISHED, job2.value().status_);
+        auto job2Ret = JobDescription::loadJobDescription(statisJob2.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(job2Ret));
+        auto job2 = nebula::value(job2Ret);
+        ASSERT_EQ(statisJob2.id_, job2.id_);
+        ASSERT_EQ(cpp2::JobStatus::FINISHED, job2.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);
@@ -328,18 +348,21 @@ TEST_F(GetStatisTest, StatisJob) {
 
 TEST_F(GetStatisTest, MockSingleMachineTest) {
     GraphSpaceID spaceId = 1;
-    // Because only send to leader, need to mock leader distribution
-    std::unordered_map<HostAddr, LeaderParts> leaders = {{HostAddr("0", 0), {{1, {1}}}}};
+    // // Because only send to leader, need to mock leader distribution
+    std::map<HostAddr, ActiveHostsMan::AllLeaders> allStorage;
+    auto storage = fakeHost("0", 0, 1, {1});
+    allStorage[storage.first] = storage.second;
+
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
     TestUtils::assembleSpace(kv_.get(), 1, 1, 1, 1);
-    for (const auto& entry : leaders) {
+    for (const auto& entry : allStorage) {
         auto now = time::WallClock::fastNowInMilliSec();
         auto ret = ActiveHostsMan::updateHostInfo(
             kv_.get(),
             entry.first,
             HostInfo(now, cpp2::HostRole::STORAGE, gitInfoSha()),
             &entry.second);
-        CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
+        ASSERT_EQ(ret, cpp2::ErrorCode::SUCCEEDED);
     }
 
     NiceMock<MockAdminClient> adminClient;
@@ -362,10 +385,11 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
     // check job result
     {
         sleep(1);
-        auto desc = JobDescription::loadJobDescription(job1.id_, kv_.get());
-        ASSERT_TRUE(desc);
-        ASSERT_EQ(job1.id_, desc.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.value().status_);
+        auto descRet = JobDescription::loadJobDescription(job1.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(descRet));
+        auto desc = nebula::value(descRet);
+        ASSERT_EQ(job1.id_, desc.id_);
+        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);
@@ -401,10 +425,11 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
     // check job result
     {
         sleep(1);
-        auto desc = JobDescription::loadJobDescription(job2.id_, kv_.get());
-        ASSERT_TRUE(desc);
-        ASSERT_EQ(job2.id_, desc.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.value().status_);
+        auto descRet = JobDescription::loadJobDescription(job2.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(descRet));
+        auto desc = nebula::value(descRet);
+        ASSERT_EQ(job2.id_, desc.id_);
+        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);
@@ -436,21 +461,25 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
 TEST_F(GetStatisTest, MockMultiMachineTest) {
     GraphSpaceID spaceId = 1;
     // Because only send to leader, need to mock leader distribution
-    std::unordered_map<HostAddr, LeaderParts> leaders = {
-        {HostAddr("0", 0), {{1, {1, 2}}}},
-        {HostAddr("1", 1), {{1, {3, 4}}}},
-        {HostAddr("2", 2), {{1, {5, 6}}}},
-    };
+    std::map<HostAddr, ActiveHostsMan::AllLeaders> allStorage;
+    auto s1 = fakeHost("0", 0, 1, {1, 2});
+    auto s2 = fakeHost("1", 1, 1, {3, 4});
+    auto s3 = fakeHost("2", 2, 1, {5, 6});
+    allStorage[s1.first] = s1.second;
+    allStorage[s2.first] = s2.second;
+    allStorage[s3.first] = s3.second;
+
+
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
     TestUtils::assembleSpace(kv_.get(), 1, 6, 3, 3);
-    for (const auto& entry : leaders) {
+    for (const auto& entry : allStorage) {
         auto now = time::WallClock::fastNowInMilliSec();
         auto ret = ActiveHostsMan::updateHostInfo(
             kv_.get(),
             entry.first,
             HostInfo(now, cpp2::HostRole::STORAGE, gitInfoSha()),
             &entry.second);
-        CHECK_EQ(ret, kvstore::ResultCode::SUCCEEDED);
+        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, ret);
     }
 
     NiceMock<MockAdminClient> adminClient;
@@ -475,10 +504,11 @@ TEST_F(GetStatisTest, MockMultiMachineTest) {
     // check job result
     {
         sleep(1);
-        auto desc = JobDescription::loadJobDescription(job.id_, kv_.get());
-        ASSERT_TRUE(desc);
-        ASSERT_EQ(job.id_, desc.value().id_);
-        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.value().status_);
+        auto descRet = JobDescription::loadJobDescription(job.id_, kv_.get());
+        ASSERT_TRUE(nebula::ok(descRet));
+        auto desc = nebula::value(descRet);
+        ASSERT_EQ(job.id_, desc.id_);
+        ASSERT_EQ(cpp2::JobStatus::FINISHED, desc.status_);
 
         cpp2::GetStatisReq req;
         req.set_space_id(spaceId);

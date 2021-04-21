@@ -8,6 +8,8 @@
 #include "common/time/Duration.h"
 #include "common/clients/storage/GraphStorageClient.h"
 #include "codec/RowReader.h"
+#include <thrift/lib/cpp/util/EnumUtils.h>
+
 
 DEFINE_string(meta_server_addrs, "", "meta server address");
 DEFINE_int32(io_threads, 10, "client io threads");
@@ -169,13 +171,13 @@ private:
     void addVertex(std::vector<VertexID>& prev, std::vector<VertexID>& cur, VertexID startId) {
         std::unordered_map<TagID, std::vector<std::string>> propNames;
         propNames[tagId_].emplace_back(propName_);
-        auto future = client_->addVertices(spaceId_,
-                                           genVertices(prev, cur, startId), propNames, true);
+        auto future =
+            client_->addVertices(spaceId_, genVertices(prev, cur, startId), propNames, true);
         auto resp = std::move(future).get();
         if (!resp.succeeded()) {
             for (auto& err : resp.failedParts()) {
                 VLOG(2) << "Partition " << err.first
-                        << " failed: " << static_cast<int32_t>(err.second);
+                        << " failed: " << apache::thrift::util::enumNameSafe(err.second);
             }
         }
     }

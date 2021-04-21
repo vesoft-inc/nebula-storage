@@ -250,8 +250,8 @@ public:
 
     void removePart(GraphSpaceID spaceId, PartitionID partId) override;
 
-    int32_t allLeader(
-        std::unordered_map<GraphSpaceID, std::vector<PartitionID>>& leaderIds) override;
+    int32_t allLeader(std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>&
+                          leaderIds) override;
 
     ErrorOr<ResultCode, std::vector<std::string>> backupTable(
         GraphSpaceID spaceId,
@@ -319,6 +319,7 @@ private:
     std::unordered_map<GraphSpaceID, std::shared_ptr<SpaceListenerInfo>> spaceListeners_;
 
     std::shared_ptr<folly::IOThreadPoolExecutor> ioPool_;
+    std::shared_ptr<thread::GenericWorker> cleanWalWorker_;
     std::shared_ptr<thread::GenericThreadPool> bgWorkers_;
     HostAddr storeSvcAddr_;
     std::shared_ptr<folly::Executor> workers_;

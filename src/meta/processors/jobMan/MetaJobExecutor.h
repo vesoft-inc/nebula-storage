@@ -7,6 +7,7 @@
 #ifndef META_METAJOBEXECUTOR_H_
 #define META_METAJOBEXECUTOR_H_
 
+#include <thrift/lib/cpp/util/EnumUtils.h>
 #include "common/base/ErrorOr.h"
 #include "kvstore/KVStore.h"
 #include "meta/processors/admin/AdminClient.h"
@@ -15,8 +16,8 @@
 namespace nebula {
 namespace meta {
 
-using ErrOrHosts  = ErrorOr<cpp2::ErrorCode,
-                            std::vector<std::pair<HostAddr, std::vector<PartitionID>>>>;
+using PartsOfHost = std::pair<HostAddr, std::vector<PartitionID>>;
+using ErrOrHosts  = ErrorOr<cpp2::ErrorCode, std::vector<PartsOfHost>>;
 
 class MetaJobExecutor {
 public:
@@ -46,7 +47,9 @@ public:
     // Stop the job when the user cancel it.
     virtual cpp2::ErrorCode stop() = 0;
 
-    virtual void finish(bool) {}
+    virtual cpp2::ErrorCode finish(bool) {
+        return cpp2::ErrorCode::SUCCEEDED;
+    }
 
     void setSpaceId(GraphSpaceID spaceId) { space_ = spaceId; }
 

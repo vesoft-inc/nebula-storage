@@ -13,6 +13,7 @@ jobs:
         service:
           - metad
           - storaged
+          - tools
     steps:
       - uses: actions/checkout@v2
         with:

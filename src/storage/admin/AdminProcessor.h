@@ -58,7 +58,6 @@ public:
         if (partMeta.hosts_.size() == 1) {
             LOG(INFO) << "Skip transfer leader of space " << spaceId
                       << ", part " << partId << " because of single replica.";
-            this->pushResultCode(cpp2::ErrorCode::E_TRANSFER_LEADER_FAILED, partId);
             onFinished();
             return;
         }
@@ -107,7 +106,7 @@ public:
                 });
             } else {
                 LOG(ERROR) << "Space " << spaceId << " part " << partId
-                           << " failed transfer leader, error:" << static_cast<int32_t>(code);
+                           << " failed transfer leader, error: " << static_cast<int32_t>(code);
                 this->pushResultCode(to(code), partId);
                 onFinished();
                 return;
@@ -356,8 +355,15 @@ public:
 
     void process(const cpp2::GetLeaderReq&) {
         CHECK_NOTNULL(env_->kvstore_);
+        std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>> allLeaders;
+        env_->kvstore_->allLeader(allLeaders);
         std::unordered_map<GraphSpaceID, std::vector<PartitionID>> leaderIds;
-        env_->kvstore_->allLeader(leaderIds);
+        for (auto& spaceLeaders : allLeaders) {
+            auto& spaceId = spaceLeaders.first;
+            for (auto& partLeader : spaceLeaders.second) {
+                leaderIds[spaceId].emplace_back(partLeader.get_part_id());
+            }
+        }
         resp_.set_leader_parts(std::move(leaderIds));
         this->onFinished();
     }

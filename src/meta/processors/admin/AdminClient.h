@@ -135,7 +135,8 @@ private:
 
     Status handleResponse(const storage::cpp2::AdminExecResp& resp);
 
-    StatusOr<std::vector<HostAddr>> getPeers(GraphSpaceID spaceId, PartitionID partId);
+    ErrorOr<cpp2::ErrorCode, std::vector<HostAddr>>
+    getPeers(GraphSpaceID spaceId, PartitionID partId);
 
     std::vector<HostAddr> getAdminAddrFromPeers(const std::vector<HostAddr> &peers);
 

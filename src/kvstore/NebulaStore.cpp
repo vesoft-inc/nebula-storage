@@ -4,16 +4,16 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "common/base/Base.h"
+#include <algorithm>
+#include <folly/Likely.h>
+#include <folly/ScopeGuard.h>
+#include <thrift/lib/cpp/util/EnumUtils.h>
+
+#include "kvstore/NebulaStore.h"
 #include "common/fs/FileUtils.h"
 #include "common/network/NetworkUtils.h"
-#include "kvstore/NebulaStore.h"
-#include <folly/Likely.h>
-#include <algorithm>
-#include <cstdint>
 #include "kvstore/RocksEngine.h"
 #include "kvstore/SnapshotManagerImpl.h"
-#include <folly/ScopeGuard.h>
 
 DEFINE_string(engine_type, "rocksdb", "rocksdb, memory...");
 DEFINE_int32(custom_filter_interval_secs, 24 * 3600,
@@ -39,6 +39,8 @@ NebulaStore::~NebulaStore() {
     spaceListeners_.clear();
     bgWorkers_->stop();
     bgWorkers_->wait();
+    cleanWalWorker_->stop();
+    cleanWalWorker_->wait();
     LOG(INFO) << "~NebulaStore()";
 }
 
@@ -46,6 +48,8 @@ bool NebulaStore::init() {
     LOG(INFO) << "Start the raft service...";
     bgWorkers_ = std::make_shared<thread::GenericThreadPool>();
     bgWorkers_->start(FLAGS_num_workers, "nebula-bgworkers");
+    cleanWalWorker_ = std::make_shared<thread::GenericWorker>();
+    CHECK(cleanWalWorker_->start());
     snapshot_.reset(new SnapshotManagerImpl(this));
     raftService_ = raftex::RaftexService::createService(ioPool_,
                                                         workers_,
@@ -63,7 +67,8 @@ bool NebulaStore::init() {
         loadLocalListenerFromPartManager();
     }
 
-    bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+    cleanWalWorker_->addDelayTask(
+        FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     LOG(INFO) << "Register handler...";
     options_.partMan_->registerHandler(this);
     return true;
@@ -466,12 +471,12 @@ void NebulaStore::addListener(GraphSpaceID spaceId,
     }
     auto listener = partIt->second.find(type);
     if (listener != partIt->second.end()) {
-        LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+        LOG(INFO) << "Listener of type " << apache::thrift::util::enumNameSafe(type)
                   << " of [Space: " << spaceId << ", Part: " << partId << "] has existed!";
         return;
     }
     partIt->second.emplace(type, newListener(spaceId, partId, std::move(type), peers));
-    LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+    LOG(INFO) << "Listener of type " << apache::thrift::util::enumNameSafe(type)
               << " of [Space: " << spaceId << ", Part: " << partId << "] is added";
     return;
 }
@@ -518,7 +523,7 @@ void NebulaStore::removeListener(GraphSpaceID spaceId,
                 raftService_->removePartition(listener->second);
                 listener->second->reset();
                 partIt->second.erase(type);
-                LOG(INFO) << "Listener of type " << static_cast<int32_t>(type)
+                LOG(INFO) << "Listener of type " << apache::thrift::util::enumNameSafe(type)
                           << " of [Space: " << spaceId << ", Part: " << partId << "] is removed";
                 return;
             }
@@ -1019,8 +1024,8 @@ ErrorOr<ResultCode, std::shared_ptr<SpacePartInfo>> NebulaStore::space(GraphSpac
     return it->second;
 }
 
-int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
-                                                  std::vector<PartitionID>>& leaderIds) {
+int32_t NebulaStore::allLeader(
+    std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>& leaderIds) {
     folly::RWSpinLock::ReadHolder rh(&lock_);
     int32_t count = 0;
     for (const auto& spaceIt : spaces_) {
@@ -1028,7 +1033,10 @@ int32_t NebulaStore::allLeader(std::unordered_map<GraphSpaceID,
         for (const auto& partIt : spaceIt.second->parts_) {
             auto partId = partIt.first;
             if (partIt.second->isLeader()) {
-                leaderIds[spaceId].emplace_back(partId);
+                meta::cpp2::LeaderInfo partInfo;
+                partInfo.set_part_id(partId);
+                partInfo.set_term(partIt.second->termId());
+                leaderIds[spaceId].emplace_back(std::move(partInfo));
                 ++count;
             }
         }
@@ -1041,10 +1049,11 @@ bool NebulaStore::checkLeader(std::shared_ptr<Part> part, bool canReadFromFollow
 }
 
 void NebulaStore::cleanWAL() {
+    folly::RWSpinLock::ReadHolder rh(&lock_);
     SCOPE_EXIT {
-        bgWorkers_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000,
-                                 &NebulaStore::cleanWAL,
-                                 this);
+        cleanWalWorker_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000,
+                                      &NebulaStore::cleanWAL,
+                                      this);
     };
     for (const auto& spaceEntry : spaces_) {
         if (FLAGS_rocksdb_disable_wal) {

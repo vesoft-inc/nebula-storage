@@ -92,7 +92,13 @@ public:
 
     static std::string leaderKeyV2(std::string addr, Port port);
 
+    static std::string leaderKey(GraphSpaceID spaceId, PartitionID partId);
+
     static std::string leaderVal(const LeaderParts& leaderParts);
+
+    static std::string leaderValV3(const HostAddr& h, int64_t term);
+
+    static std::string leaderPrefix(GraphSpaceID spaceId);
 
     static const std::string& leaderPrefix();
 
@@ -100,9 +106,13 @@ public:
 
     static HostAddr parseLeaderKeyV1(folly::StringPiece key);
 
+    static std::pair<GraphSpaceID, PartitionID> parseLeaderKeyV3(folly::StringPiece key);
+
     static HostAddr parseLeaderKeyV2(folly::StringPiece key);
 
-    static LeaderParts parseLeaderVal(folly::StringPiece val);
+    static LeaderParts parseLeaderValV1(folly::StringPiece val);
+
+    static std::tuple<HostAddr, int64_t, cpp2::ErrorCode> parseLeaderValV3(folly::StringPiece val);
 
     static std::string schemaVal(const std::string& name, const cpp2::Schema& schema);
 
@@ -309,8 +319,6 @@ public:
 
     static std::string genTimestampStr();
 
-    static folly::Optional<bool> isIndexRebuilding(kvstore::KVStore*);
-
     static GraphSpaceID parseEdgesKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseTagsKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseIndexesKeySpaceID(folly::StringPiece key);
@@ -318,16 +326,6 @@ public:
     static GraphSpaceID parseIndexKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
-    // A direct value of true means that data will not be written to follow via the raft protocol,
-    // but will be written directly to local disk
-    static bool replaceHostInPartition(kvstore::KVStore* kvstore,
-                                       const HostAddr& ipv4From,
-                                       const HostAddr& ipv4To,
-                                       bool direct = false);
-    static bool replaceHostInZone(kvstore::KVStore* kvstore,
-                                  const HostAddr& ipv4From,
-                                  const HostAddr& ipv4To,
-                                  bool direct = false);
     // backup
     static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndexTable(
         kvstore::KVStore* kvstore,

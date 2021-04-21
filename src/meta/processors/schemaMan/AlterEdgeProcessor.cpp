@@ -11,26 +11,39 @@ namespace nebula {
 namespace meta {
 
 void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
-    CHECK_SPACE_ID_AND_RETURN(req.get_space_id());
     GraphSpaceID spaceId = req.get_space_id();
+    CHECK_SPACE_ID_AND_RETURN(spaceId);
+    auto edgeName = req.get_edge_name();
+
     folly::SharedMutex::ReadHolder rHolder(LockUtils::snapshotLock());
     folly::SharedMutex::WriteHolder wHolder(LockUtils::edgeLock());
-    auto ret = getEdgeType(spaceId, req.get_edge_name());
-    if (!ret.ok()) {
-        handleErrorCode(MetaCommon::to(ret.status()));
+    auto ret = getEdgeType(spaceId, edgeName);
+    if (!nebula::ok(ret)) {
+        auto retCode = nebula::error(ret);
+        LOG(ERROR) << "Failed to get edge " << edgeName << " error "
+                   << apache::thrift::util::enumNameSafe(retCode);
+        handleErrorCode(retCode);
         onFinished();
         return;
     }
-    auto edgeType = ret.value();
+    auto edgeType = nebula::value(ret);
 
     // Check the edge belongs to the space
-    std::unique_ptr<kvstore::KVIterator> iter;
     auto edgePrefix = MetaServiceUtils::schemaEdgePrefix(spaceId, edgeType);
-    auto code = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, edgePrefix, &iter);
-    if (code != kvstore::ResultCode::SUCCEEDED || !iter->valid()) {
-        LOG(ERROR) << "Edge could not be found " << req.get_edge_name()
-                   << ", spaceId " << spaceId
-                   << ", edgeType " << edgeType;
+    auto retPre = doPrefix(edgePrefix);
+    if (!nebula::ok(retPre)) {
+        auto retCode = nebula::error(retPre);
+        LOG(ERROR) << "Edge Prefix failed, edgename: " << edgeName
+                   << ", spaceId " << spaceId << " error "
+                   << apache::thrift::util::enumNameSafe(retCode);
+        handleErrorCode(retCode);
+        onFinished();
+        return;
+    }
+    auto iter = nebula::value(retPre).get();
+    if (!iter->valid()) {
+        LOG(ERROR) << "Edge could not be found, spaceId " << spaceId
+                   << ", edgename: " << edgeName;
         handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
         onFinished();
         return;
@@ -46,18 +59,38 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     auto& edgeItems = req.get_edge_items();
 
     auto iRet = getIndexes(spaceId, edgeType);
-    if (!iRet.ok()) {
-        handleErrorCode(MetaCommon::to(iRet.status()));
+    if (!nebula::ok(iRet)) {
+        handleErrorCode(nebula::error(iRet));
         onFinished();
         return;
     }
-    auto indexes = std::move(iRet).value();
+
+    auto indexes = std::move(nebula::value(iRet));
     auto existIndex = !indexes.empty();
     if (existIndex) {
         auto iStatus = indexCheck(indexes, edgeItems);
         if (iStatus != cpp2::ErrorCode::SUCCEEDED) {
-            LOG(ERROR) << "Alter edge error, index conflict : " << static_cast<int32_t>(iStatus);
+            LOG(ERROR) << "Alter edge error, index conflict : "
+                       << apache::thrift::util::enumNameSafe(iStatus);
             handleErrorCode(iStatus);
+            onFinished();
+            return;
+        }
+    }
+
+    auto& alterSchemaProp = req.get_schema_prop();
+    if (existIndex) {
+        int64_t duration = 0;
+        if (alterSchemaProp.get_ttl_duration()) {
+            duration = *alterSchemaProp.get_ttl_duration();
+        }
+        std::string col;
+        if (alterSchemaProp.get_ttl_col()) {
+            col = *alterSchemaProp.get_ttl_col();
+        }
+        if (!col.empty() && duration > 0) {
+            LOG(ERROR) << "Alter edge error, index and ttl conflict";
+            handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
             onFinished();
             return;
         }
@@ -69,7 +102,8 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
             auto retCode =
                 MetaServiceUtils::alterColumnDefs(columns, prop, col, *edgeItem.op_ref());
             if (retCode != cpp2::ErrorCode::SUCCEEDED) {
-                LOG(ERROR) << "Alter edge column error " << static_cast<int32_t>(retCode);
+                LOG(ERROR) << "Alter edge column error "
+                           << apache::thrift::util::enumNameSafe(retCode);
                 handleErrorCode(retCode);
                 onFinished();
                 return;
@@ -82,26 +116,25 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
         onFinished();
         return;
     }
+
     // Update schema property if edge not index
-    auto& alterSchemaProp = req.get_schema_prop();
     auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
     if (retCode != cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Alter edge property error " << static_cast<int32_t>(retCode);
+        LOG(ERROR) << "Alter edge property error "
+                   << apache::thrift::util::enumNameSafe(retCode);
         handleErrorCode(retCode);
         onFinished();
         return;
     }
-    if (!existIndex) {
-        schema.set_schema_prop(std::move(prop));
-    }
+
+    schema.set_schema_prop(std::move(prop));
     schema.set_columns(std::move(columns));
 
     std::vector<kvstore::KV> data;
-    LOG(INFO) << "Alter edge " << req.get_edge_name() << ", edgeType " << edgeType;
+    LOG(INFO) << "Alter edge " << edgeName << ", edgeType " << edgeType;
     data.emplace_back(MetaServiceUtils::schemaEdgeKey(spaceId, edgeType, version),
-                      MetaServiceUtils::schemaVal(req.get_edge_name(), schema));
+                      MetaServiceUtils::schemaVal(edgeName, schema));
     resp_.set_id(to(edgeType, EntryType::EDGE));
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
     doSyncPutAndUpdate(std::move(data));
 }
 
