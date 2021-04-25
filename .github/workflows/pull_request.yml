@@ -46,7 +46,7 @@ jobs:
       env:
         TOOLSET_DIR: /opt/vesoft/toolset/clang/9.0.0
         CCACHE_DIR: /tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}
-        CCACHE_MAXSIZE: 6G
+        CCACHE_MAXSIZE: 8G
       volumes:
         - /tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}:/tmp/ccache/nebula-storage/${{ matrix.os }}-${{ matrix.compiler }}
       options: --cap-add=SYS_PTRACE
@@ -88,6 +88,7 @@ jobs:
                   -DCMAKE_BUILD_TYPE=Debug \
                   -DENABLE_TESTING=on \
                   -DCMAKE_PREFIX_PATH=modules/common \
+                  -DNEBULA_USE_LINKER=lld \
                   -B build
               ;;
             esac
@@ -97,21 +98,25 @@ jobs:
             cmake \
                 -DCMAKE_CXX_COMPILER=$TOOLSET_DIR/bin/clang++ \
                 -DCMAKE_C_COMPILER=$TOOLSET_DIR/bin/clang \
-                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
                 -DENABLE_ASAN=on \
                 -DENABLE_TESTING=on \
                 -DCMAKE_PREFIX_PATH=modules/common \
+                -DNEBULA_USE_LINKER=lld \
                 -B build
             ;;
           esac
       - name: Make storage
-        run: cmake --build build/ -j $(($(nproc)/2+1))
+        run: |
+          ccache -z
+          cmake --build build/ -j $(($(nproc)/3+1))
+          ccache -s
       - name: CTest
         env:
           ASAN_OPTIONS: fast_unwind_on_malloc=1
         run: ctest -j $(($(nproc)/2+1)) --timeout 600 --output-on-failure
         working-directory: build/
-        timeout-minutes: 15
+        timeout-minutes: 20
       - name: Cleanup
         if: ${{ always() }}
         run: rm -rf build modules/common

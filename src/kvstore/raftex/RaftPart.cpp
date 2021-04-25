@@ -19,6 +19,7 @@
 #include "kvstore/raftex/LogStrListIterator.h"
 #include "kvstore/raftex/Host.h"
 #include "kvstore/raftex/RaftPart.h"
+#include <thrift/lib/cpp/util/EnumUtils.h>
 
 DEFINE_uint32(raft_heartbeat_interval_secs, 5,
              "Seconds between each heartbeat");
@@ -32,7 +33,6 @@ DEFINE_bool(trace_raft, false, "Enable trace one raft request");
 DECLARE_int32(wal_ttl);
 DECLARE_int64(wal_file_size);
 DECLARE_int32(wal_buffer_size);
-DECLARE_int32(wal_buffer_num);
 DECLARE_bool(wal_sync);
 
 namespace nebula {
@@ -227,7 +227,6 @@ RaftPart::RaftPart(
     FileBasedWalPolicy policy;
     policy.fileSize = FLAGS_wal_file_size;
     policy.bufferSize = FLAGS_wal_buffer_size;
-    policy.numBuffers = FLAGS_wal_buffer_num;
     policy.sync = FLAGS_wal_sync;
     wal_ = FileBasedWal::getWal(walRoot,
                                 idStr_,
@@ -1141,8 +1140,8 @@ typename RaftPart::Role RaftPart::processElectionResponses(
             weight_.store(curWeight * 2);
         } else {
             LOG(ERROR) << idStr_ << "Receive response about askForVote from "
-                       << hosts[r.first]->address()
-                       << ", error code is " << static_cast<int32_t>(r.second.get_error_code());
+                       << hosts[r.first]->address() << ", error code is "
+                       << apache::thrift::util::enumNameSafe(r.second.get_error_code());
         }
     }
 
