@@ -9,6 +9,7 @@
 #include "common/network/NetworkUtils.h"
 #include "common/process/ProcessUtils.h"
 #include "common/time/TimeUtils.h"
+#include "common/time/TimezoneInfo.h"
 #include "common/version/Version.h"
 #include "storage/StorageServer.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
@@ -108,6 +109,13 @@ int main(int argc, char *argv[]) {
 
     // Setup the signal handlers
     status = setupSignalHandler();
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
+    // load the time zone data
+    status = nebula::time::Timezone::init();
     if (!status.ok()) {
         LOG(ERROR) << status;
         return EXIT_FAILURE;

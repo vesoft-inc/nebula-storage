@@ -14,6 +14,7 @@
 #include "common/hdfs/HdfsCommandHelper.h"
 #include "common/thread/GenericThreadPool.h"
 #include "common/time/TimeUtils.h"
+#include "common/time/TimezoneInfo.h"
 #include "common/version/Version.h"
 #include <thrift/lib/cpp2/server/ThriftServer.h>
 #include "kvstore/PartManager.h"
@@ -295,6 +296,13 @@ int main(int argc, char *argv[]) {
 
     // Setup the signal handlers
     status = setupSignalHandler();
+    if (!status.ok()) {
+        LOG(ERROR) << status;
+        return EXIT_FAILURE;
+    }
+
+    // load the time zone data
+    status = nebula::time::Timezone::init();
     if (!status.ok()) {
         LOG(ERROR) << status;
         return EXIT_FAILURE;
