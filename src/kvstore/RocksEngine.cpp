@@ -15,6 +15,9 @@
 
 DEFINE_bool(move_files, false,
             "Move the SST files instead of copy when ingest into dataset");
+DEFINE_uint32(readahead_size, 512 * 1024,
+              "Using a large readahead size can typically improve the performance "
+              "of forward iteration");
 
 namespace nebula {
 namespace kvstore {
@@ -192,6 +195,7 @@ RocksEngine::range(const std::string& start,
                    std::unique_ptr<KVIterator>* storageIter) {
     rocksdb::ReadOptions options;
     options.total_order_seek = true;
+    options.readahead_size = FLAGS_readahead_size;
     rocksdb::Iterator* iter = db_->NewIterator(options);
     if (iter) {
         iter->Seek(rocksdb::Slice(start));
@@ -205,6 +209,7 @@ RocksEngine::prefix(const std::string& prefix,
                     std::unique_ptr<KVIterator>* storageIter) {
     rocksdb::ReadOptions options;
     options.prefix_same_as_start = true;
+    options.readahead_size = FLAGS_readahead_size;
     rocksdb::Iterator* iter = db_->NewIterator(options);
     if (iter) {
         iter->Seek(rocksdb::Slice(prefix));
@@ -219,6 +224,7 @@ RocksEngine::rangeWithPrefix(const std::string& start,
                              std::unique_ptr<KVIterator>* storageIter) {
     rocksdb::ReadOptions options;
     options.prefix_same_as_start = true;
+    options.readahead_size = FLAGS_readahead_size;
     rocksdb::Iterator* iter = db_->NewIterator(options);
     if (iter) {
         iter->Seek(rocksdb::Slice(start));
