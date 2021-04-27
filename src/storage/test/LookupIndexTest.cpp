@@ -2921,6 +2921,7 @@ TEST(LookupIndexTest, DedupEdgeIndexTest) {
         columnHint1.set_begin_value(Value(tony));
         columnHint1.set_column_name("player1");
         columnHint1.set_scan_type(cpp2::ScanType::PREFIX);
+
         cpp2::IndexColumnHint columnHint2;
         columnHint2.set_begin_value(Value(tony));
         columnHint2.set_column_name("player1");
