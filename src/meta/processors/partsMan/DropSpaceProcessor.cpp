@@ -101,25 +101,6 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
     auto statiskey = MetaServiceUtils::statisKey(spaceId);
     deleteKeys.emplace_back(statiskey);
 
-    // 6. Delete related leader data
-    auto leaderKey = MetaServiceUtils::leaderPrefix(spaceId);
-
-    auto leaderRet = doPrefix(leaderKey);
-    if (!nebula::ok(leaderRet)) {
-        auto retCode = nebula::error(leaderRet);
-        LOG(ERROR) << "Drop space Failed, space " << spaceName
-                   << " error: " << apache::thrift::util::enumNameSafe(retCode);
-        handleErrorCode(retCode);
-        onFinished();
-        return;
-    }
-
-    auto leaderIter = nebula::value(leaderRet).get();
-    while (leaderIter->valid()) {
-        deleteKeys.emplace_back(leaderIter->key());
-        leaderIter->next();
-    }
-
     doSyncMultiRemoveAndUpdate(std::move(deleteKeys));
     LOG(INFO) << "Drop space " << spaceName << ", id " << spaceId;
 }

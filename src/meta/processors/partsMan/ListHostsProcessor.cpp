@@ -182,27 +182,12 @@ cpp2::ErrorCode ListHostsProcessor::fillLeaders() {
         auto spaceIdAndPartId = MetaServiceUtils::parseLeaderKeyV3(iter->key());
         LOG(INFO) << "show hosts: space = " << spaceIdAndPartId.first
                   << ", part = " << spaceIdAndPartId.second;
-        // If space not exists, remove leader key
+        // If the space in the leader key don't exist, remove leader key
         auto spaceId = spaceIdAndPartId.first;
-        auto partId = spaceIdAndPartId.second;
-
-        // The space id in the leader key may no exist.
         auto spaceIter = spaceIdNameMap_.find(spaceId);
         if (spaceIter == spaceIdNameMap_.end()) {
             removeLeadersKey.emplace_back(iter->key());
             continue;
-        }
-        // If part invalid , remove leader key
-        auto partKey = MetaServiceUtils::partKey(spaceId, partId);
-        auto partRet = doGet(std::move(partKey));
-        if (!nebula::ok(partRet)) {
-            retCode = nebula::error(partRet);
-            if (retCode == cpp2::ErrorCode::E_NOT_FOUND) {
-                removeLeadersKey.emplace_back(iter->key());
-                continue;
-            } else {
-                return retCode;
-            }
         }
 
         std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(iter->val());
@@ -224,7 +209,7 @@ cpp2::ErrorCode ListHostsProcessor::fillLeaders() {
             continue;
         }
 
-        hostIt->leader_parts_ref()[spaceIter->second].emplace_back(partId);
+        hostIt->leader_parts_ref()[spaceIter->second].emplace_back(spaceIdAndPartId.second);
     }
 
     removeInvalidLeaders(std::move(removeLeadersKey));
