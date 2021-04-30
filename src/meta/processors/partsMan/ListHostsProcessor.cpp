@@ -286,9 +286,10 @@ void ListHostsProcessor::removeInvalidLeaders(std::vector<std::string>&& removeL
     kvstore_->asyncMultiRemove(kDefaultSpaceId,
                                kDefaultPartId,
                                std::move(removeLeadersKey),
-                               [] (kvstore::ResultCode code) {
-            if (code != kvstore::ResultCode::SUCCEEDED) {
-                LOG(ERROR) << "Async remove long time offline hosts failed: " << code;
+                               [] (nebula::cpp2::ErrorCode code) {
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                LOG(ERROR) << "Async remove long time offline hosts failed: "
+                           << apache::thrift::util::enumNameSafe(code);
             }
         });
 }
