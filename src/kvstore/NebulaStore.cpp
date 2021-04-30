@@ -893,8 +893,9 @@ ResultCode NebulaStore::flush(GraphSpaceID spaceId) {
     return ResultCode::SUCCEEDED;
 }
 
-ErrorOr<ResultCode, std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>
-NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
+ErrorOr<ResultCode, std::vector<cpp2::CheckpointInfo>> NebulaStore::createCheckpoint(
+    GraphSpaceID spaceId,
+    const std::string& name) {
     auto spaceRet = space(spaceId);
     if (!ok(spaceRet)) {
         return error(spaceRet);
@@ -903,6 +904,9 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
     auto space = nebula::value(spaceRet);
     std::string cpPath;
     std::unordered_map<PartitionID, cpp2::LogInfo> partitionInfo;
+    std::vector<cpp2::CheckpointInfo> cpInfo;
+
+    DCHECK(!space->engines_.empty());
 
     for (auto& engine : space->engines_) {
         auto code = engine->createCheckpoint(name);
@@ -934,19 +938,19 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
                 partitionInfo.emplace(part, std::move(info));
             }
         }
+        auto result = nebula::fs::FileUtils::realPath(cpPath.c_str());
+        if (!result.ok()) {
+            return ResultCode::ERR_CHECKPOINT_ERROR;
+        }
+        nebula::cpp2::PartitionBackupInfo backupInfo;
+        nebula::cpp2::CheckpointInfo info;
+        backupInfo.set_info(std::move(partitionInfo));
+        info.set_path(std::move(result.value()));
+        info.set_partition_info(std::move(backupInfo));
+        cpInfo.emplace_back(std::move(info));
     }
 
-    nebula::cpp2::PartitionBackupInfo backupInfo;
-    backupInfo.set_info(std::move(partitionInfo));
-    if (cpPath[0] == '/') {
-        std::make_pair(cpPath, std::move(backupInfo));
-    }
-    auto result = nebula::fs::FileUtils::realPath(cpPath.c_str());
-    if (!result.ok()) {
-        return ResultCode::ERR_CHECKPOINT_ERROR;
-    }
-
-    return std::make_pair(result.value(), std::move(backupInfo));
+    return cpInfo;
 }
 
 ResultCode NebulaStore::dropCheckpoint(GraphSpaceID spaceId, const std::string& name) {
@@ -1131,6 +1135,8 @@ ResultCode NebulaStore::restoreFromFiles(GraphSpaceID spaceId,
     }
     auto space = nebula::value(spaceRet);
 
+    DCHECK_EQ(space->engines_.size(), 1);
+
     for (auto& engine : space->engines_) {
         auto ret = engine->ingest(files, true);
         if (ret != ResultCode::SUCCEEDED) {
@@ -1148,6 +1154,8 @@ ResultCode NebulaStore::multiPutWithoutReplicator(GraphSpaceID spaceId, std::vec
         return error(spaceRet);
     }
     auto space = nebula::value(spaceRet);
+
+    DCHECK_EQ(space->engines_.size(), 1);
 
     for (auto& engine : space->engines_) {
         auto ret = engine->multiPut(keyValues);

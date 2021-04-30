@@ -192,8 +192,9 @@ public:
 
     virtual ResultCode flush(GraphSpaceID spaceId) = 0;
 
-    virtual ErrorOr<ResultCode, std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>
-    createCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
+    virtual ErrorOr<ResultCode, std::vector<cpp2::CheckpointInfo>> createCheckpoint(
+        GraphSpaceID spaceId,
+        const std::string& name) = 0;
 
     virtual ResultCode dropCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
 
@@ -205,6 +206,7 @@ public:
         const std::string& tablePrefix,
         std::function<bool(const folly::StringPiece& key)> filter) = 0;
 
+    // for meta BR
     virtual ResultCode restoreFromFiles(GraphSpaceID spaceId,
                                         const std::vector<std::string>& files) = 0;
 

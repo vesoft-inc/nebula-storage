@@ -83,8 +83,9 @@ public:
 
     virtual folly::Future<Status> getLeaderDist(HostLeaderMap* result);
 
-    virtual folly::Future<StatusOr<std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>>
-    createSnapshot(GraphSpaceID spaceId, const std::string& name, const HostAddr& host);
+    virtual folly::Future<StatusOr<cpp2::BackupInfo>> createSnapshot(GraphSpaceID spaceId,
+                                                                     const std::string& name,
+                                                                     const HostAddr& host);
 
     virtual folly::Future<Status> dropSnapshot(GraphSpaceID spaceId,
                                                const std::string& name,

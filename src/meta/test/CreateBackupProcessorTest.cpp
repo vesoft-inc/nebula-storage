@@ -56,8 +56,10 @@ public:
         partitionInfo.set_info(std::move(info));
         result.set_failed_parts(partRetCode);
         resp.set_result(result);
-        resp.set_path("snapshot_path");
-        resp.set_partition_info(std::move(partitionInfo));
+        nebula::cpp2::CheckpointInfo cpInfo;
+        cpInfo.set_path("snapshot_path");
+        cpInfo.set_partition_info(std::move(partitionInfo));
+        resp.set_info({cpInfo});
         pro.setValue(std::move(resp));
         return f;
     }
@@ -197,12 +199,14 @@ TEST(ProcessorTest, CreateBackupTest) {
         ASSERT_EQ(1, meta.get_backup_info().size());
         for (auto s : meta.get_backup_info()) {
             ASSERT_EQ(1, s.first);
-            ASSERT_EQ(1, s.second.get_cp_dirs().size());
-            auto checkInfo = s.second.get_cp_dirs()[0];
-            ASSERT_EQ("snapshot_path", checkInfo.get_checkpoint_dir());
+            ASSERT_EQ(1, s.second.get_info().size());
+            ASSERT_EQ(1, s.second.get_info()[0].get_info().size());
+
+            auto checkInfo = s.second.get_info()[0].get_info()[0];
+            ASSERT_EQ("snapshot_path", checkInfo.get_path());
             ASSERT_TRUE(meta.get_full());
             ASSERT_FALSE(meta.get_include_system_space());
-            auto partitionInfo = s.second.get_partition_info().get_info();
+            auto partitionInfo = checkInfo.get_partition_info().get_info();
             ASSERT_EQ(partitionInfo.size(), 1);
             for (auto p : partitionInfo) {
                 ASSERT_EQ(p.first, 1);

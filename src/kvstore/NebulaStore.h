@@ -228,7 +228,7 @@ public:
 
     ResultCode flush(GraphSpaceID spaceId) override;
 
-    ErrorOr<ResultCode, std::pair<std::string, nebula::cpp2::PartitionBackupInfo>> createCheckpoint(
+    ErrorOr<ResultCode, std::vector<cpp2::CheckpointInfo>> createCheckpoint(
         GraphSpaceID spaceId,
         const std::string& name) override;
 
@@ -263,9 +263,6 @@ public:
         const std::string& tablePrefix,
         std::function<bool(const folly::StringPiece& key)> filter) override;
 
-    ResultCode restoreFromFiles(GraphSpaceID spaceId,
-                                const std::vector<std::string>& files) override;
-
     void addListener(GraphSpaceID spaceId,
                      PartitionID partId,
                      meta::cpp2::ListenerType type,
@@ -278,6 +275,10 @@ public:
     void checkRemoteListeners(GraphSpaceID spaceId,
                               PartitionID partId,
                               const std::vector<HostAddr>& remoteListeners) override;
+
+    // for meta BR
+    ResultCode restoreFromFiles(GraphSpaceID spaceId,
+                                const std::vector<std::string>& files) override;
 
     ResultCode multiPutWithoutReplicator(GraphSpaceID spaceId,
                                         std::vector<KV> keyValues) override;
