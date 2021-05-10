@@ -28,20 +28,6 @@ public:
         return false;
     }
 
-    static nebula::cpp2::ErrorCode to(const Status& status) {
-        switch (status.code()) {
-            case Status::kOk:
-                return nebula::cpp2::ErrorCode::SUCCEEDED;
-            case Status::kSpaceNotFound:
-            case Status::kHostNotFound:
-            case Status::kTagNotFound:
-            case Status::kUserNotFound:
-                return nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND;
-            default:
-                return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
-        }
-    }
-
     static bool saveRebuildStatus(kvstore::KVStore* kvstore,
                                   std::string statusKey,
                                   std::string&& statusValue) {

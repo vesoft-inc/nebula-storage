@@ -33,7 +33,7 @@ TEST(StorageServiceHandlerTest, FutureAddVerticesTest) {
                                                                          indexMan.get(),
                                                                          nullptr);
     auto resp = storageServiceHandler->future_addVertices(req).get();
-    EXPECT_EQ(typeid(cpp2::ExecResponse).name() , typeid(resp).name());
+    EXPECT_EQ(typeid(nebula::cpp2::ExecResponse).name() , typeid(resp).name());
 
     LOG(INFO) << "Check ErrorCode of AddVerticesProcessor...";
     ASSERT_EQ(0, resp.result.failed_codes.size());

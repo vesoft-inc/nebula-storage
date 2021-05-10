@@ -22,7 +22,6 @@
 namespace nebula {
 namespace storage {
 
-using PartCode = std::pair<PartitionID, nebula::cpp2::ErrorCode>;
 
 template<typename RESP>
 class BaseProcessor {
@@ -95,9 +94,9 @@ protected:
     nebula::meta::cpp2::ColumnDef columnDef(std::string name,
                                             nebula::meta::cpp2::PropertyType type);
 
-    void pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId);
-
-    void pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId, HostAddr leader);
+    void pushResultCode(nebula::cpp2::ErrorCode code,
+                        PartitionID partId,
+                        HostAddr leader = HostAddr("", 0));
 
     void handleErrorCode(nebula::cpp2::ErrorCode code,
                          GraphSpaceID spaceId,

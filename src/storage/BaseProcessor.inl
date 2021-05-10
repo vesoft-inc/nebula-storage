@@ -66,16 +66,6 @@ BaseProcessor<RESP>::columnDef(std::string name, meta::cpp2::PropertyType type) 
 }
 
 template <typename RESP>
-void BaseProcessor<RESP>::pushResultCode(nebula::cpp2::ErrorCode code, PartitionID partId) {
-    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(code);
-        thriftRet.set_part_id(partId);
-        codes_.emplace_back(std::move(thriftRet));
-    }
-}
-
-template <typename RESP>
 void BaseProcessor<RESP>::pushResultCode(nebula::cpp2::ErrorCode code,
                                          PartitionID partId,
                                          HostAddr leader) {
@@ -83,7 +73,9 @@ void BaseProcessor<RESP>::pushResultCode(nebula::cpp2::ErrorCode code,
         cpp2::PartitionResult thriftRet;
         thriftRet.set_code(code);
         thriftRet.set_part_id(partId);
-        thriftRet.set_leader(leader);
+        if (leader != HostAddr("", 0)) {
+            thriftRet.set_leader(leader);
+        }
         codes_.emplace_back(std::move(thriftRet));
     }
 }

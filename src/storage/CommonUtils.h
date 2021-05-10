@@ -193,8 +193,6 @@ public:
         ttlProps(const meta::SchemaProviderIf* schema);
 
     static StatusOr<Value> ttlValue(const meta::SchemaProviderIf* schema, RowReader* reader);
-
-    static nebula::cpp2::ErrorCode to(const Status& status);
 };
 
 }  // namespace storage

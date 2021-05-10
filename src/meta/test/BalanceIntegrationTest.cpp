@@ -214,7 +214,7 @@ TEST(BalanceIntegrationTest, BalanceTest) {
         auto partRet = newServer->kvStore_->part(spaceId, 1);
         CHECK(ok(partRet));
         auto part = value(partRet);
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, part->engine()->prefix(prefix, &iter));
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, part->engine()->prefix(prefix, &iter));
         int num = 0;
         std::string lastKey = "";
         while (iter->valid()) {

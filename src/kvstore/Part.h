@@ -80,7 +80,7 @@ public:
     void reset() {
         LOG(INFO) << idStr_ << "Clean up all wals";
         wal()->reset();
-        nebula::cpp2::ErrorCode res = engine_->remove(NebulaKeyUtils::systemCommitKey(partId_));
+        auto res = engine_->remove(NebulaKeyUtils::systemCommitKey(partId_));
         if (res != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(WARNING) << idStr_ << "Remove the committedLogId failed, error "
                          << static_cast<int32_t>(res);

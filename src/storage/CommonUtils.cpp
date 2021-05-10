@@ -10,19 +10,6 @@
 namespace nebula {
 namespace storage {
 
-nebula::cpp2::ErrorCode CommonUtils::to(const Status& status) {
-    switch (status.code()) {
-        case Status::kOk:
-            return nebula::cpp2::ErrorCode::SUCCEEDED;
-        case Status::kSpaceNotFound:
-            return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
-        case Status::kPartNotFound:
-            return nebula::cpp2::ErrorCode::E_PART_NOT_FOUND;
-        default:
-            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
-    }
-}
-
 bool CommonUtils::checkDataExpiredForTTL(const meta::SchemaProviderIf* schema,
                                          RowReader* reader,
                                          const std::string& ttlCol,

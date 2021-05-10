@@ -45,7 +45,7 @@ Part::Part(GraphSpaceID spaceId,
 
 std::pair<LogID, TermID> Part::lastCommittedLogId() {
     std::string val;
-    nebula::cpp2::ErrorCode res = engine_->get(NebulaKeyUtils::systemCommitKey(partId_), &val);
+    auto res = engine_->get(NebulaKeyUtils::systemCommitKey(partId_), &val);
     if (res != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(INFO) << idStr_ << "Cannot fetch the last committed log id from the storage engine";
         return std::make_pair(0, 0);
@@ -431,6 +431,7 @@ bool Part::preProcessLog(LogID logId,
     return true;
 }
 
+// TODO(pandasheep) unify raft errorcode
 nebula::cpp2::ErrorCode Part::toResultCode(raftex::AppendLogResult res) {
     switch (res) {
         case raftex::AppendLogResult::SUCCEEDED:

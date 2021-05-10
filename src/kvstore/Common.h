@@ -12,14 +12,10 @@
 #include "common/base/Base.h"
 #include "common/datatypes/HostAddr.h"
 #include "common/thrift/ThriftTypes.h"
-#include "common/interface/gen-cpp2/storage_types.h"
+#include "common/interface/gen-cpp2/common_types.h"
 
 namespace nebula {
 namespace kvstore {
-
-inline std::ostream& operator <<(std::ostream& os, const nebula::cpp2::ErrorCode& rc) {
-    return os << static_cast<int32_t>(rc);
-}
 
 class KVFilter {
 public:

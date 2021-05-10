@@ -233,7 +233,7 @@ TransactionManager::updateEdgeAtomic(size_t vIdLen,
                                      GetBatchFunc batchGetter) {
     auto stRemotePart = env_->metaClient_->partId(spaceId, (*edgeKey.dst_ref()).getStr());
     if (!stRemotePart.ok()) {
-        return folly::makeFuture(CommonUtils::to(stRemotePart.status()));
+        return folly::makeFuture(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR);
     }
     auto remotePart = stRemotePart.value();
     auto localKey = TransactionUtils::edgeKey(vIdLen, partId, edgeKey);
