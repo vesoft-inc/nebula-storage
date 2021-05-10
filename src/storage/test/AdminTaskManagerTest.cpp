@@ -44,6 +44,11 @@ struct HookableTask : public AdminTask {
             return subTasks;
         };
     }
+
+    bool check() override {
+        return true;
+    }
+
     ErrOrSubTasks genSubTasks() override {
         LOG(INFO) << "HookableTask::genSubTasks() subTasks.size()=" << subTasks.size();
         return fGenSubTasks();

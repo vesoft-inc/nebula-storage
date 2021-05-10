@@ -185,7 +185,7 @@ JobDescription::loadJobDescription(JobID iJob, nebula::kvstore::KVStore* kv) {
     std::string val;
     auto retCode = kv->get(kDefaultSpaceId, kDefaultPartId, key, &val);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Loading Job Description Failed"
+        LOG(ERROR) << "Loading Job Description Failed "
                    << apache::thrift::util::enumNameSafe(retCode);
         return retCode;
     }

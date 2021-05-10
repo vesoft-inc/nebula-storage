@@ -16,6 +16,8 @@ nebula_add_library(
     admin/AdminTask.cpp
     admin/CompactTask.cpp
     admin/FlushTask.cpp
+    admin/DownloadTask.cpp
+    admin/IngestTask.cpp
     admin/RebuildIndexTask.cpp
     admin/RebuildTagIndexTask.cpp
     admin/RebuildEdgeIndexTask.cpp
@@ -57,8 +59,6 @@ nebula_add_library(
 
 nebula_add_library(
     storage_http_handler OBJECT
-    http/StorageHttpIngestHandler.cpp
-    http/StorageHttpDownloadHandler.cpp
     http/StorageHttpAdminHandler.cpp
     http/StorageHttpStatsHandler.cpp
 )

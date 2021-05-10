@@ -7,7 +7,6 @@
 #ifndef STORAGE_ADMIN_COMPACTTASK_H_
 #define STORAGE_ADMIN_COMPACTTASK_H_
 
-#include "common/thrift/ThriftTypes.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/NebulaStore.h"
 #include "storage/admin/AdminTask.h"
@@ -18,6 +17,8 @@ namespace storage {
 class CompactTask : public AdminTask {
 public:
     CompactTask(StorageEnv* env, TaskContext&& ctx) : AdminTask(env, std::move(ctx)) {}
+
+    bool check() override;
 
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 

@@ -365,12 +365,8 @@ size_t JobManager::jobSize() const {
 }
 
 bool JobManager::try_dequeue(JobID& jobId) {
-    if (highPriorityQueue_->try_dequeue(jobId)) {
-        return true;
-    } else if (lowPriorityQueue_->try_dequeue(jobId)) {
-        return true;
-    }
-    return false;
+    return highPriorityQueue_->try_dequeue(jobId) ||
+           lowPriorityQueue_->try_dequeue(jobId);
 }
 
 void JobManager::enqueue(const JobID& jobId, const cpp2::AdminCmd& cmd) {
@@ -385,9 +381,10 @@ ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::JobDesc>>
 JobManager::showJobs() {
     std::unique_ptr<kvstore::KVIterator> iter;
     auto retCode = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId,
-                               JobUtil::jobPrefix(), &iter);
+                                    JobUtil::jobPrefix(), &iter);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Fetch Jobs Failed, error: " << apache::thrift::util::enumNameSafe(retCode);
+        LOG(ERROR) << "Fetch Jobs Failed, error: "
+                   << apache::thrift::util::enumNameSafe(retCode);
         return retCode;
     }
 
@@ -435,7 +432,7 @@ JobManager::showJobs() {
 
 bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
     if (*jobDesc.status_ref() == cpp2::JobStatus::QUEUE ||
-            *jobDesc.status_ref() == cpp2::JobStatus::RUNNING) {
+        *jobDesc.status_ref() == cpp2::JobStatus::RUNNING) {
         return false;
     }
     auto jobStart = jobDesc.get_start_time();
@@ -445,10 +442,7 @@ bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
 
 bool JobManager::isRunningJob(const JobDescription& jobDesc) {
     auto status = jobDesc.getStatus();
-    if (status == cpp2::JobStatus::QUEUE || status == cpp2::JobStatus::RUNNING) {
-        return true;
-    }
-    return false;
+    return status == cpp2::JobStatus::QUEUE || status == cpp2::JobStatus::RUNNING;
 }
 
 nebula::cpp2::ErrorCode
@@ -494,6 +488,7 @@ JobManager::showJob(JobID iJob) {
     }
 
     if (!iter->valid()) {
+        LOG(ERROR) << "Job key not found: " << jobKey;
         return nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND;
     }
 

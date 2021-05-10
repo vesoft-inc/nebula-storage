@@ -13,6 +13,7 @@ set(tools_test_deps
     $<TARGET_OBJECTS:codec_obj>
     $<TARGET_OBJECTS:keyutils_obj>
     $<TARGET_OBJECTS:common_ws_common_obj>
+    $<TARGET_OBJECTS:common_hdfs_helper_obj>
     $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_storage_thrift_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>

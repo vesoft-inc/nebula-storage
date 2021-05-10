@@ -17,6 +17,7 @@ set(storage_test_deps
     $<TARGET_OBJECTS:codec_obj>
     $<TARGET_OBJECTS:common_ws_obj>
     $<TARGET_OBJECTS:common_ws_common_obj>
+    $<TARGET_OBJECTS:common_hdfs_helper_obj>
     $<TARGET_OBJECTS:common_http_client_obj>
     $<TARGET_OBJECTS:common_storage_thrift_obj>
     $<TARGET_OBJECTS:common_meta_client_obj>
@@ -66,6 +67,21 @@ nebula_add_test(
         rebuild_index_test
     SOURCES
         RebuildIndexTest.cpp
+    OBJECTS
+        ${storage_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+)
+
+nebula_add_test(
+    NAME
+        download_and_ingest_test
+    SOURCES
+        DownloadAndIngestTest.cpp
     OBJECTS
         ${storage_test_deps}
     LIBRARIES
@@ -462,40 +478,6 @@ nebula_add_test(
         storage_http_admin_test
     SOURCES
         StorageHttpAdminHandlerTest.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:storage_http_handler>
-        $<TARGET_OBJECTS:common_ws_obj>
-        ${storage_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
-
-nebula_add_test(
-    NAME
-        storage_http_download_test
-    SOURCES
-        StorageHttpDownloadHandlerTest.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:storage_http_handler>
-        $<TARGET_OBJECTS:common_ws_obj>
-        ${storage_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
-
-nebula_add_test(
-    NAME
-        storage_http_ingest_test
-    SOURCES
-        StorageHttpIngestHandlerTest.cpp
     OBJECTS
         $<TARGET_OBJECTS:storage_http_handler>
         $<TARGET_OBJECTS:common_ws_obj>

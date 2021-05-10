@@ -130,10 +130,7 @@ bool genData(kvstore::KVStore* kv,
     }
 
     auto code = kv->compact(spaceId);
-    if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        return false;
-    }
-    return true;
+    return code == nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 bool processLookup(kvstore::KVStore* kv,

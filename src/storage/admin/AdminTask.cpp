@@ -11,6 +11,8 @@
 #include "storage/admin/RebuildEdgeIndexTask.h"
 #include "storage/admin/RebuildFTIndexTask.h"
 #include "storage/admin/StatisTask.h"
+#include "storage/admin/DownloadTask.h"
+#include "storage/admin/IngestTask.h"
 
 namespace nebula {
 namespace storage {
@@ -37,6 +39,12 @@ AdminTaskFactory::createAdminTask(StorageEnv* env, TaskContext&& ctx) {
         break;
     case meta::cpp2::AdminCmd::STATS:
         ret = std::make_shared<StatisTask>(env, std::move(ctx));
+        break;
+    case meta::cpp2::AdminCmd::DOWNLOAD:
+        ret = std::make_shared<DownloadTask>(env, std::move(ctx));
+        break;
+    case meta::cpp2::AdminCmd::INGEST:
+        ret = std::make_shared<IngestTask>(env, std::move(ctx));
         break;
     default:
         break;

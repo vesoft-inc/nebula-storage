@@ -20,18 +20,20 @@
 namespace nebula {
 namespace storage {
 
+using TaskFunction = std::function<nebula::cpp2::ErrorCode()>;
+
 class AdminSubTask {
 public:
     AdminSubTask() = default;
 
-    explicit AdminSubTask(std::function<nebula::cpp2::ErrorCode()> f) : run_(f) {}
+    explicit AdminSubTask(TaskFunction f) : run_(f) {}
 
     nebula::cpp2::ErrorCode invoke() {
         return run_();
     }
 
 private:
-    std::function<nebula::cpp2::ErrorCode()> run_;
+    TaskFunction run_;
 };
 
 enum class TaskPriority : int8_t {
@@ -69,7 +71,9 @@ class AdminTask {
 public:
     AdminTask() = default;
 
-    explicit AdminTask(StorageEnv* env, TaskContext&& ctx) : env_(env), ctx_(ctx) {}
+    AdminTask(StorageEnv* env, TaskContext&& ctx) : env_(env), ctx_(ctx) {}
+
+    virtual bool check() = 0;
 
     virtual ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>>
     genSubTasks() = 0;

@@ -65,7 +65,7 @@ StatisJobExecutor::executeInternal(HostAddr&& address, std::vector<PartitionID>&
     cpp2::StatisItem item;
     statisItem_.emplace(address, item);
     return adminClient_->addTask(cpp2::AdminCmd::STATS, jobId_, taskId_++,
-                                 space_, {std::move(address)}, {},
+                                 space_, {std::move(address)}, taskParas_,
                                  std::move(parts), concurrency_, &(statisItem_[address]));
 }
 

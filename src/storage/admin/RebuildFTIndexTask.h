@@ -19,6 +19,8 @@ class RebuildFTIndexTask : public AdminTask {
 public:
     RebuildFTIndexTask(StorageEnv* env, TaskContext&& ctx) : AdminTask(env, std::move(ctx)) {}
 
+    bool check() override;
+
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
 protected:

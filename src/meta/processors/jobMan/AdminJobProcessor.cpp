@@ -34,7 +34,8 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             auto paras = req.get_paras();
             if (cmd == cpp2::AdminCmd::REBUILD_TAG_INDEX ||
                 cmd == cpp2::AdminCmd::REBUILD_EDGE_INDEX ||
-                cmd == cpp2::AdminCmd::STATS) {
+                cmd == cpp2::AdminCmd::STATS ||
+                cmd == cpp2::AdminCmd::DOWNLOAD) {
                 if (paras.empty()) {
                     LOG(ERROR) << "Parameter should be not empty";
                     errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
@@ -61,6 +62,8 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             errorCode = jobMgr->addJob(jobDesc, adminClient_);
             if (errorCode == nebula::cpp2::ErrorCode::SUCCEEDED) {
                 result.set_job_id(nebula::value(jobId));
+            } else {
+                LOG(ERROR) << "Add job failed";
             }
             break;
         }

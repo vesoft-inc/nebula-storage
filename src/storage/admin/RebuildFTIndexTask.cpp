@@ -12,6 +12,10 @@ DECLARE_uint32(raft_heartbeat_interval_secs);
 namespace nebula {
 namespace storage {
 
+bool RebuildFTIndexTask::check() {
+    return env_->kvstore_ != nullptr;
+}
+
 ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>>
 RebuildFTIndexTask::genSubTasks() {
     std::vector<AdminSubTask> tasks;

@@ -67,6 +67,14 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
 
     TaskContext ctx(req, std::move(cb));
     auto task = AdminTaskFactory::createAdminTask(env_, std::move(ctx));
+
+    if (!task->check()) {
+        LOG(ERROR) << "Task argument is invalid";
+        cpp2::PartitionResult thriftRet;
+        thriftRet.set_code(nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA);
+        codes_.emplace_back(std::move(thriftRet));
+    }
+
     if (task) {
         taskManager->addAsyncTask(task);
     } else {

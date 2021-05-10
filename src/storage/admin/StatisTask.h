@@ -26,6 +26,8 @@ public:
         LOG(INFO) << "Release Statis Task";
     }
 
+    bool check() override;
+
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
     void finish(nebula::cpp2::ErrorCode rc) override;

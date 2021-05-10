@@ -13,6 +13,8 @@
 #include "meta/processors/admin/AdminClient.h"
 #include "meta/processors/jobMan/CompactJobExecutor.h"
 #include "meta/processors/jobMan/FlushJobExecutor.h"
+#include "meta/processors/jobMan/DownloadJobExecutor.h"
+#include "meta/processors/jobMan/IngestJobExecutor.h"
 #include "meta/processors/jobMan/MetaJobExecutor.h"
 #include "meta/processors/jobMan/RebuildTagJobExecutor.h"
 #include "meta/processors/jobMan/RebuildEdgeJobExecutor.h"
@@ -44,6 +46,18 @@ MetaJobExecutorFactory::createMetaJobExecutor(const JobDescription& jd,
                                        store,
                                        client,
                                        jd.getParas()));
+        break;
+    case cpp2::AdminCmd::DOWNLOAD:
+        ret.reset(new DownloadJobExecutor(jd.getJobId(),
+                                          store,
+                                          client,
+                                          jd.getParas()));
+        break;
+    case cpp2::AdminCmd::INGEST:
+        ret.reset(new IngestJobExecutor(jd.getJobId(),
+                                        store,
+                                        client,
+                                        jd.getParas()));
         break;
     case cpp2::AdminCmd::REBUILD_TAG_INDEX:
         ret.reset(new RebuildTagJobExecutor(jd.getJobId(),
@@ -99,18 +113,19 @@ ErrOrHosts MetaJobExecutor::getTargetHost(GraphSpaceID spaceId) {
     }
 
     // use vector instead of set because this can convient for next step
+    std::unordered_map<HostAddr, std::vector<PartitionID>> hostAndPart;
     std::vector<std::pair<HostAddr, std::vector<PartitionID>>> hosts;
     while (iter->valid()) {
+        auto part = MetaServiceUtils::parsePartKeyPartId(iter->key());
         auto targets = MetaServiceUtils::parsePartVal(iter->val());
         for (auto& target : targets) {
-            std::vector<PartitionID> parts;
-            hosts.emplace_back(std::make_pair(std::move(target), std::move(parts)));
+            hostAndPart[target].emplace_back(part);
         }
         iter->next();
     }
-    std::sort(hosts.begin(), hosts.end());
-    auto last = std::unique(hosts.begin(), hosts.end());
-    hosts.erase(last, hosts.end());
+    for (auto it = hostAndPart.begin(); it != hostAndPart.end(); it++) {
+        hosts.emplace_back(std::pair(it->first, it->second));
+    }
     return hosts;
 }
 
@@ -212,7 +227,6 @@ nebula::cpp2::ErrorCode MetaJobExecutor::execute() {
         return nebula::error(addressesRet);
     }
 
-    std::vector<PartitionID> parts;
     auto addresses = nebula::value(addressesRet);
 
     // write all tasks first.

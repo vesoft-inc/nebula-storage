@@ -759,8 +759,8 @@ TEST(IndexScanTest, AccurateScanTest) {
         auto* ape0 = new AliasPropertyExpression(new std::string(""), alias0, col0);
         auto* pe0 = new PrimaryExpression(1L);
         auto* r1 =  new RelationalExpression(ape0,
-                                              RelationalExpression::Operator::EQ,
-                                              pe0);
+                                             RelationalExpression::Operator::EQ,
+                                             pe0);
 
         auto* col1 = new std::string("tag_3001_col_1");
         auto* alias1 = new std::string("3001");

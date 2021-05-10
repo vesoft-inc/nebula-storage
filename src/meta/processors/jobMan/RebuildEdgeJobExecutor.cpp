@@ -13,7 +13,7 @@ folly::Future<Status>
 RebuildEdgeJobExecutor::executeInternal(HostAddr&& address,
                                         std::vector<PartitionID>&& parts) {
     return adminClient_->addTask(cpp2::AdminCmd::REBUILD_EDGE_INDEX, jobId_, taskId_++,
-                                 space_, {std::move(address)}, taskParameters_,
+                                 space_, {std::move(address)}, taskParas_,
                                  std::move(parts), concurrency_);
 }
 

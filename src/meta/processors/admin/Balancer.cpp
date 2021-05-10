@@ -320,7 +320,7 @@ Balancer::transferLostHost(std::vector<BalanceTask>& tasks,
                            PartitionID partId,
                            bool dependentOnGroup) {
     // find a host with minimum parts which doesn't have this part
-    ErrorOr<nebula::cpp2::ErrorCode, HostAddr>  result;
+    ErrorOr<nebula::cpp2::ErrorCode, HostAddr> result;
     if (dependentOnGroup) {
         result = hostWithMinimalPartsForZone(source, confirmedHostParts, partId);
     } else {

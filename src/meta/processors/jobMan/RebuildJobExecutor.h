@@ -29,9 +29,6 @@ public:
     nebula::cpp2::ErrorCode prepare() override;
 
     nebula::cpp2::ErrorCode stop() override;
-
-protected:
-    std::vector<std::string>  taskParameters_;
 };
 
 }  // namespace meta

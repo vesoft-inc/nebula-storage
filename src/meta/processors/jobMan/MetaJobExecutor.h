@@ -85,6 +85,8 @@ protected:
     GraphSpaceID                space_;
     std::vector<std::string>    paras_;
     TargetHosts                 toHost_{TargetHosts::DEFAULT};
+    std::vector<std::string>    taskParas_;
+    bool                        toLeader_{false};
     int32_t                     concurrency_{INT_MAX};
     bool                        stopped_{false};
     std::mutex                  muInterrupt_;

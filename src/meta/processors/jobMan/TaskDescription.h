@@ -30,11 +30,11 @@ namespace meta {
 
 class TaskDescription {
     FRIEND_TEST(TaskDescriptionTest, ctor);
-    FRIEND_TEST(TaskDescriptionTest, parseKey);
-    FRIEND_TEST(TaskDescriptionTest, parseVal);
+    FRIEND_TEST(TaskDescriptionTest, ParseKey);
+    FRIEND_TEST(TaskDescriptionTest, ParseVal);
     FRIEND_TEST(TaskDescriptionTest, dump);
     FRIEND_TEST(TaskDescriptionTest, ctor2);
-    FRIEND_TEST(JobManagerTest, showJob);
+    FRIEND_TEST(JobManagerTest, ShowJob);
     friend class JobManager;
 public:
     TaskDescription(JobID iJob, TaskID iTask, const HostAddr& dst);

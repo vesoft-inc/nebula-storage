@@ -33,7 +33,7 @@ SimpleConcurrentJobExecutor::prepare() {
     }
 
     space_ = nebula::value(errOrSpaceId);
-    ErrOrHosts errOrHost = getTargetHost(space_);
+    auto errOrHost = getTargetHost(space_);
     if (!nebula::ok(errOrHost)) {
         LOG(ERROR) << "Can't get any host according to space";
         return nebula::error(errOrHost);

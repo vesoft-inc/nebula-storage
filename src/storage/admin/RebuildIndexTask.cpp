@@ -12,15 +12,18 @@
 namespace nebula {
 namespace storage {
 
+bool RebuildIndexTask::check() {
+    return env_->kvstore_ != nullptr;
+}
+
 ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>>
 RebuildIndexTask::genSubTasks() {
-    CHECK_NOTNULL(env_->kvstore_);
     space_ = *ctx_.parameters_.space_id_ref();
     auto parts = *ctx_.parameters_.parts_ref();
+    auto paras = ctx_.parameters_.task_specfic_paras_ref();
 
     IndexItems items;
-    if (!ctx_.parameters_.task_specfic_paras_ref().has_value()
-            || (*ctx_.parameters_.task_specfic_paras_ref()).empty()) {
+    if (!paras.has_value() || paras->empty()) {
         auto itemsRet = getIndexes(space_);
         if (!itemsRet.ok()) {
             LOG(ERROR) << "Indexes not found";
@@ -29,7 +32,7 @@ RebuildIndexTask::genSubTasks() {
 
         items = std::move(itemsRet).value();
     } else {
-        for (const auto& index : *ctx_.parameters_.task_specfic_paras_ref()) {
+        for (const auto& index : *paras) {
             auto indexID = folly::to<IndexID>(index);
             auto indexRet = getIndex(space_, indexID);
             if (!indexRet.ok()) {
@@ -57,7 +60,7 @@ RebuildIndexTask::genSubTasks() {
     for (const auto& part : parts) {
         env_->rebuildIndexGuard_->insert_or_assign(std::make_tuple(space_, part),
                                                    IndexState::STARTING);
-        std::function<nebula::cpp2::ErrorCode()> task =
+        TaskFunction task =
             std::bind(&RebuildIndexTask::invoke, this, space_, part, items);
         tasks.emplace_back(std::move(task));
     }

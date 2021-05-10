@@ -43,7 +43,7 @@ nebula::cpp2::ErrorCode RebuildJobExecutor::prepare() {
 
         indexId = *reinterpret_cast<const IndexID*>(indexValue.c_str());
         LOG(INFO) << "Rebuild Index Space " << space_ << ", Index " << indexId;
-        taskParameters_.emplace_back(folly::to<std::string>(indexId));
+        taskParas_.emplace_back(folly::to<std::string>(indexId));
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }

@@ -21,8 +21,8 @@
 #include "storage/InternalStorageServiceHandler.h"
 #include "storage/GraphStorageServiceHandler.h"
 #include "storage/http/StorageHttpStatsHandler.h"
-#include "storage/http/StorageHttpDownloadHandler.h"
-#include "storage/http/StorageHttpIngestHandler.h"
+// #include "storage/http/StorageHttpDownloadHandler.h"
+// #include "storage/http/StorageHttpIngestHandler.h"
 #include "storage/http/StorageHttpAdminHandler.h"
 #include "storage/transaction/TransactionManager.h"
 #include "kvstore/PartManager.h"
@@ -84,23 +84,9 @@ std::unique_ptr<kvstore::KVStore> StorageServer::getStoreInstance() {
 
 bool StorageServer::initWebService() {
     LOG(INFO) << "Starting Storage HTTP Service";
-    hdfsHelper_ = std::make_unique<hdfs::HdfsCommandHelper>();
-    webWorkers_ = std::make_unique<nebula::thread::GenericThreadPool>();
-    webWorkers_->start(FLAGS_storage_http_thread_num, "http thread pool");
-    LOG(INFO) << "Http Thread Pool started";
     webSvc_ = std::make_unique<WebService>();
     auto& router = webSvc_->router();
 
-    router.get("/download").handler([this](web::PathParams&&) {
-        auto* handler = new storage::StorageHttpDownloadHandler();
-        handler->init(hdfsHelper_.get(), webWorkers_.get(), kvstore_.get(), dataPaths_);
-        return handler;
-    });
-    router.get("/ingest").handler([this](web::PathParams&&) {
-        auto handler = new nebula::storage::StorageHttpIngestHandler();
-        handler->init(kvstore_.get());
-        return handler;
-    });
     router.get("/admin").handler([this](web::PathParams&&) {
         return new storage::StorageHttpAdminHandler(schemaMan_.get(), kvstore_.get());
     });

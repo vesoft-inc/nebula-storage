@@ -14,7 +14,6 @@
 #include "meta/test/MockAdminClient.h"
 #include "kvstore/Common.h"
 #include "meta/processors/jobMan/JobUtils.h"
-#include "meta/processors/jobMan/TaskDescription.h"
 #include "meta/processors/jobMan/JobManager.h"
 
 DECLARE_int32(ws_storage_http_port);
@@ -74,7 +73,7 @@ protected:
     JobManager* jobMgr{nullptr};
 };
 
-TEST_F(JobManagerTest, addJob) {
+TEST_F(JobManagerTest, AddJob) {
     std::vector<std::string> paras{"test"};
     JobDescription job(1, cpp2::AdminCmd::COMPACT, paras);
     auto rc = jobMgr->addJob(job, adminClient_.get());
@@ -105,6 +104,36 @@ TEST_F(JobManagerTest, AddRebuildEdgeIndexJob) {
     ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
     auto result = jobMgr->runJobInternal(job);
     ASSERT_TRUE(result);
+}
+
+TEST_F(JobManagerTest, DownloadJob) {
+    // For preventting job schedule in JobManager
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
+
+    std::vector<std::string> paras{"hdfs://127.0.0.1:9000/tmp", "test_space"};
+    JobDescription job(11, cpp2::AdminCmd::DOWNLOAD, paras);
+    auto rc = jobMgr->addJob(job, adminClient_.get());
+    ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
+    auto result = jobMgr->runJobInternal(job);
+    ASSERT_TRUE(result);
+
+    job.setStatus(cpp2::JobStatus::FINISHED);
+    jobMgr->save(job.jobKey(), job.jobVal());
+}
+
+TEST_F(JobManagerTest, IngestJob) {
+    // For preventting job schedule in JobManager
+    jobMgr->status_ = JobManager::JbmgrStatus::STOPPED;
+
+    std::vector<std::string> paras{"test_space"};
+    JobDescription job(11, cpp2::AdminCmd::INGEST, paras);
+    auto rc = jobMgr->addJob(job, adminClient_.get());
+    ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
+    auto result = jobMgr->runJobInternal(job);
+    ASSERT_TRUE(result);
+
+    job.setStatus(cpp2::JobStatus::FINISHED);
+    jobMgr->save(job.jobKey(), job.jobVal());
 }
 
 TEST_F(JobManagerTest, StatisJob) {
@@ -214,10 +243,10 @@ TEST_F(JobManagerTest, JobDeduplication) {
     jobMgr->status_ = JobManager::JbmgrStatus::IDLE;
 }
 
-TEST_F(JobManagerTest, loadJobDescription) {
+TEST_F(JobManagerTest, LoadJobDescription) {
     std::vector<std::string> paras{"test_space"};
     JobDescription job1(1, cpp2::AdminCmd::COMPACT, paras);
-    job1.setStatus(cpp2::JobStatus  ::RUNNING);
+    job1.setStatus(cpp2::JobStatus::RUNNING);
     job1.setStatus(cpp2::JobStatus::FINISHED);
     auto rc = jobMgr->addJob(job1, adminClient_.get());
     ASSERT_EQ(rc, nebula::cpp2::ErrorCode::SUCCEEDED);
@@ -242,7 +271,7 @@ TEST(JobUtilTest, dummy) {
                 JobUtil::currJobKey().length());
 }
 
-TEST_F(JobManagerTest, showJobs) {
+TEST_F(JobManagerTest, ShowJobs) {
     std::vector<std::string> paras1{"test_space"};
     JobDescription jd1(1, cpp2::AdminCmd::COMPACT, paras1);
     jd1.setStatus(cpp2::JobStatus::RUNNING);
@@ -279,7 +308,7 @@ HostAddr toHost(std::string strIp) {
     return HostAddr(strIp, 0);
 }
 
-TEST_F(JobManagerTest, showJob) {
+TEST_F(JobManagerTest, ShowJob) {
     std::vector<std::string> paras{"test_space"};
 
     JobDescription jd(1, cpp2::AdminCmd::COMPACT, paras);
@@ -287,8 +316,8 @@ TEST_F(JobManagerTest, showJob) {
     jd.setStatus(cpp2::JobStatus::FINISHED);
     jobMgr->addJob(jd, adminClient_.get());
 
-    int32_t iJob = jd.id_;
-    int32_t task1 = 0;
+    JobID iJob = jd.id_;
+    TaskID task1 = 0;
     auto host1 = toHost("127.0.0.1");
 
     TaskDescription td1(iJob, task1, host1);
@@ -296,7 +325,7 @@ TEST_F(JobManagerTest, showJob) {
     td1.setStatus(cpp2::JobStatus::FINISHED);
     jobMgr->save(td1.taskKey(), td1.taskVal());
 
-    int32_t task2 = 1;
+    TaskID task2 = 1;
     auto host2 = toHost("127.0.0.1");
     TaskDescription td2(iJob, task2, host2);
     td2.setStatus(cpp2::JobStatus::RUNNING);
@@ -332,7 +361,7 @@ TEST_F(JobManagerTest, showJob) {
     ASSERT_EQ(tasks[1].get_stop_time(), td2.stopTime_);
 }
 
-TEST_F(JobManagerTest, recoverJob) {
+TEST_F(JobManagerTest, RecoverJob) {
     // set status to prevent running the job since AdminClient is a injector
     jobMgr->status_ = JobManager::JbmgrStatus::NOT_START;
     int32_t nJob = 3;
@@ -381,8 +410,8 @@ TEST(JobDescriptionTest, ctor3) {
     ASSERT_TRUE(nebula::ok(optJobRet));
 }
 
-TEST(JobDescriptionTest, parseKey) {
-    int32_t iJob = std::pow(2, 16);
+TEST(JobDescriptionTest, ParseKey) {
+    JobID iJob = std::pow(2, 16);
     std::vector<std::string> paras{"test_space"};
     JobDescription jd(iJob, cpp2::AdminCmd::COMPACT, paras);
     auto sKey = jd.jobKey();
@@ -394,8 +423,8 @@ TEST(JobDescriptionTest, parseKey) {
     ASSERT_EQ(iJob, parsedKeyId);
 }
 
-TEST(JobDescriptionTest, parseVal) {
-    int32_t iJob = std::pow(2, 15);
+TEST(JobDescriptionTest, ParseVal) {
+    JobID iJob = std::pow(2, 15);
     std::vector<std::string> paras{"nba"};
     JobDescription jd(iJob, cpp2::AdminCmd::FLUSH, paras);
     auto status = cpp2::JobStatus::FINISHED;
@@ -415,8 +444,8 @@ TEST(JobDescriptionTest, parseVal) {
 }
 
 TEST(TaskDescriptionTest, ctor) {
-    int32_t iJob = std::pow(2, 4);
-    int32_t iTask = 0;
+    JobID iJob = std::pow(2, 4);
+    TaskID iTask = 0;
     auto dest = toHost("");
     TaskDescription td(iJob, iTask, dest);
     auto status = cpp2::JobStatus::RUNNING;
@@ -428,9 +457,9 @@ TEST(TaskDescriptionTest, ctor) {
     ASSERT_EQ(status, td.status_);
 }
 
-TEST(TaskDescriptionTest, parseKey) {
-    int32_t iJob = std::pow(2, 5);
-    int32_t iTask = 0;
+TEST(TaskDescriptionTest, ParseKey) {
+    JobID iJob = std::pow(2, 5);
+    TaskID iTask = 0;
     std::string dest{"127.0.0.1"};
     TaskDescription td(iJob, iTask, toHost(dest));
 
@@ -441,9 +470,9 @@ TEST(TaskDescriptionTest, parseKey) {
     ASSERT_EQ(iTask, std::get<1>(tup));
 }
 
-TEST(TaskDescriptionTest, parseVal) {
-    int32_t iJob = std::pow(2, 5);
-    int32_t iTask = 0;
+TEST(TaskDescriptionTest, ParseVal) {
+    JobID iJob = std::pow(2, 5);
+    TaskID iTask = 0;
     std::string dest{"127.0.0.1"};
 
     TaskDescription td(iJob, iTask, toHost(dest));
@@ -462,8 +491,8 @@ TEST(TaskDescriptionTest, parseVal) {
 }
 
 TEST(TaskDescriptionTest, ctor2) {
-    int32_t iJob = std::pow(2, 6);
-    int32_t iTask = 0;
+    JobID iJob = std::pow(2, 6);
+    TaskID iTask = 0;
     auto dest = toHost("127.0.0.1");
 
     TaskDescription td1(iJob, iTask, dest);

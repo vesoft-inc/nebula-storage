@@ -26,6 +26,8 @@ public:
         LOG(INFO) << "Release Rebuild Task";
     }
 
+    bool check() override;
+
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<AdminSubTask>> genSubTasks() override;
 
 protected:
