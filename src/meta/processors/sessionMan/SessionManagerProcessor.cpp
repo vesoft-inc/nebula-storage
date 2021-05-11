@@ -14,7 +14,8 @@ void CreateSessionProcessor::process(const cpp2::CreateSessionReq& req) {
     const auto& user = req.get_user();
     auto ret = userExist(user);
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "User does not exist, errorCode: " << static_cast<int32_t>(ret);
+        LOG(ERROR) << "User does not exist, errorCode: "
+                   << apache::thrift::util::enumNameSafe(ret);
         handleErrorCode(ret);
         onFinished();
         return;
@@ -35,9 +36,10 @@ void CreateSessionProcessor::process(const cpp2::CreateSessionReq& req) {
     resp_.set_session(session);
     ret = doSyncPut(std::move(data));
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Put data error on meta server, errorCode: " << static_cast<int32_t>(ret);
-        handleErrorCode(ret);
+        LOG(ERROR) << "Put data error on meta server, errorCode: "
+                   << apache::thrift::util::enumNameSafe(ret);
     }
+    handleErrorCode(ret);
     onFinished();
 }
 
@@ -61,10 +63,11 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
     }
     auto ret = doSyncPut(std::move(data));
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Put data error on meta server, errorCode: " << static_cast<int32_t>(ret);
-        handleErrorCode(ret);
+        LOG(ERROR) << "Put data error on meta server, errorCode: "
+                   << apache::thrift::util::enumNameSafe(ret);
     }
 
+    handleErrorCode(ret);
     onFinished();
 }
 
@@ -91,6 +94,7 @@ void ListSessionsProcessor::process(const cpp2::ListSessionsReq&) {
     for (auto &session : resp_.get_sessions()) {
         LOG(INFO) << "resp list session: " << session.get_session_id();
     }
+    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 
@@ -109,6 +113,7 @@ void GetSessionProcessor::process(const cpp2::GetSessionReq& req) {
 
     auto session = MetaServiceUtils::parseSessionVal(nebula::value(ret));
     resp_.set_session(std::move(session));
+    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 
@@ -124,6 +129,7 @@ void RemoveSessionProcessor::process(const cpp2::RemoveSessionReq& req) {
         return;
     }
 
+    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
     doRemove(sessionKey);
 }
 
