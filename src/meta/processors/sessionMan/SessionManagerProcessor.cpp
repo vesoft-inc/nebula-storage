@@ -14,6 +14,7 @@ void CreateSessionProcessor::process(const cpp2::CreateSessionReq& req) {
     const auto& user = req.get_user();
     auto ret = userExist(user);
     if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "User does not exist, errorCode: " << static_cast<int32_t>(ret);
         handleErrorCode(ret);
         onFinished();
         return;
@@ -32,7 +33,12 @@ void CreateSessionProcessor::process(const cpp2::CreateSessionReq& req) {
     data.emplace_back(MetaServiceUtils::sessionKey(session.get_session_id()),
                       MetaServiceUtils::sessionVal(session));
     resp_.set_session(session);
-    doSyncPutAndUpdate(std::move(data));
+    ret = doSyncPut(std::move(data));
+    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Put data error on meta server, errorCode: " << static_cast<int32_t>(ret);
+        handleErrorCode(ret);
+    }
+    onFinished();
 }
 
 
@@ -53,7 +59,13 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
         data.emplace_back(MetaServiceUtils::sessionKey(sessionId),
                           MetaServiceUtils::sessionVal(session));
     }
-    doSyncPutAndUpdate(std::move(data));
+    auto ret = doSyncPut(std::move(data));
+    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Put data error on meta server, errorCode: " << static_cast<int32_t>(ret);
+        handleErrorCode(ret);
+    }
+
+    onFinished();
 }
 
 
@@ -112,7 +124,7 @@ void RemoveSessionProcessor::process(const cpp2::RemoveSessionReq& req) {
         return;
     }
 
-    doSyncMultiRemoveAndUpdate({sessionKey});
+    doRemove(sessionKey);
 }
 
 }  // namespace meta
