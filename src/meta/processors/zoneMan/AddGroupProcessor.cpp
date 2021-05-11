@@ -15,7 +15,7 @@ void AddGroupProcessor::process(const cpp2::AddGroupReq& req) {
     auto zoneNames = req.get_zone_names();
     if (zoneNames.empty()) {
         LOG(ERROR) << "The zone names should not be empty.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -23,7 +23,7 @@ void AddGroupProcessor::process(const cpp2::AddGroupReq& req) {
     std::set<std::string> zoneSet(zoneNames.begin(), zoneNames.end());
     if (zoneNames.size() != zoneSet.size()) {
         LOG(ERROR) << "Conflict zone found in the group.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_ZONE_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -38,7 +38,7 @@ void AddGroupProcessor::process(const cpp2::AddGroupReq& req) {
     auto groupRet = getGroupId(groupName);
     if (nebula::ok(groupRet)) {
         LOG(ERROR) << "Group " << groupName << " already existed";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_GROUP_EXISTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         onFinished();
         return;
     } else {
@@ -90,7 +90,7 @@ AddGroupProcessor::checkGroupRedundancy(std::vector<std::string> zones) {
         if (zones == zoneNames) {
             LOG(ERROR) << "Group " << groupName
                        << " have created, although the zones order maybe not the same";
-            return nebula::cpp2::ErrorCode::E_GROUP_EXISTED;
+            return nebula::cpp2::ErrorCode::E_EXISTED;
         }
         iter->next();
     }

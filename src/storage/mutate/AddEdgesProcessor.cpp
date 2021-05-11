@@ -235,7 +235,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                                     break;
                                 } else {
                                     batchHolder->remove(std::move(oi));
@@ -260,7 +260,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                                     break;
                                 } else {
                                     batchHolder->put(std::move(nik), std::move(niv));
@@ -297,7 +297,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                         << std::get<3>(conflict) << ":"
                         << std::get<4>(conflict) << ":"
                         << std::get<5>(conflict);
-            handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT);
+            handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
             continue;
         }
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
@@ -377,7 +377,7 @@ AddEdgesProcessor::addEdges(PartitionID partId, const std::vector<kvstore::KV>& 
                             batchHolder->put(std::move(deleteOpKey), std::move(oi));
                         } else if (env_->checkIndexLocked(indexState)) {
                             LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                         } else {
                             batchHolder->remove(std::move(oi));
                         }
@@ -410,7 +410,7 @@ AddEdgesProcessor::addEdges(PartitionID partId, const std::vector<kvstore::KV>& 
                         batchHolder->put(std::move(modifyOpKey), std::move(niv));
                     } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        return nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                        return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                     } else {
                         batchHolder->put(std::move(nik), std::move(niv));
                     }

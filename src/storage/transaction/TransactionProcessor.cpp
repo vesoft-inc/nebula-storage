@@ -47,7 +47,7 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
         })
         .thenError([&](auto&& ex) {
             LOG(ERROR) << "txnId=" << txnId << ", " << ex.what();
-            pushResultCode(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR, partId);
+            pushResultCode(nebula::cpp2::ErrorCode::E_UNKNOWN, partId);
             onFinished();
         });
 }

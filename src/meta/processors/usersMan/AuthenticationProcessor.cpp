@@ -21,7 +21,7 @@ void CreateUserProcessor::process(const cpp2::CreateUserReq& req) {
             if (!req.get_if_not_exists()) {
                 LOG(ERROR) << "Create User Failed : User " << account
                            << " already existed!";
-                retCode = nebula::cpp2::ErrorCode::E_USER_EXISTED;
+                retCode = nebula::cpp2::ErrorCode::E_EXISTED;
             }
         } else {
             LOG(ERROR) << "Create User Failed : User " << account

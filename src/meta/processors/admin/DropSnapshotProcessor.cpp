@@ -33,7 +33,7 @@ void DropSnapshotProcessor::process(const cpp2::DropSnapshotReq& req) {
     auto peersRet = NetworkUtils::toHosts(hosts);
     if (!peersRet.ok()) {
         LOG(ERROR) << "Get checkpoint hosts error";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_SNAPSHOT_FAILED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_SNAPSHOT_FAILURE);
         onFinished();
         return;
     }

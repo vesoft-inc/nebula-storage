@@ -22,7 +22,7 @@ void AddListenerProcessor::process(const cpp2::AddListenerReq& req) {
     if (ret != nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND) {
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Add listener failed, listener already exists.";
-            ret = nebula::cpp2::ErrorCode::E_LISTENER_EXISTED;
+            ret = nebula::cpp2::ErrorCode::E_EXISTED;
         } else {
            LOG(ERROR) << "Add listener failed, error: "
                       << apache::thrift::util::enumNameSafe(ret);

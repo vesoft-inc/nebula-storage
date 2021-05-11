@@ -22,7 +22,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     }
     if (fields.size() != columnSet.size()) {
         LOG(ERROR) << "Conflict field in the tag index.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_PROP_NAME_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -30,7 +30,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
     // A maximum of 16 columns are allowed in the index.
     if (columnSet.size() > 16) {
         LOG(ERROR) << "The number of index columns exceeds maximum limit 16";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_TOO_MANY_PROPS_IN_INDEX);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -43,7 +43,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
             handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
             LOG(ERROR) << "Create Tag Index Failed: " << indexName << " has existed";
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INDEX_EXISTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         }
         resp_.set_id(to(nebula::value(ret), EntryType::INDEX));
         onFinished();
@@ -93,7 +93,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
         }
 
         if (checkIndexExist(fields, item)) {
-            resp_.set_code(nebula::cpp2::ErrorCode::E_INDEX_EXISTED);
+            resp_.set_code(nebula::cpp2::ErrorCode::E_EXISTED);
             onFinished();
             return;
         }
@@ -128,7 +128,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
         if (col.type.get_type() == meta::cpp2::PropertyType::STRING) {
             if (!field.type_length_ref().has_value()) {
                 LOG(ERROR) << "No type length set : " << field.get_name();
-                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
                 onFinished();
                 return;
             }
@@ -136,7 +136,7 @@ void CreateTagIndexProcessor::process(const cpp2::CreateTagIndexReq& req) {
             col.type.set_type_length(*field.get_type_length());
         } else if (field.type_length_ref().has_value()) {
             LOG(ERROR) << "No need to set type length : " << field.get_name();
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
             onFinished();
             return;
         }

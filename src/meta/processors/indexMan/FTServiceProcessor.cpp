@@ -15,7 +15,7 @@ void SignInFTServiceProcessor::process(const cpp2::SignInFTServiceReq& req) {
     auto ret = doGet(serviceKey);
     if (nebula::ok(ret)) {
         LOG(ERROR) << "Fulltext already exists.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_LISTENER_EXISTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         onFinished();
         return;
     } else {

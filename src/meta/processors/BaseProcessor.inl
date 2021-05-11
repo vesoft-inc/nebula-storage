@@ -463,7 +463,7 @@ BaseProcessor<RESP>::indexCheck(const std::vector<cpp2::IndexItem>& items,
                     if (it != indexCols.end()) {
                         LOG(ERROR) << "Index conflict, index :" << index.get_index_name()
                                    << ", column : " << tCol.name;
-                        return nebula::cpp2::ErrorCode::E_INDEX_CONFLICT;
+                        return nebula::cpp2::ErrorCode::E_CONFLICT;
                     }
                 }
             }

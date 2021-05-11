@@ -21,7 +21,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
 
     if (req.get_stop() != nullptr) {
         if (!(*req.get_stop())) {
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_UNKNOWN);
             onFinished();
             return;
         }
@@ -39,7 +39,7 @@ void BalanceProcessor::process(const cpp2::BalanceReq& req) {
 
     if (req.get_reset() != nullptr) {
         if (!(*req.get_reset())) {
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_UNKNOWN);
             onFinished();
             return;
         }

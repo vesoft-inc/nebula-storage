@@ -136,7 +136,7 @@ TransactionManager::addSamePartEdges(size_t vIdLen,
             if (!t.hasValue()) {
                 LOG(INFO) << "commitBatch throw ex=" << t.exception()
                     << ", txnId=" << txnId;
-                code = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                code = nebula::cpp2::ErrorCode::E_UNKNOWN;
             } else if (t.value() != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 code = t.value();
             }
@@ -165,7 +165,7 @@ TransactionManager::addSamePartEdges(size_t vIdLen,
                 .via(exec_.get())
                 .thenTry([=, p = std::move(p)](auto&& _t) mutable {
                     auto _code = _t.hasValue() ? _t.value()
-                        : nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                        : nebula::cpp2::ErrorCode::E_UNKNOWN;
                     LOG_IF(INFO, FLAGS_trace_toss) << folly::sformat(
                         "end forwardTransaction: txnId={}, spaceId={}, partId={}, code={}",
                         txnId,
@@ -233,7 +233,7 @@ TransactionManager::updateEdgeAtomic(size_t vIdLen,
                                      GetBatchFunc batchGetter) {
     auto stRemotePart = env_->metaClient_->partId(spaceId, (*edgeKey.dst_ref()).getStr());
     if (!stRemotePart.ok()) {
-        return folly::makeFuture(nebula::cpp2::ErrorCode::E_INTERNAL_ERROR);
+        return folly::makeFuture(nebula::cpp2::ErrorCode::E_UNKNOWN);
     }
     auto remotePart = stRemotePart.value();
     auto localKey = TransactionUtils::edgeKey(vIdLen, partId, edgeKey);
@@ -304,7 +304,7 @@ TransactionManager::resumeTransaction(size_t vIdLen,
                     .via(exec_.get())
                     .thenValue([=](auto&& rc) { *spPromiseVal = rc; })
                     .thenError([=](auto&&) {
-                        *spPromiseVal = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                        *spPromiseVal = nebula::cpp2::ErrorCode::E_UNKNOWN;
                     });
         })
         .thenValue([=](auto&&) {
@@ -317,13 +317,13 @@ TransactionManager::resumeTransaction(size_t vIdLen,
                 auto eraseRet = eraseKey(spaceId, localPart, lockKey);
                 eraseRet.wait();
                 auto code = eraseRet.hasValue() ? eraseRet.value() :
-                    nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                    nebula::cpp2::ErrorCode::E_UNKNOWN;
                 *spPromiseVal = code;
             }
         })
         .thenError([=](auto&& ex) {
             LOG(ERROR) << ex.what();
-            *spPromiseVal = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            *spPromiseVal = nebula::cpp2::ErrorCode::E_UNKNOWN;
         })
         .ensure([=, p = std::move(c.first)]() mutable {
             eraseMemoryLock(localKey, ver);

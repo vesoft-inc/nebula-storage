@@ -112,7 +112,7 @@ void AlterTagProcessor::process(const cpp2::AlterTagReq& req) {
     }
 
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }

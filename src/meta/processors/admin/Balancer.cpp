@@ -291,7 +291,7 @@ Balancer::genTasks(GraphSpaceID spaceId,
             if (!alive.ok()) {
                 LOG(ERROR) << "Check Replica failed: " << alive
                            << " Part: " << partId;
-                return nebula::cpp2::ErrorCode::E_INVALID_BALANCE_HOST;
+                return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
             }
 
             auto retCode = transferLostHost(tasks, confirmedHostParts, lostHost,
@@ -305,7 +305,7 @@ Balancer::genTasks(GraphSpaceID spaceId,
 
     if (confirmedHostParts.size() < 2) {
         LOG(INFO) << "Too few hosts, no need for balance!";
-        return nebula::cpp2::ErrorCode::E_INVALID_BALANCE_HOST;
+        return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
     }
     // 2. Make all hosts in confirmedHostParts balanced
     if (balanceParts(plan_->id_, spaceId, confirmedHostParts, totalParts, tasks)) {
@@ -682,7 +682,7 @@ nebula::cpp2::ErrorCode Balancer::leaderBalance() {
         LOG(ERROR) << "Can't get spaces";
         // TODO unify error code
         if (ret != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-            ret = nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            ret = nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
         return ret;
     }
@@ -694,7 +694,7 @@ nebula::cpp2::ErrorCode Balancer::leaderBalance() {
         if (!status.ok() || hostLeaderMap_->empty()) {
             LOG(ERROR) << "Get leader distribution failed";
             inLeaderBalance_ = false;
-            return nebula::cpp2::ErrorCode::E_RPC_FAILED;
+            return nebula::cpp2::ErrorCode::E_RPC_FAILURE;
         }
 
         std::vector<folly::SemiFuture<Status>> futures;

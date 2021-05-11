@@ -26,7 +26,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         if (!req.get_if_not_exists()) {
             LOG(ERROR) << "Create Space Failed : Space " << spaceName
                        << " have existed!";
-            ret = nebula::cpp2::ErrorCode::E_SPACE_EXISTED;
+            ret = nebula::cpp2::ErrorCode::E_EXISTED;
         }
         resp_.set_id(to(nebula::value(spaceRet), EntryType::SPACE));
         handleErrorCode(ret);
@@ -56,7 +56,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         partitionNum = FLAGS_default_parts_num;
         if (partitionNum <= 0) {
             LOG(ERROR) << "Create Space Failed : partition_num is illegal: " << partitionNum;
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
             onFinished();
             return;
         }
@@ -67,7 +67,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         replicaFactor = FLAGS_default_replica_factor;
         if (replicaFactor <= 0) {
             LOG(ERROR) << "Create Space Failed : replicaFactor is illegal: " << replicaFactor;
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
             onFinished();
             return;
         }
@@ -76,21 +76,21 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
     }
     if (vidSize == 0) {
         LOG(ERROR) << "Create Space Failed : vid_size is illegal: " << vidSize;
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
     if (vidType != cpp2::PropertyType::INT64 && vidType != cpp2::PropertyType::FIXED_STRING) {
         LOG(ERROR) << "Create Space Failed : vid_type is illegal: "
                    << apache::thrift::util::enumNameSafe(vidType);
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
     if (vidType == cpp2::PropertyType::INT64 && vidSize != 8) {
         LOG(ERROR) << "Create Space Failed : vid_size should be 8 if vid type is interger: "
                    << vidSize;
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -131,7 +131,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
         int32_t zoneNum = zones.size();
         if (replicaFactor > zoneNum) {
             LOG(ERROR) << "Replication number should less than or equal to zone number.";
-            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
             onFinished();
             return;
         }
@@ -141,7 +141,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
             LOG(ERROR) << "Get host loading failed.";
             auto retCode = nebula::error(hostLoadingRet);
             if (retCode != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-                retCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                retCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
             }
             handleErrorCode(retCode);
             onFinished();
@@ -181,7 +181,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
             auto pickedZonesRet = pickLightLoadZones(replicaFactor);
             if (!pickedZonesRet.ok()) {
                 LOG(ERROR) << "Pick zone failed.";
-                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
                 onFinished();
                 return;
             }
@@ -190,7 +190,7 @@ void CreateSpaceProcessor::process(const cpp2::CreateSpaceReq& req) {
             auto partHostsRet = pickHostsWithZone(pickedZones, zoneHosts);
             if (!partHostsRet.ok()) {
                 LOG(ERROR) << "Pick hosts with zone failed.";
-                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+                handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
                 onFinished();
                 return;
             }

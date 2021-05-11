@@ -115,7 +115,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     }
 
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }

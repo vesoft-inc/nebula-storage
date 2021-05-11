@@ -70,12 +70,12 @@ nebula::cpp2::ErrorCode RebuildJobExecutor::stop() {
     auto tries = folly::collectAll(std::move(futures)).get();
     if (std::any_of(tries.begin(), tries.end(), [](auto& t){ return t.hasException(); })) {
         LOG(ERROR) << "RebuildJobExecutor::stop() RPC failure.";
-        return nebula::cpp2::ErrorCode::E_BALANCER_FAILED;
+        return nebula::cpp2::ErrorCode::E_BALANCER_FAILURE;
     }
     for (const auto& t : tries) {
         if (!t.value().ok()) {
             LOG(ERROR) << "Stop Build Index Failed";
-            return nebula::cpp2::ErrorCode::E_BALANCER_FAILED;
+            return nebula::cpp2::ErrorCode::E_BALANCER_FAILURE;
         }
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;

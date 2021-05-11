@@ -49,7 +49,7 @@ void DropEdgeProcessor::process(const cpp2::DropEdgeReq& req) {
     }
     if (!nebula::value(indexes).empty()) {
         LOG(ERROR) << "Drop edge error, index conflict, please delete index first.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }

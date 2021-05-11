@@ -17,7 +17,7 @@ void AddZoneProcessor::process(const cpp2::AddZoneReq& req) {
     auto nodes = req.get_nodes();
     if (nodes.empty()) {
         LOG(ERROR) << "The hosts should not be empty";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -25,7 +25,7 @@ void AddZoneProcessor::process(const cpp2::AddZoneReq& req) {
     std::set<HostAddr> nodeSet(nodes.begin(), nodes.end());
     if (nodes.size() != nodeSet.size()) {
         LOG(ERROR) << "Conflict host found in the zone";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_HOST_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
     }
@@ -44,7 +44,7 @@ void AddZoneProcessor::process(const cpp2::AddZoneReq& req) {
     std::sort(activeHosts.begin(), activeHosts.end());
     if (!std::includes(activeHosts.begin(), activeHosts.end(), nodeSet.begin(), nodeSet.end())) {
         LOG(ERROR) << "Host not exist";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -52,7 +52,7 @@ void AddZoneProcessor::process(const cpp2::AddZoneReq& req) {
     auto zoneIdRet = getZoneId(zoneName);
     if (nebula::ok(zoneIdRet)) {
         LOG(ERROR) << "Zone " << zoneName  << " already existed";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_ZONE_EXISTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         onFinished();
         return;
     } else {
@@ -111,7 +111,7 @@ AddZoneProcessor::checkHostNotOverlap(const std::vector<HostAddr>& nodes) {
             auto hostIter = std::find(hosts.begin(), hosts.end(), node);
             if (hostIter != hosts.end()) {
                 LOG(ERROR) << "Host overlap found in zone " << zoneName;
-                return nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                return nebula::cpp2::ErrorCode::E_INVALID_PARM;
             }
         }
         iter->next();

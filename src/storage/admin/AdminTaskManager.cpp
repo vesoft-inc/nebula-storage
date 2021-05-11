@@ -157,7 +157,7 @@ void AdminTaskManager::runSubTask(TaskHandle handle) {
     std::chrono::milliseconds take_dura{10};
     if (auto subTask = task->subtasks_.try_take_for(take_dura)) {
         if (task->status() == nebula::cpp2::ErrorCode::SUCCEEDED) {
-            auto rc = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            auto rc = nebula::cpp2::ErrorCode::E_UNKNOWN;
             try {
                 rc = subTask->invoke();
             } catch (std::exception& ex) {

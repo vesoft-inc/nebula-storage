@@ -59,7 +59,7 @@ DropZoneProcessor::checkGroupDependency(const std::string& zoneName) {
         if (zoneIter != zoneNames.end()) {
             auto groupName = MetaServiceUtils::parseGroupName(iter->key());
             LOG(ERROR) << "Zone " << zoneName << " is belong to Group " << groupName;
-            return nebula::cpp2::ErrorCode::E_NOT_DROP_ZONE;
+            return nebula::cpp2::ErrorCode::E_NOT_DROP;
         }
         iter->next();
     }

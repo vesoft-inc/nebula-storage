@@ -186,7 +186,7 @@ struct TossEnvironment {
             auto f = addEdgesAsync(edges, useToss);
             f.wait();
             if (!f.valid()) {
-                auto retcode = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                auto retcode = nebula::cpp2::ErrorCode::E_UNKNOWN;
                 LOG(INFO) << apache::thrift::util::enumNameSafe(retcode);
                 return retcode;
             }

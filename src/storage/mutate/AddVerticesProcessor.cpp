@@ -236,7 +236,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                                     break;
                                 } else {
                                     batchHolder->remove(std::move(oi));
@@ -261,7 +261,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                                 } else if (env_->checkIndexLocked(indexState)) {
                                     LOG(ERROR) << "The index has been locked: "
                                                << index->get_index_name();
-                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                                    code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                                     break;
                                 } else {
                                     batchHolder->put(std::move(nik), std::move(niv));
@@ -303,7 +303,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         << std::get<1>(conflict) << ":"
                         << std::get<2>(conflict) << ":"
                         << std::get<3>(conflict);
-            handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT);
+            handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
             continue;
         }
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),

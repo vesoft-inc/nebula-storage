@@ -50,7 +50,7 @@ TEST(HBProcessorTest, HBTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_WRONG_CLUSTER, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_WRONGCLUSTER, resp.get_code());
     }
 }
 

@@ -176,7 +176,7 @@ JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) {
 
     if (!optJobDesc.setStatus(jobStatus)) {
         // job already been set as finished, failed or stopped
-        return nebula::cpp2::ErrorCode::E_SAVE_JOB_FAILED;
+        return nebula::cpp2::ErrorCode::E_SAVE_JOB_FAILURE;
     }
     {
         std::lock_guard<std::mutex> statusLk(statusGuard_);
@@ -194,7 +194,7 @@ JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) {
 
     if (!jobExec) {
         LOG(WARNING) << folly::sformat("unable to create jobExecutor, jobId={}", jobId);
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
     if (!optJobDesc.getParas().empty()) {
         auto spaceName = optJobDesc.getParas().back();
@@ -208,7 +208,7 @@ JobManager::jobFinished(JobID jobId, cpp2::JobStatus jobStatus) {
 
         auto spaceId = nebula::value(spaceIdRet);
         if (spaceId == -1) {
-            return nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            return nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
         jobExec->setSpaceId(spaceId);
     }
@@ -284,7 +284,7 @@ nebula::cpp2::ErrorCode JobManager::reportTaskFinish(const cpp2::ReportTaskReq& 
     if (status_ == JbmgrStatus::STOPPED || status_ == JbmgrStatus::NOT_START) {
         LOG(INFO) << folly::sformat(
             "report to an in-active job manager, job={}, task={}", jobId, taskId);
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
     // bacause the last task will update the job's status
     // tasks shoule report once a time
@@ -352,7 +352,7 @@ JobManager::addJob(const JobDescription& jobDesc, AdminClient* client) {
     } else {
         LOG(ERROR) << "Add Job Failed";
         if (rc != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-            rc = nebula::cpp2::ErrorCode::E_ADD_JOB_FAILED;
+            rc = nebula::cpp2::ErrorCode::E_ADD_JOB_FAILURE;
         }
         return rc;
     }

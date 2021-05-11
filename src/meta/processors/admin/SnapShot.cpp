@@ -24,7 +24,7 @@ Snapshot::createSnapshot(const std::string& name) {
     if (!nebula::ok(retSpacesHostsRet)) {
         auto retcode = nebula::error(retSpacesHostsRet);
         if (retcode != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
         return retcode;
     }
@@ -39,7 +39,7 @@ Snapshot::createSnapshot(const std::string& name) {
         for (const auto& host : spaceHosts.second) {
             auto status = client_->createSnapshot(spaceHosts.first, name, host).get();
             if (!status.ok()) {
-                return nebula::cpp2::ErrorCode::E_RPC_FAILED;
+                return nebula::cpp2::ErrorCode::E_RPC_FAILURE;
             }
             auto infoPair = status.value();
             auto it = info.find(spaceHosts.first);
@@ -64,7 +64,7 @@ Snapshot::dropSnapshot(const std::string& name,
     if (!nebula::ok(retSpacesHostsRet)) {
         auto retcode = nebula::error(retSpacesHostsRet);
         if (retcode != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
         return retcode;
     }
@@ -94,7 +94,7 @@ Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
     if (!nebula::ok(retSpacesHostsRet)) {
         auto retcode = nebula::error(retSpacesHostsRet);
         if (retcode != nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            retcode = nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
         return retcode;
     }
@@ -107,7 +107,7 @@ Snapshot::blockingWrites(storage::cpp2::EngineSignType sign) {
             auto status = client_->blockingWrites(spaceHosts.first, sign, host).get();
             if (!status.ok()) {
                 LOG(ERROR) << "Send blocking sign error on host : " << host;
-                ret = nebula::cpp2::ErrorCode::E_BLOCK_WRITE_FAILED;
+                ret = nebula::cpp2::ErrorCode::E_BLOCK_WRITE_FAILURE;
                 if (sign == storage::cpp2::EngineSignType::BLOCK_ON) {
                     break;
                 }

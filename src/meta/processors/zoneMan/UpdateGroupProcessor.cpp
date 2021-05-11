@@ -41,7 +41,7 @@ void AddZoneIntoGroupProcessor::process(const cpp2::AddZoneIntoGroupReq& req) {
     auto iter = std::find(zoneNames.begin(), zoneNames.end(), zoneName);
     if (iter != zoneNames.end()) {
         LOG(ERROR) << "Zone " << zoneName << " already exist in the group " << groupName;
-        handleErrorCode(nebula::cpp2::ErrorCode::E_ZONE_EXISTED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         onFinished();
         return;
     }

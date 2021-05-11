@@ -57,7 +57,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
                                         taskId,
                                         apache::thrift::util::enumNameSafe(rc));
             if (rc == nebula::cpp2::ErrorCode::E_LEADER_CHANGED ||
-                rc == nebula::cpp2::ErrorCode::E_STORE_FAILED) {
+                rc == nebula::cpp2::ErrorCode::E_STORE_FAILURE) {
                 continue;
             } else {
                 break;
@@ -71,7 +71,7 @@ void AdminTaskProcessor::process(const cpp2::AddAdminTaskRequest& req) {
         taskManager->addAsyncTask(task);
     } else {
         cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM);
+        thriftRet.set_code(nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA);
         codes_.emplace_back(std::move(thriftRet));
     }
     onFinished();

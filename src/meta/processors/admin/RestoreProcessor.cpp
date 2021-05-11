@@ -146,7 +146,7 @@ void RestoreProcessor::process(const cpp2::RestoreMetaReq& req) {
     auto files = req.get_files();
     if (files.empty()) {
         LOG(ERROR) << "restore must contain the sst file.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_RESTORE_FAILED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_RESTORE_FAILURE);
         onFinished();
         return;
     }
@@ -154,7 +154,7 @@ void RestoreProcessor::process(const cpp2::RestoreMetaReq& req) {
     auto ret = kvstore_->restoreFromFiles(kDefaultSpaceId, files);
     if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Failed to restore file";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_RESTORE_FAILED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_RESTORE_FAILURE);
         onFinished();
         return;
     }

@@ -47,7 +47,7 @@ TEST(AuthProcessorTest, CreateUserTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_USER_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     // Test user exists and param 'if_not_exists' == true;
     {

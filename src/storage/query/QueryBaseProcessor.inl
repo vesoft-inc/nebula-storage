@@ -547,7 +547,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             if (!inEdgeContext) {
                 VLOG(1) << "Edge context not find related edge " << *edgeName;
-                return nebula::cpp2::ErrorCode::E_MULTI_EDGE_CONFLICT;
+                return nebula::cpp2::ErrorCode::E_MUTATE_EDGE_CONFLICT;
             }
             if (updated) {
                 valueProps_.emplace(*propName);

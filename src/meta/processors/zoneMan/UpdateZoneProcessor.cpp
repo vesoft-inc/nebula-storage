@@ -43,7 +43,7 @@ void AddHostIntoZoneProcessor::process(const cpp2::AddHostIntoZoneReq& req) {
     auto iter = std::find(hosts.begin(), hosts.end(), host);
     if (iter != hosts.end()) {
         LOG(ERROR) << "Host " << host << " already exist in the zone " << zoneName;
-        handleErrorCode(nebula::cpp2::ErrorCode::E_HOST_CONFLICT);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         onFinished();
         return;
     }
@@ -61,7 +61,7 @@ void AddHostIntoZoneProcessor::process(const cpp2::AddHostIntoZoneReq& req) {
     auto found = std::find(activeHosts.begin(), activeHosts.end(), host);
     if (found == activeHosts.end()) {
         LOG(ERROR) << "Host " << host << " not exist";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }

@@ -25,13 +25,13 @@ BaseProcessor<RESP>::writeResultTo(WriteResult code, bool isEdge) {
     case WriteResult::TYPE_MISMATCH:
         return nebula::cpp2::ErrorCode::E_DATA_TYPE_MISMATCH;
     case WriteResult::FIELD_UNSET:
-        return nebula::cpp2::ErrorCode::E_NO_DEFAULT_VALUE;
+        return nebula::cpp2::ErrorCode::E_FIELD_UNSET;
     case WriteResult::OUT_OF_RANGE:
         return nebula::cpp2::ErrorCode::E_OUT_OF_RANGE;
     case WriteResult::INCORRECT_VALUE:
         return nebula::cpp2::ErrorCode::E_INVALID_FIELD_VALUE;
     default:
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 

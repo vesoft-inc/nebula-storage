@@ -640,7 +640,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_NOT_DROP_GROUP, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_NOT_DROP, resp.get_code());
     }
     // Create Space on group_0, replica factor is less than zone size
     {
@@ -670,7 +670,7 @@ TEST(ProcessorTest, SpaceWithGroupTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     {
         cpp2::AddZoneIntoGroupReq req;
@@ -789,7 +789,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         // Create same name tag in diff spaces
@@ -814,7 +814,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SCHEMA_TAG_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         // Set schema ttl property
@@ -857,7 +857,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     // Wrong default value
     {
@@ -881,7 +881,7 @@ TEST(ProcessorTest, CreateTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     {
         cpp2::CreateTagReq req;
@@ -986,7 +986,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         // Create same name edge in diff spaces
@@ -1011,7 +1011,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SCHEMA_EDGE_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 
     // Set schema ttl property
@@ -1067,7 +1067,7 @@ TEST(ProcessorTest, CreateEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     {
         cpp2::CreateTagReq req;
@@ -1864,7 +1864,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_PROP_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -1932,7 +1932,7 @@ TEST(ProcessorTest, AlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     // Add col with out of range of fixed string
     {
@@ -2360,7 +2360,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_PROP_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -2430,7 +2430,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARAM, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INVALID_PARM, resp.get_code());
     }
     // Add col with out of range of fixed string
     {

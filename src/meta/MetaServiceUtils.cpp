@@ -336,7 +336,7 @@ MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
     std::get<2>(ret) = nebula::cpp2::ErrorCode::SUCCEEDED;
     int dataVer = *reinterpret_cast<const int*>(val.data());
     if (dataVer != 3) {
-        std::get<2>(ret) = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+        std::get<2>(ret) = nebula::cpp2::ErrorCode::E_INVALID_PARM;
         return ret;
     }
 
@@ -684,10 +684,7 @@ MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 if (it->get_name() == col.get_name()) {
                     LOG(ERROR) << "Column existing: " << col.get_name();
-                    if (isEdge) {
-                        return nebula::cpp2::ErrorCode::E_EDGE_PROP_EXISTED;
-                    }
-                    return nebula::cpp2::ErrorCode::E_TAG_PROP_EXISTED;
+                    return nebula::cpp2::ErrorCode::E_EXISTED;
                 }
             }
             cols.emplace_back(std::move(col));
@@ -699,7 +696,7 @@ MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
                     // If this col is ttl_col, change not allowed
                     if (prop.get_ttl_col() && (*prop.get_ttl_col() == colName)) {
                         LOG(ERROR) << "Column: " << colName << " as ttl_col, change not allowed";
-                        return nebula::cpp2::ErrorCode::E_ALTER_WITH_TTL;
+                        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
                     }
                     *it = col;
                     return nebula::cpp2::ErrorCode::SUCCEEDED;
@@ -742,7 +739,7 @@ MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
     if (existIndex && (alterSchemaProp.ttl_duration_ref().has_value() ||
                 alterSchemaProp.ttl_col_ref().has_value())) {
         LOG(ERROR) << "Has index, can't change ttl";
-        return nebula::cpp2::ErrorCode:: E_ALTER_WITH_INDEX_TTL_CONFLICT;
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
     if (alterSchemaProp.ttl_duration_ref().has_value()) {
         // Graph check  <=0 to = 0
@@ -765,7 +762,7 @@ MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
                 if (colType != cpp2::PropertyType::INT64 &&
                     colType != cpp2::PropertyType::TIMESTAMP) {
                     LOG(ERROR) << "TTL column type illegal";
-                    return nebula::cpp2::ErrorCode::E_ALTER_WITH_TTL;
+                    return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
                 }
                 existed = true;
                 schemaProp.set_ttl_col(ttlCol);
@@ -787,7 +784,7 @@ MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
         (!schemaProp.get_ttl_col() ||
          (schemaProp.get_ttl_col() && schemaProp.get_ttl_col()->empty()))) {
         LOG(WARNING) << "Implicit ttl_col not support";
-        return nebula::cpp2::ErrorCode::E_ALTER_WITH_TTL;
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
 
     if (alterSchemaProp.comment_ref().has_value()) {

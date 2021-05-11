@@ -37,7 +37,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
                 cmd == cpp2::AdminCmd::STATS) {
                 if (paras.empty()) {
                     LOG(ERROR) << "Parameter should be not empty";
-                    errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                    errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
                     break;
                 }
             }
@@ -78,14 +78,14 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
         {
             if (req.get_paras().empty()) {
                 LOG(ERROR) << "Parameter should be not empty";
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
                 break;
             }
 
             int iJob = atoi(req.get_paras()[0].c_str());
             if (iJob == 0) {
                 LOG(ERROR) << "Show job should have parameter as the job ID";
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
                 break;
             }
 
@@ -102,13 +102,13 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
         {
             if (req.get_paras().empty()) {
                 LOG(ERROR) << "Parameter should be not empty";
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
                 break;
             }
             int iJob = atoi(req.get_paras()[0].c_str());
             if (iJob == 0) {
                 LOG(ERROR) << "Stop job should have parameter as the job ID";
-                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+                errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
                 break;
             }
             errorCode = jobMgr->stopJob(iJob);
@@ -125,7 +125,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             break;
         }
         default:
-            errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+            errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;
             break;
     }
 

@@ -930,7 +930,7 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
                 "%s/checkpoints/%s/wal/%d", engine->getDataRoot(), name.c_str(), part);
             auto p = nebula::value(ret);
             if (!p->linkCurrentWAL(walPath.data())) {
-                return nebula::cpp2::ErrorCode::E_CHECKPOINT_FAILED;
+                return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
             }
 
             if (p->isLeader()) {
@@ -967,7 +967,7 @@ NebulaStore::dropCheckpoint(GraphSpaceID spaceId, const std::string& name) {
         }
         if (!fs::FileUtils::remove(checkpointPath.data(), true)) {
             LOG(ERROR) << "Drop checkpoint dir failed : " << checkpointPath;
-            return nebula::cpp2::ErrorCode::E_STORE_FAILED;
+            return nebula::cpp2::ErrorCode::E_STORE_FAILURE;
         }
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;

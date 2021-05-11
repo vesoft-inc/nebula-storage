@@ -52,7 +52,7 @@ void HBProcessor::process(const cpp2::HBReq& req) {
             resp_.set_cluster_id(clusterId_);
         } else if (peerCluserId != clusterId_) {
             LOG(ERROR) << "Reject wrong cluster host " << host << "!";
-            handleErrorCode(nebula::cpp2::ErrorCode::E_WRONG_CLUSTER);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_WRONGCLUSTER);
             onFinished();
             return;
         }

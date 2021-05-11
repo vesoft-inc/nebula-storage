@@ -45,7 +45,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
 
     if (nebula::value(result)) {
         LOG(ERROR) << "Index is rebuilding, not allowed to create snapshot.";
-        handleErrorCode(nebula::cpp2::ErrorCode::E_SNAPSHOT_FAILED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_SNAPSHOT_FAILURE);
         onFinished();
         return;
     }
@@ -116,7 +116,7 @@ void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     auto meteRet = kvstore_->createCheckpoint(kDefaultSpaceId, snapshot);
     if (meteRet.isLeftType()) {
         LOG(ERROR) << "Create snapshot failed on meta server" << snapshot;
-        handleErrorCode(nebula::cpp2::ErrorCode::E_STORE_FAILED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_STORE_FAILURE);
         onFinished();
         return;
     }

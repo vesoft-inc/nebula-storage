@@ -210,7 +210,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
         auto updateExp = Expression::decode(edgeProp.get_value());
         if (!updateExp) {
             VLOG(1) << "Can't decode the prop's value " << edgeProp.get_value();
-            return nebula::cpp2::ErrorCode::E_INVALID_EXPR_FORMAT;
+            return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
         }
 
         valueProps_.clear();
@@ -229,7 +229,7 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
             auto colExp = Expression::decode(prop);
             if (!colExp) {
                 VLOG(1) << "Can't decode the return expression";
-                return nebula::cpp2::ErrorCode::E_INVALID_RETURN;
+                return nebula::cpp2::ErrorCode::E_INVALID_UPDATER;
             }
             auto retCode = checkExp(colExp.get(), true, false);
             if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {

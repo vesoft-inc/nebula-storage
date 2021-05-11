@@ -59,7 +59,7 @@ DropGroupProcessor::checkSpaceDependency(const std::string& groupName) {
             *properties.group_name_ref() == groupName) {
             LOG(ERROR) << "Space " << properties.get_space_name()
                        << " is bind to the group " << groupName;
-            return nebula::cpp2::ErrorCode::E_NOT_DROP_GROUP;
+            return nebula::cpp2::ErrorCode::E_NOT_DROP;
         }
         iter->next();
     }

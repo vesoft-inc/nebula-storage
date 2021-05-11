@@ -483,7 +483,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
         std::shared_ptr<AdminTask> task = std::make_shared<HookableTask>();
         HookableTask* mockTask = dynamic_cast<HookableTask*>(task.get());
         mockTask->fGenSubTasks = [&]() {
-            return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM;
+            return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
         };
 
         folly::Promise<nebula::cpp2::ErrorCode> pro;
@@ -498,7 +498,7 @@ TEST(TaskManagerTest, gen_sub_task_failed) {
 
         fut.wait();
 
-        EXPECT_EQ(fut.value(), nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM);
+        EXPECT_EQ(fut.value(), nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA);
     }
 
     taskMgr->shutdown();
@@ -512,7 +512,7 @@ TEST(TaskManagerTest, some_subtask_failed) {
         nebula::cpp2::ErrorCode::E_PART_NOT_FOUND,
         nebula::cpp2::ErrorCode::E_LEADER_CHANGED,
         nebula::cpp2::ErrorCode::E_USER_CANCEL,
-        nebula::cpp2::ErrorCode::E_INTERNAL_ERROR
+        nebula::cpp2::ErrorCode::E_UNKNOWN
     };
 
     for (auto t = ++gJobId; t < 5; ++t) {
@@ -730,7 +730,7 @@ TEST(TaskManagerTest, task_run_after_a_gen_sub_task_failed) {
         LOG(INFO) << "before f1.wait()";
         f1.wait();
         LOG(INFO) << "after f1.wait()";
-        return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARAM;
+        return nebula::cpp2::ErrorCode::E_INVALID_TASK_PARA;
     };
     task1->setCallback([&](nebula::cpp2::ErrorCode, nebula::meta::cpp2::StatisItem&){
         LOG(INFO) << "before p2.setValue()";

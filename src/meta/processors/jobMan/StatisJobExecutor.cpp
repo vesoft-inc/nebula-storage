@@ -196,13 +196,13 @@ nebula::cpp2::ErrorCode StatisJobExecutor::stop() {
                 return t.hasException();
                 })) {
         LOG(ERROR) << "statis job stop() RPC failure.";
-        return nebula::cpp2::ErrorCode::E_BALANCER_FAILED;
+        return nebula::cpp2::ErrorCode::E_BALANCER_FAILURE;
     }
 
     for (const auto& t : tries) {
         if (!t.value().ok()) {
             LOG(ERROR) << "Stop statis job Failed";
-            return nebula::cpp2::ErrorCode::E_BALANCER_FAILED;
+            return nebula::cpp2::ErrorCode::E_BALANCER_FAILURE;
         }
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;

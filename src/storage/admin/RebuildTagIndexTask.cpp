@@ -34,7 +34,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     auto vidSizeRet = env_->schemaMan_->getSpaceVidLen(space);
     if (!vidSizeRet.ok()) {
         LOG(ERROR) << "Get VID Size Failed";
-        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILURE;
     }
 
     std::unordered_set<TagID> tagIds;
@@ -145,7 +145,7 @@ RebuildTagIndexTask::buildIndexGlobal(GraphSpaceID space,
     auto result = writeData(space, part, std::move(data));
     if (result != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Write Part " << part << " Index Failed";
-        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILURE;
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }

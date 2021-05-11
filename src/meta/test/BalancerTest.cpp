@@ -1060,7 +1060,7 @@ TEST(BalanceTest, SpecifyMultiHostTest) {
     TestUtils::registerHB(kv, {{"0", 0}, {"1", 1}, {"4", 4}, {"5", 5}});
     auto ret = balancer.balance({{"2", 2}, {"3", 3}});
     ASSERT_FALSE(ok(ret));
-    EXPECT_EQ(nebula::cpp2::ErrorCode::E_INVALID_BALANCE_HOST, error(ret));
+    EXPECT_EQ(nebula::cpp2::ErrorCode::E_NO_VALID_HOST, error(ret));
     // If {"2", 2} is dead, {"3", 3} stiil alive, each part has majority hosts alive
     TestUtils::registerHB(kv, {{"0", 0}, {"1", 1}, {"3", 3}, {"4", 4}, {"5", 5}});
     ret = balancer.balance({{"2", 2}, {"3", 3}});

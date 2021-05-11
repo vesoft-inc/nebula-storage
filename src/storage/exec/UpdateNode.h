@@ -182,7 +182,7 @@ public:
                        << std::get<1>(conflict) << ":"
                        << std::get<2>(conflict) << ":"
                        << std::get<3>(conflict);
-            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
         }
 
         auto ret = RelNode::execute(partId, vId);
@@ -487,7 +487,7 @@ public:
                        << std::get<3>(conflict) << ":"
                        << std::get<4>(conflict) << ":"
                        << std::get<5>(conflict);
-            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+            return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
         }
 
         auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
@@ -540,7 +540,7 @@ public:
             if (f.valid()) {
                 ret = f.value();
             } else {
-                ret = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                ret = nebula::cpp2::ErrorCode::E_UNKNOWN;
             }
         } else {
             auto batch = op();

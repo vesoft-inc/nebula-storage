@@ -23,7 +23,7 @@ void CreateEdgeProcessor::process(const cpp2::CreateEdgeReq& req) {
             LOG(ERROR) << "Failed to create edge `" << edgeName
                        << "': some edge with the same name already exists.";
             resp_.set_id(to(nebula::value(conflictRet), EntryType::EDGE));
-            handleErrorCode(nebula::cpp2::ErrorCode::E_SCHEMA_TAG_CONFLICT);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
             onFinished();
             return;
         } else {
@@ -40,7 +40,7 @@ void CreateEdgeProcessor::process(const cpp2::CreateEdgeReq& req) {
 
     auto columns = req.get_schema().get_columns();
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -56,7 +56,7 @@ void CreateEdgeProcessor::process(const cpp2::CreateEdgeReq& req) {
             handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
             LOG(ERROR) << "Create Edge Failed :" << edgeName << " has existed";
-            handleErrorCode(nebula::cpp2::ErrorCode::E_EDGE_EXISTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         }
         resp_.set_id(to(nebula::value(ret), EntryType::EDGE));
         onFinished();

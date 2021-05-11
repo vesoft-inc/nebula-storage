@@ -43,7 +43,7 @@ public:
         if (batch_.Put(toSlice(key), toSlice(value)).ok()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         } else {
-            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            return nebula::cpp2::ErrorCode::E_UNKNOWN;
         }
     }
 
@@ -51,7 +51,7 @@ public:
         if (batch_.Delete(toSlice(key)).ok()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         } else {
-            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            return nebula::cpp2::ErrorCode::E_UNKNOWN;
         }
     }
 
@@ -61,7 +61,7 @@ public:
         if (batch_.DeleteRange(toSlice(start), toSlice(end)).ok()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         } else {
-            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            return nebula::cpp2::ErrorCode::E_UNKNOWN;
         }
     }
 
@@ -147,7 +147,7 @@ RocksEngine::commitBatchWrite(std::unique_ptr<WriteBatch> batch,
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
     LOG(ERROR) << "Write into rocksdb failed because of " << status.ToString();
-    return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+    return nebula::cpp2::ErrorCode::E_UNKNOWN;
 }
 
 nebula::cpp2::ErrorCode RocksEngine::get(const std::string& key, std::string* value) {
@@ -160,7 +160,7 @@ nebula::cpp2::ErrorCode RocksEngine::get(const std::string& key, std::string* va
         return nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND;
     } else {
         VLOG(3) << "Get Failed: " << key << " " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -236,7 +236,7 @@ RocksEngine::put(std::string key, std::string value) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         VLOG(3) << "Put Failed: " << key << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -253,7 +253,7 @@ RocksEngine::multiPut(std::vector<KV> keyValues) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         VLOG(3) << "MultiPut Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -266,7 +266,7 @@ RocksEngine::remove(const std::string& key) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         VLOG(3) << "Remove Failed: " << key << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -283,7 +283,7 @@ RocksEngine::multiRemove(std::vector<std::string> keys) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         VLOG(3) << "MultiRemove Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -296,7 +296,7 @@ RocksEngine::removeRange(const std::string& start, const std::string& end) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         VLOG(3) << "RemoveRange Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -361,7 +361,7 @@ RocksEngine::ingest(const std::vector<std::string>& files) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "Ingest Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -375,7 +375,7 @@ RocksEngine::setOption(const std::string& configKey, const std::string& configVa
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "SetOption Failed: " << configKey << ":" << configValue;
-        return nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+        return nebula::cpp2::ErrorCode::E_INVALID_PARM;
     }
 }
 
@@ -389,7 +389,7 @@ RocksEngine::setDBOption(const std::string& configKey, const std::string& config
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "SetDBOption Failed: " << configKey << ":" << configValue;
-        return nebula::cpp2::ErrorCode::E_INVALID_PARAM;
+        return nebula::cpp2::ErrorCode::E_INVALID_PARM;
     }
 }
 
@@ -402,7 +402,7 @@ nebula::cpp2::ErrorCode RocksEngine::compact() {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "CompactAll Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -413,7 +413,7 @@ nebula::cpp2::ErrorCode RocksEngine::flush() {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     } else {
         LOG(ERROR) << "Flush Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+        return nebula::cpp2::ErrorCode::E_UNKNOWN;
     }
 }
 
@@ -443,14 +443,14 @@ RocksEngine::createCheckpoint(const std::string& name) {
     if (fs::FileUtils::exist(checkpointPath) &&
         !fs::FileUtils::remove(checkpointPath.data(), true)) {
         LOG(ERROR) << "Remove exist dir failed of checkpoint : " << checkpointPath;
-        return nebula::cpp2::ErrorCode::E_STORE_FAILED;
+        return nebula::cpp2::ErrorCode::E_STORE_FAILURE;
     }
 
     auto parent = checkpointPath.substr(0, checkpointPath.rfind('/'));
     if (!FileUtils::exist(parent)) {
         if (!FileUtils::makeDir(parent)) {
             LOG(ERROR) << "Make dir " << parent << " failed";
-            return nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+            return nebula::cpp2::ErrorCode::E_UNKNOWN;
         }
     }
 
@@ -459,12 +459,12 @@ RocksEngine::createCheckpoint(const std::string& name) {
     std::unique_ptr<rocksdb::Checkpoint> cp(checkpoint);
     if (!status.ok()) {
         LOG(ERROR) << "Init checkpoint Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_CHECKPOINT_FAILED;
+        return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
     }
     status = cp->CreateCheckpoint(checkpointPath, 0);
     if (!status.ok()) {
         LOG(ERROR) << "Create checkpoint Failed: " << status.ToString();
-        return nebula::cpp2::ErrorCode::E_CHECKPOINT_FAILED;
+        return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }

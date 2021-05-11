@@ -23,7 +23,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
             LOG(ERROR) << "Failed to create tag `" << tagName
                        << "': some edge with the same name already exists.";
             resp_.set_id(to(nebula::value(conflictRet), EntryType::TAG));
-            handleErrorCode(nebula::cpp2::ErrorCode::E_SCHEMA_EDGE_CONFLICT);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
             onFinished();
             return;
         } else {
@@ -40,7 +40,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
 
     auto columns = req.get_schema().get_columns();
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARAM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
@@ -56,7 +56,7 @@ void CreateTagProcessor::process(const cpp2::CreateTagReq& req) {
             handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
             LOG(ERROR) << "Create Tag Failed :" << tagName << " has existed";
-            handleErrorCode(nebula::cpp2::ErrorCode::E_TAG_EXISTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_EXISTED);
         }
         resp_.set_id(to(nebula::value(ret), EntryType::TAG));
         onFinished();

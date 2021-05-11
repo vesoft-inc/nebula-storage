@@ -201,7 +201,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -261,7 +261,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -275,7 +275,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -311,7 +311,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_PROP_NAME_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -354,7 +354,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::ListTagIndexesReq req;
@@ -576,7 +576,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -636,7 +636,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -650,7 +650,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -686,7 +686,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_PROP_NAME_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -728,7 +728,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::ListEdgeIndexesReq req;
@@ -852,7 +852,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TOO_MANY_PROPS_IN_INDEX, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -864,7 +864,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TOO_MANY_PROPS_IN_INDEX, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1019,7 +1019,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -1042,7 +1042,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1146,7 +1146,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1167,7 +1167,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1199,7 +1199,7 @@ TEST(IndexProcessorTest, IndexCheckDropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1232,7 +1232,7 @@ TEST(IndexProcessorTest, IndexCheckDropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1370,7 +1370,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_ALTER_WITH_INDEX_TTL_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -1520,7 +1520,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(nebula::cpp2::ErrorCode::E_ALTER_WITH_INDEX_TTL_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;

@@ -108,7 +108,7 @@ void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
                 .thenTry([=](auto&& t) {
                     auto code = nebula::cpp2::ErrorCode::SUCCEEDED;
                     if (!t.hasValue()) {
-                        code = nebula::cpp2::ErrorCode::E_INTERNAL_ERROR;
+                        code = nebula::cpp2::ErrorCode::E_UNKNOWN;
                     } else if (t.value() != nebula::cpp2::ErrorCode::SUCCEEDED) {
                         code = t.value();
                     }

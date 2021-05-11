@@ -110,7 +110,7 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                         << std::get<3>(conflict) << ":"
                         << std::get<4>(conflict) << ":"
                         << std::get<5>(conflict);
-                handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT);
+                handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
                 continue;
             }
             env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(nebula::value(batch)),
@@ -184,7 +184,7 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId, const std::vector<cpp2::Ed
                         batchHolder->put(std::move(deleteOpKey), std::move(indexKey));
                     } else if (env_->checkIndexLocked(indexState)) {
                         LOG(ERROR) << "The index has been locked: " << index->get_index_name();
-                        return nebula::cpp2::ErrorCode::E_DATA_CONFLICT;
+                        return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                     } else {
                         batchHolder->remove(std::move(indexKey));
                     }

@@ -187,12 +187,12 @@ nebula::cpp2::ErrorCode MetaJobExecutor::execute() {
     for (auto& t : tries) {
         if (t.hasException()) {
             LOG(ERROR) << t.exception().what();
-            rc = nebula::cpp2::ErrorCode::E_RPC_FAILED;
+            rc = nebula::cpp2::ErrorCode::E_RPC_FAILURE;
             continue;
         }
         if (!t.value().ok()) {
             LOG(ERROR) << t.value().toString();
-            rc = nebula::cpp2::ErrorCode::E_RPC_FAILED;
+            rc = nebula::cpp2::ErrorCode::E_RPC_FAILURE;
             continue;
         }
     }
