@@ -282,6 +282,11 @@ Balancer::genTasks(GraphSpaceID spaceId,
     // 1. Iterate through all hosts that would not be included in confirmedHostParts,
     //    move all parts in them to host with minimum part in confirmedHostParts
     for (auto& lostHost : lostHosts) {
+        if (hostParts.find(lostHost) == hostParts.end()) {
+            LOG(ERROR) << "Lost Host " << lostHost << " not exist";
+            return cpp2::ErrorCode::E_NO_VALID_HOST;
+        }
+
         auto& lostParts = hostParts[lostHost];
         for (auto& partId : lostParts) {
             LOG(INFO) << "Try balance part " << partId << " for lost host " << lostHost;
