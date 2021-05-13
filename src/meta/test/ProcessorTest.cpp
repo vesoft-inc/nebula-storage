@@ -2608,7 +2608,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // create session
     {
@@ -2620,7 +2620,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         sessionId = resp.get_session().get_session_id();
     }
     // update session
@@ -2635,7 +2635,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // list session
     {
@@ -2645,7 +2645,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // get session
     {
@@ -2656,7 +2656,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         ASSERT_EQ("test", resp.get_session().get_space_name());
     }
     // delete session
@@ -2668,7 +2668,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto delFut = dProcessor->getFuture();
         dProcessor->process(delReq);
         auto dResp = std::move(delFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, dResp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, dResp.get_code());
 
         // check result
         cpp2::GetSessionReq getReq;
@@ -2678,7 +2678,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto getFut = gProcessor->getFuture();
         gProcessor->process(getReq);
         auto gResp = std::move(getFut).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, gResp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_SESSION_NOT_FOUND, gResp.get_code());
     }
 }
 }  // namespace meta
