@@ -129,8 +129,8 @@ public:
                                     HostAddr host, bool isAdd) {
         auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
         std::string zoneValue;
-        auto code = kv->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        auto retCode = kv->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Get zone " <<  zoneName << " failed";
             return false;
         }
@@ -169,8 +169,8 @@ public:
                                      const std::string& zoneName, bool isAdd) {
         auto groupKey = MetaServiceUtils::groupKey(groupName);
         std::string groupValue;
-        auto code = kv->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        auto retCode = kv->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Get group " <<  groupName << " failed";
             return false;
         }
