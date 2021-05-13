@@ -35,7 +35,7 @@ void GetMetaDirInfoProcessor::process(const cpp2::GetMetaDirInfoReq& req) {
                        }
                    });
     if (failed) {
-        resp_.set_code(cpp2::ErrorCode::E_GET_META_DIR_FAILURE);
+        resp_.set_code(nebula::cpp2::ErrorCode::E_GET_META_DIR_FAILURE);
         onFinished();
         return;
     }
@@ -44,7 +44,7 @@ void GetMetaDirInfoProcessor::process(const cpp2::GetMetaDirInfoReq& req) {
     dir.set_root(std::filesystem::current_path().string());
     resp_.set_dir(std::move(dir));
 
-    resp_.set_code(cpp2::ErrorCode::SUCCEEDED);
+    resp_.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
 }   // namespace meta

@@ -112,7 +112,8 @@ public:
 
     static LeaderParts parseLeaderValV1(folly::StringPiece val);
 
-    static std::tuple<HostAddr, int64_t, cpp2::ErrorCode> parseLeaderValV3(folly::StringPiece val);
+    static std::tuple<HostAddr, int64_t, nebula::cpp2::ErrorCode>
+    parseLeaderValV3(folly::StringPiece val);
 
     static std::string schemaVal(const std::string& name, const cpp2::Schema& schema);
 
@@ -178,16 +179,21 @@ public:
 
     static std::string assembleSegmentKey(const std::string& segment, const std::string& key);
 
-    static cpp2::ErrorCode alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
-                                           cpp2::SchemaProp& prop,
-                                           const cpp2::ColumnDef col,
-                                           const cpp2::AlterSchemaOp op);
+    static nebula::cpp2::ErrorCode
+    alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+                    cpp2::SchemaProp& prop,
+                    const cpp2::ColumnDef col,
+                    const cpp2::AlterSchemaOp op,
+                    bool isEdge = false);
 
-    static cpp2::ErrorCode alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
-                                           cpp2::SchemaProp& schemaProp,
-                                           cpp2::SchemaProp alterSchemaProp,
-                                           bool existIndex);
     static std::string userPrefix();
+
+    static nebula::cpp2::ErrorCode
+    alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+                    cpp2::SchemaProp& schemaProp,
+                    cpp2::SchemaProp alterSchemaProp,
+                    bool existIndex,
+                    bool isEdge = false);
 
     static std::string userKey(const std::string& account);
 
@@ -318,9 +324,19 @@ public:
 
     static std::vector<cpp2::FTClient> parseFTClients(folly::StringPiece rawData);
 
+    static const std::string& sessionPrefix();
+
+    static std::string sessionKey(SessionID sessionId);
+
+    static std::string sessionVal(const meta::cpp2::Session &session);
+
+    static SessionID getSessionId(const folly::StringPiece &key);
+
+    static meta::cpp2::Session parseSessionVal(const folly::StringPiece &val);
+
     static std::string genTimestampStr();
 
-    static ErrorOr<kvstore::ResultCode, bool> isIndexRebuilding(kvstore::KVStore*);
+    static ErrorOr<nebula::cpp2::ErrorCode, bool> isIndexRebuilding(kvstore::KVStore*);
 
     static GraphSpaceID parseEdgesKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseTagsKeySpaceID(folly::StringPiece key);
@@ -330,7 +346,7 @@ public:
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
     // backup
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupIndex(
+    static ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>> backupIndex(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,
@@ -340,7 +356,7 @@ public:
         const std::unordered_set<GraphSpaceID>& spaces,
         std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
 
-    static ErrorOr<kvstore::ResultCode, std::vector<std::string>> backupSpaces(
+    static ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>> backupSpaces(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,
@@ -349,4 +365,5 @@ public:
 
 }   // namespace meta
 }   // namespace nebula
+
 #endif   // META_METAUTILS_H_

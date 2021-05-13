@@ -26,9 +26,9 @@ private:
     explicit CreateBackupProcessor(kvstore::KVStore* kvstore, AdminClient* client)
         : BaseProcessor<cpp2::CreateBackupResp>(kvstore), client_(client) {}
 
-    cpp2::ErrorCode cancelWriteBlocking();
+    nebula::cpp2::ErrorCode cancelWriteBlocking();
 
-    ErrorOr<cpp2::ErrorCode, std::unordered_set<GraphSpaceID>> spaceNameToId(
+    ErrorOr<nebula::cpp2::ErrorCode, std::unordered_set<GraphSpaceID>> spaceNameToId(
         const std::vector<std::string>* backupSpaces);
 
 private:

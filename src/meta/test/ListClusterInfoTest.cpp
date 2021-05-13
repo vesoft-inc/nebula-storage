@@ -67,7 +67,7 @@ TEST(ProcessorTest, ListClusterInfoTest) {
         processor->process(req);
         auto resp = std::move(f).get();
         LOG(INFO) << folly::to<int>(resp.get_code());
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
 
         for (auto s : resp.get_storage_servers()) {
             ASSERT_EQ(storageHost, s.get_host());

@@ -4,8 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include <filesystem>
 #include "storage/admin/ListClusterInfoProcessor.h"
+#include <filesystem>
 #include "common/fs/FileUtils.h"
 
 namespace nebula {
@@ -36,7 +36,7 @@ void ListClusterInfoProcessor::process(const cpp2::ListClusterInfoReq& req) {
                    });
     if (failed) {
         cpp2::PartitionResult thriftRet;
-        thriftRet.set_code(cpp2::ErrorCode::E_FAILED_GET_ABS_PATH);
+        thriftRet.set_code(nebula::cpp2::ErrorCode::E_FAILED_GET_ABS_PATH);
         codes_.emplace_back(std::move(thriftRet));
         onFinished();
         return;
