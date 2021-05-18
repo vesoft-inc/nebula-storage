@@ -336,8 +336,6 @@ public:
 
     static std::string genTimestampStr();
 
-    static ErrorOr<nebula::cpp2::ErrorCode, bool> isIndexRebuilding(kvstore::KVStore*);
-
     static GraphSpaceID parseEdgesKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseTagsKeySpaceID(folly::StringPiece key);
     static GraphSpaceID parseIndexesKeySpaceID(folly::StringPiece key);

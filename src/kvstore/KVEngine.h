@@ -106,7 +106,7 @@ public:
 
     // Ingest sst files
     virtual nebula::cpp2::ErrorCode ingest(const std::vector<std::string>& files,
-                                           bool verify_file_checksum = false) = 0;
+                                           bool verifyFileChecksum = false) = 0;
 
     // Set Config Option
     virtual nebula::cpp2::ErrorCode

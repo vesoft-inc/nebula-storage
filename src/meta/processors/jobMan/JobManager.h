@@ -99,6 +99,8 @@ public:
     // Enter different priority queues according to the command type
     void enqueue(const JobID& jobId, const cpp2::AdminCmd& cmd);
 
+    ErrorOr<nebula::cpp2::ErrorCode, bool> checkIndexJobRuning();
+
 private:
     JobManager() = default;
 

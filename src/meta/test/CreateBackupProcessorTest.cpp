@@ -10,6 +10,7 @@
 #include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/test/TestUtils.h"
 #include "utils/Utils.h"
+#include "meta/processors/jobMan/JobManager.h"
 
 namespace nebula {
 namespace meta {
@@ -162,6 +163,8 @@ TEST(ProcessorTest, CreateBackupTest) {
         cpp2::CreateBackupReq req;
         std::vector<std::string> spaces = {"test_space"};
         req.set_spaces(std::move(spaces));
+        JobManager* jobMgr = JobManager::getInstance();
+        ASSERT_TRUE(jobMgr->init(kv.get()));
         auto* processor = CreateBackupProcessor::instance(kv.get(), client.get());
         auto f = processor->getFuture();
         processor->process(req);
@@ -215,6 +218,7 @@ TEST(ProcessorTest, CreateBackupTest) {
                 ASSERT_EQ(logInfo.get_term_id(), termId);
             }
         }
+        jobMgr->shutDown();
     }
 }
 }   // namespace meta

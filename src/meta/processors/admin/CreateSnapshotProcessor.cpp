@@ -7,14 +7,15 @@
 #include "meta/processors/admin/CreateSnapshotProcessor.h"
 #include "meta/processors/admin/SnapShot.h"
 #include "meta/ActiveHostsMan.h"
+#include "meta/processors/jobMan/JobManager.h"
 
 namespace nebula {
 namespace meta {
 
 void CreateSnapshotProcessor::process(const cpp2::CreateSnapshotReq&) {
     // check the index rebuild. not allowed to create snapshot when index rebuilding.
-
-    auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
+    JobManager* jobMgr = JobManager::getInstance();
+    auto result = jobMgr->checkIndexJobRuning();
     if (!nebula::ok(result)) {
         handleErrorCode(nebula::error(result));
         onFinished();

@@ -575,5 +575,37 @@ ErrorOr<nebula::cpp2::ErrorCode, GraphSpaceID> JobManager::getSpaceId(const std:
     return *reinterpret_cast<const GraphSpaceID*>(val.c_str());
 }
 
+ErrorOr<nebula::cpp2::ErrorCode, bool> JobManager::checkIndexJobRuning() {
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto retCode = kvStore_->prefix(kDefaultSpaceId, kDefaultPartId, JobUtil::jobPrefix(), &iter);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Fetch Jobs Failed, error: " << apache::thrift::util::enumNameSafe(retCode);
+        return retCode;
+    }
+
+    for (; iter->valid(); iter->next()) {
+        auto jobKey = iter->key();
+        if (JobDescription::isJobKey(jobKey)) {
+            auto optJobRet = JobDescription::makeJobDescription(jobKey, iter->val());
+            if (!nebula::ok(optJobRet)) {
+                continue;
+            }
+            auto optJob = nebula::value(optJobRet);
+            // skip expired job, default 1 week
+            auto jobDesc = optJob.toJobDesc();
+            if (isExpiredJob(jobDesc)) {
+                continue;
+            }
+            auto cmd = jobDesc.get_cmd();
+            if (cmd == cpp2::AdminCmd::REBUILD_TAG_INDEX ||
+                cmd == cpp2::AdminCmd::REBUILD_EDGE_INDEX) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 }  // namespace meta
 }  // namespace nebula

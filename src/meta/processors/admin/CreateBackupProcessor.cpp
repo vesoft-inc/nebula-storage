@@ -9,6 +9,8 @@
 #include "meta/ActiveHostsMan.h"
 #include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/processors/admin/SnapShot.h"
+#include "meta/processors/jobMan/JobManager.h"
+
 
 namespace nebula {
 namespace meta {
@@ -83,8 +85,9 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         onFinished();
         return;
     }
+    JobManager* jobMgr = JobManager::getInstance();
 
-    auto result = MetaServiceUtils::isIndexRebuilding(kvstore_);
+    auto result = jobMgr->checkIndexJobRuning();
     if (!nebula::ok(result)) {
         LOG(ERROR) << "get Index status failed, not allowed to create backup.";
         handleErrorCode(nebula::error(result));

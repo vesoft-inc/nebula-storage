@@ -1007,28 +1007,6 @@ std::string MetaServiceUtils::genTimestampStr() {
     return ch;
 }
 
-ErrorOr<nebula::cpp2::ErrorCode, bool> MetaServiceUtils::isIndexRebuilding(
-    kvstore::KVStore* kvstore) {
-    folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
-    auto prefix = rebuildIndexStatusPrefix();
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = kvstore->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
-    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "prefix index rebuilding state failed, result code: "
-                   << apache::thrift::util::enumNameSafe(ret);
-        return ret;
-    }
-
-    while (iter->valid()) {
-        if (iter->val() == "RUNNING") {
-            return true;
-        }
-        iter->next();
-    }
-
-    return false;
-}
-
 std::function<bool(const folly::StringPiece& key)>
 MetaServiceUtils::spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
                               std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace) {
