@@ -22,8 +22,6 @@
 #include "meta/processors/indexMan/GetEdgeIndexProcessor.h"
 #include "meta/processors/indexMan/ListEdgeIndexesProcessor.h"
 
-DECLARE_int32(heartbeat_interval_secs);
-DECLARE_uint32(expired_time_factor);
 namespace nebula {
 namespace meta {
 
@@ -53,7 +51,7 @@ TEST(IndexProcessorTest, AlterEdgeWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -67,7 +65,7 @@ TEST(IndexProcessorTest, AlterEdgeWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -81,7 +79,7 @@ TEST(IndexProcessorTest, AlterEdgeWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
 }
 
@@ -109,7 +107,7 @@ TEST(IndexProcessorTest, AlterTagWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -123,7 +121,7 @@ TEST(IndexProcessorTest, AlterTagWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -137,7 +135,7 @@ TEST(IndexProcessorTest, AlterTagWithTTLTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
 }
 
@@ -159,7 +157,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         // Duplicate tag index on no fields
@@ -173,7 +171,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -187,7 +185,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -201,7 +199,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -211,7 +209,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         // Allow to create tag index on no fields
@@ -225,7 +223,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -243,7 +241,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -261,7 +259,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -275,7 +273,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -293,7 +291,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -311,7 +309,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -325,7 +323,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND, resp.get_code());
     }
     {
         cpp2::CreateTagIndexReq req;
@@ -339,7 +337,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, resp.get_code());
     }
     {
         // Test index have exist
@@ -354,7 +352,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::ListTagIndexesReq req;
@@ -363,7 +361,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto items = resp.get_items();
 
         ASSERT_EQ(3, items.size());
@@ -423,7 +421,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(2, item.get_index_id());
@@ -445,7 +443,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::GetTagIndexReq req;
@@ -456,7 +454,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, resp.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -467,7 +465,7 @@ TEST(IndexProcessorTest, TagIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, resp.get_code());
     }
 }
 
@@ -489,7 +487,7 @@ TEST(IndexProcessorTest, TagIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::GetTagIndexReq req;
@@ -500,7 +498,7 @@ TEST(IndexProcessorTest, TagIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(1, item.get_index_id());
@@ -534,7 +532,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         // Duplicate edge index on no fields
@@ -548,7 +546,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -562,7 +560,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -576,7 +574,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -586,7 +584,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         // Allow to create edge index on no fields
@@ -600,7 +598,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_NE(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_NE(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -618,7 +616,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -636,7 +634,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -650,7 +648,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -668,7 +666,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -686,7 +684,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -700,7 +698,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -714,7 +712,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -728,7 +726,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_EXISTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_EXISTED, resp.get_code());
     }
     {
         cpp2::ListEdgeIndexesReq req;
@@ -737,7 +735,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto items = resp.get_items();
         ASSERT_EQ(3, items.size());
         {
@@ -795,7 +793,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto item = resp.get_item();
         auto properties = item.get_fields();
         ASSERT_EQ(2, item.get_index_id());
@@ -809,7 +807,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::GetEdgeIndexReq req;
@@ -820,7 +818,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, resp.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -831,7 +829,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_NOT_FOUND, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, resp.get_code());
     }
     // Test the maximum limit for index columns
     std::vector<cpp2::IndexFieldDef> bigFields;
@@ -852,7 +850,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::CreateEdgeIndexReq req;
@@ -864,7 +862,7 @@ TEST(IndexProcessorTest, EdgeIndexTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -886,7 +884,7 @@ TEST(IndexProcessorTest, EdgeIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::GetEdgeIndexReq req;
@@ -896,7 +894,7 @@ TEST(IndexProcessorTest, EdgeIndexTestV2) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         auto item = resp.get_item();
         auto fields = item.get_fields();
         ASSERT_EQ(1, item.get_index_id());
@@ -929,7 +927,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -951,7 +949,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -973,7 +971,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -996,7 +994,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Verify ErrorCode of change
     {
@@ -1019,7 +1017,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     // Verify ErrorCode of drop
     {
@@ -1042,7 +1040,7 @@ TEST(IndexProcessorTest, IndexCheckAlterEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1064,7 +1062,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1085,7 +1083,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1105,7 +1103,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1126,7 +1124,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1146,7 +1144,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1167,7 +1165,7 @@ TEST(IndexProcessorTest, IndexCheckAlterTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1189,7 +1187,7 @@ TEST(IndexProcessorTest, IndexCheckDropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::DropEdgeReq req;
@@ -1199,7 +1197,7 @@ TEST(IndexProcessorTest, IndexCheckDropEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1222,7 +1220,7 @@ TEST(IndexProcessorTest, IndexCheckDropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::DropTagReq req;
@@ -1232,7 +1230,7 @@ TEST(IndexProcessorTest, IndexCheckDropTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_CONFLICT, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_CONFLICT, resp.get_code());
     }
 }
 
@@ -1255,7 +1253,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterTagReq req;
@@ -1278,7 +1276,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Tag with index add ttl property on index col, failed
     {
@@ -1294,7 +1292,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     // Tag with index add ttl property on no index col, failed
     {
@@ -1310,7 +1308,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     // Drop index
     {
@@ -1322,7 +1320,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Add ttl property, succeed
     {
@@ -1338,7 +1336,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Tag with ttl to creat index on ttl col
     {
@@ -1354,7 +1352,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Drop ttl property
     {
@@ -1370,7 +1368,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     {
         cpp2::DropTagIndexReq req;
@@ -1381,7 +1379,7 @@ TEST(IndexProcessorTest, IndexTTLTagTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
 }
 
@@ -1405,7 +1403,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     {
         cpp2::AlterEdgeReq req;
@@ -1428,7 +1426,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Edge with index add ttl property on index col
     {
@@ -1444,7 +1442,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     // Edge with index add ttl property on no index col
     {
@@ -1460,7 +1458,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     // Drop index
     {
@@ -1472,7 +1470,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Drop index, then add ttl property, succeed
     {
@@ -1488,7 +1486,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Edge with ttl to create index on ttl col
     {
@@ -1504,7 +1502,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
     // Drop ttl property
     {
@@ -1520,7 +1518,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::E_UNSUPPORTED, resp.get_code());
     }
     {
         cpp2::DropEdgeIndexReq req;
@@ -1531,7 +1529,7 @@ TEST(IndexProcessorTest, IndexTTLEdgeTest) {
         auto f = processor->getFuture();
         processor->process(req);
         auto resp = std::move(f).get();
-        ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
     }
 }
 }  // namespace meta
