@@ -41,12 +41,14 @@ public:
             EdgeType edgeType,
             const std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>>* schemas,
             const folly::Optional<std::pair<std::string, int64_t>>* ttl,
-            bool moveToValidRecord = true)
+            bool moveToValidRecord = true,
+            folly::Optional<VertexID> dstId = {})
         : planContext_(planCtx)
         , iter_(std::move(iter))
         , edgeType_(edgeType)
         , schemas_(schemas)
-        , moveToValidRecord_(moveToValidRecord) {
+        , moveToValidRecord_(moveToValidRecord)
+        , dstId_(std::move(dstId)) {
         CHECK(!!iter_);
         if (ttl->hasValue()) {
             hasTtl_ = true;
@@ -114,6 +116,14 @@ protected:
             return false;
         }
 
+        // check dst
+        if (dstId_.hasValue()) {
+            auto rawDstId = NebulaKeyUtils::getDstId(planContext_->vIdLen_, iter_->key());
+            if (dstId_.value() != rawDstId) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -130,6 +140,7 @@ protected:
     RowReaderWrapper                                                      reader_;
     EdgeRanking                                                           lastRank_ = 0;
     VertexID                                                              lastDstId_ = "";
+    folly::Optional<VertexID>                                             dstId_ = {};
 };
 
 // Iterator of multiple SingleEdgeIterator, it will iterate over edges of different types

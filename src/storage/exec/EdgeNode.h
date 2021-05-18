@@ -152,41 +152,54 @@ public:
     }
 };
 
+template <typename T>
 // SingleEdgeNode is used to scan all edges of a specified edgeType of the same srcId
-class SingleEdgeNode final : public EdgeNode<VertexID> {
+class SingleEdgeNode final : public EdgeNode<T> {
 public:
-    using RelNode::execute;
+    using RelNode<T>::execute;
     SingleEdgeNode(PlanContext* planCtx,
                    EdgeContext* ctx,
                    EdgeType edgeType,
                    const std::vector<PropContext>* props,
                    StorageExpressionContext* expCtx = nullptr,
                    Expression* exp = nullptr)
-        : EdgeNode(planCtx, ctx, edgeType, props, expCtx, exp) {}
+        : EdgeNode<T>(planCtx, ctx, edgeType, props, expCtx, exp) {}
 
-    kvstore::ResultCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::execute(partId, vId);
         if (ret != kvstore::ResultCode::SUCCEEDED) {
             return ret;
         }
 
-        VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << edgeType_
-                << ", prop size " << props_->size();
+        VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << this->edgeType_
+                << ", prop size " << this->props_->size();
         std::unique_ptr<kvstore::KVIterator> iter;
-        prefix_ = NebulaKeyUtils::edgePrefix(planContext_->vIdLen_, partId, vId, edgeType_);
-        ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix_, &iter);
+        this->prefix_ = NebulaKeyUtils::edgePrefix(this->planContext_->vIdLen_,
+                                                   partId, vId, this->edgeType_);
+        ret = this->planContext_->env_->kvstore_->prefix(this->planContext_->spaceId_,
+                                                         partId, this->prefix_, &iter);
         if (ret == kvstore::ResultCode::SUCCEEDED && iter && iter->valid()) {
-            if (planContext_->env_->txnMan_ &&
-                planContext_->env_->txnMan_->enableToss(planContext_->spaceId_)) {
+            if (this->planContext_->env_->txnMan_ &&
+                this->planContext_->env_->txnMan_->enableToss(this->planContext_->spaceId_)) {
                 bool stopAtFirstEdge = false;
-                iter_.reset(new TossEdgeIterator(
-                    planContext_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
+                this->iter_.reset(new TossEdgeIterator(
+                    this->planContext_, std::move(iter),
+                    this->edgeType_, this->schemas_, &this->ttl_, stopAtFirstEdge));
             } else {
-                iter_.reset(new SingleEdgeIterator(
-                    planContext_, std::move(iter), edgeType_, schemas_, &ttl_));
+                if constexpr (std::is_same_v<T, VertexID>) {
+                    this->iter_.reset(new SingleEdgeIterator(
+                        this->planContext_, std::move(iter), this->edgeType_,
+                        this->schemas_, &this->ttl_));
+                } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+                    this->iter_.reset(new SingleEdgeIterator(
+                        this->planContext_, std::move(iter),
+                        this->edgeType_, this->schemas_, &this->ttl_, true, vId.second));
+                } else {
+                    LOG(FATAL) << "Invlaid key type for edge scan.";
+                }
             }
         } else {
-            iter_.reset();
+            this->iter_.reset();
         }
         return ret;
     }

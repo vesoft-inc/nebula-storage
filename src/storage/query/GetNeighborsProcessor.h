@@ -45,9 +45,10 @@ protected:
                                                          executor,
                                                          cache) {}
 
-    StoragePlan<VertexID> buildPlan(nebula::DataSet* result,
-                                    int64_t limit = 0,
-                                    bool random = false);
+    template <typename T>
+    StoragePlan<T> buildPlan(nebula::DataSet* result,
+                             int64_t limit = 0,
+                             bool random = false);
 
     void onProcessFinished() override;
 
@@ -66,6 +67,7 @@ protected:
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
+    bool                                      withDst_{false};
 };
 
 }  // namespace storage
