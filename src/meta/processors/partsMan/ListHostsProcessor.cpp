@@ -174,9 +174,6 @@ nebula::cpp2::ErrorCode ListHostsProcessor::fillLeaders() {
     auto iter = nebula::value(iterRet).get();
 
     // get hosts which have send heartbeat recently
-    HostAddr host;
-    TermID term;
-    nebula::cpp2::ErrorCode code;
     std::vector<std::string> removeLeadersKey;
     for (; iter->valid(); iter->next()) {
         auto spaceIdAndPartId = MetaServiceUtils::parseLeaderKeyV3(iter->key());
@@ -190,10 +187,11 @@ nebula::cpp2::ErrorCode ListHostsProcessor::fillLeaders() {
             continue;
         }
 
-        std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(iter->val());
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        auto result = MetaServiceUtils::parseLeaderValV3(iter->val());
+        if (!ok(result)) {
             continue;
         }
+        auto [host, term] = value(result);
         auto it = std::find(activeHosts.begin(), activeHosts.end(), host);
         if (it == activeHosts.end()) {
             LOG(INFO) << "skip inactive host: " << host;

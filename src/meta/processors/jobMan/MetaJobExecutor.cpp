@@ -117,15 +117,14 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     }
 
     std::vector<std::pair<HostAddr, std::vector<PartitionID>>> hosts;
-    HostAddr host;
-    nebula::cpp2::ErrorCode code;
     for (; leaderIter->valid(); leaderIter->next()) {
         auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(leaderIter->key());
         auto partId = spaceAndPart.second;
-        std::tie(host, std::ignore, code) = MetaServiceUtils::parseLeaderValV3(leaderIter->val());
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        auto result = MetaServiceUtils::parseLeaderValV3(leaderIter->val());
+        if (!ok(result)) {
             continue;
         }
+        auto [host, _] = value(result);
         auto it = std::find_if(hosts.begin(), hosts.end(), [&](auto& item){
             return item.first == host;
         });

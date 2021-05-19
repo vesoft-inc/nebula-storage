@@ -112,8 +112,8 @@ public:
 
     static LeaderParts parseLeaderValV1(folly::StringPiece val);
 
-    static std::tuple<HostAddr, int64_t, nebula::cpp2::ErrorCode>
-    parseLeaderValV3(folly::StringPiece val);
+    static ErrorOr<nebula::cpp2::ErrorCode, std::tuple<HostAddr, int64_t>> parseLeaderValV3(
+        folly::StringPiece val);
 
     static std::string schemaVal(const std::string& name, const cpp2::Schema& schema);
 

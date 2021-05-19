@@ -135,16 +135,16 @@ ListPartsProcessor::getLeaderDist(std::vector<cpp2::PartItem>& partItems) {
         return rc;
     }
 
-    HostAddr host;
-    nebula::cpp2::ErrorCode code;
     for (auto i = 0U; i != statuses.size(); ++i) {
         if (!statuses[i].ok()) {
             continue;
         }
-        std::tie(host, std::ignore, code) = MetaServiceUtils::parseLeaderValV3(values[i]);
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+
+        auto result =  MetaServiceUtils::parseLeaderValV3(values[i]);
+        if (!ok(result)) {
             continue;
         }
+        auto [host, _] = value(result);
         if (std::find(activeHosts.begin(), activeHosts.end(), host) == activeHosts.end()) {
             LOG(INFO) << "ignore inactive host: " << host;
             continue;

@@ -46,15 +46,14 @@ ActiveHostsMan::updateHostInfo(kvstore::KVStore* kv,
             LOG(INFO) << "error rc = " << apache::thrift::util::enumNameSafe(rc);
             return rc;
         }
-        TermID term;
-        nebula::cpp2::ErrorCode code;
         for (auto i = 0U; i != statuses.size(); ++i) {
             if (statuses[i].ok()) {
-                std::tie(std::ignore, term, code) = MetaServiceUtils::parseLeaderValV3(vals[i]);
-                if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                    LOG(WARNING) << apache::thrift::util::enumNameSafe(code);
+                auto result = MetaServiceUtils::parseLeaderValV3(vals[i]);
+                if (!ok(result)) {
+                    LOG(WARNING) << apache::thrift::util::enumNameSafe(error(result));
                     continue;
                 }
+                auto [_, term] = value(result);
                 if (terms[i] <= term) {
                     continue;
                 }

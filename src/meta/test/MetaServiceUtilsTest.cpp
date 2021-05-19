@@ -98,7 +98,9 @@ TEST(MetaServiceUtilsTest, storeStrIpCodecTest) {
         host.host = "Hello-Kitty";
         host.port = 9527;
         auto leaderVal = MetaServiceUtils::leaderValV3(host, termId);
-        auto parsedVal = MetaServiceUtils::parseLeaderValV3(leaderVal);
+        auto result = MetaServiceUtils::parseLeaderValV3(leaderVal);
+        ASSERT_TRUE(ok(result));
+        auto parsedVal = value(result);
 
         EXPECT_EQ(std::get<0>(parsedVal), host);
         EXPECT_EQ(std::get<1>(parsedVal), termId);
