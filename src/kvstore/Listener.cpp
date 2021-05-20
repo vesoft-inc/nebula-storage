@@ -224,10 +224,11 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
                                                      LogID committedLogId,
                                                      TermID committedLogTerm,
                                                      bool finished) {
-    LOG(INFO) << idStr_ << "Listener is committing snapshot.";
+    VLOG(1) << idStr_ << "Listener is committing snapshot.";
     int64_t count = 0;
     int64_t size = 0;
     std::vector<KV> data;
+    data.reserve(rows.size());
     for (const auto& row : rows) {
         count++;
         size += row.size();
@@ -238,7 +239,6 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
         LOG(ERROR) << idStr_ << "Failed to apply data while committing snapshot.";
         return std::make_pair(0, 0);
     }
-    LOG(INFO) << idStr_ << "Listener succeed to commit snapshot, rows: " << count;
     if (finished) {
         CHECK(!raftLock_.try_lock());
         lastId_ = committedLogId;
