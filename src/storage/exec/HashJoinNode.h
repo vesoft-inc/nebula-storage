@@ -21,13 +21,14 @@ namespace storage {
 // The output would be the result of tag, it is a List, each cell save a list of property values,
 // if tag not found, it will be a empty value.
 // Also it will return a iterator of edges which can pass ttl check and ready to be read.
-class HashJoinNode : public IterateNode<VertexID> {
+template<typename T>
+class HashJoinNode : public IterateNode<T> {
 public:
-    using RelNode::execute;
+    using RelNode<T>::execute;
 
     HashJoinNode(PlanContext* planCtx,
-                 const std::vector<TagNode*>& tagNodes,
-                 const std::vector<EdgeNode<VertexID>*>& edgeNodes,
+                 const std::vector<TagNode<T>*>& tagNodes,
+                 const std::vector<EdgeNode<T>*>& edgeNodes,
                  TagContext* tagContext,
                  EdgeContext* edgeContext,
                  StorageExpressionContext* expCtx)
@@ -40,8 +41,16 @@ public:
         UNUSED(tagContext_);
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) override {
+        VertexID vId;
+        if constexpr (std::is_same_v<T, VertexID>) {
+            vId = input;
+        } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+            vId = input.first;
+        } else {
+            LOG(FATAL) << "Invalid key type.";
+        }
+        auto ret = RelNode<T>::execute(partId, input);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
@@ -49,8 +58,8 @@ public:
         if (expCtx_ != nullptr) {
             expCtx_->clear();
         }
-        result_.setList(nebula::List());
-        auto& result = result_.mutableList();
+        this->result_.setList(nebula::List());
+        auto& result = this->result_.mutableList();
         if (planContext_->resultStat_ == ResultStatus::ILLEGAL_DATA) {
             return nebula::cpp2::ErrorCode::E_INVALID_DATA;
         }
@@ -159,8 +168,8 @@ private:
 
 private:
     PlanContext* planContext_;
-    std::vector<TagNode*> tagNodes_;
-    std::vector<EdgeNode<VertexID>*> edgeNodes_;
+    std::vector<TagNode<T>*> tagNodes_;
+    std::vector<EdgeNode<T>*> edgeNodes_;
     TagContext* tagContext_;
     EdgeContext* edgeContext_;
     StorageExpressionContext* expCtx_;

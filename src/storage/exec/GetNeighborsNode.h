@@ -20,13 +20,14 @@ namespace storage {
 // GetNeighborsNode will generate a row in response of GetNeighbors, so it need to get the tag
 // result from HashJoinNode, and the stat info and edge iterator from AggregateNode. Then collect
 // some edge props, and put them into the target cell of a row.
-class GetNeighborsNode : public QueryNode<VertexID> {
+template<typename T>
+class GetNeighborsNode : public QueryNode<T> {
 public:
-    using RelNode::execute;
+    using RelNode<T>::execute;
 
     GetNeighborsNode(PlanContext* planCtx,
-                     IterateNode<VertexID>* hashJoinNode,
-                     IterateNode<VertexID>* upstream,
+                     IterateNode<T>* hashJoinNode,
+                     IterateNode<T>* upstream,
                      EdgeContext* edgeContext,
                      nebula::DataSet* resultDataSet,
                      int64_t limit = 0)
@@ -37,8 +38,16 @@ public:
         , resultDataSet_(resultDataSet)
         , limit_(limit) {}
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) override {
+        VertexID vId;
+        if constexpr (std::is_same_v<T, VertexID>) {
+            vId = input;
+        } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+            vId = input.first;
+        } else {
+            LOG(FATAL) << "Invalid key type.";
+        }
+        auto ret = RelNode<T>::execute(partId, input);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
@@ -115,22 +124,23 @@ protected:
     }
 
     PlanContext* planContext_;
-    IterateNode<VertexID>* hashJoinNode_;
-    IterateNode<VertexID>* upstream_;
+    IterateNode<T>* hashJoinNode_;
+    IterateNode<T>* upstream_;
     EdgeContext* edgeContext_;
     nebula::DataSet* resultDataSet_;
     int64_t limit_;
 };
 
-class GetNeighborsSampleNode : public GetNeighborsNode {
+template<typename T>
+class GetNeighborsSampleNode : public GetNeighborsNode<T> {
 public:
     GetNeighborsSampleNode(PlanContext* planCtx,
-                           IterateNode<VertexID>* hashJoinNode,
-                           IterateNode<VertexID>* upstream,
+                           IterateNode<T>* hashJoinNode,
+                           IterateNode<T>* upstream,
                            EdgeContext* edgeContext,
                            nebula::DataSet* resultDataSet,
                            int64_t limit)
-        : GetNeighborsNode(planCtx, hashJoinNode, upstream, edgeContext, resultDataSet, limit) {
+        : GetNeighborsNode<T>(planCtx, hashJoinNode, upstream, edgeContext, resultDataSet, limit) {
             sampler_ = std::make_unique<nebula::algorithm::ReservoirSampling<Sample>>(limit);
         }
 
@@ -144,12 +154,12 @@ private:
     nebula::cpp2::ErrorCode iterateEdges(std::vector<Value>& row) override {
         int64_t edgeRowCount = 0;
         nebula::List list;
-        for (; upstream_->valid(); upstream_->next(), ++edgeRowCount) {
-            auto val = upstream_->val();
-            auto key = upstream_->key();
-            auto edgeType = planContext_->edgeType_;
-            auto props = planContext_->props_;
-            auto columnIdx = planContext_->columnIdx_;
+        for (; this->upstream_->valid(); this->upstream_->next(), ++edgeRowCount) {
+            auto val = this->upstream_->val();
+            auto key = this->upstream_->key();
+            auto edgeType = this->planContext_->edgeType_;
+            auto props = this->planContext_->props_;
+            auto columnIdx = this->planContext_->columnIdx_;
             sampler_->sampling(std::make_tuple(edgeType, val.str(), key.str(), props, columnIdx));
         }
 
@@ -164,8 +174,8 @@ private:
 
             auto edgeType = std::get<0>(sample);
             const auto& val = std::get<1>(sample);
-            reader = RowReaderWrapper::getEdgePropReader(planContext_->env_->schemaMan_,
-                                                         planContext_->spaceId_,
+            reader = RowReaderWrapper::getEdgePropReader(this->planContext_->env_->schemaMan_,
+                                                         this->planContext_->spaceId_,
                                                          std::abs(edgeType),
                                                          val);
             if (!reader) {
@@ -174,7 +184,8 @@ private:
 
             const auto& key = std::get<2>(sample);
             const auto& props = std::get<3>(sample);
-            if (!QueryUtils::collectEdgeProps(key, planContext_->vIdLen_, planContext_->isIntId_,
+            if (!QueryUtils::collectEdgeProps(key, this->planContext_->vIdLen_,
+                                              this->planContext_->isIntId_,
                                               reader.get(), props, list).ok()) {
                 return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
             }

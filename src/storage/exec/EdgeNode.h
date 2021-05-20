@@ -168,15 +168,22 @@ public:
 
     nebula::cpp2::ErrorCode execute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::execute(partId, vId);
-        if (ret != kvstore::ResultCode::SUCCEEDED) {
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
 
-        VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << this->edgeType_
-                << ", prop size " << this->props_->size();
+        // VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << this->edgeType_
+                // << ", prop size " << this->props_->size();
         std::unique_ptr<kvstore::KVIterator> iter;
-        this->prefix_ = NebulaKeyUtils::edgePrefix(this->planContext_->vIdLen_,
-                                                   partId, vId, this->edgeType_);
+        if constexpr (std::is_same_v<T, VertexID>) {
+            this->prefix_ = NebulaKeyUtils::edgePrefix(this->planContext_->vIdLen_,
+                                                    partId, vId, this->edgeType_);
+        } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+            this->prefix_ = NebulaKeyUtils::edgePrefix(this->planContext_->vIdLen_,
+                                                    partId, vId.first, this->edgeType_);
+        } else {
+            LOG(FATAL) << "Invlaid key type for edge scan.";
+        }
         ret = this->planContext_->env_->kvstore_->prefix(this->planContext_->spaceId_,
                                                          partId, this->prefix_, &iter);
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED && iter && iter->valid()) {

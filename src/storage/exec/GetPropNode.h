@@ -19,7 +19,7 @@ public:
     using RelNode<VertexID>::execute;
 
     explicit GetTagPropNode(PlanContext *planCtx,
-                            std::vector<TagNode*> tagNodes,
+                            std::vector<TagNode<VertexID>*> tagNodes,
                             nebula::DataSet* resultDataSet,
                             VertexCache* vertexCache)
         : planContext_(planCtx)
@@ -83,7 +83,7 @@ public:
 
 private:
     PlanContext*                planContext_;
-    std::vector<TagNode*>       tagNodes_;
+    std::vector<TagNode<VertexID>*>       tagNodes_;
     nebula::DataSet*            resultDataSet_;
     VertexCache*                vertexCache_;
 };

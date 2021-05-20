@@ -128,7 +128,7 @@ The storage plan of update(upsert) vertex looks like this:
 StoragePlan<VertexID> UpdateVertexProcessor::buildPlan(nebula::DataSet* result) {
     StoragePlan<VertexID> plan;
     // handle tag props, return prop, filter prop, update prop
-    auto tagUpdate = std::make_unique<TagNode>(planContext_.get(),
+    auto tagUpdate = std::make_unique<TagNode<VertexID>>(planContext_.get(),
                                                &tagContext_,
                                                tagContext_.propContexts_[0].first,
                                                &(tagContext_.propContexts_[0].second));

@@ -15,9 +15,10 @@ namespace nebula {
 namespace storage {
 
 // TagNode will return a DataSet of specified props of tagId
-class TagNode final : public IterateNode<VertexID> {
+template <typename T>
+class TagNode final : public IterateNode<T> {
 public:
-    using RelNode::execute;
+    using RelNode<T>::execute;
 
     TagNode(PlanContext* planCtx,
             TagContext* ctx,
@@ -40,9 +41,17 @@ public:
         tagName_ = tagContext_->tagNames_[tagId_];
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
+    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) override {
+        VertexID vId;
+        if constexpr (std::is_same_v<T, VertexID>) {
+            vId = input;
+        } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+            vId = input.first;
+        } else {
+            LOG(FATAL) << "Invalid key type.";
+        }
         reader_.reset();
-        auto ret = RelNode::execute(partId, vId);
+        auto ret = RelNode<T>::execute(partId, input);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

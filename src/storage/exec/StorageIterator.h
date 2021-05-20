@@ -68,7 +68,7 @@ public:
     }
 
     bool valid() const override {
-        return !stopSearching_ && reader_ != nullptr;
+        return iter_->valid() && !stopSearching_ && reader_ != nullptr;
     }
 
     void next() override {
@@ -119,6 +119,8 @@ protected:
         // check dst
         if (dstId_.hasValue()) {
             auto rawDstId = NebulaKeyUtils::getDstId(planContext_->vIdLen_, iter_->key());
+            // TODO optimize the compare
+            dstId_.value().resize(rawDstId.size());
             if (dstId_.value() != rawDstId) {
                 return false;
             }
