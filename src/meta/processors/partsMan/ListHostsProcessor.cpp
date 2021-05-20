@@ -198,9 +198,10 @@ nebula::cpp2::ErrorCode ListHostsProcessor::fillLeaders() {
             continue;  // skip inactive host
         }
 
-        auto hostIt = std::find_if(hostItems_.begin(), hostItems_.end(), [&](const auto& hit) {
-            return hit.get_hostAddr() == host;
-        });
+        auto hostIt = std::find_if(
+            hostItems_.begin(), hostItems_.end(), [host = std::move(host)](const auto& hit) {
+                return hit.get_hostAddr() == host;
+            });
 
         if (hostIt == hostItems_.end()) {
             LOG(INFO) << "skip inactive host";

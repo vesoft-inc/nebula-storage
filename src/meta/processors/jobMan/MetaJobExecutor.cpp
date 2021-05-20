@@ -125,7 +125,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
             continue;
         }
         auto [host, _] = value(result);
-        auto it = std::find_if(hosts.begin(), hosts.end(), [&](auto& item){
+        auto it = std::find_if(hosts.begin(), hosts.end(), [host = std::move(host)](auto& item) {
             return item.first == host;
         });
         if (it == hosts.end()) {
