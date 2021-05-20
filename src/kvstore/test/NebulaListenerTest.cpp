@@ -302,8 +302,6 @@ TEST_P(ListenerBasicTest, SimpleTest) {
     }
 }
 
-
-
 TEST_P(ListenerBasicTest, TransLeaderTest) {
     LOG(INFO) << "Insert some data";
     for (int32_t partId = 1; partId <= partCount_; partId++) {
