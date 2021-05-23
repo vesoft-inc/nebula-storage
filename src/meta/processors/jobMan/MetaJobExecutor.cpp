@@ -128,7 +128,7 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
         auto it = std::find_if(
             hosts.begin(), hosts.end(), [host = host](auto& item) { return item.first == host; });
         if (it == hosts.end()) {
-            hosts.emplace_back(std::make_pair(host, std::vector<PartitionID>{partId}));
+            hosts.emplace_back(std::move(host), std::vector<PartitionID>{partId});
         } else {
             it->second.emplace_back(partId);
         }

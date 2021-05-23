@@ -157,8 +157,7 @@ TEST(ActiveHostsManTest, LeaderTest) {
                 LOG(INFO) << "error: " << apache::thrift::util::enumNameSafe(error(result));
                 continue;
             }
-            auto [hostLeader, term] = value(result);
-            results[spaceAndPart] = std::make_pair(hostLeader, term);
+            results[spaceAndPart] = value(result);
             iter->next();
             i++;
         }

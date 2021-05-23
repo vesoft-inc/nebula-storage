@@ -330,9 +330,9 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 }
 
 // v3: dataVer(int) + lenOfHost(8) + HostAddr(varchar) + term(int64_t)
-ErrorOr<nebula::cpp2::ErrorCode, std::tuple<HostAddr, TermID>>
+ErrorOr<nebula::cpp2::ErrorCode, std::pair<HostAddr, TermID>>
 MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
-    std::tuple<HostAddr, TermID> ret;
+    std::pair<HostAddr, TermID> ret;
     int dataVer = *reinterpret_cast<const int*>(val.data());
     if (dataVer != 3) {
         return nebula::cpp2::ErrorCode::E_INVALID_PARM;

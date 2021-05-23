@@ -102,8 +102,8 @@ TEST(MetaServiceUtilsTest, storeStrIpCodecTest) {
         ASSERT_TRUE(ok(result));
         auto parsedVal = value(result);
 
-        EXPECT_EQ(std::get<0>(parsedVal), host);
-        EXPECT_EQ(std::get<1>(parsedVal), termId);
+        EXPECT_EQ(parsedVal.first, host);
+        EXPECT_EQ(parsedVal.second, termId);
     }
 }
 

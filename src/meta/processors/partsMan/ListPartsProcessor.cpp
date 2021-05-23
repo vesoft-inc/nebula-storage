@@ -149,7 +149,7 @@ ListPartsProcessor::getLeaderDist(std::vector<cpp2::PartItem>& partItems) {
             LOG(INFO) << "ignore inactive host: " << host;
             continue;
         }
-        partItems[i].set_leader(host);
+        partItems[i].set_leader(std::move(host));
     }
 
     return nebula::cpp2::ErrorCode::SUCCEEDED;
