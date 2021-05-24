@@ -116,6 +116,8 @@ private:
 
     static bool isExpiredJob(const cpp2::JobDesc& jobDesc);
 
+    static bool isRunningJob(const JobDescription& jobDesc);
+
     nebula::cpp2::ErrorCode removeExpiredJobs(std::vector<std::string>&& jobKeys);
 
     ErrorOr<nebula::cpp2::ErrorCode, std::list<TaskDescription>> getAllTasks(JobID jobId);

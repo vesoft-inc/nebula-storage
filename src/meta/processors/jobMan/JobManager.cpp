@@ -443,6 +443,14 @@ bool JobManager::isExpiredJob(const cpp2::JobDesc& jobDesc) {
     return duration > FLAGS_job_expired_secs;
 }
 
+bool JobManager::isRunningJob(const JobDescription& jobDesc) {
+    auto status = jobDesc.getStatus();
+    if (status == cpp2::JobStatus::QUEUE || status == cpp2::JobStatus::RUNNING) {
+        return true;
+    }
+    return false;
+}
+
 nebula::cpp2::ErrorCode
 JobManager::removeExpiredJobs(std::vector<std::string>&& expiredJobsAndTasks) {
     nebula::cpp2::ErrorCode ret;
@@ -590,13 +598,11 @@ ErrorOr<nebula::cpp2::ErrorCode, bool> JobManager::checkIndexJobRuning() {
             if (!nebula::ok(optJobRet)) {
                 continue;
             }
-            auto optJob = nebula::value(optJobRet);
-            // skip expired job, default 1 week
-            auto jobDesc = optJob.toJobDesc();
-            if (isExpiredJob(jobDesc)) {
+            auto jobDesc = nebula::value(optJobRet);
+            if (!isRunningJob(jobDesc)) {
                 continue;
             }
-            auto cmd = jobDesc.get_cmd();
+            auto cmd = jobDesc.getCmd();
             if (cmd == cpp2::AdminCmd::REBUILD_TAG_INDEX ||
                 cmd == cpp2::AdminCmd::REBUILD_EDGE_INDEX) {
                 return true;
