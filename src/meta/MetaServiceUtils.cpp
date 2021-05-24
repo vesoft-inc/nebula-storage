@@ -23,7 +23,8 @@ static const std::unordered_map<std::string, std::pair<std::string, bool>> syste
     {"configs", {"__configs__", true}},
     {"groups", {"__groups__", true}},
     {"zones", {"__zones__", true}},
-    {"ft_service", {"__ft_service__", false}}};
+    {"ft_service", {"__ft_service__", false}},
+    {"sessions", {"__sessions__", true}}};
 
 // name => {prefix, parseSpaceid}, nullptr means that the backup should be skipped.
 static const std::unordered_map<
@@ -76,6 +77,7 @@ static const std::string kBalancePlanTable    = tableMaps.at("balance_plan").fir
 
 const std::string kFTIndexTable        = tableMaps.at("ft_index").first;         // NOLINT
 const std::string kFTServiceTable = systemTableMaps.at("ft_service").first;      // NOLINT
+const std::string kSessionsTable = systemTableMaps.at("sessions").first;         // NOLINT
 
 const int kMaxIpAddrLen = 15;   // '255.255.255.255'
 
@@ -87,7 +89,7 @@ bool backupTable(kvstore::KVStore* kvstore,
     auto backupFilePath = kvstore->backupTable(kDefaultSpaceId, backupName, tableName, filter);
     if (!ok(backupFilePath)) {
         auto result = error(backupFilePath);
-        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
+        if (result == nebula::cpp2::ErrorCode::E_BACKUP_EMPTY_TABLE) {
             return true;
         }
         return false;
@@ -328,13 +330,13 @@ std::string MetaServiceUtils::leaderValV3(const HostAddr& h, int64_t term) {
 }
 
 // v3: dataVer(int) + lenOfHost(8) + HostAddr(varchar) + term(int64_t)
-std::tuple<HostAddr, TermID, cpp2::ErrorCode>
+std::tuple<HostAddr, TermID, nebula::cpp2::ErrorCode>
 MetaServiceUtils::parseLeaderValV3(folly::StringPiece val) {
-    std::tuple<HostAddr, TermID, cpp2::ErrorCode> ret;
-    std::get<2>(ret) = cpp2::ErrorCode::SUCCEEDED;
+    std::tuple<HostAddr, TermID, nebula::cpp2::ErrorCode> ret;
+    std::get<2>(ret) = nebula::cpp2::ErrorCode::SUCCEEDED;
     int dataVer = *reinterpret_cast<const int*>(val.data());
     if (dataVer != 3) {
-        std::get<2>(ret) = cpp2::ErrorCode::E_INVALID_PARM;
+        std::get<2>(ret) = nebula::cpp2::ErrorCode::E_INVALID_PARM;
         return ret;
     }
 
@@ -671,20 +673,22 @@ std::string MetaServiceUtils::assembleSegmentKey(const std::string& segment,
     return segmentKey;
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
-                                                  cpp2::SchemaProp& prop,
-                                                  const cpp2::ColumnDef col,
-                                                  const cpp2::AlterSchemaOp op) {
+nebula::cpp2::ErrorCode
+MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& cols,
+                                  cpp2::SchemaProp& prop,
+                                  const cpp2::ColumnDef col,
+                                  const cpp2::AlterSchemaOp op,
+                                  bool isEdge) {
     switch (op) {
         case cpp2::AlterSchemaOp::ADD:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 if (it->get_name() == col.get_name()) {
                     LOG(ERROR) << "Column existing: " << col.get_name();
-                    return cpp2::ErrorCode::E_EXISTED;
+                    return nebula::cpp2::ErrorCode::E_EXISTED;
                 }
             }
             cols.emplace_back(std::move(col));
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         case cpp2::AlterSchemaOp::CHANGE:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 auto colName = col.get_name();
@@ -692,14 +696,17 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                     // If this col is ttl_col, change not allowed
                     if (prop.get_ttl_col() && (*prop.get_ttl_col() == colName)) {
                         LOG(ERROR) << "Column: " << colName << " as ttl_col, change not allowed";
-                        return cpp2::ErrorCode::E_UNSUPPORTED;
+                        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
                     }
                     *it = col;
-                    return cpp2::ErrorCode::SUCCEEDED;
+                    return nebula::cpp2::ErrorCode::SUCCEEDED;
                 }
             }
             LOG(ERROR) << "Column not found: " << col.get_name();
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            if (isEdge) {
+                return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+            }
+            return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
         case cpp2::AlterSchemaOp::DROP:
             for (auto it = cols.begin(); it != cols.end(); ++it) {
                 auto colName = col.get_name();
@@ -709,25 +716,30 @@ cpp2::ErrorCode MetaServiceUtils::alterColumnDefs(std::vector<cpp2::ColumnDef>& 
                         prop.set_ttl_col("");
                     }
                     cols.erase(it);
-                    return cpp2::ErrorCode::SUCCEEDED;
+                    return nebula::cpp2::ErrorCode::SUCCEEDED;
                 }
             }
             LOG(ERROR) << "Column not found: " << col.get_name();
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            if (isEdge) {
+                return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+            }
+            return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
         default:
             LOG(ERROR) << "Alter schema operator not supported";
-            return cpp2::ErrorCode::E_UNSUPPORTED;
+            return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
 }
 
-cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
-                                                  cpp2::SchemaProp& schemaProp,
-                                                  cpp2::SchemaProp alterSchemaProp,
-                                                  bool existIndex) {
+nebula::cpp2::ErrorCode
+MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
+                                  cpp2::SchemaProp& schemaProp,
+                                  cpp2::SchemaProp alterSchemaProp,
+                                  bool existIndex,
+                                  bool isEdge) {
     if (existIndex && (alterSchemaProp.ttl_duration_ref().has_value() ||
                 alterSchemaProp.ttl_col_ref().has_value())) {
-        LOG(ERROR) << "Has index, can't set ttl";
-        return cpp2::ErrorCode::E_UNSUPPORTED;
+        LOG(ERROR) << "Has index, can't change ttl";
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
     if (alterSchemaProp.ttl_duration_ref().has_value()) {
         // Graph check  <=0 to = 0
@@ -739,7 +751,7 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
         if (ttlCol.empty()) {
             schemaProp.set_ttl_duration(0);
             schemaProp.set_ttl_col(ttlCol);
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
 
         auto existed = false;
@@ -750,7 +762,7 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
                 if (colType != cpp2::PropertyType::INT64 &&
                     colType != cpp2::PropertyType::TIMESTAMP) {
                     LOG(ERROR) << "TTL column type illegal";
-                    return cpp2::ErrorCode::E_UNSUPPORTED;
+                    return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
                 }
                 existed = true;
                 schemaProp.set_ttl_col(ttlCol);
@@ -760,7 +772,10 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
 
         if (!existed) {
             LOG(ERROR) << "TTL column not found: " << ttlCol;
-            return cpp2::ErrorCode::E_NOT_FOUND;
+            if (isEdge) {
+                return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+            }
+            return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
         }
     }
 
@@ -769,14 +784,14 @@ cpp2::ErrorCode MetaServiceUtils::alterSchemaProp(std::vector<cpp2::ColumnDef>& 
         (!schemaProp.get_ttl_col() ||
          (schemaProp.get_ttl_col() && schemaProp.get_ttl_col()->empty()))) {
         LOG(WARNING) << "Implicit ttl_col not support";
-        return cpp2::ErrorCode::E_UNSUPPORTED;
+        return nebula::cpp2::ErrorCode::E_UNSUPPORTED;
     }
 
     if (alterSchemaProp.comment_ref().has_value()) {
         schemaProp.set_comment(*alterSchemaProp.comment_ref());
     }
 
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 std::string MetaServiceUtils::userKey(const std::string& account) {
@@ -1005,7 +1020,8 @@ MetaServiceUtils::spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
     return sf;
 }
 
-ErrorOr<kvstore::ResultCode, std::vector<std::string>> MetaServiceUtils::backupIndexTable(
+ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>>
+MetaServiceUtils::backupIndexTable(
     kvstore::KVStore* kvstore,
     const std::unordered_set<GraphSpaceID>& spaces,
     const std::string& backupName,
@@ -1083,7 +1099,7 @@ folly::Optional<std::vector<std::string>> MetaServiceUtils::backup(
     auto ret = backupIndexTable(kvstore, spaces, backupName, spaceNames);
     if (!ok(ret)) {
         auto result = error(ret);
-        if (result == kvstore::ResultCode::ERR_BACKUP_EMPTY_TABLE) {
+        if (result == nebula::cpp2::ErrorCode::E_BACKUP_EMPTY_TABLE) {
             return files;
         }
         return folly::none;
@@ -1354,5 +1370,32 @@ std::vector<cpp2::FTClient> MetaServiceUtils::parseFTClients(folly::StringPiece 
     return clients;
 }
 
+const std::string& MetaServiceUtils::sessionPrefix() {
+    return kSessionsTable;
+}
+
+std::string MetaServiceUtils::sessionKey(SessionID sessionId) {
+    std::string key;
+    key.reserve(kSessionsTable.size() + sizeof(sessionId));
+    key.append(kSessionsTable.data(), kSessionsTable.size())
+       .append(reinterpret_cast<const char*>(&sessionId), sizeof(SessionID));
+    return key;
+}
+
+std::string MetaServiceUtils::sessionVal(const meta::cpp2::Session &session) {
+    std::string val;
+    apache::thrift::CompactSerializer::serialize(session, &val);
+    return val;
+}
+
+SessionID MetaServiceUtils::getSessionId(const folly::StringPiece &key) {
+    return *reinterpret_cast<const SessionID*>(key.data() + kSessionsTable.size());
+}
+
+meta::cpp2::Session MetaServiceUtils::parseSessionVal(const folly::StringPiece &val) {
+    meta::cpp2::Session session;
+    apache::thrift::CompactSerializer::deserialize(val, session);
+    return session;
+}
 }  // namespace meta
 }  // namespace nebula
