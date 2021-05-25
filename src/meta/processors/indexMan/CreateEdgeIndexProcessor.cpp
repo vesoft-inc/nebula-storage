@@ -133,6 +133,8 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
                 LOG(ERROR) << "Unsupport index type lengths greater than "
                            << MAX_INDEX_TYPE_LENGTH << " : "
                            << field.get_name();
+                handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
+                onFinished();
                 return;
             }
         } else if (col.type.get_type() == meta::cpp2::PropertyType::STRING) {

@@ -113,7 +113,10 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
     }
     auto ftIter = nebula::value(ftRet).get();
     while (ftIter->valid()) {
-        deleteKeys.emplace_back(ftIter->key());
+        auto index = MetaServiceUtils::parsefulltextIndex(ftIter->val());
+        if (index.get_space_id() == spaceId) {
+            deleteKeys.emplace_back(ftIter->key());
+        }
         ftIter->next();
     }
 
