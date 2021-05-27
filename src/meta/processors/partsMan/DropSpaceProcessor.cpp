@@ -17,9 +17,9 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
 
     if (!nebula::ok(spaceRet)) {
         auto retCode = nebula::error(spaceRet);
-        if (retCode == cpp2::ErrorCode::E_NOT_FOUND) {
+        if (retCode == nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND) {
             if (req.get_if_exists()) {
-                retCode = cpp2::ErrorCode::SUCCEEDED;
+                retCode = nebula::cpp2::ErrorCode::SUCCEEDED;
             } else {
                 LOG(ERROR) << "Drop space Failed, space " << spaceName << " not existed.";
             }
@@ -100,6 +100,26 @@ void DropSpaceProcessor::process(const cpp2::DropSpaceReq& req) {
     // 5. Delete related statis data
     auto statiskey = MetaServiceUtils::statisKey(spaceId);
     deleteKeys.emplace_back(statiskey);
+
+    // 6. Delte related fulltext index meta data
+    auto ftPrefix = MetaServiceUtils::fulltextIndexPrefix();
+    auto ftRet = doPrefix(ftPrefix);
+    if (!nebula::ok(ftRet)) {
+        auto retCode = nebula::error(ftRet);
+        LOG(ERROR) << "Drop space Failed, space " << spaceName
+                   << " error: " << apache::thrift::util::enumNameSafe(retCode);
+        handleErrorCode(retCode);
+        onFinished();
+        return;
+    }
+    auto ftIter = nebula::value(ftRet).get();
+    while (ftIter->valid()) {
+        auto index = MetaServiceUtils::parsefulltextIndex(ftIter->val());
+        if (index.get_space_id() == spaceId) {
+            deleteKeys.emplace_back(ftIter->key());
+        }
+        ftIter->next();
+    }
 
     doSyncMultiRemoveAndUpdate(std::move(deleteKeys));
     LOG(INFO) << "Drop space " << spaceName << ", id " << spaceId;

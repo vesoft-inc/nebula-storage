@@ -8,6 +8,7 @@
 #define META_TEST_TESTUTILS_H_
 
 #include "common/base/Base.h"
+#include "common/base/CommonMacro.h"
 #include "common/interface/gen-cpp2/common_types.h"
 #include "common/time/WallClock.h"
 #include "common/expression/ConstantExpression.h"
@@ -69,7 +70,7 @@ public:
         auto now = time::WallClock::fastNowInMilliSec();
         for (auto& h : hosts) {
             auto ret = ActiveHostsMan::updateHostInfo(kv, h, HostInfo(now, role, gitInfoSha));
-            ASSERT_EQ(cpp2::ErrorCode::SUCCEEDED, ret);
+            ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret);
         }
     }
 
@@ -118,8 +119,8 @@ public:
 
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode code) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -129,8 +130,8 @@ public:
                                     HostAddr host, bool isAdd) {
         auto zoneKey = MetaServiceUtils::zoneKey(zoneName);
         std::string zoneValue;
-        auto code = kv->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
-        if (code != kvstore::ResultCode::SUCCEEDED) {
+        auto retCode = kv->get(kDefaultSpaceId, kDefaultPartId, zoneKey, &zoneValue);
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Get zone " <<  zoneName << " failed";
             return false;
         }
@@ -157,8 +158,8 @@ public:
         bool ret = false;
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode resultCode) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, resultCode);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -169,8 +170,8 @@ public:
                                      const std::string& zoneName, bool isAdd) {
         auto groupKey = MetaServiceUtils::groupKey(groupName);
         std::string groupValue;
-        auto code = kv->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
-        if (code != kvstore::ResultCode::SUCCEEDED) {
+        auto retCode = kv->get(kDefaultSpaceId, kDefaultPartId, groupKey, &groupValue);
+        if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Get group " <<  groupName << " failed";
             return false;
         }
@@ -196,8 +197,8 @@ public:
 
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode resultCode) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, resultCode);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -233,8 +234,8 @@ public:
         }
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode code) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -250,8 +251,12 @@ public:
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
                 column.set_name(folly::stringPrintf("tag_%d_col_%d", tagId, i));
-                (*column.type_ref()).set_type(i < 1 ?
-                        PropertyType::INT64 : PropertyType::FIXED_STRING);
+                if (i < 1) {
+                    column.type.set_type(PropertyType::INT64);
+                } else {
+                    column.type.set_type(PropertyType::FIXED_STRING);
+                    column.type.set_type_length(MAX_INDEX_TYPE_LENGTH);
+                }
                 if (nullable) {
                     column.set_nullable(nullable);
                 }
@@ -265,9 +270,9 @@ public:
         }
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(tags),
-                          [&] (kvstore::ResultCode code) {
-                                ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
-                                baton.post();
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
+                              baton.post();
                           });
         baton.wait();
     }
@@ -293,8 +298,8 @@ public:
                           MetaServiceUtils::indexVal(item));
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode code) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -321,8 +326,8 @@ public:
                           MetaServiceUtils::indexVal(item));
         folly::Baton<true, std::atomic> baton;
         kv->asyncMultiPut(0, 0, std::move(data),
-                          [&] (kvstore::ResultCode code) {
-                              ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
+                          [&] (nebula::cpp2::ErrorCode code) {
+                              ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
                               baton.post();
                           });
         baton.wait();
@@ -338,7 +343,12 @@ public:
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
                 column.name = folly::stringPrintf("edge_%d_col_%d", edgeType, i);
-                column.type.set_type(i < 1 ? PropertyType::INT64 : PropertyType::FIXED_STRING);
+                if (i < 1) {
+                    column.type.set_type(PropertyType::INT64);
+                } else {
+                    column.type.set_type(PropertyType::FIXED_STRING);
+                    column.type.set_type_length(MAX_INDEX_TYPE_LENGTH);
+                }
                 if (nullable) {
                     column.set_nullable(nullable);
                 }
@@ -353,8 +363,8 @@ public:
         }
 
         folly::Baton<true, std::atomic> baton;
-        kv->asyncMultiPut(0, 0, std::move(edges), [&] (kvstore::ResultCode code) {
-            ASSERT_EQ(kvstore::ResultCode::SUCCEEDED, code);
+        kv->asyncMultiPut(0, 0, std::move(edges), [&] (nebula::cpp2::ErrorCode code) {
+            ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
             baton.post();
         });
         baton.wait();

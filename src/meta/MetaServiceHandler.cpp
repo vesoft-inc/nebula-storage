@@ -32,6 +32,7 @@
 #include "meta/processors/indexMan/GetEdgeIndexProcessor.h"
 #include "meta/processors/indexMan/ListEdgeIndexesProcessor.h"
 #include "meta/processors/indexMan/FTServiceProcessor.h"
+#include "meta/processors/indexMan/FTIndexProcessor.h"
 #include "meta/processors/customKV/MultiPutProcessor.h"
 #include "meta/processors/customKV/GetProcessor.h"
 #include "meta/processors/customKV/MultiGetProcessor.h"
@@ -67,6 +68,7 @@
 #include "meta/processors/zoneMan/UpdateGroupProcessor.h"
 #include "meta/processors/listenerMan/ListenerProcessor.h"
 #include "meta/processors/admin/RestoreProcessor.h"
+#include "meta/processors/sessionMan/SessionManagerProcessor.h"
 
 #define RETURN_FUTURE(processor) \
     auto f = processor->getFuture(); \
@@ -304,6 +306,24 @@ MetaServiceHandler::future_listFTClients(const cpp2::ListFTClientsReq& req) {
     RETURN_FUTURE(processor);
 }
 
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_createFTIndex(const cpp2::CreateFTIndexReq& req) {
+    auto* processor = CreateFTIndexProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_dropFTIndex(const cpp2::DropFTIndexReq& req) {
+    auto* processor = DropFTIndexProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ListFTIndexesResp>
+MetaServiceHandler::future_listFTIndexes(const cpp2::ListFTIndexesReq& req) {
+    auto* processor = ListFTIndexesProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
 folly::Future<cpp2::HBResp>
 MetaServiceHandler::future_heartBeat(const cpp2::HBReq& req) {
     auto* processor = HBProcessor::instance(kvstore_, &kHBCounters, clusterId_);
@@ -526,5 +546,35 @@ MetaServiceHandler::future_getStatis(const cpp2::GetStatisReq &req) {
     RETURN_FUTURE(processor);
 }
 
+folly::Future<cpp2::CreateSessionResp>
+MetaServiceHandler::future_createSession(const cpp2::CreateSessionReq& req) {
+    auto* processor = CreateSessionProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_updateSessions(const cpp2::UpdateSessionsReq& req) {
+    auto* processor = UpdateSessionsProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ListSessionsResp>
+MetaServiceHandler::future_listSessions(const cpp2::ListSessionsReq& req) {
+    auto* processor = ListSessionsProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::GetSessionResp>
+MetaServiceHandler::future_getSession(const cpp2::GetSessionReq& req) {
+    auto* processor = GetSessionProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_removeSession(const cpp2::RemoveSessionReq& req) {
+    auto* processor = RemoveSessionProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
 }  // namespace meta
 }  // namespace nebula
+
