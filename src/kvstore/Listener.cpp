@@ -248,7 +248,8 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
         LOG(INFO) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
         lastApplyTime_ = time::WallClock::fastNowInMilliSec();
     }
-    return std::make_pair(count, size);}
+    return std::make_pair(count, size);
+}
 
 }  // namespace kvstore
 }  // namespace nebula
