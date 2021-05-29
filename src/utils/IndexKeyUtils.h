@@ -263,14 +263,15 @@ public:
                     folly::Endian::big8(day));
     }
 
+    // TODO(implement by data/time encode method)
     static std::string encodeDateTime(const nebula::DateTime& dt) {
-        auto year = folly::Endian::big16(dt.year);
-        auto month = folly::Endian::big8(dt.month);
-        auto day = folly::Endian::big8(dt.day);
-        auto hour = folly::Endian::big8(dt.hour);
-        auto minute = folly::Endian::big8(dt.minute);
-        auto sec = folly::Endian::big8(dt.sec);
-        auto microsec = folly::Endian::big32(dt.microsec);
+        auto year = folly::Endian::big16(dt.d.year);
+        auto month = folly::Endian::big8(dt.d.month);
+        auto day = folly::Endian::big8(dt.d.day);
+        auto hour = folly::Endian::big8(dt.t.hour);
+        auto minute = folly::Endian::big8(dt.t.minute);
+        auto sec = folly::Endian::big8(dt.t.sec);
+        auto microsec = folly::Endian::big32(dt.t.microsec);
         std::string buf;
         buf.reserve(sizeof(int32_t) + sizeof(int16_t) + sizeof(int8_t) * 5);
         buf.append(reinterpret_cast<const char*>(&year), sizeof(int16_t))
@@ -283,6 +284,7 @@ public:
         return buf;
     }
 
+    // TODO(implement by data/time decode method)
     static nebula::DateTime decodeDateTime(const folly::StringPiece& raw) {
         int16_t year = *reinterpret_cast<const int16_t *>(raw.data());
         int8_t month = *reinterpret_cast<const int8_t *>(raw.data() + sizeof(int16_t));
@@ -298,13 +300,13 @@ public:
             raw.data() + sizeof(int16_t) + 5 * sizeof(int8_t));
 
         nebula::DateTime dt;
-        dt.year = folly::Endian::big16(year);
-        dt.month = folly::Endian::big8(month);
-        dt.day = folly::Endian::big8(day);
-        dt.hour = folly::Endian::big8(hour);
-        dt.minute = folly::Endian::big8(minute);
-        dt.sec = folly::Endian::big8(sec);
-        dt.microsec = folly::Endian::big32(microsec);
+        dt.d.year = folly::Endian::big16(year);
+        dt.d.month = folly::Endian::big8(month);
+        dt.d.day = folly::Endian::big8(day);
+        dt.t.hour = folly::Endian::big8(hour);
+        dt.t.minute = folly::Endian::big8(minute);
+        dt.t.sec = folly::Endian::big8(sec);
+        dt.t.microsec = folly::Endian::big32(microsec);
         return dt;
     }
 

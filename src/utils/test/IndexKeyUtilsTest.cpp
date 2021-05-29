@@ -123,13 +123,13 @@ TEST(IndexKeyUtilsTest, encodeValue) {
     EXPECT_TRUE(evalDate(d));
 
     nebula::DateTime dt;
-    dt.year = 2020;
-    dt.month = 4;
-    dt.day = 11;
-    dt.hour = 12;
-    dt.minute = 30;
-    dt.sec = 22;
-    dt.microsec = 1111;
+    dt.d.year = 2020;
+    dt.d.month = 4;
+    dt.d.day = 11;
+    dt.t.hour = 12;
+    dt.t.minute = 30;
+    dt.t.sec = 22;
+    dt.t.microsec = 1111;
     EXPECT_TRUE(evalDateTime(dt));
 }
 

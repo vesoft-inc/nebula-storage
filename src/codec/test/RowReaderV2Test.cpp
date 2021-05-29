@@ -284,13 +284,13 @@ TEST(RowReaderV2, encodedData) {
 
     // Col 11
     DateTime dt;
-    dt.year = 2020;
-    dt.month = 2;
-    dt.day = 20;
-    dt.hour = 10;
-    dt.minute = 30;
-    dt.sec = 45;
-    dt.microsec = 54321;
+    dt.d.year = 2020;
+    dt.d.month = 2;
+    dt.d.day = 20;
+    dt.t.hour = 10;
+    dt.t.minute = 30;
+    dt.t.sec = 45;
+    dt.t.microsec = 54321;
     val = reader->getValueByIndex(11);
     EXPECT_EQ(Value::Type::DATETIME, val.type());
     EXPECT_EQ(dt, val.getDateTime());
