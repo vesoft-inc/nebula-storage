@@ -243,6 +243,8 @@ private:
                 return "ManualFlush";
             case rocksdb::FlushReason::kErrorRecovery:
                 return "ErrorRecovery";
+            case rocksdb::FlushReason::kErrorRecoveryRetryFlush:
+                return "ErrorRecoveryRetryFlush";
             default:
                 return "Unknown";
         }
@@ -258,6 +260,10 @@ private:
                 return "WriteCallback";
             case rocksdb::BackgroundErrorReason::kMemTable:
                 return "MemTable";
+            case rocksdb::BackgroundErrorReason::kManifestWrite:
+                return "ManifestWrite";
+            case rocksdb::BackgroundErrorReason::kFlushNoWAL:
+                return "FlushNoWAL";
             default:
                 return "Unknown";
         }
