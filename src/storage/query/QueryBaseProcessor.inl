@@ -569,11 +569,20 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kVarProperty:
         case Expression::Kind::kDstProperty:
         case Expression::Kind::kUUID:
+        case Expression::Kind::kPathBuild:
+        case Expression::Kind::kColumn:
+        case Expression::Kind::kTSPrefix:
+        case Expression::Kind::kTSWildcard:
+        case Expression::Kind::kTSRegexp:
+        case Expression::Kind::kTSFuzzy:
+        case Expression::Kind::kAggregate:
+        case Expression::Kind::kSubscriptRange:
         case Expression::Kind::kVersionedVar: {
-            LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
+            LOG(ERROR) << "Unimplemented expression type! kind = " << exp->kind();
             return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
+    return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
 }
 
 template <typename REQ, typename RESP>
