@@ -135,10 +135,10 @@ void NebulaStore::loadPartFromDataPath() {
                             LOG(INFO) << "Part " << partId
                                         << " has been loaded, skip current one, remove it!";
                             enginePtr->removePart(partId);
-                            } else {
+                        } else {
                             spacePartIdSet.emplace(spacePart);
                             partIds.emplace_back(partId);
-                            }
+                        }
                     }
                 }
                 if (partIds.empty()) {
@@ -151,44 +151,24 @@ void NebulaStore::loadPartFromDataPath() {
                 for (auto& partId : partIds) {
                     bgWorkers_->addTask([
                             spaceId, partId, enginePtr, &counter, &baton, this] () mutable {
-                        auto part = std::make_shared<Part>(spaceId,
-                                                            partId,
-                                                            raftAddr_,
-                                                            folly::stringPrintf("%s/wal/%d",
-                                                                    enginePtr->getDataRoot(),
-                                                                    partId),
-                                                            enginePtr,
-                                                            ioPool_,
-                                                            bgWorkers_,
-                                                            workers_,
-                                                            snapshot_,
-                                                            clientMan_);
-                        auto status = options_.partMan_->partMeta(spaceId, partId);
-                        if (!status.ok()) {
-                            LOG(WARNING) << status.status().toString();
+                        SCOPE_EXIT {
+                            counter.fetch_sub(1);
+                            if (counter.load() == 0) {
+                                baton.post();
+                            }
+                        };
+
+                        auto part = newPart(spaceId, partId, enginePtr, false);
+                        if (part == nullptr) {
                             return;
                         }
-                        auto partMeta = status.value();
-                        std::vector<HostAddr> peers;
-                        for (auto& h : partMeta.hosts_) {
-                            if (h != storeSvcAddr_) {
-                                peers.emplace_back(getRaftAddr(h));
-                                VLOG(1) << "Add peer " << peers.back();
-                            }
-                        }
-                        raftService_->addPartition(part);
-                        part->start(std::move(peers), false);
-                        LOG(INFO) << "Load part " << spaceId << ", " << partId << " from disk";
 
+                        LOG(INFO) << "Load part " << spaceId << ", " << partId << " from disk";
                         {
                             folly::RWSpinLock::WriteHolder holder(&lock_);
                             auto iter = spaces_.find(spaceId);
                             CHECK(iter != spaces_.end());
                             iter->second->parts_.emplace(partId, part);
-                        }
-                        counter.fetch_sub(1);
-                        if (counter.load() == 0) {
-                            baton.post();
                         }
                     });
                 }

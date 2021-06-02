@@ -99,7 +99,7 @@ protected:
 
 
 /**
-: * Memory based PartManager, it is used in UTs now.
+ * Memory based PartManager, it is used in UTs now.
  * */
 class MemPartManager final : public PartManager {
     FRIEND_TEST(NebulaStoreTest, SimpleTest);

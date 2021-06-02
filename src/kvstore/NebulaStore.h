@@ -309,7 +309,7 @@ private:
                                   PartitionID partId,
                                   KVEngine* engine,
                                   bool asLearner,
-                                  const std::vector<HostAddr>& defaultPeers);
+                                  const std::vector<HostAddr>& defaultPeers = {});
 
     std::shared_ptr<Listener> newListener(GraphSpaceID spaceId,
                                           PartitionID partId,
