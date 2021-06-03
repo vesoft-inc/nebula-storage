@@ -565,8 +565,9 @@ TEST(FileBasedWal, LinkTest) {
     CHECK(wal->linkCurrentWAL(snapshotFile.c_str()));
     auto files = fs::FileUtils::listAllFilesInDir(snapshotFile.data(), true);
     ASSERT_EQ(3, files.size());
+    std::sort(files.begin(), files.end());
     int i = 0;
-    for (auto it = wal->walFiles_.rbegin(); it != wal->walFiles_.rend(); ++it) {
+    for (auto it = wal->walFiles_.begin(); it != wal->walFiles_.end(); ++it) {
         EXPECT_EQ(FileUtils::fileSize(it->second->path()), FileUtils::fileSize(files[i].c_str()));
         i++;
     }
