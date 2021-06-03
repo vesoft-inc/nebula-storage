@@ -4,6 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "common/base/CommonMacro.h"
 #include "meta/processors/indexMan/CreateEdgeIndexProcessor.h"
 
 namespace nebula {
@@ -28,8 +29,9 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     }
 
     // A maximum of 16 columns are allowed in the index
-    if (columnSet.size() > 16) {
-        LOG(ERROR) << "The number of index columns exceeds maximum limit 16";
+    if (columnSet.size() > maxIndexLimit) {
+        LOG(ERROR) << "The number of index columns exceeds maximum limit "
+                   << maxIndexLimit;
         handleErrorCode(nebula::cpp2::ErrorCode::E_CONFLICT);
         onFinished();
         return;
@@ -126,10 +128,27 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
             return;
         }
         cpp2::ColumnDef col = *iter;
-        if (col.type.get_type() == meta::cpp2::PropertyType::STRING) {
+        if (col.type.get_type() == meta::cpp2::PropertyType::FIXED_STRING) {
+            if (*col.type.get_type_length() > MAX_INDEX_TYPE_LENGTH) {
+                LOG(ERROR) << "Unsupport index type lengths greater than "
+                           << MAX_INDEX_TYPE_LENGTH << " : "
+                           << field.get_name();
+                handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
+                onFinished();
+                return;
+            }
+        } else if (col.type.get_type() == meta::cpp2::PropertyType::STRING) {
             if (!field.type_length_ref().has_value()) {
                 LOG(ERROR) << "No type length set : " << field.get_name();
                 handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
+                onFinished();
+                return;
+            }
+            if (*field.get_type_length() > MAX_INDEX_TYPE_LENGTH) {
+                LOG(ERROR) << "Unsupport index type lengths greater than "
+                           << MAX_INDEX_TYPE_LENGTH << " : "
+                           << field.get_name();
+                handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
                 onFinished();
                 return;
             }

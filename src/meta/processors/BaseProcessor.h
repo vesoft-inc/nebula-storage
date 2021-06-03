@@ -228,8 +228,15 @@ protected:
     indexCheck(const std::vector<cpp2::IndexItem>& items,
                const std::vector<cpp2::AlterSchemaItem>& alterItems);
 
+    nebula::cpp2::ErrorCode
+    ftIndexCheck(const std::vector<std::string>& cols,
+                 const std::vector<cpp2::AlterSchemaItem>& alterItems);
+
     ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::IndexItem>>
     getIndexes(GraphSpaceID spaceId, int32_t tagOrEdge);
+
+    ErrorOr<nebula::cpp2::ErrorCode, cpp2::FTIndex>
+    getFTIndex(GraphSpaceID spaceId, int32_t tagOrEdge);
 
     bool checkIndexExist(const std::vector<cpp2::IndexFieldDef>& fields,
                          const cpp2::IndexItem& item);
@@ -258,6 +265,8 @@ protected:
     RESP                      resp_;
     folly::Promise<RESP>      promise_;
     time::Duration            duration_;
+
+    static const int32_t      maxIndexLimit = 16;
 };
 
 }  // namespace meta
