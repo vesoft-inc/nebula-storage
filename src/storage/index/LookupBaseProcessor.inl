@@ -86,7 +86,7 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
         case Expression::Kind::kLogicalAnd: {
             auto *lExpr = static_cast<LogicalExpression*>(filter);
             for (auto &expr : lExpr->operands()) {
-                auto ret = isOutsideIndex(expr.get(), index);
+                auto ret = isOutsideIndex(expr, index);
                 if (ret) {
                     return ret;
                 }
@@ -209,9 +209,11 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         auto colHints = ctx.get_column_hints();
 
         // Check WHERE clause contains columns that ware not indexed
+        ObjectPool objPool;
+        auto pool = &objPool;
         if (ctx.filter_ref().is_set() && !(*ctx.filter_ref()).empty()) {
-            auto filter = Expression::decode(*ctx.filter_ref());
-            auto isFieldsOutsideIndex = isOutsideIndex(filter.get(), indexItem);
+            auto filter = Expression::decode(pool, *ctx.filter_ref());
+            auto isFieldsOutsideIndex = isOutsideIndex(filter, indexItem);
             if (isFieldsOutsideIndex) {
                 needData = needFilter = true;
             }
@@ -222,19 +224,17 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         } else if (needData && !needFilter) {
             out = buildPlanWithData(ctx, plan);
         } else if (!needData && needFilter) {
-            auto expr = Expression::decode(ctx.get_filter());
+            auto expr = Expression::decode(pool, ctx.get_filter());
             auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
                                                                         planContext_->isIntId_,
                                                                         hasNullableCol,
                                                                         fields);
             filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithFilter(ctx,
-                                        plan,
-                                        filterItems_[filterId].first.get(),
-                                        filterItems_[filterId].second.get());
+            out = buildPlanWithFilter(
+                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
             filterId++;
         } else {
-            auto expr = Expression::decode(ctx.get_filter());
+            auto expr = Expression::decode(pool, ctx.get_filter());
             // Need to get columns in data, expr ctx need to be aware of schema
             const auto& schemaName = planContext_->isEdge_ ? planContext_->edgeName_ :
                                                              planContext_->tagName_;
@@ -246,11 +246,9 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
                                                                       schemaName,
                                                                       schemas_.back().get(),
                                                                       planContext_->isEdge_);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithDataAndFilter(ctx,
-                                             plan,
-                                             filterItems_[filterId].first.get(),
-                                             filterItems_[filterId].second.get());
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
+            out = buildPlanWithDataAndFilter(
+                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
             filterId++;
         }
         if (out == nullptr) {

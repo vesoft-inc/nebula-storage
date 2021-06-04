@@ -8,6 +8,7 @@
 #define STORAGE_TEST_TESTUTILS_H_
 
 #include "common/base/Base.h"
+#include "common/base/ObjectPool.h"
 #include "codec/RowReaderWrapper.h"
 #include "kvstore/KVStore.h"
 #include "kvstore/PartManager.h"

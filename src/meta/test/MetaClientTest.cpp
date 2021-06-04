@@ -38,6 +38,7 @@ TEST(MetaClientTest, InterfacesTest) {
     cluster.initMetaClient();
     auto* kv = cluster.metaKV_.get();
     auto* client = cluster.metaClient_.get();
+    auto pool = &cluster.pool_;
 
     GraphSpaceID spaceId = 0;
     TestUtils::createSomeHosts(kv);
@@ -112,7 +113,7 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "tagItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                ConstantExpression defaultValue(std::to_string(i));
+                auto defaultValue = *ConstantExpression::make(pool, std::to_string(i));
                 column.set_default_value(Expression::encode(defaultValue));
                 (*schema.columns_ref()).emplace_back(std::move(column));
             }
@@ -126,7 +127,7 @@ TEST(MetaClientTest, InterfacesTest) {
             column.name = "tagItem";
             column.type.set_type(PropertyType::STRING);
             column.set_nullable(true);
-            ArithmeticExpression defaultValue(Expression::Kind::kDivision,
+            auto defaultValue = *ArithmeticExpression::makeDivision(pool,
                                               new ConstantExpression(1),
                                               new ConstantExpression(0));
             column.set_default_value(Expression::encode(defaultValue));
@@ -155,7 +156,7 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "edgeItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                ConstantExpression defaultValue(std::to_string(i));
+                auto defaultValue = *ConstantExpression::make(&pool, std::to_string(i));
                 column.set_default_value(Expression::encode(defaultValue));
                 (*schema.columns_ref()).emplace_back(std::move(column));
             }
@@ -532,18 +533,18 @@ TEST(MetaClientTest, TagTest) {
         std::vector<cpp2::ColumnDef> columns;
         columns.emplace_back();
         columns.back().set_name("column_i");
-        ConstantExpression intValue(Value(0L));
+        auto intValue = *ConstantExpression::make(pool, Value(0L));
         columns.back().set_default_value(Expression::encode(intValue));
         columns.back().type.set_type(PropertyType::INT64);
 
         columns.emplace_back();
-        ConstantExpression floatValue(Value(3.14));
+        auto floatValue = *ConstantExpression::make(pool, Value(3.14));
         columns.back().set_default_value(Expression::encode(floatValue));
         columns.back().set_name("column_d");
         columns.back().type.set_type(PropertyType::DOUBLE);
 
         columns.emplace_back();
-        ConstantExpression strValue("test");
+        auto strValue = *ConstantExpression::make(pool, "test");
         columns.back().set_default_value(Expression::encode(strValue));
         columns.back().set_name("column_s");
         columns.back().type.set_type(PropertyType::STRING);
@@ -559,14 +560,14 @@ TEST(MetaClientTest, TagTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        auto intValue = *ConstantExpression::make(pool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression floatValue(Value(3.14));
+        auto floatValue = *ConstantExpression::make(pool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
@@ -616,7 +617,7 @@ TEST(MetaClientTest, TagTest) {
         std::vector<cpp2::ColumnDef> columns;
         columns.emplace_back();
         columns.back().set_name("colName");
-        ConstantExpression valueExpr(std::move(value));
+        auto valueExpr = *ConstantExpression::make(pool, std::move(value));
         if (isFunction) {
             ArgumentList *argList = new ArgumentList();
             argList->addArgument(std::make_unique<ConstantExpression>(std::move(valueExpr)));
@@ -765,21 +766,21 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        auto intValue = *ConstantExpression::make(pool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::DOUBLE);
-        ConstantExpression floatValue(Value(3.14));
+        auto floatValue = *ConstantExpression::make(pool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
         cpp2::ColumnDef stringColumn;
         stringColumn.set_name("column_s");
         stringColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression strValue("test");
+        auto strValue = *ConstantExpression::make(pool, "test");
         stringColumn.set_default_value(Expression::encode(strValue));
         columns.emplace_back(std::move(stringColumn));
         expectedColumns = columns;
@@ -794,14 +795,14 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        auto intValue = *ConstantExpression::make(pool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression floatValue(Value(3.14));
+        auto floatValue = *ConstantExpression::make(pool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
         cpp2::Schema schema;

@@ -827,8 +827,8 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
 
             WriteResult r = WriteResult::SUCCEEDED;
             if (field->hasDefault()) {
-                auto expr = field->defaultValue()->clone();
-                auto defVal = Expression::eval(expr.get(), expCtx);
+                auto expr = field->defaultValue();
+                auto defVal = Expression::eval(expr, expCtx);
                 switch (defVal.type()) {
                     case Value::Type::NULLVALUE:
                         setNullBit(field->nullFlagPos());

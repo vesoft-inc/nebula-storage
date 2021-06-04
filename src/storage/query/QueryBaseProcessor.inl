@@ -135,6 +135,7 @@ nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& re
 
 template<typename REQ, typename RESP>
 nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
+    ObjectPool pool;
     const auto& traverseSpec = req.get_traverse_spec();
     if (!traverseSpec.filter_ref().has_value()) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
@@ -142,11 +143,11 @@ nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& re
     const auto& filterStr = *traverseSpec.filter_ref();
     if (!filterStr.empty()) {
         // the filter expression **must** return a bool
-        filter_ = std::move(Expression::decode(filterStr));
+        filter_ = Expression::decode(&pool, filterStr);
         if (filter_ == nullptr) {
             return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
-        return checkExp(filter_.get(), false, true);
+        return checkExp(filter_, false, true);
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
@@ -315,7 +316,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kList: {
             auto* listExp = static_cast<const ListExpression*>(exp);
             for (auto& item : listExp->items()) {
-                auto ret = checkExp(item.get(), returned, filtered, updated);
+                auto ret = checkExp(item, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -325,7 +326,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kSet: {
             auto* setExp = static_cast<const SetExpression*>(exp);
             for (auto& item : setExp->items()) {
-                auto ret = checkExp(item.get(), returned, filtered, updated);
+                auto ret = checkExp(item, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -335,7 +336,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kMap: {
             auto* mapExp = static_cast<const MapExpression*>(exp);
             for (auto& item : mapExp->items()) {
-                auto ret = checkExp(item.second.get(), returned, filtered, updated);
+                auto ret = checkExp(item.second, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -357,11 +358,11 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                 }
             }
             for (auto& whenThen : caseExp->cases()) {
-                auto ret = checkExp(whenThen.when.get(), returned, filtered, updated);
+                auto ret = checkExp(whenThen.when, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
-                ret = checkExp(whenThen.then.get(), returned, filtered, updated);
+                ret = checkExp(whenThen.then, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -417,7 +418,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kLogicalXor: {
             auto* logExp = static_cast<const LogicalExpression*>(exp);
             for (auto &expr : logExp->operands()) {
-                auto ret = checkExp(expr.get(), returned, filtered, updated);
+                auto ret = checkExp(expr, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
@@ -432,7 +433,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             auto* funExp = static_cast<const FunctionCallExpression*>(exp);
             auto& args = funExp->args()->args();
             for (auto iter = args.begin(); iter < args.end(); ++iter) {
-                auto ret = checkExp(iter->get(), returned, filtered, updated);
+                auto ret = checkExp(*iter, returned, filtered, updated);
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }

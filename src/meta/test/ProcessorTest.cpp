@@ -1978,7 +1978,7 @@ TEST(ProcessorTest, AlterTagTest) {
                 ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
                 auto defaultValueExpr = Expression::decode(*col.get_default_value());
                 DefaultValueContext mContext;
-                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                auto value = Expression::eval(defaultValueExpr, mContext);
                 ASSERT_TRUE(value.isStr());
                 ASSERT_EQ("Hello", value.getStr());
                 expected = true;
@@ -2476,7 +2476,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
                 ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
                 auto defaultValueExpr = Expression::decode(*col.get_default_value());
                 DefaultValueContext mContext;
-                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                auto value = Expression::eval(defaultValueExpr, mContext);
                 ASSERT_TRUE(value.isStr());
                 ASSERT_EQ("Hello", value.getStr());
                 expected = true;

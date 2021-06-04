@@ -58,8 +58,8 @@ public:
                 VLOG(1) << "Fail to read prop " << propName;
                 if (field->hasDefault()) {
                     DefaultValueContext expCtx;
-                    auto expr = field->defaultValue()->clone();
-                    return Expression::eval(expr.get(), expCtx);
+                    auto expr = field->defaultValue();
+                    return Expression::eval(expr, expCtx);
                 } else if (field->nullable()) {
                     return NullType::__NULL__;
                 }
