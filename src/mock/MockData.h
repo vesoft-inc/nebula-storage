@@ -99,8 +99,7 @@ public:
 
     static std::shared_ptr<meta::NebulaSchemaProvider> mockGeneralTagSchemaV2();
 
-    static std::shared_ptr<meta::NebulaSchemaProvider> mockTypicaSchemaV2(
-        ObjectPool* pool = nullptr);
+    static std::shared_ptr<meta::NebulaSchemaProvider> mockTypicaSchemaV2(ObjectPool* pool);
 
     static std::vector<nebula::meta::cpp2::ColumnDef> mockTypicaIndexColumns();
 

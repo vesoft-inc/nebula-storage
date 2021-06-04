@@ -188,14 +188,12 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
     auto tagName = tagNameRet.value();
 
     // update, evict the old elements
-    ObjectPool objPool;
-    auto pool = &objPool;
-
     if (FLAGS_enable_vertex_cache && tagContext_.vertexCache_ != nullptr) {
         VLOG(1) << "Evict cache for vId " << vId << ", tagId " << tagId_;
         tagContext_.vertexCache_->evict(std::make_pair(vId.getStr(), tagId_));
     }
 
+    auto pool = &planContext_->objPool;
     for (auto& prop : updatedProps_) {
         auto sourcePropExp = *SourcePropertyExpression::make(pool, tagName, prop.get_name());
         auto retCode = checkExp(&sourcePropExp, false, false);

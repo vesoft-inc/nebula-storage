@@ -79,7 +79,7 @@ private:
     std::vector<Expression*>                                             returnPropsExp_;
 
     // condition expression
-    Expression*                                                          filterExp_;
+    Expression*                                                          filterExp_{nullptr};
 
     // updatedProps_ dependent props in value expression
     std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap_;

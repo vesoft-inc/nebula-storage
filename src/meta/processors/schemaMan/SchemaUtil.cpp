@@ -16,7 +16,7 @@ namespace meta {
 bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
     DefaultValueContext mContext;
     ObjectPool Objpool;
-    auto pool = & Objpool;
+    auto pool = &Objpool;
 
     for (auto& column : columns) {
         if (column.default_value_ref().has_value()) {

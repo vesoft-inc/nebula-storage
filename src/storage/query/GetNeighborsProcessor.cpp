@@ -297,14 +297,14 @@ void GetNeighborsProcessor::buildEdgeColName(const std::vector<cpp2::EdgeProp>& 
 }
 
 nebula::cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
-        const std::vector<cpp2::StatProp>& statProps) {
+    const std::vector<cpp2::StatProp>& statProps) {
     edgeContext_.statCount_ = statProps.size();
     std::string colName = "_stats";
-    ObjectPool pool;
+    auto pool = &planContext_->objPool;
 
     for (size_t statIdx = 0; statIdx < statProps.size(); statIdx++) {
         const auto& statProp = statProps[statIdx];
-        auto exp = Expression::decode(&pool, *statProp.prop_ref());
+        auto exp = Expression::decode(pool, *statProp.prop_ref());
         if (exp == nullptr) {
             return nebula::cpp2::ErrorCode::E_INVALID_STAT_TYPE;
         }

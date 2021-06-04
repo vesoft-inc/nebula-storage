@@ -135,15 +135,17 @@ nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& re
 
 template<typename REQ, typename RESP>
 nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
-    ObjectPool pool;
     const auto& traverseSpec = req.get_traverse_spec();
     if (!traverseSpec.filter_ref().has_value()) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
     const auto& filterStr = *traverseSpec.filter_ref();
+
+    auto pool = &this->planContext_->objPool;
+    // auto v = env_;
     if (!filterStr.empty()) {
         // the filter expression **must** return a bool
-        filter_ = Expression::decode(&pool, filterStr);
+        filter_ = Expression::decode(pool, filterStr);
         if (filter_ == nullptr) {
             return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }

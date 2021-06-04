@@ -209,8 +209,7 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         auto colHints = ctx.get_column_hints();
 
         // Check WHERE clause contains columns that ware not indexed
-        ObjectPool objPool;
-        auto pool = &objPool;
+        auto pool = &planContext_->objPool;
         if (ctx.filter_ref().is_set() && !(*ctx.filter_ref()).empty()) {
             auto filter = Expression::decode(pool, *ctx.filter_ref());
             auto isFieldsOutsideIndex = isOutsideIndex(filter, indexItem);
@@ -229,7 +228,7 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
                                                                         planContext_->isIntId_,
                                                                         hasNullableCol,
                                                                         fields);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
             out = buildPlanWithFilter(
                 ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
             filterId++;
