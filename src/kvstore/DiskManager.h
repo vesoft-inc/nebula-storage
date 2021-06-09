@@ -12,9 +12,12 @@
 #include "common/thread/GenericWorker.h"
 #include "common/thrift/ThriftTypes.h"
 #include <gtest/gtest_prod.h>
+#include <filesystem>
 
 namespace nebula {
 namespace kvstore {
+
+using PartDiskMap = std::unordered_map<std::string, std::set<PartitionID>>;
 
 class DiskManager {
     FRIEND_TEST(DiskManagerTest, AvailableTest);
@@ -41,6 +44,9 @@ public:
 
     bool hasEnoughSpace(GraphSpaceID spaceId, PartitionID partId);
 
+    // Given a space, return data path and all partition in the path
+    StatusOr<PartDiskMap> partDist(GraphSpaceID spaceId);
+
 private:
     // refresh free bytes of data path periodically
     void refresh();
@@ -54,8 +60,7 @@ private:
     std::vector<std::atomic_uint64_t> freeBytes_;
 
     // given a space and data path, return all parts in the path
-    std::unordered_map<GraphSpaceID,
-                       std::unordered_map<std::string, std::set<PartitionID>>> partPath_;
+    std::unordered_map<GraphSpaceID, PartDiskMap> partPath_;
 
     // the index in dataPaths_ for a given space + part
     std::unordered_map<GraphSpaceID, std::unordered_map<PartitionID, size_t>> partIndex_;

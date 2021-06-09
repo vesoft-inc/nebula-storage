@@ -91,8 +91,8 @@ TEST(DiskManagerTest, AvailableTest) {
     }
 
     // mock disk1 is full while disk2 is still vacant
-    diskMan.freeBytes_[1] = 0;
-    diskMan.freeBytes_[2] = FLAGS_minimum_reserved_bytes;
+    diskMan.freeBytes_[0] = 0;
+    diskMan.freeBytes_[1] = FLAGS_minimum_reserved_bytes;
     for (PartitionID partId = 1; partId <= 10; partId++) {
         EXPECT_FALSE(diskMan.hasEnoughSpace(spaceId, partId));
     }
@@ -129,7 +129,7 @@ TEST(DiskManagerTest, WalNoSpaceTest) {
         [](LogID, TermID, ClusterID, const std::string&) { return true; },
         diskMan);
 
-    diskMan->freeBytes_[1] = FLAGS_minimum_reserved_bytes + 10000;
+    diskMan->freeBytes_[0] = FLAGS_minimum_reserved_bytes + 10000;
 
     // remaining 10K space, we can only write 10 more logs
     int logSize = 1000;

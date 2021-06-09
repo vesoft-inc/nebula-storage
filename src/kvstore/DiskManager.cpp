@@ -8,7 +8,7 @@
 #include "kvstore/DiskManager.h"
 
 DEFINE_int32(disk_check_interval_secs, 10, "interval to check free space of data path");
-DEFINE_uint64(minimum_reserved_bytes, 1e9, "minimum reserved bytes of each data path");
+DEFINE_uint64(minimum_reserved_bytes, 1UL << 30, "minimum reserved bytes of each data path");
 
 namespace nebula {
 namespace kvstore {
@@ -19,11 +19,7 @@ DiskManager::DiskManager(const std::vector<std::string>& dataPaths,
     try {
         // atomic is not copy-constructible
         std::vector<std::atomic_uint64_t> freeBytes(dataPaths.size() + 1);
-        // add a dummy path to indicate invalid part
-        dataPaths_.emplace_back("");
-        freeBytes[0] = 0U;
-        // the real data path index starts from 1
-        size_t index = 1;
+        size_t index = 0;
         for (const auto& path : dataPaths) {
             auto absolute = std::filesystem::absolute(path);
             if (!std::filesystem::exists(absolute)) {
@@ -101,15 +97,30 @@ void DiskManager::removePartFromPath(GraphSpaceID spaceId,
     }
 }
 
+StatusOr<PartDiskMap> DiskManager::partDist(GraphSpaceID spaceId) {
+    auto spaceIt = partPath_.find(spaceId);
+    if (spaceIt == partPath_.end()) {
+        return Status::Error("Space not found");
+    }
+    return spaceIt->second;
+}
+
 bool DiskManager::hasEnoughSpace(GraphSpaceID spaceId, PartitionID partId) {
-    // index of invalid part will be 0, the dummy path will always reject
-    auto index = partIndex_[spaceId][partId];
-    return freeBytes_[index].load(std::memory_order_relaxed) >= FLAGS_minimum_reserved_bytes;
+    auto spaceIt = partIndex_.find(spaceId);
+    if (spaceIt == partIndex_.end()) {
+        return false;
+    }
+    auto partIt = spaceIt->second.find(partId);
+    if (partIt == spaceIt->second.end()) {
+        return false;
+    }
+    return freeBytes_[partIt->second].load(std::memory_order_relaxed) >=
+           FLAGS_minimum_reserved_bytes;
 }
 
 void DiskManager::refresh() {
     // refresh the available bytes of each data path, skip the dummy path
-    for (size_t i = 1; i < dataPaths_.size(); i++) {
+    for (size_t i = 0; i < dataPaths_.size(); i++) {
         std::error_code ec;
         auto info = std::filesystem::space(dataPaths_[i], ec);
         if (!ec) {
