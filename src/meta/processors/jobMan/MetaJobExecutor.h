@@ -72,7 +72,11 @@ protected:
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
 
+<<<<<<< HEAD
     ErrOrHosts getListenerHost(GraphSpaceID space, cpp2::ListenerType type);
+=======
+    ErrOrHosts getListenerHost(GraphSpaceID space);
+>>>>>>> rebuild fulltext index via listener
 
     virtual folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) = 0;

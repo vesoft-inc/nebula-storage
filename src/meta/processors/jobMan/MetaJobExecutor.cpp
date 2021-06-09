@@ -146,7 +146,13 @@ ErrOrHosts MetaJobExecutor::getLeaderHost(GraphSpaceID space) {
     return hosts;
 }
 
+<<<<<<< HEAD
 ErrOrHosts MetaJobExecutor::getListenerHost(GraphSpaceID space, cpp2::ListenerType type) {
+=======
+ErrOrHosts MetaJobExecutor::getListenerHost(GraphSpaceID space) {
+    // TODO : Only ES listener is supported
+    auto type = cpp2::ListenerType::ELASTICSEARCH;
+>>>>>>> rebuild fulltext index via listener
     const auto& prefix = MetaServiceUtils::listenerPrefix(space, type);
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
@@ -185,7 +191,11 @@ ErrOrHosts MetaJobExecutor::getListenerHost(GraphSpaceID space, cpp2::ListenerTy
         iter->next();
     }
     if (hosts.empty()) {
+<<<<<<< HEAD
        return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
+=======
+        nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
+>>>>>>> rebuild fulltext index via listener
     }
     return hosts;
 }
@@ -198,7 +208,11 @@ nebula::cpp2::ErrorCode MetaJobExecutor::execute() {
             break;
         }
         case TargetHosts::LISTENER: {
+<<<<<<< HEAD
             addressesRet = getListenerHost(space_,  cpp2::ListenerType::ELASTICSEARCH);
+=======
+            addressesRet = getListenerHost(space_);
+>>>>>>> rebuild fulltext index via listener
             break;
         }
         case TargetHosts::DEFAULT: {
