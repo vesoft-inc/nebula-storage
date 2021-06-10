@@ -80,14 +80,15 @@ RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
             part, listener->getApplyId());
 =======
     auto endLogId = listener->getApplyId();
-    listener->resetListener();
+    auto part = listener->partitionId();
+    listener->reset();
     while (true) {
         if (listener->rebuildDone(endLogId)) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         VLOG(3) << folly::sformat(
-            "Processing fulltext rebuild subtask, rebuild_log={}, end_log={}",
-            listener->getApplyId(), endLogId);
+            "Processing fulltext rebuild subtask, part={}, rebuild_log={}, end_log={}",
+            part, listener->getApplyId(), endLogId);
         sleep(5);
 >>>>>>> rebuild fulltext index via listener
     }
