@@ -278,6 +278,10 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             return checkExp(ariExp->right(), returned, filtered, updated);
         }
+        case Expression::Kind::kIsNull:
+        case Expression::Kind::kIsNotNull:
+        case Expression::Kind::kIsEmpty:
+        case Expression::Kind::kIsNotEmpty:
         case Expression::Kind::kUnaryPlus:
         case Expression::Kind::kUnaryNegate:
         case Expression::Kind::kUnaryNot:
@@ -437,11 +441,11 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         }
         case Expression::Kind::kSrcProperty: {
             auto* sourceExp = static_cast<const SourcePropertyExpression*>(exp);
-            const auto* tagName = sourceExp->sym();
-            const auto* propName = sourceExp->prop();
-            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, *tagName);
+            const auto& tagName = sourceExp->sym();
+            const auto& propName = sourceExp->prop();
+            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, tagName);
             if (!tagRet.ok()) {
-                VLOG(1) << "Can't find tag " << *tagName << ", in space " << spaceId_;
+                VLOG(1) << "Can't find tag " << tagName << ", in space " << spaceId_;
                 return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
             }
 
@@ -454,13 +458,13 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             CHECK(!iter->second.empty());
             const auto& tagSchema = iter->second.back();
 
-            if (*propName == kVid || *propName == kTag) {
+            if (propName == kVid || propName == kTag) {
                 return nebula::cpp2::ErrorCode::SUCCEEDED;
             }
 
-            auto field = tagSchema->field(*propName);
+            auto field = tagSchema->field(propName);
             if (field == nullptr) {
-                VLOG(1) << "Can't find related prop " << *propName << " on tag " << *tagName;
+                VLOG(1) << "Can't find related prop " << propName << " on tag " << tagName;
                 return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
             }
 
@@ -474,7 +478,7 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       returned,
                                       filtered);
             if (updated) {
-                valueProps_.emplace(*propName);
+                valueProps_.emplace(propName);
             }
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
@@ -484,11 +488,11 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kEdgeType:
         case Expression::Kind::kEdgeProperty: {
             auto* edgeExp = static_cast<const PropertyExpression*>(exp);
-            const auto* edgeName = edgeExp->sym();
-            const auto* propName = edgeExp->prop();
-            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeName);
+            const auto& edgeName = edgeExp->sym();
+            const auto& propName = edgeExp->prop();
+            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, edgeName);
             if (!edgeRet.ok()) {
-                VLOG(1) << "Can't find edge " << *edgeName << ", in space " << spaceId_;
+                VLOG(1) << "Can't find edge " << edgeName << ", in space " << spaceId_;
                 return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
             }
 
@@ -501,16 +505,16 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             CHECK(!iter->second.empty());
             const auto& edgeSchema = iter->second.back();
 
-            if (*propName == kSrc || *propName == kType ||
-                *propName == kRank || *propName == kDst) {
+            if (propName == kSrc || propName == kType ||
+                propName == kRank || propName == kDst) {
                 return nebula::cpp2::ErrorCode::SUCCEEDED;
             }
 
             const meta::SchemaProviderIf::Field* field = nullptr;
             if (exp->kind() == Expression::Kind::kEdgeProperty) {
-                field = edgeSchema->field(*propName);
+                field = edgeSchema->field(propName);
                 if (field == nullptr) {
-                    VLOG(1) << "Can't find related prop " << *propName << " on edge " << *edgeName;
+                    VLOG(1) << "Can't find related prop " << propName << " on edge " << edgeName;
                     return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
                 }
             }
@@ -546,11 +550,11 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                           filtered);
             }
             if (!inEdgeContext) {
-                VLOG(1) << "Edge context not find related edge " << *edgeName;
+                VLOG(1) << "Edge context not find related edge " << edgeName;
                 return nebula::cpp2::ErrorCode::E_MUTATE_EDGE_CONFLICT;
             }
             if (updated) {
-                valueProps_.emplace(*propName);
+                valueProps_.emplace(propName);
             }
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
@@ -565,9 +569,16 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kVarProperty:
         case Expression::Kind::kDstProperty:
         case Expression::Kind::kUUID:
-        case Expression::Kind::kVersionedVar:
-        default: {
-            LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
+        case Expression::Kind::kPathBuild:
+        case Expression::Kind::kColumn:
+        case Expression::Kind::kTSPrefix:
+        case Expression::Kind::kTSWildcard:
+        case Expression::Kind::kTSRegexp:
+        case Expression::Kind::kTSFuzzy:
+        case Expression::Kind::kAggregate:
+        case Expression::Kind::kSubscriptRange:
+        case Expression::Kind::kVersionedVar: {
+            LOG(ERROR) << "Unimplemented expression type! kind = " << exp->kind();
             return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
@@ -580,8 +591,8 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
         std::unordered_map<SchemaID, size_t>& indexMap,
         std::unordered_map<SchemaID, std::string>& names,
         int32_t entryId,
-        const std::string* entryName,
-        const std::string* propName,
+        const std::string& entryName,
+        const std::string& propName,
         const meta::SchemaProviderIf::Field* field,
         bool returned,
         bool filtered,
@@ -589,20 +600,20 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
     auto idxIter = indexMap.find(entryId);
     if (idxIter == indexMap.end()) {
         // if no property of tag/edge has been add to propContexts
-        PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
+        PropContext ctx(propName.c_str(), field, returned, filtered, statInfo);
         std::vector<PropContext> ctxs;
         ctxs.emplace_back(std::move(ctx));
         propContexts.emplace_back(entryId, std::move(ctxs));
         indexMap.emplace(entryId, propContexts.size() - 1);
-        names.emplace(entryId, *entryName);
+        names.emplace(entryId, entryName);
     } else {
         // some property of tag/edge has been add to propContexts
         auto& props = propContexts[idxIter->second].second;
-        auto iter = std::find_if(props.begin(), props.end(), [propName] (const auto& prop) {
-                                 return prop.name_ == *propName; });
+        auto iter = std::find_if(props.begin(), props.end(), [&propName] (const auto& prop) {
+                                 return prop.name_ == propName; });
         if (iter == props.end()) {
             // this prop has not been add to propContexts
-            PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
+            PropContext ctx(propName.c_str(), field, returned, filtered, statInfo);
             props.emplace_back(std::move(ctx));
         } else {
             // this prop been add to propContexts, just update the flag

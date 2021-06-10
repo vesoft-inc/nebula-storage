@@ -39,8 +39,8 @@ NebulaStore::~NebulaStore() {
     spaceListeners_.clear();
     bgWorkers_->stop();
     bgWorkers_->wait();
-    cleanWalWorker_->stop();
-    cleanWalWorker_->wait();
+    storeWorker_->stop();
+    storeWorker_->wait();
     LOG(INFO) << "~NebulaStore()";
 }
 
@@ -48,8 +48,8 @@ bool NebulaStore::init() {
     LOG(INFO) << "Start the raft service...";
     bgWorkers_ = std::make_shared<thread::GenericThreadPool>();
     bgWorkers_->start(FLAGS_num_workers, "nebula-bgworkers");
-    cleanWalWorker_ = std::make_shared<thread::GenericWorker>();
-    CHECK(cleanWalWorker_->start());
+    storeWorker_ = std::make_shared<thread::GenericWorker>();
+    CHECK(storeWorker_->start());
     snapshot_.reset(new SnapshotManagerImpl(this));
     raftService_ = raftex::RaftexService::createService(ioPool_,
                                                         workers_,
@@ -58,6 +58,7 @@ bool NebulaStore::init() {
         LOG(ERROR) << "Start the raft service failed";
         return false;
     }
+    diskMan_.reset(new DiskManager(options_.dataPaths_, storeWorker_));
     // todo(doodle): we could support listener and normal storage start at same instance
     if (!isListener()) {
         loadPartFromDataPath();
@@ -67,8 +68,7 @@ bool NebulaStore::init() {
         loadLocalListenerFromPartManager();
     }
 
-    cleanWalWorker_->addDelayTask(
-        FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
+    storeWorker_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     LOG(INFO) << "Register handler...";
     options_.partMan_->registerHandler(this);
     return true;
@@ -94,14 +94,8 @@ void NebulaStore::loadPartFromDataPath() {
 
                 if (!options_.partMan_->spaceExist(storeSvcAddr_, spaceId).ok()) {
                     if (FLAGS_auto_remove_invalid_space) {
-                        // TODO We might want to have a second thought here.
-                        // Removing the data directly feels a little strong
-                        LOG(INFO) << "Space " << spaceId
-                                    << " does not exist any more, remove the data!";
-                        auto dataPath = folly::stringPrintf("%s/%s",
-                                                            rootPath.c_str(),
-                                                            dir.c_str());
-                        CHECK(fs::FileUtils::remove(dataPath.c_str(), true));
+                        auto spaceDir = folly::stringPrintf("%s/%s", rootPath.c_str(), dir.c_str());
+                        removeSpaceDir(spaceDir);
                     }
                     continue;
                 }
@@ -131,14 +125,10 @@ void NebulaStore::loadPartFromDataPath() {
                         continue;
                     } else {
                         auto spacePart = std::make_pair(spaceId, partId);
-                        if (spacePartIdSet.find(spacePart) != spacePartIdSet.end()) {
-                            LOG(INFO) << "Part " << partId
-                                        << " has been loaded, skip current one, remove it!";
-                            enginePtr->removePart(partId);
-                            } else {
+                        if (spacePartIdSet.find(spacePart) == spacePartIdSet.end()) {
                             spacePartIdSet.emplace(spacePart);
                             partIds.emplace_back(partId);
-                            }
+                        }
                     }
                 }
                 if (partIds.empty()) {
@@ -151,33 +141,7 @@ void NebulaStore::loadPartFromDataPath() {
                 for (auto& partId : partIds) {
                     bgWorkers_->addTask([
                             spaceId, partId, enginePtr, &counter, &baton, this] () mutable {
-                        auto part = std::make_shared<Part>(spaceId,
-                                                            partId,
-                                                            raftAddr_,
-                                                            folly::stringPrintf("%s/wal/%d",
-                                                                    enginePtr->getDataRoot(),
-                                                                    partId),
-                                                            enginePtr,
-                                                            ioPool_,
-                                                            bgWorkers_,
-                                                            workers_,
-                                                            snapshot_,
-                                                            clientMan_);
-                        auto status = options_.partMan_->partMeta(spaceId, partId);
-                        if (!status.ok()) {
-                            LOG(WARNING) << status.status().toString();
-                            return;
-                        }
-                        auto partMeta = status.value();
-                        std::vector<HostAddr> peers;
-                        for (auto& h : partMeta.hosts_) {
-                            if (h != storeSvcAddr_) {
-                                peers.emplace_back(getRaftAddr(h));
-                                VLOG(1) << "Add peer " << peers.back();
-                            }
-                        }
-                        raftService_->addPartition(part);
-                        part->start(std::move(peers), false);
+                        auto part = newPart(spaceId, partId, enginePtr, false, {});
                         LOG(INFO) << "Load part " << spaceId << ", " << partId << " from disk";
 
                         {
@@ -234,15 +198,14 @@ void NebulaStore::loadLocalListenerFromPartManager() {
 }
 
 void NebulaStore::loadRemoteListenerFromPartManager() {
+    folly::RWSpinLock::WriteHolder holder(&lock_);
     // Add remote listener host to raft group
-    folly::RWSpinLock::ReadHolder rh(&lock_);
     for (auto& spaceEntry : spaces_) {
         auto spaceId = spaceEntry.first;
         for (const auto& partEntry : spaceEntry.second->parts_) {
             auto partId = partEntry.first;
             auto listeners = options_.partMan_->listenerPeerExist(spaceId, partId);
             if (listeners.ok()) {
-                folly::RWSpinLock::UpgradedHolder uh(&lock_);
                 for (const auto& info : listeners.value()) {
                     partEntry.second->addListenerPeer(getRaftAddr(info.first));
                 }
@@ -368,18 +331,18 @@ std::shared_ptr<Part> NebulaStore::newPart(GraphSpaceID spaceId,
                                            KVEngine* engine,
                                            bool asLearner,
                                            const std::vector<HostAddr>& defaultPeers) {
+    auto walPath = folly::stringPrintf("%s/wal/%d", engine->getDataRoot(), partId);
     auto part = std::make_shared<Part>(spaceId,
                                        partId,
                                        raftAddr_,
-                                       folly::stringPrintf("%s/wal/%d",
-                                               engine->getDataRoot(),
-                                               partId),
+                                       walPath,
                                        engine,
                                        ioPool_,
                                        bgWorkers_,
                                        workers_,
                                        snapshot_,
-                                       clientMan_);
+                                       clientMan_,
+                                       diskMan_);
     std::vector<HostAddr> peers;
     if (defaultPeers.empty()) {
         // pull the information from meta
@@ -407,6 +370,7 @@ std::shared_ptr<Part> NebulaStore::newPart(GraphSpaceID spaceId,
     }
     raftService_->addPartition(part);
     part->start(std::move(peers), asLearner);
+    diskMan_->addPartToPath(spaceId, partId, engine->getDataRoot());
     return part;
 }
 
@@ -424,7 +388,18 @@ void NebulaStore::removeSpace(GraphSpaceID spaceId, bool isListener) {
                 CHECK_EQ(0, engine->totalPartsNum());
             }
             CHECK(spaceIt->second->parts_.empty());
+            std::vector<std::string> enginePaths;
+            if (FLAGS_auto_remove_invalid_space) {
+                for (auto& engine : engines) {
+                    enginePaths.emplace_back(engine->getDataRoot());
+                }
+            }
             this->spaces_.erase(spaceIt);
+            if (FLAGS_auto_remove_invalid_space) {
+                for (const auto& path : enginePaths) {
+                    removeSpaceDir(path);
+                }
+            }
         }
         LOG(INFO) << "Data space " << spaceId << " has been removed!";
     } else {
@@ -449,6 +424,7 @@ void NebulaStore::removePart(GraphSpaceID spaceId, PartitionID partId) {
             auto* e = partIt->second->engine();
             CHECK_NOTNULL(e);
             raftService_->removePartition(partIt->second);
+            diskMan_->removePartFromPath(spaceId, partId, e->getDataRoot());
             partIt->second->reset();
             spaceIt->second->parts_.erase(partId);
             e->removePart(partId);
@@ -497,6 +473,7 @@ std::shared_ptr<Listener> NebulaStore::newListener(GraphSpaceID spaceId,
                                                     ioPool_,
                                                     bgWorkers_,
                                                     workers_,
+                                                    nullptr,
                                                     nullptr,
                                                     nullptr,
                                                     options_.schemaMan_);
@@ -564,6 +541,16 @@ void NebulaStore::updateSpaceOption(GraphSpaceID spaceId,
         for (const auto& kv : options) {
             setOption(spaceId, kv.first, kv.second);
         }
+    }
+}
+
+void NebulaStore::removeSpaceDir(const std::string& dir) {
+    try {
+        LOG(INFO) << "Try to remove space directory: " << dir;
+        std::filesystem::remove_all(dir);
+    } catch (const std::filesystem::filesystem_error& e) {
+        LOG(ERROR) << "Exception caught while remove directory, please delelte it by manual: "
+                   << e.what();
     }
 }
 
@@ -900,8 +887,9 @@ nebula::cpp2::ErrorCode NebulaStore::flush(GraphSpaceID spaceId) {
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
-ErrorOr<nebula::cpp2::ErrorCode, std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>
-NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
+ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::CheckpointInfo>> NebulaStore::createCheckpoint(
+    GraphSpaceID spaceId,
+    const std::string& name) {
     auto spaceRet = space(spaceId);
     if (!ok(spaceRet)) {
         return error(spaceRet);
@@ -910,6 +898,9 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
     auto space = nebula::value(spaceRet);
     std::string cpPath;
     std::unordered_map<PartitionID, cpp2::LogInfo> partitionInfo;
+    std::vector<cpp2::CheckpointInfo> cpInfo;
+
+    DCHECK(!space->engines_.empty());
 
     for (auto& engine : space->engines_) {
         auto code = engine->createCheckpoint(name);
@@ -941,10 +932,19 @@ NebulaStore::createCheckpoint(GraphSpaceID spaceId, const std::string& name) {
                 partitionInfo.emplace(part, std::move(info));
             }
         }
+        auto result = nebula::fs::FileUtils::realPath(cpPath.c_str());
+        if (!result.ok()) {
+            return nebula::cpp2::ErrorCode::E_FAILED_TO_CHECKPOINT;
+        }
+        nebula::cpp2::PartitionBackupInfo backupInfo;
+        nebula::cpp2::CheckpointInfo info;
+        backupInfo.set_info(std::move(partitionInfo));
+        info.set_path(std::move(result.value()));
+        info.set_partition_info(std::move(backupInfo));
+        cpInfo.emplace_back(std::move(info));
     }
-    nebula::cpp2::PartitionBackupInfo backupInfo;
-    backupInfo.set_info(std::move(partitionInfo));
-    return std::make_pair(cpPath, std::move(backupInfo));
+
+    return cpInfo;
 }
 
 nebula::cpp2::ErrorCode
@@ -1061,9 +1061,8 @@ bool NebulaStore::checkLeader(std::shared_ptr<Part> part, bool canReadFromFollow
 void NebulaStore::cleanWAL() {
     folly::RWSpinLock::ReadHolder rh(&lock_);
     SCOPE_EXIT {
-        cleanWalWorker_->addDelayTask(FLAGS_clean_wal_interval_secs * 1000,
-                                      &NebulaStore::cleanWAL,
-                                      this);
+        storeWorker_->addDelayTask(
+            FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     };
     for (const auto& spaceEntry : spaces_) {
         if (FLAGS_rocksdb_disable_wal) {
@@ -1132,8 +1131,10 @@ NebulaStore::restoreFromFiles(GraphSpaceID spaceId, const std::vector<std::strin
     }
     auto space = nebula::value(spaceRet);
 
+    DCHECK_EQ(space->engines_.size(), 1);
+
     for (auto& engine : space->engines_) {
-        auto ret = engine->ingest(files);
+        auto ret = engine->ingest(files, true);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
@@ -1150,6 +1151,8 @@ NebulaStore::multiPutWithoutReplicator(GraphSpaceID spaceId, std::vector<KV> key
         return error(spaceRet);
     }
     auto space = nebula::value(spaceRet);
+
+    DCHECK_EQ(space->engines_.size(), 1);
 
     for (auto& engine : space->engines_) {
         auto ret = engine->multiPut(keyValues);

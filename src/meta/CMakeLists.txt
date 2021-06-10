@@ -30,6 +30,7 @@ nebula_add_library(
     processors/indexMan/GetEdgeIndexProcessor.cpp
     processors/indexMan/ListEdgeIndexesProcessor.cpp
     processors/indexMan/FTServiceProcessor.cpp
+    processors/indexMan/FTIndexProcessor.cpp
     processors/customKV/GetProcessor.cpp
     processors/customKV/MultiGetProcessor.cpp
     processors/customKV/MultiPutProcessor.cpp
@@ -50,6 +51,8 @@ nebula_add_library(
     processors/admin/SnapShot.cpp
     processors/admin/CreateBackupProcessor.cpp
     processors/admin/RestoreProcessor.cpp
+    processors/admin/ListClusterInfoProcessor.cpp
+    processors/admin/GetMetaDirInfoProcessor.cpp
     processors/configMan/RegConfigProcessor.cpp
     processors/configMan/GetConfigProcessor.cpp
     processors/configMan/ListConfigsProcessor.cpp

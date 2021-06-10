@@ -60,7 +60,7 @@ derived class.
 
     // If listener falls far behind from leader, leader would send snapshot to listener. The
     // snapshot is a vector of kv, listener could decode them and treat them as normal logs until
-    // all snapshot has been received. However, we did nothing with snapshot for now
+    // all snapshot has been received.
     std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
                                                LogID committedLogId,
                                                TermID committedLogTerm,
@@ -97,6 +97,7 @@ public:
              std::shared_ptr<folly::Executor> handlers,
              std::shared_ptr<raftex::SnapshotManager> snapshotMan,
              std::shared_ptr<RaftClient> clientMan,
+             std::shared_ptr<DiskManager> diskMan,
              meta::SchemaManager* schemaMan);
 
     // Initialize listener, all Listener must call this method

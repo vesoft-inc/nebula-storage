@@ -186,6 +186,8 @@ public:
                     const cpp2::AlterSchemaOp op,
                     bool isEdge = false);
 
+    static std::string userPrefix();
+
     static nebula::cpp2::ErrorCode
     alterSchemaProp(std::vector<cpp2::ColumnDef>& cols,
                     cpp2::SchemaProp& schemaProp,
@@ -332,6 +334,16 @@ public:
 
     static meta::cpp2::Session parseSessionVal(const folly::StringPiece &val);
 
+    static std::string fulltextIndexKey(const std::string& indexName);
+
+    static std::string fulltextIndexVal(const cpp2::FTIndex& index);
+
+    static std::string parsefulltextIndexName(folly::StringPiece key);
+
+    static cpp2::FTIndex parsefulltextIndex(folly::StringPiece val);
+
+    static std::string fulltextIndexPrefix();
+
     static std::string genTimestampStr();
 
     static GraphSpaceID parseEdgesKeySpaceID(folly::StringPiece key);
@@ -342,21 +354,21 @@ public:
     static GraphSpaceID parseDefaultKeySpaceID(folly::StringPiece key);
 
     // backup
-    static ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>>
-    backupIndexTable(kvstore::KVStore* kvstore,
-                     const std::unordered_set<GraphSpaceID>& spaces,
-                     const std::string& backupName,
-                     const std::vector<std::string>* spaceName);
-
-    static std::function<bool(const folly::StringPiece& key)>
-    spaceFilter(const std::unordered_set<GraphSpaceID>& spaces,
-                std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
-
-    static folly::Optional<std::vector<std::string>> backup(
+    static ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>> backupIndex(
         kvstore::KVStore* kvstore,
         const std::unordered_set<GraphSpaceID>& spaces,
         const std::string& backupName,
-        const std::vector<std::string>* spaceNames);
+        const std::vector<std::string>* spaceName);
+
+    static std::function<bool(const folly::StringPiece& key)> spaceFilter(
+        const std::unordered_set<GraphSpaceID>& spaces,
+        std::function<GraphSpaceID(folly::StringPiece rawKey)> parseSpace);
+
+    static ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>> backupSpaces(
+        kvstore::KVStore* kvstore,
+        const std::unordered_set<GraphSpaceID>& spaces,
+        const std::string& backupName,
+        const std::vector<std::string>* spaceName);
 };
 
 }   // namespace meta
