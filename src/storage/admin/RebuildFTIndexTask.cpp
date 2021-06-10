@@ -8,10 +8,15 @@
 #include "common/base/Logging.h"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 DECLARE_uint32(raft_heartbeat_interval_secs);
 
 =======
 >>>>>>> rebuild fulltext index via listener
+=======
+DECLARE_uint32(raft_heartbeat_interval_secs);
+
+>>>>>>> rebase master; rebuild done logic
 namespace nebula {
 namespace storage {
 
@@ -68,6 +73,7 @@ RebuildFTIndexTask::genSubTasks() {
 nebula::cpp2::ErrorCode
 RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
 <<<<<<< HEAD
+<<<<<<< HEAD
     auto part = listener->partitionId();
     listener->resetListener();
     while (true) {
@@ -80,17 +86,25 @@ RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
             part, listener->getApplyId());
 =======
     auto endLogId = listener->getApplyId();
+=======
+>>>>>>> rebase master; rebuild done logic
     auto part = listener->partitionId();
-    listener->reset();
+    listener->resetListener();
     while (true) {
-        if (listener->rebuildDone(endLogId)) {
+        sleep(FLAGS_raft_heartbeat_interval_secs);
+        if (listener->pursueLeaderDone()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         VLOG(3) << folly::sformat(
+<<<<<<< HEAD
             "Processing fulltext rebuild subtask, part={}, rebuild_log={}, end_log={}",
             part, listener->getApplyId(), endLogId);
         sleep(5);
 >>>>>>> rebuild fulltext index via listener
+=======
+            "Processing fulltext rebuild subtask, part={}, rebuild_log={}",
+            part, listener->getApplyId());
+>>>>>>> rebase master; rebuild done logic
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
