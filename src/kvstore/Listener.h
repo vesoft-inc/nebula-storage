@@ -111,6 +111,7 @@ public:
     }
 
     void cleanup() override {
+        leaderCommitId_ = 0;
         lastApplyLogId_ = 0;
         persist(0, 0, lastApplyLogId_);
     }

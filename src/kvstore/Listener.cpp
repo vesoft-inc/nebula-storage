@@ -238,6 +238,7 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
     }
     if (finished) {
         CHECK(!raftLock_.try_lock());
+        leaderCommitId_ = committedLogId;
         lastApplyLogId_ = committedLogId;
         persist(committedLogId, committedLogTerm, lastApplyLogId_);
         LOG(INFO) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
