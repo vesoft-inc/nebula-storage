@@ -51,7 +51,7 @@ Value StorageExpressionContext::getEdgeProp(const std::string& edgeName,
     }
     if (isEdge_ && reader_ != nullptr) {
         if (edgeName != name_) {
-            return Value::kNullValue;
+            return Value::kEmpty;
         }
         if (prop == kSrc) {
             auto srcId = NebulaKeyUtils::getSrcId(vIdLen_, key_);
@@ -92,7 +92,7 @@ Value StorageExpressionContext::getSrcProp(const std::string& tagName,
                                            const std::string& prop) const {
     if (!isEdge_ && reader_ != nullptr) {
         if (tagName != name_) {
-            return Value::kNullValue;
+            return Value::kEmpty;
         }
         if (prop == kVid) {
             auto vId = NebulaKeyUtils::getVertexId(vIdLen_, key_);
