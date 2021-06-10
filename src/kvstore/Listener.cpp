@@ -248,7 +248,7 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
     return std::make_pair(count, size);
 }
 
-void Listener::resetListener() {
+void Listener::reset() {
     std::lock_guard<std::mutex> guard(raftLock_);
     committedLogId_ = proposedTerm_ = lastLogTerm_ = term_ = lastApplyLogId_ = 0;
     lastTerm_ = lastId_ = -1;

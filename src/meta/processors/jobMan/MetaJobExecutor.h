@@ -72,7 +72,7 @@ protected:
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
 
-    ErrOrHosts getListenerHost(GraphSpaceID space);
+    ErrOrHosts getListenerHost(GraphSpaceID space, cpp2::ListenerType type);
 
     virtual folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) = 0;
