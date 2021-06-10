@@ -121,9 +121,7 @@ public:
         reset();
     }
 
-    void resetListener();
-
-    bool rebuildDone(LogID baseline);
+    bool pursueLeaderDone();
 
 protected:
     virtual void init() = 0;

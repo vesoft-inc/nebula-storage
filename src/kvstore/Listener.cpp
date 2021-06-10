@@ -13,7 +13,7 @@ DEFINE_int32(listener_commit_interval_secs, 1, "Listener commit interval");
 DEFINE_int32(listener_commit_batch_size, 1000, "Max batch size when listener commit");
 DEFINE_int32(ft_request_retry_times, 3, "Retry times if fulltext request failed");
 DEFINE_int32(ft_bulk_batch_size, 100, "Max batch size when bulk insert");
-DEFINE_double(ft_rebuild_threshold, 0.8, "Threshold for completion of fulltext rebuilding");
+DEFINE_int32(listener_pursue_leader_threshold, 1000, "Catch up with the leader's threshold");
 
 namespace nebula {
 namespace kvstore {
@@ -248,17 +248,12 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
     return std::make_pair(count, size);
 }
 
-void Listener::reset() {
-    std::lock_guard<std::mutex> guard(raftLock_);
-    committedLogId_ = proposedTerm_ = lastLogTerm_ = term_ = lastApplyLogId_ = 0;
-    lastTerm_ = lastId_ = -1;
-    wal_->reset();
-    persist(lastApplyLogId_, lastTerm_, lastApplyLogId_);
+bool Listener::pursueLeaderDone() {
+    std::lock_guard<std::mutex> g(raftLock_);
+    if (status_ == Status::STARTING || status_ == Status::WAITING_SNAPSHOT) {
+        return false;
+    }
+    return (leaderCommitId_ - lastApplyLogId_) <= FLAGS_listener_pursue_leader_threshold;
 }
-
-bool Listener::rebuildDone(LogID baseline) {
-    return lastApplyLogId_ >= baseline * FLAGS_ft_rebuild_threshold ? true : false;
-}
-
 }  // namespace kvstore
 }  // namespace nebula

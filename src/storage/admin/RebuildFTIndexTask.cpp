@@ -7,6 +7,8 @@
 #include "storage/admin/RebuildFTIndexTask.h"
 #include "common/base/Logging.h"
 
+DECLARE_uint32(raft_heartbeat_interval_secs);
+
 namespace nebula {
 namespace storage {
 
@@ -49,17 +51,16 @@ RebuildFTIndexTask::genSubTasks() {
 
 nebula::cpp2::ErrorCode
 RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
-    auto endLogId = listener->getApplyId();
     auto part = listener->partitionId();
-    listener->reset();
+    listener->resetListener();
     while (true) {
-        if (listener->rebuildDone(endLogId)) {
+        sleep(FLAGS_raft_heartbeat_interval_secs);
+        if (listener->pursueLeaderDone()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         VLOG(3) << folly::sformat(
-            "Processing fulltext rebuild subtask, part={}, rebuild_log={}, end_log={}",
-            part, listener->getApplyId(), endLogId);
-        sleep(5);
+            "Processing fulltext rebuild subtask, part={}, rebuild_log={}",
+            part, listener->getApplyId());
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
