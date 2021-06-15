@@ -114,6 +114,11 @@ public:
         return Status::Error("Unimplemented");
     }
 
+    StatusOr<std::vector<TagID>>
+    getVertexPropertyTagId(GraphSpaceID, const std::string&) override {
+        LOG(FATAL) << "Unimplemented";
+    }
+
     StatusOr<int32_t> getPartsNum(GraphSpaceID) override {
         return partNum_;
     }
