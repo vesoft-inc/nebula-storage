@@ -13,6 +13,7 @@
 #include "common/time/Duration.h"
 #include "common/thread/GenericThreadPool.h"
 #include "kvstore/raftex/SnapshotManager.h"
+#include "kvstore/DiskManager.h"
 #include <folly/futures/SharedPromise.h>
 #include <folly/Function.h>
 #include <gtest/gtest_prod.h>
@@ -234,6 +235,9 @@ public:
 
     std::pair<LogID, TermID> lastLogInfo() const;
 
+    // Reset the part, clean up all data and WALs.
+    void reset();
+
 protected:
     // Protected constructor to prevent from instantiating directly
     RaftPart(
@@ -246,7 +250,8 @@ protected:
          std::shared_ptr<thread::GenericThreadPool> workers,
          std::shared_ptr<folly::Executor> executor,
          std::shared_ptr<SnapshotManager> snapshotMan,
-         std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>> clientMan);
+         std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>> clientMan,
+         std::shared_ptr<kvstore::DiskManager> diskMan);
 
     enum class Status {
         STARTING = 0,   // The part is starting, not ready for service
@@ -302,11 +307,8 @@ protected:
                                                        TermID committedLogTerm,
                                                        bool finished) = 0;
 
-    // Clean up all data about current part in storage.
+    // Clean up extra data about the part, usually related to state machine
     virtual void cleanup() = 0;
-
-    // Reset the part, clean up all data and WALs.
-    void reset();
 
     void addPeer(const HostAddr& peer);
 
@@ -582,6 +584,9 @@ protected:
     int64_t lastTotalCount_ = 0;
     int64_t lastTotalSize_ = 0;
     time::Duration lastSnapshotRecvDur_;
+
+    // Check if disk has enough space before write wal
+    std::shared_ptr<kvstore::DiskManager> diskMan_;
 
     // Used to bypass the stale command
     int64_t startTimeMs_ = 0;
