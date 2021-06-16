@@ -26,9 +26,10 @@ Listener::Listener(GraphSpaceID spaceId,
                    std::shared_ptr<folly::Executor> handlers,
                    std::shared_ptr<raftex::SnapshotManager> snapshotMan,
                    std::shared_ptr<RaftClient> clientMan,
+                   std::shared_ptr<DiskManager> diskMan,
                    meta::SchemaManager* schemaMan)
     : RaftPart(FLAGS_cluster_id, spaceId, partId, localAddr, walPath,
-               ioPool, workers, handlers, snapshotMan, clientMan)
+               ioPool, workers, handlers, snapshotMan, clientMan, diskMan)
     , schemaMan_(schemaMan) {
 }
 
@@ -114,17 +115,13 @@ bool Listener::preProcessLog(LogID logId,
 
 bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
     LogID lastId = -1;
-    TermID lastTerm = -1;
     while (iter->valid()) {
         lastId = iter->logId();
-        lastTerm = iter->logTerm();
         ++(*iter);
     }
     if (lastId > 0) {
-        lastId_ = lastId;
-        lastTerm_ = lastTerm;
+        leaderCommitId_ = lastId;
     }
-    lastCommitTime_ = time::WallClock::fastNowInMilliSec();
     return true;
 }
 
@@ -213,7 +210,7 @@ void Listener::doApply() {
         if (apply(data)) {
             std::lock_guard<std::mutex> guard(raftLock_);
             lastApplyLogId_ = lastApplyId;
-            persist(lastId_, lastTerm_, lastApplyLogId_);
+            persist(committedLogId_, term_, lastApplyLogId_);
             VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             lastApplyTime_ = time::WallClock::fastNowInMilliSec();
         }
@@ -241,10 +238,9 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
     }
     if (finished) {
         CHECK(!raftLock_.try_lock());
-        lastId_ = committedLogId;
+        leaderCommitId_ = committedLogId;
         lastApplyLogId_ = committedLogId;
-        lastTerm_ = committedLogTerm;
-        persist(committedLogId, lastTerm_, lastApplyLogId_);
+        persist(committedLogId, committedLogTerm, lastApplyLogId_);
         LOG(INFO) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
         lastApplyTime_ = time::WallClock::fastNowInMilliSec();
     }
