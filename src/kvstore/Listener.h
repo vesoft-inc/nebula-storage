@@ -121,8 +121,6 @@ public:
 
     bool pursueLeaderDone();
 
-    bool pursueLeaderDone();
-
 protected:
     virtual void init() = 0;
 
