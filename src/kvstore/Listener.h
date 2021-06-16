@@ -116,10 +116,7 @@ public:
         persist(0, 0, lastApplyLogId_);
     }
 
-    void resetListener() {
-        std::lock_guard<std::mutex> g(raftLock_);
-        reset();
-    }
+    void resetListener();
 
     bool pursueLeaderDone();
 
