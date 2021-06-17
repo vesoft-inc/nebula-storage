@@ -251,9 +251,11 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
 void Listener::resetListener() {
     std::lock_guard<std::mutex> g(raftLock_);
     reset();
-    leaderCommitId_ = proposedTerm_ = lastLogTerm_ = term_ = lastApplyLogId_ = 0;
-    lastApplyTime_ = 0;
-    persist(0, 0, 0);
+    VLOG(3) << folly::sformat("The listener has been reset : leaderCommitId={},"
+                              "proposedTerm={}, lastLogTerm={}, term={},"
+                              "lastApplyLogId={}",
+                              leaderCommitId_, proposedTerm_, lastLogTerm_,
+                              term_, lastApplyLogId_);
 }
 
 bool Listener::pursueLeaderDone() {
