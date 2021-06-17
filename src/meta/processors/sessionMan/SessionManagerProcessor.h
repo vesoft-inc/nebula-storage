@@ -27,7 +27,7 @@ private:
 };
 
 
-class UpdateSessionsProcessor : public BaseProcessor<cpp2::ExecResp> {
+class UpdateSessionsProcessor : public BaseProcessor<cpp2::UpdateSessionsResp> {
 public:
     static UpdateSessionsProcessor* instance(kvstore::KVStore* kvstore) {
         return new UpdateSessionsProcessor(kvstore);
@@ -37,7 +37,7 @@ public:
 
 private:
     explicit UpdateSessionsProcessor(kvstore::KVStore* kvstore)
-        : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+        : BaseProcessor<cpp2::UpdateSessionsResp>(kvstore) {}
 };
 
 

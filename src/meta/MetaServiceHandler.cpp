@@ -567,7 +567,7 @@ MetaServiceHandler::future_createSession(const cpp2::CreateSessionReq& req) {
     RETURN_FUTURE(processor);
 }
 
-folly::Future<cpp2::ExecResp>
+folly::Future<cpp2::UpdateSessionsResp>
 MetaServiceHandler::future_updateSessions(const cpp2::UpdateSessionsReq& req) {
     auto* processor = UpdateSessionsProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
