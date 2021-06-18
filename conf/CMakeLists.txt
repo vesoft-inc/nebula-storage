@@ -4,6 +4,7 @@ install(
     FILES
         nebula-storaged.conf.default
         nebula-storaged.conf.production
+        nebula-storaged-listener.conf.production
     PERMISSIONS
         OWNER_READ
         GROUP_READ
