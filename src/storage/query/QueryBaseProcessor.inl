@@ -13,7 +13,8 @@ namespace storage {
 
 template<typename REQ, typename RESP>
 nebula::cpp2::ErrorCode
-QueryBaseProcessor<REQ, RESP>::handleVertexProps(std::vector<cpp2::VertexProp>& vertexProps) {
+QueryBaseProcessor<REQ, RESP>::handleVertexProps(std::vector<cpp2::VertexProp>& vertexProps,
+                                                 const std::vector<TagID>& lackTags) {
     for (auto& vertexProp : vertexProps) {
         auto tagId = vertexProp.get_tag();
         auto iter = tagContext_.schemas_.find(tagId);
@@ -55,6 +56,16 @@ QueryBaseProcessor<REQ, RESP>::handleVertexProps(std::vector<cpp2::VertexProp>& 
             }
         }
         tagContext_.propContexts_.emplace_back(tagId, std::move(ctxs));
+        tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
+        tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
+    }
+    for (const auto tagId : lackTags) {
+        auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagId);
+        if (!tagName.ok()) {
+            VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
+        }
+        tagContext_.propContexts_.emplace_back(tagId, std::vector<PropContext>{});
         tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
         tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
     }
@@ -228,6 +239,23 @@ std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
     std::sort(result.begin(), result.end(),
               [&] (const auto& a, const auto& b) { return a.get_type() < b.get_type(); });
     return result;
+}
+
+template <typename REQ, typename RESP>
+std::vector<TagID>
+QueryBaseProcessor<REQ, RESP>::lackTag(const std::vector<cpp2::VertexProp>& tagProps) {
+    std::unordered_set<TagID> tagIds;
+    tagIds.reserve(tagProps.size());
+    std::vector<TagID> lackIds;
+    for (const auto &tagProp : tagProps) {
+        tagIds.emplace(tagProp.get_tag());
+    }
+    for (const auto& entry : tagContext_.schemas_) {
+        if (tagIds.find(entry.first) == tagIds.end()) {
+            lackIds.emplace_back(entry.first);
+        }
+    }
+    return lackIds;
 }
 
 template <typename REQ, typename RESP>

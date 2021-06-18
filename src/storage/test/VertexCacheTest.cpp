@@ -80,10 +80,23 @@ void getVertices(storage::StorageEnv* env,
     ASSERT_EQ(expectNum, (*resp.props_ref()).rows.size());
 }
 
-void checkCache(VertexCache* cache, uint64_t evicts, uint64_t hits, uint64_t total) {
-    EXPECT_EQ(evicts, cache->evicts());
-    EXPECT_EQ(hits, cache->hits());
-    EXPECT_EQ(total, cache->total());
+::testing::AssertionResult checkCache(VertexCache* cache,
+                                      uint64_t evicts,
+                                      uint64_t hits,
+                                      uint64_t total) {
+    if (evicts != cache->evicts()) {
+        return ::testing::AssertionFailure() << "Unexpected evicts number, get "
+            << cache->evicts() << ", expect " << evicts;
+    }
+    if (hits != cache->hits()) {
+        return ::testing::AssertionFailure() << "Unexpected hits number, get "
+            << cache->hits() << ", expect " << hits;
+    }
+    if (total != cache->total()) {
+        return ::testing::AssertionFailure() << "Unexpected total number, get "
+            << cache->total() << ", expect " << total;
+    }
+    return ::testing::AssertionSuccess();
 }
 
 
@@ -121,7 +134,7 @@ TEST(VertexCacheTest, OperationVertexTest) {
     }
 
     // check vertexCache
-    checkCache(&cache, 0, 0, 0);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 0));
 
     // Update vertex, not filter, update success
     // VertexCache is empty, update vertex evicts vertex from VertexCache first.
@@ -227,7 +240,7 @@ TEST(VertexCacheTest, OperationVertexTest) {
     }
 
     // check vertexCache
-    checkCache(&cache, 0, 0, 1);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 1));
 
     // Delete vertices
     // VertexCache is empty, delete vertice only evicts vertex from VertexCache.
@@ -249,7 +262,7 @@ TEST(VertexCacheTest, OperationVertexTest) {
     }
 
     // check vertexCache
-    checkCache(&cache, 0, 0, 1);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 1));
 }
 
 
@@ -283,7 +296,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
     }
 
     // Check vertexCache
-    checkCache(&cache, 0, 0, 0);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 0));
 
     // Get neighbors
     {
@@ -317,7 +330,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
             // vId, stat, player, serve, expr
             QueryTestUtils::checkResponse(*resp.vertices_ref(), vertices, over, tags, edges, 1, 5);
         }
-        checkCache(&cache, 0, 0, 1);
+        EXPECT_TRUE(checkCache(&cache, 0, 0, 1));
 
         // When the get neighbor is executed for the second time,
         // evicts is 0, hits is 1, total is 2.
@@ -331,7 +344,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
             // vId, stat, player, serve, expr
             QueryTestUtils::checkResponse(*resp.vertices_ref(), vertices, over, tags, edges, 1, 5);
         }
-        checkCache(&cache, 0, 1, 2);
+        EXPECT_TRUE(checkCache(&cache, 0, 1, 2));
     }
 
     // Delete vertices
@@ -353,7 +366,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
         checkVerticesData(spaceVidLen, req.get_space_id(), *req.parts_ref(), env, 0);
     }
     // check vertexCache
-    checkCache(&cache, 1, 1, 2);
+    EXPECT_TRUE(checkCache(&cache, 1, 1, 2));
 }
 
 
@@ -387,7 +400,7 @@ TEST(VertexCacheTest, GetVertexPropTest) {
     }
 
     // Check vertexCache
-    checkCache(&cache, 0, 0, 0);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 0));
 
     // Get vertex prop
     {
@@ -401,13 +414,13 @@ TEST(VertexCacheTest, GetVertexPropTest) {
         // the vertexCache is empty at first, and exactly 51 records are
         // placed in the vertexCache. evicts is 0, hits is 0, total is 51.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        checkCache(&cache, 0, 0, 51);
+        EXPECT_TRUE(checkCache(&cache, 0, 0, 153));
 
 
         // When the get vertex prop is executed for the second time,
         // evicts is 0, hits is 51, total is 102.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        checkCache(&cache, 0, 51, 102);
+        EXPECT_TRUE(checkCache(&cache, 0, 51, 306));
     }
 
     // Delete vertices
@@ -429,7 +442,7 @@ TEST(VertexCacheTest, GetVertexPropTest) {
         checkVerticesData(spaceVidLen, req.get_space_id(), *req.parts_ref(), env, 0);
     }
      // check vertexCache
-    checkCache(&cache, 51, 51, 102);
+    EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
 }
 
 
@@ -466,7 +479,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
     }
 
     // Check vertexCache
-    checkCache(&cache, 0, 0, 0);
+    EXPECT_TRUE(checkCache(&cache, 0, 0, 0));
 
     // Get vertex prop
     {
@@ -480,7 +493,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
         // the vertexCache is empty at first, and exactly 51 records are
         // placed in the vertexCache. evicts is 0, hits is 0, total is 51.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        checkCache(&cache, 0, 0, 51);
+        EXPECT_TRUE(checkCache(&cache, 0, 0, 153));
 
         // Wait ttl data Expire
         sleep(FLAGS_mock_ttl_duration + 1);
@@ -493,7 +506,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
         // TODO At present, when the ttl data expires, tag returns a vid,
         // other attributes are empty value, edge returns a row with an empty value fields.
         getVertices(env, parts, &cache, tagId, vertices, 0);
-        checkCache(&cache, 51, 51, 102);
+        EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
     }
 
     // Delete vertices
@@ -516,7 +529,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
     }
 
     // check vertexCache
-    checkCache(&cache, 51, 51, 102);
+    EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
 
     FLAGS_mock_ttl_col = false;
 }
