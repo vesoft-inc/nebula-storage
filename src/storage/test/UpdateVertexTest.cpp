@@ -1442,7 +1442,7 @@ TEST(UpdateVertexTest, Upsert_Field_Type_And_Value_Match_Test) {
     // string: player.country_ = 2011(value int)
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("country");
-    ConstantExpression uVal1(2011L);
+    auto uVal1 = *ConstantExpression::make(pool, 2011L);
     uProp1.set_value(Expression::encode(uVal1));
     updatedProps.emplace_back(uProp1);
     req.set_updated_props(std::move(updatedProps));
@@ -1451,7 +1451,7 @@ TEST(UpdateVertexTest, Upsert_Field_Type_And_Value_Match_Test) {
     LOG(INFO) << "Build yield...";
     // Return player props: name, age, country
     std::vector<std::string> tmpProps;
-    SourcePropertyExpression sourcePropExp1("1", "name");
+    auto sourcePropExp1 = *SourcePropertyExpression::make(pool, "1", "name");
     tmpProps.emplace_back(Expression::encode(sourcePropExp1));
 
     addTagPropInKey(tmpProps);
