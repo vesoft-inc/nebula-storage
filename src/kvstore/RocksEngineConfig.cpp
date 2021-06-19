@@ -102,6 +102,14 @@ DEFINE_string(rocksdb_backup_dir, "", "Rocksdb backup directory, only used in Pl
 DEFINE_int32(rocksdb_backup_interval_secs, 300,
              "Rocksdb backup directory, only used in PlainTable format");
 
+DEFINE_string(rocksdb_memtable_type,
+              "Skiplist",
+              "Rocksdb memtable type, only support Skiplist and HashSkiplist");
+
+DEFINE_int32(rocksdb_memtable_hash_bucket_count,
+             1024 * 1024,
+             "Bucket count of Rocksdb HashSkiplist memtable");
+
 namespace nebula {
 namespace kvstore {
 
@@ -294,6 +302,16 @@ rocksdb::Status initRocksdbOptions(rocksdb::Options& baseOpts,
         baseOpts.create_if_missing = true;
     } else {
         return rocksdb::Status::NotSupported("Illegal table format");
+    }
+
+    if (FLAGS_rocksdb_memtable_type == "Skiplist") {
+        baseOpts.memtable_factory.reset(new rocksdb::SkipListFactory());
+    } else if (FLAGS_rocksdb_memtable_type == "HashSkiplist") {
+        baseOpts.memtable_factory.reset(
+            rocksdb::NewHashSkipListRepFactory(FLAGS_rocksdb_memtable_hash_bucket_count));
+        baseOpts.allow_concurrent_memtable_write = false;
+    } else {
+        return rocksdb::Status::NotSupported("Illegal memtable format");
     }
 
     return s;

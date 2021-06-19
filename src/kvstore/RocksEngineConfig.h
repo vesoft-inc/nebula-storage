@@ -59,6 +59,9 @@ DECLARE_string(rocksdb_wal_dir);
 DECLARE_string(rocksdb_backup_dir);
 DECLARE_int32(rocksdb_backup_interval_secs);
 
+DECLARE_string(rocksdb_memtable_type);
+DECLARE_int32(rocksdb_memtable_hash_bucket_count);
+
 namespace nebula {
 namespace kvstore {
 
