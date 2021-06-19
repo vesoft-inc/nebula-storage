@@ -26,8 +26,9 @@ public:
             StorageEnv* env,
             const ProcessorCounters* counters = &kGetNeighborsCounters,
             folly::Executor* executor = nullptr,
-            VertexCache* cache = nullptr) {
-        return new GetNeighborsProcessor(env, counters, executor, cache);
+            VertexCache* cache = nullptr,
+            std::shared_ptr<folly::Executor> pool = nullptr) {
+        return new GetNeighborsProcessor(env, counters, executor, cache, pool);
     }
 
     void process(const cpp2::GetNeighborsRequest& req) override;
@@ -38,12 +39,14 @@ protected:
     GetNeighborsProcessor(StorageEnv* env,
                           const ProcessorCounters* counters,
                           folly::Executor* executor,
-                          VertexCache* cache)
+                          VertexCache* cache,
+                          std::shared_ptr<folly::Executor> pool)
         : QueryBaseProcessor<cpp2::GetNeighborsRequest,
                              cpp2::GetNeighborsResponse>(env,
                                                          counters,
                                                          executor,
-                                                         cache) {}
+                                                         cache)
+        , pool_(pool) {}
 
     StoragePlan<VertexID> buildPlan(nebula::DataSet* result,
                                     int64_t limit = 0,
@@ -69,8 +72,16 @@ protected:
     checkStatType(const meta::SchemaProviderIf::Field* field,
                   cpp2::StatType statType);
 
+    std::pair<nebula::cpp2::ErrorCode, PartitionID> go(nebula::DataSet* result,
+                                                       PartitionID partId,
+                                                       const std::vector<nebula::Row>& rows,
+                                                       int64_t limit,
+                                                       bool random);
+
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
+    std::vector<nebula::DataSet> results_;
+    std::shared_ptr<folly::Executor> pool_;
 };
 
 }  // namespace storage
