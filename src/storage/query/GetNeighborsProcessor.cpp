@@ -61,34 +61,55 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
         }
     }
 
-    auto plan = buildPlan(&resultDataSet_, limit, random);
-    std::unordered_set<PartitionID> failedParts;
+    std::vector<folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>> futures;
     for (const auto& partEntry : req.get_parts()) {
-        auto partId = partEntry.first;
-        for (const auto& row : partEntry.second) {
-            CHECK_GE(row.values.size(), 1);
-            auto vId = row.values[0].getStr();
+        nebula::DataSet result = resultDataSet_;
+        results_.emplace_back(std::move(result));
+        folly::Promise<std::pair<nebula::cpp2::ErrorCode, PartitionID>> pro;
+        futures.emplace_back(pro.getFuture());
+        folly::via(pool_.get(), [this, &partEntry, limit, random, pro = std::move(pro)] () mutable {
+            pro.setValue(go(&results_.back(), partEntry.first, partEntry.second, limit, random));
+        });
+    }
 
-            if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
-                LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
-                pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
-                onFinished();
-                return;
-            }
-
-            // the first column of each row would be the vertex id
-            auto ret = plan.go(partId, vId);
-            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                if (failedParts.find(partId) == failedParts.end()) {
-                    failedParts.emplace(partId);
-                    handleErrorCode(ret, spaceId_, partId);
-                }
-            }
+    auto tries = folly::collectAll(futures).get();
+    for (size_t i = 0; i < tries.size(); i++) {
+        CHECK(!tries[i].hasException());
+        const auto& [code, partId] = tries[i].value();
+        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+            handleErrorCode(code, spaceId_, partId);
+        } else {
+            resultDataSet_.append(std::move(results_[i]));
         }
     }
     onProcessFinished();
     onFinished();
+}
+
+std::pair<nebula::cpp2::ErrorCode, PartitionID>
+GetNeighborsProcessor::go(nebula::DataSet* result,
+                          PartitionID partId,
+                          const std::vector<nebula::Row>& rows,
+                          int64_t limit,
+                          bool random) {
+    auto plan = buildPlan(result, limit, random);
+    for (const auto& row : rows) {
+        CHECK_GE(row.values.size(), 1);
+        auto vId = row.values[0].getStr();
+
+        if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
+            LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                        << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+            return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
+        }
+
+        // the first column of each row would be the vertex id
+        auto ret = plan.go(partId, vId);
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
+            return std::make_pair(ret, partId);
+        }
+    }
+    return std::make_pair(nebula::cpp2::ErrorCode::SUCCEEDED, partId);
 }
 
 StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
