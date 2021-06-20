@@ -21,6 +21,7 @@ TEST(GetNeighborsTest, PropertyTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -37,7 +38,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -57,7 +58,7 @@ TEST(GetNeighborsTest, PropertyTest) {
                                                            kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -77,7 +78,7 @@ TEST(GetNeighborsTest, PropertyTest) {
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -97,7 +98,7 @@ TEST(GetNeighborsTest, PropertyTest) {
                            kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -117,7 +118,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -136,7 +137,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(serve, std::vector<std::string>{});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -155,7 +156,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::OUT_EDGE);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -174,7 +175,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::IN_EDGE);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -193,7 +194,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -212,7 +213,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -231,7 +232,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "champions"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -250,7 +251,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "type"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -273,7 +274,7 @@ TEST(GetNeighborsTest, PropertyTest) {
             kSrc, kType, kRank, kDst});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -293,7 +294,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -314,7 +315,7 @@ TEST(GetNeighborsTest, PropertyTest) {
         edges.emplace_back(-teammate, std::vector<std::string>{"player1", "player2", "teamName"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -333,6 +334,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -349,7 +351,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -369,7 +371,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -393,7 +395,7 @@ TEST(GetNeighborsTest, GoFromMultiVerticesTest) {
             "teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -412,6 +414,7 @@ TEST(GetNeighborsTest, StatTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     EdgeType serve = 101;
@@ -464,7 +467,7 @@ TEST(GetNeighborsTest, StatTest) {
         }
         (*req.traverse_spec_ref()).set_stat_props(std::move(statProps));
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -518,7 +521,7 @@ TEST(GetNeighborsTest, StatTest) {
         }
         (*req.traverse_spec_ref()).set_stat_props(std::move(statProps));
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -542,6 +545,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -560,7 +564,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_limit(10);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -582,7 +586,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_limit(4);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -609,7 +613,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         (*req.traverse_spec_ref()).set_limit(10);
         (*req.traverse_spec_ref()).set_random(true);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -632,7 +636,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_limit(4);
         (*req.traverse_spec_ref()).set_random(true);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -665,7 +669,7 @@ TEST(GetNeighborsTest, LimitSampleTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_limit(5);
         (*req.traverse_spec_ref()).set_random(true);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -689,6 +693,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -708,7 +713,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
                            "playerName", "startYear", "teamCareer"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -731,7 +736,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
         edges.emplace_back(teammate, std::vector<std::string>{"player1", "player2", "teamName"});
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -759,7 +764,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_random(true);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -783,7 +788,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_random(true);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -817,7 +822,7 @@ TEST(GetNeighborsTest, MaxEdgReturnedPerVertexTest) {
 
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_random(true);
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -845,6 +850,7 @@ TEST(GetNeighborsTest, VertexCacheTest) {
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
     VertexCache vertexCache(1000, 4);
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     EdgeType serve = 101;
@@ -858,7 +864,7 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &vertexCache);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get(), &vertexCache);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -876,7 +882,7 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &vertexCache);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get(), &vertexCache);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -897,6 +903,7 @@ TEST(GetNeighborsTest, TtlTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     EdgeType serve = 101;
@@ -911,7 +918,7 @@ TEST(GetNeighborsTest, TtlTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -929,7 +936,7 @@ TEST(GetNeighborsTest, TtlTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -949,7 +956,7 @@ TEST(GetNeighborsTest, TtlTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -973,7 +980,7 @@ TEST(GetNeighborsTest, TtlTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1004,6 +1011,7 @@ TEST(GetNeighborsTest, FailedTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     EdgeType serve = 101;
@@ -1017,7 +1025,7 @@ TEST(GetNeighborsTest, FailedTest) {
         tags.emplace_back(std::make_pair(9999, std::vector<std::string>{"name"}));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1035,7 +1043,7 @@ TEST(GetNeighborsTest, FailedTest) {
         edges.emplace_back(std::make_pair(9999, std::vector<std::string>{"teamName"}));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1053,7 +1061,7 @@ TEST(GetNeighborsTest, FailedTest) {
         tags.emplace_back(std::make_pair(player, std::vector<std::string>{"prop_not_exists"}));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1071,7 +1079,7 @@ TEST(GetNeighborsTest, FailedTest) {
         edges.emplace_back(std::make_pair(serve, std::vector<std::string>{"prop_not_exists"}));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1090,6 +1098,7 @@ TEST(GetNeighborsTest, ReturnAllPropertyTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -1108,7 +1117,7 @@ TEST(GetNeighborsTest, ReturnAllPropertyTest) {
         edges.emplace_back(std::make_pair(-teammate, std::vector<std::string>()));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1129,7 +1138,7 @@ TEST(GetNeighborsTest, ReturnAllPropertyTest) {
         edges.emplace_back(std::make_pair(teammate, std::vector<std::string>()));
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1148,6 +1157,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     {
         LOG(INFO) << "NoPropertyReturned";
@@ -1158,7 +1168,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges, true);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1176,7 +1186,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1194,7 +1204,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1212,7 +1222,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::IN_EDGE);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1230,7 +1240,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::OUT_EDGE);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1248,7 +1258,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1266,7 +1276,7 @@ TEST(GetNeighborsTest, GoOverAllTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1285,6 +1295,7 @@ TEST(GetNeighborsTest, MultiVersionTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts, 3));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     {
         LOG(INFO) << "GoFromPlayerOverAll";
@@ -1295,7 +1306,7 @@ TEST(GetNeighborsTest, MultiVersionTest) {
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
         (*req.traverse_spec_ref()).set_edge_direction(cpp2::EdgeDirection::BOTH);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1314,6 +1325,7 @@ TEST(GetNeighborsTest, FilterTest) {
     auto totalParts = cluster.getTotalParts();
     ASSERT_EQ(true, QueryTestUtils::mockVertexData(env, totalParts));
     ASSERT_EQ(true, QueryTestUtils::mockEdgeData(env, totalParts));
+    auto threadPool = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     TagID player = 1;
     TagID team = 2;
@@ -1339,7 +1351,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1383,7 +1395,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1431,7 +1443,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1471,7 +1483,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1519,7 +1531,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1567,7 +1579,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1662,7 +1674,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1710,7 +1722,7 @@ TEST(GetNeighborsTest, FilterTest) {
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -1757,7 +1769,7 @@ TEST(GetNeighborsTest, FilterTest) {
                 new ConstantExpression(Value(2002)));
             (*req.traverse_spec_ref()).set_filter(Expression::encode(exp));
         }
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();

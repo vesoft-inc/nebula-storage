@@ -112,10 +112,8 @@ folly::Future<cpp2::GetNeighborsResponse>
 GraphStorageServiceHandler::future_getNeighbors(const cpp2::GetNeighborsRequest& req) {
     auto* processor = GetNeighborsProcessor::instance(env_,
                                                       &kGetNeighborsCounters,
-                                                      // todo(doodle): just for test
-                                                      nullptr,
-                                                      &vertexCache_,
-                                                      readerPool_);
+                                                      readerPool_.get(),
+                                                      &vertexCache_);
     RETURN_FUTURE(processor);
 }
 
