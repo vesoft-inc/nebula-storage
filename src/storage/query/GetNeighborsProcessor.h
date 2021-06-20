@@ -70,7 +70,6 @@ protected:
                   cpp2::StatType statType);
 
     folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>> go(
-        nebula::DataSet* result,
         PartitionID partId,
         std::vector<nebula::Row> rows,
         int64_t limit,
@@ -78,7 +77,8 @@ protected:
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
-    std::vector<nebula::DataSet> results_;
+    // std::vector<nebula::DataSet> results_;
+    StoragePlan<VertexID> plan_;
 };
 
 }  // namespace storage
