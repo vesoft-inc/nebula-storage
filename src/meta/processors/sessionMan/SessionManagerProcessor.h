@@ -80,6 +80,19 @@ private:
     explicit RemoveSessionProcessor(kvstore::KVStore* kvstore)
         : BaseProcessor<cpp2::ExecResp>(kvstore) {}
 };
+
+class KillQueryProcessor : public BaseProcessor<cpp2::ExecResp> {
+public:
+    static KillQueryProcessor* instance(kvstore::KVStore* kvstore) {
+        return new KillQueryProcessor(kvstore);
+    }
+
+    void process(const cpp2::KillQueryReq& req);
+
+private:
+    explicit KillQueryProcessor(kvstore::KVStore* kvstore)
+        : BaseProcessor<cpp2::ExecResp>(kvstore) {}
+};
 }  // namespace meta
 }  // namespace nebula
 #endif  // META_SESSIONMANAGERPROCESSOR_H

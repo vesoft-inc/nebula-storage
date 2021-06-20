@@ -300,6 +300,9 @@ public:
     folly::Future<cpp2::ExecResp>
     future_removeSession(const cpp2::RemoveSessionReq& req) override;
 
+    folly::Future<cpp2::ExecResp>
+    future_killQuery(const cpp2::KillQueryReq& req) override;
+
 private:
     kvstore::KVStore* kvstore_ = nullptr;
     ClusterID clusterId_{0};
