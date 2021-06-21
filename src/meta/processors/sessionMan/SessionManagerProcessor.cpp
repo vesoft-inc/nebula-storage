@@ -84,6 +84,10 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
             killedQueries[sessionId] = std::move(killedQueriesInCurrentSession);
         }
 
+        if (sessionInMeta.get_update_time() > session.get_update_time()) {
+            continue;
+        }
+
         data.emplace_back(MetaServiceUtils::sessionKey(sessionId),
                           MetaServiceUtils::sessionVal(session));
     }
