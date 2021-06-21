@@ -69,11 +69,8 @@ protected:
     checkStatType(const meta::SchemaProviderIf::Field* field,
                   cpp2::StatType statType);
 
-    folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>> go(
-        PartitionID partId,
-        std::vector<nebula::Row> rows,
-        int64_t limit,
-        bool random);
+    folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>
+    concurrentExec(PartitionID partId, std::vector<nebula::Row> rows);
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;

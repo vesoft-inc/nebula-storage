@@ -63,23 +63,9 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
     plan_ = buildPlan(&resultDataSet_, limit, random);
     std::vector<folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>> futures;
     for (const auto& [partId, rows] : req.get_parts()) {
-        futures.emplace_back(go(partId, rows, limit, random));
+        futures.emplace_back(concurrentExec(partId, rows));
     }
 
-    /*
-    auto tries = folly::collectAll(futures).get();
-    for (size_t i = 0; i < tries.size(); i++) {
-        CHECK(!tries[i].hasException());
-        const auto& [code, partId] = tries[i].value();
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-            handleErrorCode(code, spaceId_, partId);
-        } else {
-            resultDataSet_.append(std::move(results_[i]));
-        }
-    }
-    onProcessFinished();
-    onFinished();
-    */
     folly::collectAll(futures).via(executor_).thenTry([this] (auto&& t) mutable {
         CHECK(!t.hasException());
         const auto& tries = t.value();
@@ -96,14 +82,10 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
 }
 
 folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>
-GetNeighborsProcessor::go(PartitionID partId,
-                          std::vector<nebula::Row> rows,
-                          int64_t limit,
-                          bool random) {
+GetNeighborsProcessor::concurrentExec(PartitionID partId, std::vector<nebula::Row> rows) {
     folly::Promise<std::pair<nebula::cpp2::ErrorCode, PartitionID>> pro;
     auto fut = pro.getFuture();
-    executor_->add([this, p = std::move(pro), partId,
-                    rows = std::move(rows), limit, random] () mutable {
+    executor_->add([this, p = std::move(pro), partId, rows = std::move(rows)] () mutable {
         std::pair<nebula::cpp2::ErrorCode, PartitionID> res;
         for (const auto& row : rows) {
             CHECK_GE(row.values.size(), 1);
