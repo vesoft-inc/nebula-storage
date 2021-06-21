@@ -864,7 +864,10 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get(), &vertexCache);
+        auto* processor = GetNeighborsProcessor::instance(env,
+                                                          nullptr,
+                                                          threadPool.get(),
+                                                          &vertexCache);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -882,7 +885,10 @@ TEST(GetNeighborsTest, VertexCacheTest) {
         edges.emplace_back(serve, std::vector<std::string>{"teamName", "startYear", "endYear"});
         auto req = QueryTestUtils::buildRequest(totalParts, vertices, over, tags, edges);
 
-        auto* processor = GetNeighborsProcessor::instance(env, nullptr, threadPool.get(), &vertexCache);
+        auto* processor = GetNeighborsProcessor::instance(env,
+                                                          nullptr,
+                                                          threadPool.get(),
+                                                          &vertexCache);
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
