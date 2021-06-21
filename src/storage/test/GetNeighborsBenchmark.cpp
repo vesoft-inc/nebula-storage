@@ -91,14 +91,16 @@ void go(int32_t iters,
         const std::vector<std::string>& playerProps,
         const std::vector<std::string>& serveProps) {
     nebula::storage::cpp2::GetNeighborsRequest req;
+    std::shared_ptr<folly::IOThreadPoolExecutor> tp;
     BENCHMARK_SUSPEND {
         req = nebula::storage::buildRequest(vertex, playerProps, serveProps);
+        tp = std::make_shared<folly::IOThreadPoolExecutor>(10);
     }
     auto* env = gCluster->storageEnv_.get();
     for (decltype(iters) i = 0; i < iters; i++) {
-        auto* processor = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, nullptr);
-        auto fut = processor->getFuture();
-        processor->process(req);
+        auto* proc = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, tp.get());
+        auto fut = proc->getFuture();
+        proc->process(req);
         auto resp = std::move(fut).get();
         auto encoded = encode(resp);
         folly::doNotOptimizeAway(encoded);
@@ -112,7 +114,9 @@ void goFilter(int32_t iters,
               int64_t value = FLAGS_max_rank * FLAGS_filter_ratio,
               bool oneFilter = true) {
     nebula::storage::cpp2::GetNeighborsRequest req;
+    std::shared_ptr<folly::IOThreadPoolExecutor> tp;
     BENCHMARK_SUSPEND {
+        tp = std::make_shared<folly::IOThreadPoolExecutor>(10);
         nebula::EdgeType serve = 101;
         req = nebula::storage::buildRequest(vertex, playerProps, serveProps);
         if (oneFilter) {
@@ -141,7 +145,7 @@ void goFilter(int32_t iters,
     }
     auto* env = gCluster->storageEnv_.get();
     for (decltype(iters) i = 0; i < iters; i++) {
-        auto* processor = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, tp.get());
         auto fut = processor->getFuture();
         processor->process(req);
         auto resp = std::move(fut).get();
@@ -306,8 +310,9 @@ void encodeBench(int32_t iters,
     nebula::storage::cpp2::GetNeighborsResponse resp;
     BENCHMARK_SUSPEND {
         auto* env = gCluster->storageEnv_.get();
+        auto tp = std::make_shared<folly::IOThreadPoolExecutor>(10);
         auto req = nebula::storage::buildRequest(vertex, playerProps, serveProps);
-        auto* processor = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, nullptr);
+        auto* processor = nebula::storage::GetNeighborsProcessor::instance(env, nullptr, tp.get());
         auto fut = processor->getFuture();
         processor->process(req);
         resp = std::move(fut).get();

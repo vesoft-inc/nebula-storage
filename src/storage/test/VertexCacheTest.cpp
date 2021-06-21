@@ -261,6 +261,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto parts = cluster.getTotalParts();
+    auto tp = std::make_shared<folly::IOThreadPoolExecutor>(10);
 
     // Here ConcurrentLRUCache capacity is the size of the player data(51), and
     // has a bucket.
@@ -308,7 +309,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
         // the vertexCache is empty at first, and the record is
         // placed in the vertexCache. evicts is 0, hits is 0, total is 1.
         {
-            auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &cache);
+            auto* processor = GetNeighborsProcessor::instance(env, nullptr, tp.get(), &cache);
             auto fut = processor->getFuture();
             processor->process(req);
             auto resp = std::move(fut).get();
@@ -322,7 +323,7 @@ TEST(VertexCacheTest, GetNeighborsTest) {
         // When the get neighbor is executed for the second time,
         // evicts is 0, hits is 1, total is 2.
         {
-            auto* processor = GetNeighborsProcessor::instance(env, nullptr, nullptr, &cache);
+            auto* processor = GetNeighborsProcessor::instance(env, nullptr, tp.get(), &cache);
             auto fut = processor->getFuture();
             processor->process(req);
             auto resp = std::move(fut).get();
