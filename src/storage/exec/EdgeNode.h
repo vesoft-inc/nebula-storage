@@ -7,6 +7,7 @@
 #ifndef STORAGE_EXEC_EDGENODE_H_
 #define STORAGE_EXEC_EDGENODE_H_
 
+#include <ostream>
 #include "common/base/Base.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
@@ -172,8 +173,6 @@ public:
             return ret;
         }
 
-        // VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << this->edgeType_
-                // << ", prop size " << this->props_->size();
         std::unique_ptr<kvstore::KVIterator> iter;
         if constexpr (std::is_same_v<T, VertexID>) {
             this->prefix_ = NebulaKeyUtils::edgePrefix(this->planContext_->vIdLen_,
