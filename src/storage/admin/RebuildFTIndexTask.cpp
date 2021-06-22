@@ -40,6 +40,11 @@ RebuildFTIndexTask::genSubTasks() {
         if (!listener) {
             return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
         }
+        if (!listener->isRunning()) {
+            LOG(ERROR) << "listener not ready, may be starting or waiting snapshot";
+            // TODO : add ErrorCode for listener not ready.
+            return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
+        }
         VLOG(3) << folly::sformat("Processing fulltext rebuild subtask, space={}, part={}",
                                   *ctx_.parameters_.space_id_ref(), part);
         std::function<nebula::cpp2::ErrorCode()> task =
@@ -58,7 +63,7 @@ RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
         if (listener->pursueLeaderDone()) {
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
-        VLOG(3) << folly::sformat(
+        VLOG(1) << folly::sformat(
             "Processing fulltext rebuild subtask, part={}, rebuild_log={}",
             part, listener->getApplyId());
     }

@@ -214,6 +214,9 @@ void Listener::doApply() {
             persist(committedLogId_, term_, lastApplyLogId_);
             VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             lastApplyTime_ = time::WallClock::fastNowInMilliSec();
+            VLOG(1) << folly::sformat("Commit snapshot to : committedLogId={},"
+                                      "committedLogTerm={}, lastApplyLogId_={}",
+                                      committedLogId_, term_, lastApplyLogId_);
         }
     });
 }
@@ -244,6 +247,9 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
         persist(committedLogId, committedLogTerm, lastApplyLogId_);
         LOG(INFO) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
         lastApplyTime_ = time::WallClock::fastNowInMilliSec();
+        VLOG(3) << folly::sformat("Commit snapshot to : committedLogId={},"
+                                  "committedLogTerm={}, lastApplyLogId_={}",
+                                  committedLogId, committedLogTerm, lastApplyLogId_);
     }
     return std::make_pair(count, size);
 }
@@ -251,7 +257,7 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
 void Listener::resetListener() {
     std::lock_guard<std::mutex> g(raftLock_);
     reset();
-    VLOG(3) << folly::sformat("The listener has been reset : leaderCommitId={},"
+    VLOG(1) << folly::sformat("The listener has been reset : leaderCommitId={},"
                               "proposedTerm={}, lastLogTerm={}, term={},"
                               "lastApplyLogId={}",
                               leaderCommitId_, proposedTerm_, lastLogTerm_,
@@ -260,9 +266,17 @@ void Listener::resetListener() {
 
 bool Listener::pursueLeaderDone() {
     std::lock_guard<std::mutex> g(raftLock_);
-    if (status_ == Status::STARTING || status_ == Status::WAITING_SNAPSHOT) {
+    if (status_ != Status::RUNNING) {
         return false;
     }
+    // if the leaderCommitId_ and lastApplyLogId_ all are 0. means the snapshot gap.
+    if (leaderCommitId_ == 0 && lastApplyLogId_ == 0) {
+        return false;
+    }
+    // VLOG(1) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
+    //                           leaderCommitId_, lastApplyLogId_);
+    LOG(INFO) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
+                                leaderCommitId_, lastApplyLogId_);
     return (leaderCommitId_ - lastApplyLogId_) <= FLAGS_listener_pursue_leader_threshold;
 }
 }  // namespace kvstore
