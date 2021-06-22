@@ -32,11 +32,7 @@ RebuildFTIndexTask::genSubTasks() {
     }
     auto space = nebula::value(listenerRet);
     for (const auto& part : parts) {
-<<<<<<< HEAD
         nebula::kvstore::Listener *listener = nullptr;
-=======
-        nebula::kvstore::Listener *listener;
->>>>>>> rebuild fulltext index via listener
         for (auto& lMap : space->listeners_) {
             if (part != lMap.first) {
                 continue;
@@ -49,16 +45,17 @@ RebuildFTIndexTask::genSubTasks() {
                 break;
             }
         }
-<<<<<<< HEAD
         if (listener == nullptr) {
             return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
         }
         if (!listener->isRunning()) {
             LOG(ERROR) << "listener not ready, may be starting or waiting snapshot";
             // TODO : add ErrorCode for listener not ready.
-=======
-        if (!listener) {
->>>>>>> rebuild fulltext index via listener
+            return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
+        }
+        if (!listener->isRunning()) {
+            LOG(ERROR) << "listener not ready, may be starting or waiting snapshot";
+            // TODO : add ErrorCode for listener not ready.
             return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
         }
         VLOG(3) << folly::sformat("Processing fulltext rebuild subtask, space={}, part={}",
@@ -72,8 +69,6 @@ RebuildFTIndexTask::genSubTasks() {
 
 nebula::cpp2::ErrorCode
 RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
-<<<<<<< HEAD
-<<<<<<< HEAD
     auto part = listener->partitionId();
     listener->resetListener();
     while (true) {
@@ -84,27 +79,6 @@ RebuildFTIndexTask::taskByPart(nebula::kvstore::Listener* listener) {
         VLOG(1) << folly::sformat(
             "Processing fulltext rebuild subtask, part={}, rebuild_log={}",
             part, listener->getApplyId());
-=======
-    auto endLogId = listener->getApplyId();
-=======
->>>>>>> rebase master; rebuild done logic
-    auto part = listener->partitionId();
-    listener->resetListener();
-    while (true) {
-        sleep(FLAGS_raft_heartbeat_interval_secs);
-        if (listener->pursueLeaderDone()) {
-            return nebula::cpp2::ErrorCode::SUCCEEDED;
-        }
-        VLOG(3) << folly::sformat(
-<<<<<<< HEAD
-            "Processing fulltext rebuild subtask, part={}, rebuild_log={}, end_log={}",
-            part, listener->getApplyId(), endLogId);
-        sleep(5);
->>>>>>> rebuild fulltext index via listener
-=======
-            "Processing fulltext rebuild subtask, part={}, rebuild_log={}",
-            part, listener->getApplyId());
->>>>>>> rebase master; rebuild done logic
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
