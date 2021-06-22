@@ -47,7 +47,8 @@ void CreateSessionProcessor::process(const cpp2::CreateSessionReq& req) {
 void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::sessionLock());
     std::vector<kvstore::KV> data;
-    std::unordered_map<nebula::SessionID, std::unordered_set<nebula::ExecutionPlanID>>
+    std::unordered_map<nebula::SessionID,
+                       std::unordered_map<nebula::ExecutionPlanID, cpp2::QueryDesc>>
         killedQueries;
     for (auto& session : req.get_sessions()) {
         auto sessionId = session.get_session_id();
@@ -66,7 +67,7 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
 
         // update sessions to be saved if query is being killed, and return them to client.
         auto& newQueries = *session.queries_ref();
-        std::unordered_set<nebula::ExecutionPlanID> killedQueriesInCurrentSession;
+        std::unordered_map<nebula::ExecutionPlanID, cpp2::QueryDesc> killedQueriesInCurrentSession;
         auto sessionInMeta = MetaServiceUtils::parseSessionVal(nebula::value(ret));
         for (const auto& savedQuery : sessionInMeta.get_queries()) {
             auto epId = savedQuery.first;
@@ -77,7 +78,7 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
             auto& desc = savedQuery.second;
             if (desc.get_status() == cpp2::QueryStatus::KILLING) {
                 const_cast<cpp2::QueryDesc&>(newQuery->second).set_status(desc.get_status());
-                killedQueriesInCurrentSession.emplace(epId);
+                killedQueriesInCurrentSession.emplace(epId, desc);
             }
         }
         if (!killedQueriesInCurrentSession.empty()) {
