@@ -219,7 +219,7 @@ folly::Future<Status> AdminClient::updateMeta(GraphSpaceID spaceId,
                     p.setValue(Status::OK());
                 } else {
                     p.setValue(Status::Error("Access kv failed, code: %s",
-                                            apache::thrift::util::enumNameSafe(code).c_str()));
+                                             apache::thrift::util::enumNameSafe(code).c_str()));
                 }
             });
         });
