@@ -71,6 +71,7 @@ protected:
 
 private:
     std::unique_ptr<StorageExpressionContext> expCtx_;
+    std::vector<nebula::DataSet> results_;
 };
 
 }  // namespace storage

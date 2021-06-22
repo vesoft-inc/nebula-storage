@@ -39,6 +39,7 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
         return;
     }
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_, isIntId_);
+    context_ = std::make_unique<RunTimeContext>(planContext_.get());
     expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_, isIntId_);
 
     retCode = checkAndBuildContexts(req);
@@ -119,20 +120,20 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
-                planContext_.get(), &tagContext_, tc.first, &tc.second);
+                context_.get(), &tagContext_, tc.first, &tc.second);
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
     std::vector<EdgeNode<VertexID>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<SingleEdgeNode>(
-                planContext_.get(), &edgeContext_, ec.first, &ec.second);
+                context_.get(), &edgeContext_, ec.first, &ec.second);
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
 
     auto hashJoin = std::make_unique<HashJoinNode>(
-            planContext_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
+            context_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
     for (auto* tag : tags) {
         hashJoin->addDependency(tag);
     }
@@ -145,7 +146,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
 
     if (filter_) {
         auto filter = std::make_unique<FilterNode<VertexID>>(
-                planContext_.get(), upstream, expCtx_.get(), filter_);
+            context_.get(), upstream, expCtx_.get(), filter_);
         filter->addDependency(upstream);
         upstream = filter.get();
         plan.addNode(std::move(filter));
@@ -153,7 +154,7 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
 
     if (edgeContext_.statCount_ > 0) {
         auto agg = std::make_unique<AggregateNode<VertexID>>(
-                planContext_.get(), upstream, &edgeContext_);
+                context_.get(), upstream, &edgeContext_);
         agg->addDependency(upstream);
         upstream = agg.get();
         plan.addNode(std::move(agg));
@@ -162,10 +163,10 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     std::unique_ptr<GetNeighborsNode> output;
     if (random) {
         output = std::make_unique<GetNeighborsSampleNode>(
-                planContext_.get(), join, upstream, &edgeContext_, result, limit);
+                context_.get(), join, upstream, &edgeContext_, result, limit);
     } else {
         output = std::make_unique<GetNeighborsNode>(
-                planContext_.get(), join, upstream, &edgeContext_, result, limit);
+                context_.get(), join, upstream, &edgeContext_, result, limit);
     }
     output->addDependency(upstream);
     plan.addNode(std::move(output));
@@ -300,7 +301,7 @@ nebula::cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
     const std::vector<cpp2::StatProp>& statProps) {
     edgeContext_.statCount_ = statProps.size();
     std::string colName = "_stats";
-    auto pool = &planContext_->objPool;
+    auto pool = context_->objPool();
 
     for (size_t statIdx = 0; statIdx < statProps.size(); statIdx++) {
         const auto& statProp = statProps[statIdx];

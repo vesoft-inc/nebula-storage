@@ -122,6 +122,7 @@ protected:
     cpp2::ResponseCommon                            result_;
 
     std::unique_ptr<PlanContext>                    planContext_;
+    std::unique_ptr<RunTimeContext>                 context_;
     time::Duration                                  duration_;
     std::vector<cpp2::PartitionResult>              codes_;
     std::mutex                                      lock_;

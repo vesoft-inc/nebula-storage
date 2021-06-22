@@ -70,7 +70,7 @@ protected:
 
 protected:
     GraphSpaceID                                                   spaceId_;
-    std::unique_ptr<PlanContext>                                   planContext_;
+    std::unique_ptr<RunTimeContext>                                context_;
     folly::Executor*                                               executor_{nullptr};
     VertexCache*                                                   vertexCache_{nullptr};
     nebula::DataSet                                                resultDataSet_;

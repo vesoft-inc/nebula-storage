@@ -33,6 +33,7 @@ void GetPropProcessor::doProcess(const cpp2::GetPropRequest& req) {
         return;
     }
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_, isIntId_);
+    context_ = std::make_unique<RunTimeContext>(planContext_.get());
 
     retCode = checkAndBuildContexts(req);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -109,12 +110,12 @@ StoragePlan<VertexID> GetPropProcessor::buildTagPlan(nebula::DataSet* result) {
     std::vector<TagNode*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode>(
-            planContext_.get(), &tagContext_, tc.first, &tc.second);
+            context_.get(), &tagContext_, tc.first, &tc.second);
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
     auto output = std::make_unique<GetTagPropNode>(
-        planContext_.get(), tags, result, tagContext_.vertexCache_);
+        context_.get(), tags, result, tagContext_.vertexCache_);
     for (auto* tag : tags) {
         output->addDependency(tag);
     }
@@ -127,11 +128,11 @@ StoragePlan<cpp2::EdgeKey> GetPropProcessor::buildEdgePlan(nebula::DataSet* resu
     std::vector<EdgeNode<cpp2::EdgeKey>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<FetchEdgeNode>(
-            planContext_.get(), &edgeContext_, ec.first, &ec.second);
+            context_.get(), &edgeContext_, ec.first, &ec.second);
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
-    auto output = std::make_unique<GetEdgePropNode>(planContext_.get(), edges, result);
+    auto output = std::make_unique<GetEdgePropNode>(context_.get(), edges, result);
     for (auto* edge : edges) {
         output->addDependency(edge);
     }

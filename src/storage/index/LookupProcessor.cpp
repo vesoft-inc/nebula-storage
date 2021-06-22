@@ -20,6 +20,7 @@ void LookupProcessor::process(const cpp2::LookupIndexRequest& req) {
         doProcess(req);
     }
 }
+
 void LookupProcessor::doProcess(const cpp2::LookupIndexRequest& req) {
     auto retCode = requestCheck(req);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -54,16 +55,16 @@ void LookupProcessor::doProcess(const cpp2::LookupIndexRequest& req) {
 }
 
 void LookupProcessor::onProcessFinished() {
-    if (planContext_->isEdge_) {
+    if (context_->isEdge()) {
         std::transform(resultDataSet_.colNames.begin(),
                        resultDataSet_.colNames.end(),
                        resultDataSet_.colNames.begin(),
-                       [this](const auto& col) { return planContext_->edgeName_ + "." + col; });
+                       [this](const auto& col) { return context_->edgeName_ + "." + col; });
     } else {
         std::transform(resultDataSet_.colNames.begin(),
                        resultDataSet_.colNames.end(),
                        resultDataSet_.colNames.begin(),
-                       [this](const auto& col) { return planContext_->tagName_ + "." + col; });
+                       [this](const auto& col) { return context_->tagName_ + "." + col; });
     }
     resp_.set_data(std::move(resultDataSet_));
 }
