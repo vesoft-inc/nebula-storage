@@ -50,7 +50,8 @@ static const std::unordered_map<
         {"statis", {"__statis__", MetaServiceUtils::parseStatisSpace}},
         {"balance_task", {"__balance_task__", nullptr}},
         {"balance_plan", {"__balance_plan__", nullptr}},
-        {"ft_index", {"__ft_index__", nullptr}}};
+        {"ft_index", {"__ft_index__", nullptr}},
+        {"local_id", {"__local_id__", MetaServiceUtils::parseLocalIdSpace}}};
 
 static const std::string kSpacesTable         = tableMaps.at("spaces").first;         // NOLINT
 static const std::string kPartsTable          = tableMaps.at("parts").first;          // NOLINT
@@ -77,6 +78,7 @@ static const std::string kListenerTable       = tableMaps.at("listener").first; 
 static const std::string kStatisTable         = tableMaps.at("statis").first;           // NOLINT
 static const std::string kBalanceTaskTable    = tableMaps.at("balance_task").first;     // NOLINT
 static const std::string kBalancePlanTable    = tableMaps.at("balance_plan").first;     // NOLINT
+static const std::string kLocalIdTable        = tableMaps.at("local_id").first;         // NOLINT
 
 const std::string kFTIndexTable        = tableMaps.at("ft_index").first;         // NOLINT
 const std::string kFTServiceTable = systemTableMaps.at("ft_service").first;      // NOLINT
@@ -1445,6 +1447,19 @@ cpp2::FTIndex MetaServiceUtils::parsefulltextIndex(folly::StringPiece val) {
 
 std::string MetaServiceUtils::fulltextIndexPrefix() {
     return kFTIndexTable;
+}
+
+std::string MetaServiceUtils::localIdKey(GraphSpaceID spaceId) {
+    std::string key;
+    key.reserve(kLocalIdTable.size() + sizeof(GraphSpaceID));
+    key.append(kLocalIdTable.data(), kLocalIdTable.size())
+       .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
+    return key;
+}
+
+GraphSpaceID MetaServiceUtils::parseLocalIdSpace(folly::StringPiece rawData) {
+    auto offset = kLocalIdTable.size();
+    return *reinterpret_cast<const GraphSpaceID*>(rawData.data() + offset);
 }
 
 }  // namespace meta
