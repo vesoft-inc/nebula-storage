@@ -55,7 +55,7 @@ Status UpgraderSpace::initSpace(const std::string& sId) {
         spaceId_ = folly::to<GraphSpaceID>(sId);
     } catch (const std::exception& ex) {
         LOG(ERROR) << "Cannot convert space id " << sId;
-        return Status::Error("Cannot convert space id %s", sId.c_str());;
+        return Status::Error("Cannot convert space id %s", sId.c_str());
     }
 
     auto sRet = schemaMan_->toGraphSpaceName(spaceId_);
@@ -709,7 +709,7 @@ WriteResult UpgraderSpace::convertValue(const meta::NebulaSchemaProvider* nSchem
     // need convert
     switch (val.type()) {
         case Value::Type::NULLVALUE:
-            return WriteResult::SUCCEEDED;;
+            return WriteResult::SUCCEEDED;
         case Value::Type::BOOL: {
             switch (newpropType) {
                 case meta::cpp2::PropertyType::INT8:

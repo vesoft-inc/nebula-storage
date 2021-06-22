@@ -67,7 +67,7 @@ void AddEdgesAtomicProcessor::processByChain(const cpp2::AddEdgesRequest& req) {
             auto code = encodeSingleEdgeProps(edge, val);
             if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 failedPart[localPart] = code;
-                break;;
+                break;
             }
             edgesByChain[cid].emplace_back(std::make_pair(std::move(key), std::move(val)));
         }

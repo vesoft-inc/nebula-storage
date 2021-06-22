@@ -24,12 +24,12 @@ void GetSpaceProcessor::process(const cpp2::GetSpaceReq& req) {
     }
 
     auto spaceId = nebula::value(spaceRet);
-    std::string spaceKey = MetaServiceUtils::spaceKey(spaceId);
+    auto spaceKey = MetaServiceUtils::spaceKey(spaceId);
     auto ret = doGet(spaceKey);
     if (!nebula::ok(ret)) {
         auto retCode = nebula::error(ret);
         LOG(ERROR) << "Get Space SpaceName: " << spaceName
-                   << " error: " << apache::thrift::util::enumNameSafe(retCode);;
+                   << " error: " << apache::thrift::util::enumNameSafe(retCode);
         handleErrorCode(retCode);
         onFinished();
         return;

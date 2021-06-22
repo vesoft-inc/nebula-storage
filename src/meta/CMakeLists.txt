@@ -39,13 +39,9 @@ nebula_add_library(
     processors/customKV/ScanProcessor.cpp
     processors/admin/HBProcessor.cpp
     processors/usersMan/AuthenticationProcessor.cpp
-    processors/admin/BalanceProcessor.cpp
     processors/admin/CreateSnapshotProcessor.cpp
     processors/admin/DropSnapshotProcessor.cpp
     processors/admin/ListSnapshotsProcessor.cpp
-    processors/admin/Balancer.cpp
-    processors/admin/BalancePlan.cpp
-    processors/admin/BalanceTask.cpp
     processors/admin/AdminClient.cpp
     processors/admin/LeaderBalanceProcessor.cpp
     processors/admin/SnapShot.cpp
@@ -63,7 +59,6 @@ nebula_add_library(
     processors/jobMan/JobStatus.cpp
     processors/jobMan/AdminJobProcessor.cpp
     processors/jobMan/ReportTaskProcessor.cpp
-    processors/jobMan/JobUtils.cpp
     processors/jobMan/MetaJobExecutor.cpp
     processors/jobMan/SimpleConcurrentJobExecutor.cpp
     processors/jobMan/CompactJobExecutor.cpp
@@ -73,9 +68,12 @@ nebula_add_library(
     processors/jobMan/RebuildTagJobExecutor.cpp
     processors/jobMan/RebuildEdgeJobExecutor.cpp
     processors/jobMan/StatisJobExecutor.cpp
+    processors/jobMan/GetBalancePlanProcessor.cpp
     processors/jobMan/GetStatisProcessor.cpp
     processors/jobMan/ListTagIndexStatusProcessor.cpp
     processors/jobMan/ListEdgeIndexStatusProcessor.cpp
+    processors/jobMan/BalancePlan.cpp
+    processors/jobMan/BalanceTask.cpp
     processors/zoneMan/AddZoneProcessor.cpp
     processors/zoneMan/DropZoneProcessor.cpp
     processors/zoneMan/GetZoneProcessor.cpp

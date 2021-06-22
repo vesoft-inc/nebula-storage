@@ -12,7 +12,6 @@
 #include "meta/test/TestUtils.h"
 #include "meta/test/MockAdminClient.h"
 #include "kvstore/Common.h"
-#include "meta/processors/jobMan/JobUtils.h"
 #include "meta/processors/jobMan/JobManager.h"
 #include "meta/processors/jobMan/GetStatisProcessor.h"
 
@@ -120,8 +119,8 @@ protected:
 
 TEST_F(GetStatisTest, StatisJob) {
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
-    TestUtils::assembleSpace(kv_.get(), 1, 1);
     GraphSpaceID spaceId = 1;
+    TestUtils::assembleSpace(kv_.get(), spaceId, 1);
     std::vector<std::string> paras{"test_space"};
     JobDescription statisJob(12, cpp2::AdminCmd::STATS, paras);
     NiceMock<MockAdminClient> adminClient;
@@ -161,12 +160,13 @@ TEST_F(GetStatisTest, StatisJob) {
     // Run statis job, job finished.
     // Insert running status statis data in prepare function of runJobInternal.
     // Update statis data to finished or failed status in finish function of runJobInternal.
-    auto result = jobMgr->runJobInternal(statisJob);
-    ASSERT_TRUE(result);
+    ASSERT_TRUE(jobMgr->runJobInternal(statisJob));
     // JobManager does not set the job finished status in RunJobInternal function.
     // But set statis data.
     statisJob.setStatus(cpp2::JobStatus::FINISHED);
-    jobMgr->save(statisJob.jobKey(), statisJob.jobVal());
+    auto result = jobMgr->save(statisJob.jobKey(), statisJob.jobVal());
+    ASSERT_EQ(result, nebula::cpp2::ErrorCode::SUCCEEDED);
+
     auto jobId = statisJob.getJobId();
     auto statisKey = MetaServiceUtils::statisKey(spaceId);
     auto tempKey = toTempKey(spaceId, jobId);
@@ -355,7 +355,7 @@ TEST_F(GetStatisTest, MockSingleMachineTest) {
     allStorage[storage.first] = storage.second;
 
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
-    TestUtils::assembleSpace(kv_.get(), 1, 1, 1, 1);
+    TestUtils::assembleSpace(kv_.get(), spaceId, 1, 1, 1);
     for (const auto& entry : allStorage) {
         auto now = time::WallClock::fastNowInMilliSec();
         auto ret = ActiveHostsMan::updateHostInfo(
@@ -472,7 +472,7 @@ TEST_F(GetStatisTest, MockMultiMachineTest) {
 
 
     ASSERT_TRUE(TestUtils::createSomeHosts(kv_.get()));
-    TestUtils::assembleSpace(kv_.get(), 1, 6, 3, 3);
+    TestUtils::assembleSpace(kv_.get(), spaceId, 6, 3, 3);
     for (const auto& entry : allStorage) {
         auto now = time::WallClock::fastNowInMilliSec();
         auto ret = ActiveHostsMan::updateHostInfo(

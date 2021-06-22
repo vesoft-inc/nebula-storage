@@ -40,12 +40,14 @@ public:
 
     // The skeleton to run the job.
     // You should rewrite the executeInternal to trigger the calling.
-    nebula::cpp2::ErrorCode  execute();
+    virtual nebula::cpp2::ErrorCode execute();
 
     void interruptExecution(JobID jobId);
 
     // Stop the job when the user cancel it.
     virtual nebula::cpp2::ErrorCode stop() = 0;
+
+    virtual nebula::cpp2::ErrorCode recovery() = 0;
 
     virtual nebula::cpp2::ErrorCode finish(bool) {
         return nebula::cpp2::ErrorCode::SUCCEEDED;
@@ -68,6 +70,10 @@ protected:
 
     virtual folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) = 0;
+
+    // Save the job's additional data and update it when job finish.
+    nebula::cpp2::ErrorCode saveAdditionalData(const std::string& key,
+                                               const std::string& val);
 
 protected:
     JobID                       jobId_{INT_MIN};

@@ -16,7 +16,7 @@ void GetProcessor::process(const cpp2::GetReq& req) {
     if (!nebula::ok(result)) {
         auto retCode = nebula::error(result);
         LOG(ERROR) << "Get Failed: " << key << " error: "
-                   << apache::thrift::util::enumNameSafe(retCode);;
+                   << apache::thrift::util::enumNameSafe(retCode);
         handleErrorCode(retCode);
         onFinished();
         return;

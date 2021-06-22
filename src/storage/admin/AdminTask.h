@@ -96,7 +96,7 @@ public:
     }
 
     virtual int getJobId() {
-        return ctx_.jobId_;;
+        return ctx_.jobId_;
     }
 
     virtual int getTaskId() {

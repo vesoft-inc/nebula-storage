@@ -11,10 +11,13 @@
 #include "common/base/Status.h"
 #include "common/interface/gen-cpp2/meta_types.h"
 #include "kvstore/KVStore.h"
+#include "meta/MetaServiceUtils.h"
 #include "meta/processors/Common.h"
 
 namespace nebula {
 namespace meta {
+
+using SpaceInfo = std::pair<int32_t, bool>;
 
 class MetaCommon final {
 public:
@@ -51,6 +54,25 @@ public:
             return false;
         }
         return true;
+    }
+
+    static StatusOr<SpaceInfo> getSpaceInfo(kvstore::KVStore* kvstore, GraphSpaceID space) {
+        folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
+        auto spaceKey = MetaServiceUtils::spaceKey(space);
+        std::string spaceValue;
+        auto ret = kvstore->get(kDefaultSpaceId, kDefaultPartId, spaceKey, &spaceValue);
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
+            LOG(ERROR) << "Get space failed";
+            return Status::Error("Space %d not found", space);
+        }
+
+        auto properties = MetaServiceUtils::parseSpace(spaceValue);
+        auto replicaFactor = properties.get_replica_factor();
+        if (properties.group_name_ref().has_value()) {
+            return std::make_pair(replicaFactor, true);
+        } else {
+            return std::make_pair(replicaFactor, false);
+        }
     }
 };
 

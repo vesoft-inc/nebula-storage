@@ -1909,7 +1909,7 @@ bool RaftPart::checkAppendLogResult(AppendLogResult res) {
         }
         sendingPromise_.setValue(res);
         replicatingLogs_ = false;
-        return false;;
+        return false;
     }
     return true;
 }

@@ -30,24 +30,6 @@ bool JobStatus::laterThan(Status lhs, Status rhs) {
     return phaseNumber(lhs) > phaseNumber(rhs);
 }
 
-std::string JobStatus::toString(Status st) {
-    switch (st) {
-    case Status::QUEUE:
-        return "queue";
-    case Status::RUNNING:
-        return "running";
-    case Status::FINISHED:
-        return "finished";
-    case Status::FAILED:
-        return "failed";
-    case Status::STOPPED:
-        return "stopped";
-    case Status::INVALID:
-        return "invalid";
-    }
-    return "invalid status";
-}
-
 }  // namespace meta
 }  // namespace nebula
 

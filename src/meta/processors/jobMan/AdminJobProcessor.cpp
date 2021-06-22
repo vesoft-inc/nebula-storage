@@ -20,7 +20,7 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
     if (req.get_op() == nebula::meta::cpp2::AdminJobOp::ADD) {
         oss << ", cmd = " << apache::thrift::util::enumNameSafe(req.get_cmd());
     }
-    oss << ", paras.size()=" << req.get_paras().size();
+    oss << ", paras size = " << req.get_paras().size();
     for (auto& p : req.get_paras()) {
         oss << " " << p;
     }
@@ -34,7 +34,8 @@ void AdminJobProcessor::process(const cpp2::AdminJobReq& req) {
             auto paras = req.get_paras();
             if (cmd == cpp2::AdminCmd::REBUILD_TAG_INDEX ||
                 cmd == cpp2::AdminCmd::REBUILD_EDGE_INDEX ||
-                cmd == cpp2::AdminCmd::STATS) {
+                cmd == cpp2::AdminCmd::STATS || 
+                cmd == cpp2::AdminCmd::DATA_BALANCE) {
                 if (paras.empty()) {
                     LOG(ERROR) << "Parameter should be not empty";
                     errorCode = nebula::cpp2::ErrorCode::E_INVALID_PARM;

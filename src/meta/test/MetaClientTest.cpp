@@ -1763,7 +1763,7 @@ TEST(MetaClientTest, HeartbeatTest) {
         }
     }
     sleep(FLAGS_heartbeat_interval_secs + 1);
-    auto hostsRet =  ActiveHostsMan::getActiveHosts(cluster.metaKV_.get());;
+    auto hostsRet =  ActiveHostsMan::getActiveHosts(cluster.metaKV_.get());
     ASSERT_TRUE(nebula::ok(hostsRet));
     ASSERT_EQ(1, nebula::value(hostsRet).size());
     client->unRegisterListener();

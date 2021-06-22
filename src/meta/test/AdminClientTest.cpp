@@ -10,7 +10,6 @@
 #include <gtest/gtest.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/synchronization/Baton.h>
-#include "meta/processors/admin/Balancer.h"
 #include "meta/test/TestUtils.h"
 #include "utils/Utils.h"
 

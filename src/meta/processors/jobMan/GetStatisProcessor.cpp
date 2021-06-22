@@ -24,6 +24,7 @@ void GetStatisProcessor::process(const cpp2::GetStatisReq& req) {
         onFinished();
         return;
     }
+
     auto statisItem = MetaServiceUtils::parseStatisVal(val);
     auto statisJobStatus = statisItem.get_status();
     if (statisJobStatus != cpp2::JobStatus::FINISHED) {

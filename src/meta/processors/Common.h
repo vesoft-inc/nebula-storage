@@ -15,8 +15,6 @@ namespace meta {
 static const PartitionID kDefaultPartId = 0;
 static const GraphSpaceID kDefaultSpaceId = 0;
 
-using BalanceID = int64_t;
-
 enum class BalanceTaskStatus : uint8_t {
     START                   = 0x01,
     CHANGE_LEADER           = 0x02,
@@ -31,6 +29,45 @@ enum class BalanceTaskStatus : uint8_t {
     END                     = 0xFF,
 };
 
+inline std::ostream& operator<<(std::ostream& stream, const BalanceTaskStatus& status) {
+    switch (status) {
+        case BalanceTaskStatus::START:
+            stream << "Start";
+            break;
+        case BalanceTaskStatus::CHANGE_LEADER:
+            stream << "Change Leader";
+            break;
+        case BalanceTaskStatus::ADD_PART_ON_DST:
+            stream << "Add Part On Dst";
+            break;
+        case BalanceTaskStatus::ADD_LEARNER:
+            stream << "Add Learner";
+            break;
+        case BalanceTaskStatus::CATCH_UP_DATA:
+            stream << "Catch Up Data";
+            break;
+        case BalanceTaskStatus::MEMBER_CHANGE_ADD:
+            stream << "Member Change Add";
+            break;
+        case BalanceTaskStatus::MEMBER_CHANGE_REMOVE:
+            stream << "Member Change Remove";
+            break;
+        case BalanceTaskStatus::UPDATE_PART_META:
+            stream << "Update Part Meta";
+            break;
+        case BalanceTaskStatus::REMOVE_PART_ON_SRC:
+            stream << "Remove Part On Src";
+            break;
+        case BalanceTaskStatus::CHECK:
+            stream << "Check";
+            break;
+        case BalanceTaskStatus::END:
+            stream << "End";
+            break;
+    }
+    return stream;
+}
+
 enum class BalanceTaskResult : uint8_t {
     SUCCEEDED           = 0x01,
     FAILED              = 0x02,
@@ -38,17 +75,23 @@ enum class BalanceTaskResult : uint8_t {
     INVALID             = 0x04,
 };
 
-enum class BalanceStatus : uint8_t {
-    NOT_START          = 0x01,
-    IN_PROGRESS        = 0x02,
-    SUCCEEDED          = 0x03,
-    /**
-     * TODO(heng): Currently, after the plan failed, we will try to resume it
-     * when running "balance" again. But in many cases, the plan will be failed
-     * forever, it this cases, we should rollback the plan.
-     * */
-    FAILED             = 0x04,
-};
+inline std::ostream& operator<<(std::ostream& stream, const BalanceTaskResult& result) {
+    switch (result) {
+        case BalanceTaskResult::SUCCEEDED:
+            stream << "Successed";
+            break;
+        case BalanceTaskResult::FAILED:
+            stream << "Failed";
+            break;
+        case BalanceTaskResult::IN_PROGRESS:
+            stream << "In Progress";
+            break;
+        case BalanceTaskResult::INVALID:
+            stream << "Invalid";
+            break;
+    }
+    return stream;
+}
 
 class LockUtils {
 public:
@@ -75,6 +118,7 @@ GENERATE_LOCK(group);
 GENERATE_LOCK(zone);
 GENERATE_LOCK(listener);
 GENERATE_LOCK(session);
+GENERATE_LOCK(leaderBalance);
 
 #undef GENERATE_LOCK
 };

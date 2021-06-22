@@ -4,6 +4,8 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include "processors/Common.h"
+#include "common/network/NetworkUtils.h"
 #include "meta/MetaServiceUtils.h"
 #include <thrift/lib/cpp/util/EnumUtils.h>
 #include <thrift/lib/cpp2/protocol/CompactProtocol.h>
@@ -48,26 +50,28 @@ static const std::unordered_map<
         {"statis", {"__statis__", MetaServiceUtils::parseStatisSpace}},
         {"balance_task", {"__balance_task__", nullptr}},
         {"balance_plan", {"__balance_plan__", nullptr}},
-        {"ft_index", {"__ft_index__", nullptr}}};
+        {"ft_index", {"__ft_index__", nullptr}},
+        {"jobs", {"__job_mgr_", nullptr}}};
 
-static const std::string kSpacesTable         = tableMaps.at("spaces").first;         // NOLINT
-static const std::string kPartsTable          = tableMaps.at("parts").first;          // NOLINT
+static const std::string kSpacesTable         = tableMaps.at("spaces").first;               // NOLINT
+static const std::string kPartsTable          = tableMaps.at("parts").first;                // NOLINT
 static const std::string kHostsTable          = systemTableMaps.at("hosts").first;          // NOLINT
-static const std::string kTagsTable           = tableMaps.at("tags").first;           // NOLINT
-static const std::string kEdgesTable          = tableMaps.at("edges").first;          // NOLINT
-static const std::string kIndexesTable        = tableMaps.at("indexes").first;        // NOLINT
-static const std::string kIndexTable          = tableMaps.at("index").first;          // NOLINT
-static const std::string kIndexStatusTable    = tableMaps.at("index_status").first;   // NOLINT
+static const std::string kTagsTable           = tableMaps.at("tags").first;                 // NOLINT
+static const std::string kEdgesTable          = tableMaps.at("edges").first;                // NOLINT
+static const std::string kIndexesTable        = tableMaps.at("indexes").first;              // NOLINT
+static const std::string kIndexTable          = tableMaps.at("index").first;                // NOLINT
+static const std::string kIndexStatusTable    = tableMaps.at("index_status").first;         // NOLINT
 static const std::string kUsersTable          = systemTableMaps.at("users").first;          // NOLINT
-static const std::string kRolesTable          = tableMaps.at("roles").first;          // NOLINT
+static const std::string kRolesTable          = tableMaps.at("roles").first;                // NOLINT
 static const std::string kConfigsTable        = systemTableMaps.at("configs").first;        // NOLINT
 static const std::string kSnapshotsTable      = systemTableMaps.at("snapshots").first;      // NOLINT
-static const std::string kLastUpdateTimeTable = tableMaps.at("last_update_time").first; // NOLINT
-static const std::string kLeadersTable        = tableMaps.at("leaders").first;          // NOLINT
-static const std::string kLeaderTermsTable    = tableMaps.at("leader_terms").first;     // NOLINT
-static const std::string kGroupsTable         = systemTableMaps.at("groups").first;           // NOLINT
-static const std::string kZonesTable          = systemTableMaps.at("zones").first;            // NOLINT
-static const std::string kListenerTable       = tableMaps.at("listener").first;         // NOLINT
+static const std::string kLastUpdateTimeTable = tableMaps.at("last_update_time").first;     // NOLINT
+static const std::string kLeadersTable        = tableMaps.at("leaders").first;              // NOLINT
+static const std::string kLeaderTermsTable    = tableMaps.at("leader_terms").first;         // NOLINT
+static const std::string kGroupsTable         = systemTableMaps.at("groups").first;         // NOLINT
+static const std::string kZonesTable          = systemTableMaps.at("zones").first;          // NOLINT
+static const std::string kListenerTable       = tableMaps.at("listener").first;             // NOLINT
+static const std::string kJobsTable           = tableMaps.at("jobs").first;                 // NOLINT
 
 // Used to record the number of vertices and edges in the space
 // The number of vertices of each tag in the space
@@ -122,7 +126,7 @@ std::string MetaServiceUtils::spaceKey(GraphSpaceID spaceId) {
     std::string key;
     key.reserve(kSpacesTable.size() + sizeof(GraphSpaceID));
     key.append(kSpacesTable.data(), kSpacesTable.size())
-        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
+       .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID));
     return key;
 }
 
@@ -980,8 +984,8 @@ const std::string& MetaServiceUtils::snapshotPrefix() {
 
 std::string MetaServiceUtils::serializeHostAddr(const HostAddr& host) {
     std::string ret;
-    ret.reserve(sizeof(size_t) + 15 + sizeof(Port));   // 255.255.255.255
     size_t len = host.host.size();
+    ret.reserve(sizeof(size_t) + len + sizeof(Port));   // 255.255.255.255
     ret.append(reinterpret_cast<char*>(&len), sizeof(size_t))
        .append(host.host.data(), len)
        .append(reinterpret_cast<const char*>(&host.port), sizeof(Port));
@@ -1125,71 +1129,212 @@ ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>> MetaServiceUtils::bac
     return files;
 }
 
-std::string MetaServiceUtils::balanceTaskKey(BalanceID balanceId,
+std::string MetaServiceUtils::jobKey(JobID jobId) {
+    std::string key;
+    key.reserve(32);
+    const auto& jobPrefix = MetaServiceUtils::jobPrefix();
+    key.append(jobPrefix.data(), jobPrefix.size())
+       .append(reinterpret_cast<const char*>(&jobId), sizeof(JobID));
+    return key;
+}
+
+std::string MetaServiceUtils::jobVal(cpp2::AdminCmd cmd,
+                                     std::vector<std::string> paras,
+                                     cpp2::JobStatus status,
+                                     Timestamp startTime,
+                                     Timestamp stopTime,
+                                     int32_t currDataVer) {
+    std::string value;
+    value.reserve(256);
+
+    // use a big num to avoid possible conflict
+    int32_t dataVersion = INT_MAX - currDataVer;
+    value.append(reinterpret_cast<const char*>(&dataVersion), sizeof(dataVersion))
+         .append(reinterpret_cast<const char*>(&cmd), sizeof(cpp2::AdminCmd));
+    auto paraSize = paras.size();
+    value.append(reinterpret_cast<const char*>(&paraSize), sizeof(size_t));
+    for (auto& para : paras) {
+        LOG(INFO) << "para " << para;
+        int32_t len = para.length();
+        value.append(reinterpret_cast<const char*>(&len), sizeof(int32_t))
+             .append(reinterpret_cast<const char*>(&para[0]), len);
+    }
+
+    value.append(reinterpret_cast<const char*>(&status), sizeof(cpp2::JobStatus))
+         .append(reinterpret_cast<const char*>(&startTime), sizeof(Timestamp))
+         .append(reinterpret_cast<const char*>(&stopTime), sizeof(Timestamp));
+    return value;
+}
+
+std::string MetaServiceUtils::jobPrefix() {
+    return kJobsTable;
+}
+
+bool MetaServiceUtils::isJobKey(const folly::StringPiece& rawKey) {
+    if (!rawKey.startsWith(MetaServiceUtils::jobPrefix())) {
+        return false;
+    }
+    return rawKey.size() == MetaServiceUtils::jobPrefix().length() + sizeof(int32_t);
+}
+
+JobID MetaServiceUtils::parseJobKey(const folly::StringPiece& rawKey) {
+    auto offset = MetaServiceUtils::jobPrefix().size();
+    return *reinterpret_cast<const JobID*>(rawKey.begin() + offset);
+}
+
+std::tuple<cpp2::AdminCmd, std::vector<std::string>, cpp2::JobStatus, Timestamp, Timestamp>
+MetaServiceUtils::parseJobValue(const folly::StringPiece& rawVal) {
+    size_t offset = sizeof(int32_t);
+    auto cmd = *reinterpret_cast<const cpp2::AdminCmd*>(rawVal.begin() + offset);
+    offset += sizeof(cpp2::AdminCmd);
+
+    auto parasSize = *reinterpret_cast<const size_t*>(rawVal.data() + offset);
+    offset += sizeof(size_t);
+
+    std::vector<std::string> paras;
+    for (size_t i = 0; i < parasSize; i++) {
+        int32_t len = *reinterpret_cast<const int32_t*>(rawVal.data() + offset);
+        offset += sizeof(int32_t);
+        auto para = std::string(rawVal.data() + offset, len);
+        offset += para.size();
+        paras.emplace_back(std::move(para));
+    }
+
+    auto status = *reinterpret_cast<const cpp2::JobStatus*>(rawVal.begin() + offset);
+    offset += sizeof(cpp2::JobStatus);
+
+    auto startTime = *reinterpret_cast<const Timestamp*>(rawVal.begin() + offset);
+    offset += sizeof(Timestamp);
+
+    auto endTime = *reinterpret_cast<const Timestamp*>(rawVal.begin() + offset);
+    offset += sizeof(Timestamp);
+    return std::make_tuple(cmd, paras, status, startTime, endTime);
+}
+
+std::string MetaServiceUtils::taskKey(JobID jobId, TaskID taskId) {
+    std::string key;
+    key.reserve(32);
+    const auto& jobPrefix = MetaServiceUtils::jobPrefix();
+    key.append(reinterpret_cast<const char*>(jobPrefix.data()),
+                                             jobPrefix.size())
+       .append(reinterpret_cast<const char*>(&jobId), sizeof(JobID))
+       .append(reinterpret_cast<const char*>(&taskId), sizeof(TaskID));
+    return key;
+}
+
+
+cpp2::JobStatus MetaServiceUtils::toJobStatus(BalanceTaskStatus status) {
+    switch (status) {
+        case BalanceTaskStatus::START:
+            return cpp2::JobStatus::QUEUE;
+        case BalanceTaskStatus::CHANGE_LEADER:
+        case BalanceTaskStatus::ADD_PART_ON_DST:
+        case BalanceTaskStatus::ADD_LEARNER:
+        case BalanceTaskStatus::CATCH_UP_DATA:
+        case BalanceTaskStatus::MEMBER_CHANGE_ADD:
+        case BalanceTaskStatus::MEMBER_CHANGE_REMOVE:
+        case BalanceTaskStatus::UPDATE_PART_META:
+        case BalanceTaskStatus::REMOVE_PART_ON_SRC:
+        case BalanceTaskStatus::CHECK:
+            return cpp2::JobStatus::RUNNING;
+        case BalanceTaskStatus::END:
+            return cpp2::JobStatus::FINISHED;
+    }
+    return cpp2::JobStatus::FAILED;
+}
+
+std::string MetaServiceUtils::taskVal(HostAddr dst, BalanceTaskStatus status,
+                                      Timestamp startTime, Timestamp stopTime) {
+    return taskVal(dst, MetaServiceUtils::toJobStatus(status), startTime, stopTime);
+}
+
+std::string MetaServiceUtils::taskVal(HostAddr dst, cpp2::JobStatus status,
+                                      Timestamp startTime, Timestamp stopTime) {
+    std::string value;
+    value.reserve(128);
+    value.append(MetaServiceUtils::serializeHostAddr(dst))
+         .append(reinterpret_cast<const char*>(&status), sizeof(cpp2::JobStatus))
+         .append(reinterpret_cast<const char*>(&startTime), sizeof(Timestamp))
+         .append(reinterpret_cast<const char*>(&stopTime), sizeof(Timestamp));
+    return value;
+}
+
+std::pair<JobID, TaskID>
+MetaServiceUtils::parseTaskKey(const folly::StringPiece& rawKey) {
+    auto offset = MetaServiceUtils::jobPrefix().size();
+    JobID jobId =  *reinterpret_cast<const JobID*>(rawKey.begin() + offset);
+    offset += sizeof(JobID);
+    TaskID taskId = *reinterpret_cast<const TaskID*>(rawKey.begin() + offset);
+    return std::make_pair(jobId, taskId);
+}
+
+std::tuple<HostAddr, cpp2::JobStatus, Timestamp, Timestamp>
+MetaServiceUtils::parseTaskValue(const folly::StringPiece& rawVal) {
+    HostAddr host = MetaServiceUtils::deserializeHostAddr(rawVal);
+    size_t offset = sizeof(size_t) + host.host.size() + sizeof(Port);
+
+    cpp2::JobStatus status = *reinterpret_cast<const cpp2::JobStatus*>(rawVal.data() + offset);
+    offset += sizeof(cpp2::JobStatus);
+
+    Timestamp startTime = *reinterpret_cast<const Timestamp*>(rawVal.data() + offset);
+    offset += sizeof(Timestamp);
+
+    Timestamp stopTime = *reinterpret_cast<const Timestamp*>(rawVal.data() + offset);
+    return std::make_tuple(host, status, startTime, stopTime);
+}
+
+const std::string& MetaServiceUtils::currJobKey() {
+    static std::string kCurrJob = "__job_mgr____id";
+    return kCurrJob;
+}
+
+std::string MetaServiceUtils::balanceTaskKey(JobID jobId,
+                                             TaskID taskId,
                                              GraphSpaceID spaceId,
                                              PartitionID partId,
                                              HostAddr src,
                                              HostAddr dst) {
-    std::string str;
-    str.reserve(64);
-    str.append(reinterpret_cast<const char*>(kBalanceTaskTable.data()), kBalanceTaskTable.size())
-       .append(reinterpret_cast<const char*>(&balanceId), sizeof(BalanceID))
+    std::string key;
+    key.reserve(68);
+    key.append(reinterpret_cast<const char*>(kBalanceTaskTable.data()), kBalanceTaskTable.size())
+       .append(reinterpret_cast<const char*>(&jobId), sizeof(JobID))
+       .append(reinterpret_cast<const char*>(&taskId), sizeof(TaskID))
        .append(reinterpret_cast<const char*>(&spaceId), sizeof(GraphSpaceID))
        .append(reinterpret_cast<const char*>(&partId), sizeof(PartitionID))
        .append(serializeHostAddr(src))
        .append(serializeHostAddr(dst));
-    return str;
+    return key;
 }
 
 std::string MetaServiceUtils::balanceTaskVal(BalanceTaskStatus status,
                                              BalanceTaskResult retult,
-                                             int64_t startTime,
-                                             int64_t endTime) {
+                                             Timestamp startTime,
+                                             Timestamp endTime) {
     std::string val;
     val.reserve(32);
     val.append(reinterpret_cast<const char*>(&status), sizeof(BalanceTaskStatus))
        .append(reinterpret_cast<const char*>(&retult), sizeof(BalanceTaskResult))
-       .append(reinterpret_cast<const char*>(&startTime), sizeof(int64_t))
-       .append(reinterpret_cast<const char*>(&endTime), sizeof(int64_t));
+       .append(reinterpret_cast<const char*>(&startTime), sizeof(Timestamp))
+       .append(reinterpret_cast<const char*>(&endTime), sizeof(Timestamp));
     return val;
 }
 
-std::string MetaServiceUtils::balanceTaskPrefix(BalanceID balanceId) {
+std::string MetaServiceUtils::balanceTaskPrefix(JobID id) {
     std::string prefix;
     prefix.reserve(32);
     prefix.append(reinterpret_cast<const char*>(kBalanceTaskTable.data()),
                   kBalanceTaskTable.size())
-          .append(reinterpret_cast<const char*>(&balanceId), sizeof(BalanceID));
+          .append(reinterpret_cast<const char*>(&id), sizeof(JobID));
     return prefix;
 }
 
-std::string MetaServiceUtils::balancePlanKey(BalanceID id) {
-    CHECK_GE(id, 0);
-    // make the balance id is stored in decend order
-    auto encode = folly::Endian::big(std::numeric_limits<BalanceID>::max() - id);
-    std::string key;
-    key.reserve(sizeof(BalanceID) + kBalancePlanTable.size());
-    key.append(reinterpret_cast<const char*>(kBalancePlanTable.data()), kBalancePlanTable.size())
-       .append(reinterpret_cast<const char*>(&encode), sizeof(BalanceID));
-    return key;
-}
-
-std::string MetaServiceUtils::balancePlanVal(BalanceStatus status) {
-    std::string val;
-    val.reserve(sizeof(BalanceStatus));
-    val.append(reinterpret_cast<const char*>(&status), sizeof(BalanceStatus));
-    return val;
-}
-
-std::string MetaServiceUtils::balancePlanPrefix() {
-    return kBalancePlanTable;
-}
-
-std::tuple<BalanceID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
+std::tuple<JobID, TaskID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
 MetaServiceUtils::parseBalanceTaskKey(const folly::StringPiece& rawKey) {
     uint32_t offset = kBalanceTaskTable.size();
-    auto balanceId = *reinterpret_cast<const BalanceID*>(rawKey.begin() + offset);
-    offset += sizeof(balanceId);
+    auto jobId = *reinterpret_cast<const JobID*>(rawKey.begin() + offset);
+    offset += sizeof(jobId);
+    auto taskId = *reinterpret_cast<const TaskID*>(rawKey.begin() + offset);
+    offset += sizeof(TaskID);
     auto spaceId = *reinterpret_cast<const GraphSpaceID*>(rawKey.begin() + offset);
     offset += sizeof(GraphSpaceID);
     auto partId = *reinterpret_cast<const PartitionID*>(rawKey.begin() + offset);
@@ -1197,7 +1342,7 @@ MetaServiceUtils::parseBalanceTaskKey(const folly::StringPiece& rawKey) {
     auto src = MetaServiceUtils::deserializeHostAddr({rawKey, offset});
     offset += src.host.size() + sizeof(size_t) + sizeof(uint32_t);
     auto dst = MetaServiceUtils::deserializeHostAddr({rawKey, offset});
-    return std::make_tuple(balanceId, spaceId, partId, src, dst);
+    return std::make_tuple(jobId, taskId, spaceId, partId, src, dst);
 }
 
 std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
@@ -1213,6 +1358,52 @@ MetaServiceUtils::parseBalanceTaskVal(const folly::StringPiece& rawVal) {
     return std::make_tuple(status, ret, start, end);
 }
 
+std::string MetaServiceUtils::balancePlanKey(GraphSpaceID space) {
+    std::string key;
+    key.reserve(kBalancePlanTable.size() + sizeof(GraphSpaceID));
+    key.append(reinterpret_cast<const char*>(kBalancePlanTable.data()), kBalancePlanTable.size())
+       .append(reinterpret_cast<const char*>(&space), sizeof(GraphSpaceID));
+    return key;
+}
+
+std::string MetaServiceUtils::balancePlanVal(cpp2::JobStatus status,
+                                             const std::vector<BalanceTask>& tasks) {
+    std::string val;
+    cpp2::BalancePlanItem planItem;
+    planItem.set_status(status);
+    std::vector<cpp2::BalanceTaskItem> taskItems;
+    for (const auto& task : tasks) {
+        cpp2::BalanceTaskItem item;
+        item.set_job_id(task.jobId_);
+        item.set_task_id(task.taskId_);
+        item.set_part_id(task.partId_);
+        item.set_space_id(task.spaceId_);
+        item.set_src(task.src_);
+        item.set_dst(task.dst_);
+        item.set_start_time(task.startTime_);
+        item.set_end_time(task.endTime_);
+        taskItems.emplace_back(std::move(item));
+    }
+    planItem.set_tasks(std::move(taskItems));
+    apache::thrift::CompactSerializer::serialize(planItem, &val);
+    return val;
+}
+
+std::string MetaServiceUtils::balancePlanPrefix() {
+    return kBalancePlanTable;
+}
+
+GraphSpaceID MetaServiceUtils::parseBalancePlanKey(folly::StringPiece rawKey) {
+    uint32_t offset = kBalancePlanTable.size();
+    return *reinterpret_cast<const GraphSpaceID*>(rawKey.begin() + offset);
+}
+
+cpp2::BalancePlanItem MetaServiceUtils::parseBalancePlanVal(folly::StringPiece rawData) {
+    cpp2::BalancePlanItem balancePlanItem;
+    apache::thrift::CompactSerializer::deserialize(rawData, balancePlanItem);
+    return balancePlanItem;
+}
+
 std::string MetaServiceUtils::groupKey(const std::string& group) {
     std::string key;
     key.reserve(kGroupsTable.size() + group.size());
@@ -1221,16 +1412,6 @@ std::string MetaServiceUtils::groupKey(const std::string& group) {
     return key;
 }
 
-BalanceID MetaServiceUtils::parseBalanceID(const folly::StringPiece& rawKey) {
-    auto decode = *reinterpret_cast<const BalanceID*>(rawKey.begin() + kBalancePlanTable.size());
-    auto id = std::numeric_limits<BalanceID>::max() - folly::Endian::big(decode);
-    CHECK_GE(id, 0);
-    return id;
-}
-
-BalanceStatus MetaServiceUtils::parseBalanceStatus(const folly::StringPiece& rawVal) {
-    return static_cast<BalanceStatus>(*rawVal.begin());
-}
 
 std::string MetaServiceUtils::groupVal(const std::vector<std::string>& zones) {
     return folly::join(",", zones);

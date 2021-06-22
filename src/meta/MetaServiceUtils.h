@@ -13,6 +13,7 @@
 #include "common/interface/gen-cpp2/meta_types.h"
 #include "kvstore/NebulaStore.h"
 #include "meta/processors/Common.h"
+#include "meta/processors/jobMan/BalanceTask.h"
 
 namespace nebula {
 namespace meta {
@@ -243,7 +244,41 @@ public:
 
     static HostAddr deserializeHostAddr(folly::StringPiece str);
 
-    static std::string balanceTaskKey(BalanceID balanceId,
+    static std::string jobKey(JobID jobId);
+
+    static std::string jobVal(cpp2::AdminCmd cmd, std::vector<std::string> paras,
+                              cpp2::JobStatus status, Timestamp startTime,
+                              Timestamp stopTime, int32_t currDataVer);
+
+    static std::string jobPrefix();
+
+    static bool isJobKey(const folly::StringPiece& rawKey);
+
+    static JobID parseJobKey(const folly::StringPiece& rawKey);
+
+    static std::tuple<cpp2::AdminCmd, std::vector<std::string>,
+                      cpp2::JobStatus, Timestamp, Timestamp>
+    parseJobValue(const folly::StringPiece& rawKey);
+
+    static std::string taskKey(JobID jobId, TaskID taskId);
+
+    static cpp2::JobStatus toJobStatus(BalanceTaskStatus status);
+
+    static std::string taskVal(HostAddr dest, BalanceTaskStatus status,
+                               Timestamp startTime, Timestamp stopTime);
+
+    static std::string taskVal(HostAddr dest, cpp2::JobStatus status,
+                               Timestamp startTime, Timestamp stopTime);
+
+    static std::pair<JobID, TaskID> parseTaskKey(const folly::StringPiece& rawKey);
+
+    static std::tuple<HostAddr, cpp2::JobStatus, Timestamp, Timestamp>
+    parseTaskValue(const folly::StringPiece& rawVal);
+
+    static const std::string& currJobKey();
+
+    static std::string balanceTaskKey(JobID jobId,
+                                      TaskID taskId,
                                       GraphSpaceID spaceId,
                                       PartitionID partId,
                                       HostAddr src,
@@ -251,26 +286,29 @@ public:
 
     static std::string balanceTaskVal(BalanceTaskStatus status,
                                       BalanceTaskResult retult,
-                                      int64_t startTime,
-                                      int64_t endTime);
+                                      Timestamp startTime,
+                                      Timestamp endTime);
 
-    static std::string balanceTaskPrefix(BalanceID balanceId);
+    static std::string balanceTaskPrefix(JobID id);
 
-    static std::string balancePlanKey(BalanceID id);
-
-    static std::string balancePlanVal(BalanceStatus status);
-
-    static std::string balancePlanPrefix();
-
-    static BalanceID parseBalanceID(const folly::StringPiece& rawKey);
-
-    static BalanceStatus parseBalanceStatus(const folly::StringPiece& rawVal);
-
-    static std::tuple<BalanceID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
+    static std::tuple<JobID, TaskID, GraphSpaceID, PartitionID, HostAddr, HostAddr>
     parseBalanceTaskKey(const folly::StringPiece& rawKey);
 
     static std::tuple<BalanceTaskStatus, BalanceTaskResult, int64_t, int64_t>
-    parseBalanceTaskVal(const folly::StringPiece& rawVal);
+    parseBalanceTaskVal(const folly::StringPiece& rawData);
+
+    static std::string balancePlanKey(GraphSpaceID space);
+
+    static std::string balancePlanVal(cpp2::JobStatus status,
+                                      const std::vector<BalanceTask>& tasks);
+
+    static std::string balancePlanPrefix();
+
+    static std::string balancePlanPrefixWithSpace(GraphSpaceID space);
+
+    static GraphSpaceID parseBalancePlanKey(folly::StringPiece rawKey);
+
+    static cpp2::BalancePlanItem parseBalancePlanVal(folly::StringPiece rawData);
 
     static std::string groupKey(const std::string& group);
 

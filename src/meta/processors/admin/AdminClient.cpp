@@ -50,22 +50,22 @@ folly::Future<Status> AdminClient::transLeader(GraphSpaceID spaceId,
     }
     req.set_new_leader(std::move(target));
     return getResponse(Utils::getAdminAddrFromStoreAddr(leader), std::move(req),
-           [] (auto client, auto request) {
-               return client->future_transLeader(request);
-           }, [] (auto&& resp) -> Status {
-               switch (resp.get_code()) {
-                   case nebula::cpp2::ErrorCode::SUCCEEDED:
-                   case nebula::cpp2::ErrorCode::E_LEADER_CHANGED: {
-                       return Status::OK();
-                   }
-                   case nebula::cpp2::ErrorCode::E_PART_NOT_FOUND: {
-                       return Status::PartNotFound();
-                   }
-                   default:
-                       return Status::Error("Unknown code %d",
-                                            static_cast<int32_t>(resp.get_code()));
-               }
-           });
+                       [] (auto client, auto request) {
+                           return client->future_transLeader(request);
+                       }, [] (auto&& resp) -> Status {
+                           switch (resp.get_code()) {
+                               case nebula::cpp2::ErrorCode::SUCCEEDED:
+                               case nebula::cpp2::ErrorCode::E_LEADER_CHANGED: {
+                                   return Status::OK();
+                               }
+                               case nebula::cpp2::ErrorCode::E_PART_NOT_FOUND: {
+                                   return Status::PartNotFound();
+                               }
+                               default: {
+                                   return Status::Error("Unknown code");
+                               }         
+                           }
+                       });
 }
 
 folly::Future<Status> AdminClient::addPart(GraphSpaceID spaceId,
@@ -663,8 +663,8 @@ folly::Future<Status> AdminClient::blockingWrites(GraphSpaceID spaceId,
 
 folly::Future<Status>
 AdminClient::addTask(cpp2::AdminCmd cmd,
-                    int32_t jobId,
-                    int32_t taskId,
+                    JobID jobId,
+                    TaskID taskId,
                     GraphSpaceID spaceId,
                     const std::vector<HostAddr>& targetHost,
                     const std::vector<std::string>& taskSpecficParas,
@@ -714,8 +714,8 @@ AdminClient::addTask(cpp2::AdminCmd cmd,
 
 folly::Future<Status>
 AdminClient::stopTask(const std::vector<HostAddr>& target,
-                      int32_t jobId,
-                      int32_t taskId) {
+                      JobID jobId,
+                      TaskID taskId) {
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
     std::vector<HostAddr> hosts;

@@ -17,10 +17,11 @@
 #include "kvstore/KVStore.h"
 #include "kvstore/PartManager.h"
 #include "kvstore/NebulaStore.h"
-#include "meta/processors/partsMan/ListHostsProcessor.h"
-#include "meta/MetaServiceHandler.h"
-#include "meta/processors/usersMan/AuthenticationProcessor.h"
 #include "meta/ActiveHostsMan.h"
+#include "meta/MetaServiceHandler.h"
+#include "meta/processors/partsMan/ListHostsProcessor.h"
+#include "meta/processors/usersMan/AuthenticationProcessor.h"
+#include "meta/processors/partsMan/CreateSpaceProcessor.h"
 #include "utils/DefaultValueContext.h"
 #include <gtest/gtest.h>
 #include <thrift/lib/cpp2/server/ThriftServer.h>
@@ -239,6 +240,28 @@ public:
                               baton.post();
                           });
         baton.wait();
+    }
+
+    static int32_t createSpace(kvstore::KVStore* kv,
+                               const std::string& spaceName,
+                               int32_t partitionNum,
+                               int32_t replicaFactor,
+                               const std::string& groupName = "") {
+        cpp2::SpaceDesc properties;
+        properties.set_space_name(spaceName);
+        properties.set_partition_num(partitionNum);
+        properties.set_replica_factor(replicaFactor);
+        if (groupName != "") {
+            properties.set_group_name(groupName);
+        }
+
+        cpp2::CreateSpaceReq req;
+        req.set_properties(std::move(properties));
+        auto* processor = CreateSpaceProcessor::instance(kv);
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        return resp.get_id().get_space_id();
     }
 
     static void mockTag(kvstore::KVStore* kv, int32_t tagNum,

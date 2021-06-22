@@ -8,7 +8,6 @@
 #include "common/interface/gen-cpp2/meta_types.h"
 #include <thrift/lib/cpp/util/EnumUtils.h>
 
-
 #define RR_GET_OFFSET()                                             \
     if (index >= static_cast<int64_t>(schema_->getNumFields())) {   \
         return NullType::BAD_DATA;                                  \

@@ -4,8 +4,8 @@
 * attached with Common Clause Condition 1.0, found in the LICENSES directory.
 */
 
+#include "meta/MetaServiceUtils.h"
 #include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
-#include "meta/processors/jobMan/JobUtils.h"
 
 #include <thrift/lib/cpp2/protocol/Serializer.h>
 #include <thrift/lib/cpp2/protocol/CompactProtocol.h>
@@ -99,33 +99,17 @@ cpp2::ConfigItem MetaServiceUtilsV1::parseConfigValue(folly::StringPiece rawData
 }
 
 int32_t MetaServiceUtilsV1::parseJobId(const folly::StringPiece& rawKey) {
-    auto offset = nebula::meta::JobUtil::jobPrefix().size();
+    auto offset = nebula::meta::MetaServiceUtils::jobPrefix().size();
     return *reinterpret_cast<const int32_t*>(rawKey.begin() + offset);
 }
 
-std::tuple<std::string,
+std::tuple<nebula::meta::cpp2::AdminCmd,
            std::vector<std::string>,
            nebula::meta::cpp2::JobStatus,
-           int64_t,
-           int64_t>
+           Timestamp,
+           Timestamp>
 MetaServiceUtilsV1::parseJobDesc(const folly::StringPiece& rawVal) {
-    size_t offset = 0;
-
-    std::string cmd = nebula::meta::JobUtil::parseString(rawVal, offset);
-    offset += sizeof(size_t) + cmd.length();
-
-    std::vector<std::string> paras = nebula::meta::JobUtil::parseStrVector(rawVal, &offset);
-
-    auto status = nebula::meta::JobUtil::parseFixedVal<
-            nebula::meta::cpp2::JobStatus>(rawVal, offset);
-    offset += sizeof(nebula::meta::cpp2::JobStatus);
-
-    auto tStart = nebula::meta::JobUtil::parseFixedVal<int64_t>(rawVal, offset);
-    offset += sizeof(int64_t);
-
-    auto tStop = nebula::meta::JobUtil::parseFixedVal<int64_t>(rawVal, offset);
-
-    return std::make_tuple(cmd, paras, status, tStart, tStop);
+    return nebula::meta::MetaServiceUtils::parseJobValue(rawVal);
 }
 }  // namespace oldmeta
 }  // namespace nebula

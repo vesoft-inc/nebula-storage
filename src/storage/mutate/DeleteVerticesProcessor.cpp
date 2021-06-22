@@ -104,10 +104,10 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
             if (!lg) {
                 auto conflict = lg.conflictKey();
                 LOG(ERROR) << "vertex conflict "
-                        << std::get<0>(conflict) << ":"
-                        << std::get<1>(conflict) << ":"
-                        << std::get<2>(conflict) << ":"
-                        << std::get<3>(conflict);
+                           << std::get<0>(conflict) << ":"
+                           << std::get<1>(conflict) << ":"
+                           << std::get<2>(conflict) << ":"
+                           << std::get<3>(conflict);
                 handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
                 continue;
             }

@@ -14,7 +14,7 @@ namespace storage {
 ProcessorCounters kForwardTranxCounters;
 
 void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
-    int64_t txnId = req.get_txn_id();
+    auto txnId = req.get_txn_id();
     auto spaceId = req.get_space_id();
     auto partId = req.get_part_id();
 
@@ -24,10 +24,10 @@ void InterTxnProcessor::process(const cpp2::InternalTxnRequest& req) {
 
     env_->txnMan_->commitBatch(spaceId, partId, std::move(data))
         .via(env_->txnMan_->getExecutor())
-        .thenValue([=](nebula::cpp2::ErrorCode rc) {
+        .thenValue([=](nebula::cpp2::ErrorCode code) {
             LOG_IF(INFO, FLAGS_trace_toss) << "txnId="
-                << txnId << " commitBatch ret rc=" << static_cast<int32_t>(rc);
-            auto code = rc;
+                                           << txnId << " commitBatch ret code="
+                                           << apache::thrift::util::enumNameSafe(code);
             if (code == nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
                 handleLeaderChanged(spaceId, partId);
             } else if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {

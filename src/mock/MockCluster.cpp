@@ -196,7 +196,7 @@ void MockCluster::initStorageKV(const char* dataPath,
         indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
     } else {
         LOG(INFO) << "Use meta in memory!";
-        options.partMan_ = memPartMan(1, parts);;
+        options.partMan_ = memPartMan(1, parts);
         schemaMan_ = memSchemaMan(schemaVerCount, 1, hasProp);
         indexMan_ = memIndexMan(1, hasProp);
     }

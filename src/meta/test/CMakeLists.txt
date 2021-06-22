@@ -180,9 +180,9 @@ nebula_add_test(
 
 nebula_add_test(
     NAME
-        balancer_test
+        balance_leader_test
     SOURCES
-        BalancerTest.cpp
+        BalanceLeaderTest.cpp
     OBJECTS
         ${meta_test_deps}
     LIBRARIES
@@ -194,6 +194,21 @@ nebula_add_test(
         gmock
 )
 
+nebula_add_test(
+    NAME
+        balance_data_test
+    SOURCES
+        BalanceDataTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+        gmock
+)
 
 #nebula_add_test(
 #    NAME
@@ -301,6 +316,22 @@ nebula_add_test(
         get_statis_test
     SOURCES
         GetStatisTest.cpp
+    OBJECTS
+        ${meta_test_deps}
+    LIBRARIES
+        ${ROCKSDB_LIBRARIES}
+        ${THRIFT_LIBRARIES}
+        ${PROXYGEN_LIBRARIES}
+        wangle
+        gtest
+        gmock
+)
+
+nebula_add_test(
+    NAME
+        get_balance_plan_test
+    SOURCES
+        GetBalancePlanTest.cpp
     OBJECTS
         ${meta_test_deps}
     LIBRARIES

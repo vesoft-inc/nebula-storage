@@ -13,7 +13,7 @@
 #include "kvstore/KVStore.h"
 #include "meta/processors/Common.h"
 #include <folly/synchronization/Baton.h>
-
+#include <thrift/lib/cpp/util/EnumUtils.h>
 
 namespace nebula {
 namespace meta {
@@ -90,7 +90,8 @@ public:
             }
             return *reinterpret_cast<const ClusterID*>(value.data());
         } else {
-            LOG(ERROR) << "Error in kvstore, err " << static_cast<int32_t>(code);
+            LOG(ERROR) << "Error in kvstore, err "
+                       << apache::thrift::util::enumNameSafe(code);
             return 0;
         }
     }
@@ -108,7 +109,7 @@ public:
         kv->asyncMultiPut(0, 0, std::move(data), [&](nebula::cpp2::ErrorCode code) {
                           if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                               LOG(ERROR) << "Put failed, error "
-                                         << static_cast<int32_t>(code);
+                                         << apache::thrift::util::enumNameSafe(code);
                               ret = false;
                           } else {
                               LOG(INFO) << "Put key " << key

@@ -8,6 +8,7 @@
 #include "kvstore/LogEncoder.h"
 #include "kvstore/RocksEngineConfig.h"
 #include "utils/NebulaKeyUtils.h"
+#include <thrift/lib/cpp/util/EnumUtils.h>
 
 DEFINE_int32(cluster_id, 0, "A unique id for each cluster");
 
@@ -140,7 +141,7 @@ void Part::asyncAddLearner(const HostAddr& learner, KVCallback cb) {
     sendCommandAsync(std::move(log))
         .thenValue([callback = std::move(cb), learner, this] (AppendLogResult res) mutable {
         LOG(INFO) << idStr_ << "add learner " << learner
-                  << ", result: " << static_cast<int32_t>(this->toResultCode(res));
+                  << ", result: " << apache::thrift::util::enumNameSafe(toResultCode(res));
         callback(this->toResultCode(res));
     });
 }
@@ -150,7 +151,7 @@ void Part::asyncTransferLeader(const HostAddr& target, KVCallback cb) {
     sendCommandAsync(std::move(log))
         .thenValue([callback = std::move(cb), target, this] (AppendLogResult res) mutable {
         LOG(INFO) << idStr_ << "transfer leader to " << target
-                  << ", result: " << static_cast<int32_t>(this->toResultCode(res));
+                  << ", result: " << apache::thrift::util::enumNameSafe(toResultCode(res));
         callback(this->toResultCode(res));
     });
 }
@@ -160,7 +161,7 @@ void Part::asyncAddPeer(const HostAddr& peer, KVCallback cb) {
     sendCommandAsync(std::move(log))
         .thenValue([callback = std::move(cb), peer, this] (AppendLogResult res) mutable {
         LOG(INFO) << idStr_ << "add peer " << peer
-                  << ", result: " << static_cast<int32_t>(this->toResultCode(res));
+                  << ", result: " << apache::thrift::util::enumNameSafe(toResultCode(res));
         callback(this->toResultCode(res));
     });
 }
@@ -170,7 +171,7 @@ void Part::asyncRemovePeer(const HostAddr& peer, KVCallback cb) {
     sendCommandAsync(std::move(log))
         .thenValue([callback = std::move(cb), peer, this] (AppendLogResult res) mutable {
         LOG(INFO) << idStr_ << "remove peer " << peer
-                  << ", result: " << static_cast<int32_t>(this->toResultCode(res));
+                  << ", result: " << apache::thrift::util::enumNameSafe(toResultCode(res));
         callback(this->toResultCode(res));
     });
 }

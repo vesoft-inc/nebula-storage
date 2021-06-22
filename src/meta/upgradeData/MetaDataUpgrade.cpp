@@ -17,6 +17,7 @@
 #include "kvstore/Common.h"
 #include "meta/MetaServiceUtils.h"
 #include "meta/ActiveHostsMan.h"
+#include "meta/MetaServiceUtils.h"
 #include "meta/upgradeData/MetaDataUpgrade.h"
 #include "meta/upgradeData/oldThrift/MetaServiceUtilsV1.h"
 
@@ -171,16 +172,8 @@ Status MetaDataUpgrade::rewriteConfigs(const folly::StringPiece &key,
 
 Status MetaDataUpgrade::rewriteJobDesc(const folly::StringPiece &key,
                                        const folly::StringPiece &val) {
-    auto jobDesc = oldmeta::MetaServiceUtilsV1::parseJobDesc(val);
-    auto cmdStr = std::get<0>(jobDesc);
-    nebula::meta::cpp2::AdminCmd adminCmd;
-    if (cmdStr.find("flush") == 0) {
-        adminCmd = nebula::meta::cpp2::AdminCmd::FLUSH;
-    } else if (cmdStr.find("compact") == 0) {
-        adminCmd = nebula::meta::cpp2::AdminCmd::COMPACT;
-    } else {
-        return Status::Error("Wrong job cmd: %s", cmdStr.c_str());
-    }
+    auto jobDesc = nebula::meta::MetaServiceUtils::parseJobValue(val);
+    auto adminCmd = std::get<0>(jobDesc);
     auto paras = std::get<1>(jobDesc);
     auto status = std::get<2>(jobDesc);
     auto startTime = std::get<3>(jobDesc);
@@ -190,17 +183,17 @@ Status MetaDataUpgrade::rewriteJobDesc(const folly::StringPiece &key,
     // use a big num to avoid possible conflict
     int32_t dataVersion = INT_MAX - 1;
     str.append(reinterpret_cast<const char*>(&dataVersion), sizeof(dataVersion))
-            .append(reinterpret_cast<const char*>(&adminCmd), sizeof(adminCmd));
+       .append(reinterpret_cast<const char*>(&adminCmd), sizeof(adminCmd));
     auto paraSize = paras.size();
     str.append(reinterpret_cast<const char*>(&paraSize), sizeof(size_t));
     for (auto& para : paras) {
         auto len = para.length();
         str.append(reinterpret_cast<const char*>(&len), sizeof(len))
-                .append(reinterpret_cast<const char*>(&para[0]), len);
+           .append(reinterpret_cast<const char*>(&para[0]), len);
     }
     str.append(reinterpret_cast<const char*>(&status), sizeof(nebula::meta::cpp2::JobStatus))
-            .append(reinterpret_cast<const char*>(&startTime), sizeof(int64_t))
-            .append(reinterpret_cast<const char*>(&stopTime), sizeof(int64_t));
+       .append(reinterpret_cast<const char*>(&startTime), sizeof(int64_t))
+       .append(reinterpret_cast<const char*>(&stopTime), sizeof(int64_t));
 
     NG_LOG_AND_RETURN_IF_ERROR(put(key, str));
     return Status::OK();
@@ -424,16 +417,15 @@ void MetaDataUpgrade::printConfigs(const folly::StringPiece &key, const folly::S
 
 void MetaDataUpgrade::printJobDesc(const folly::StringPiece &key, const folly::StringPiece &val) {
     auto jobId = oldmeta::MetaServiceUtilsV1::parseJobId(key);
-    LOG(INFO) << "JobDesc id: " << jobId;
-    auto jobDesc = oldmeta::MetaServiceUtilsV1::parseJobDesc(val);
-    auto cmdStr = std::get<0>(jobDesc);
+    auto jobDesc = nebula::meta::MetaServiceUtils::parseJobValue(val);
+    auto cmd = std::get<0>(jobDesc);
     auto paras = std::get<1>(jobDesc);
     auto status = std::get<2>(jobDesc);
     auto startTime = std::get<3>(jobDesc);
     auto stopTime = std::get<4>(jobDesc);
 
     LOG(INFO) << "JobDesc id: " << jobId;
-    LOG(INFO) << "JobDesc cmd: " << cmdStr;
+    LOG(INFO) << "JobDesc cmd: " << apache::thrift::util::enumNameSafe(cmd);
     for (auto &para : paras) {
         LOG(INFO) << "JobDesc para: " << para;
     }

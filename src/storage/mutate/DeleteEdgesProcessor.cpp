@@ -104,12 +104,12 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
             if (!lg) {
                 auto conflict = lg.conflictKey();
                 LOG(ERROR) << "edge conflict "
-                        << std::get<0>(conflict) << ":"
-                        << std::get<1>(conflict) << ":"
-                        << std::get<2>(conflict) << ":"
-                        << std::get<3>(conflict) << ":"
-                        << std::get<4>(conflict) << ":"
-                        << std::get<5>(conflict);
+                           << std::get<0>(conflict) << ":"
+                           << std::get<1>(conflict) << ":"
+                           << std::get<2>(conflict) << ":"
+                           << std::get<3>(conflict) << ":"
+                           << std::get<4>(conflict) << ":"
+                           << std::get<5>(conflict);
                 handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
                 continue;
             }
