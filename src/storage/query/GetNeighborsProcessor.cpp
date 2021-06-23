@@ -60,75 +60,35 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
             random = *(*req.traverse_spec_ref()).random_ref();
         }
     }
-    plan_ = buildPlan(&resultDataSet_, limit, random);
-    std::vector<folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>> futures;
-    for (const auto& [partId, rows] : req.get_parts()) {
-        futures.emplace_back(go(partId, rows, limit, random));
-    }
 
-    /*
-    auto tries = folly::collectAll(futures).get();
-    for (size_t i = 0; i < tries.size(); i++) {
-        CHECK(!tries[i].hasException());
-        const auto& [code, partId] = tries[i].value();
-        if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-            handleErrorCode(code, spaceId_, partId);
-        } else {
-            resultDataSet_.append(std::move(results_[i]));
-        }
-    }
-    onProcessFinished();
-    onFinished();
-    */
-    folly::collectAll(futures).via(executor_).thenTry([this] (auto&& t) mutable {
-        CHECK(!t.hasException());
-        const auto& tries = t.value();
-        for (size_t i = 0; i < tries.size(); i++) {
-            CHECK(!tries[i].hasException());
-            const auto& [code, partId] = tries[i].value();
-            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                handleErrorCode(code, spaceId_, partId);
-            }
-        }
-        this->onProcessFinished();
-        this->onFinished();
-    });
-}
-
-folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>
-GetNeighborsProcessor::go(PartitionID partId,
-                          std::vector<nebula::Row> rows,
-                          int64_t limit,
-                          bool random) {
-    folly::Promise<std::pair<nebula::cpp2::ErrorCode, PartitionID>> pro;
-    auto fut = pro.getFuture();
-    executor_->add([this, p = std::move(pro), partId,
-                    rows = std::move(rows), limit, random] () mutable {
-        std::pair<nebula::cpp2::ErrorCode, PartitionID> res;
-        for (const auto& row : rows) {
+    auto plan = buildPlan(&resultDataSet_, limit, random);
+    std::unordered_set<PartitionID> failedParts;
+    for (const auto& partEntry : req.get_parts()) {
+        auto partId = partEntry.first;
+        for (const auto& row : partEntry.second) {
             CHECK_GE(row.values.size(), 1);
             auto vId = row.values[0].getStr();
 
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                 LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                            << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
-                res = {nebula::cpp2::ErrorCode::E_INVALID_VID, partId};
-                p.setValue(std::move(res));
+                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
+                onFinished();
                 return;
             }
 
             // the first column of each row would be the vertex id
-            auto ret = plan_.go(partId, vId);
+            auto ret = plan.go(partId, vId);
             if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                res = {ret, partId};
-                p.setValue(std::move(res));
-                return;
+                if (failedParts.find(partId) == failedParts.end()) {
+                    failedParts.emplace(partId);
+                    handleErrorCode(ret, spaceId_, partId);
+                }
             }
         }
-        res = {nebula::cpp2::ErrorCode::SUCCEEDED, partId};
-        p.setValue(std::move(res));
-    });
-    return fut;
+    }
+    onProcessFinished();
+    onFinished();
 }
 
 StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
