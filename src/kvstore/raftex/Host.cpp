@@ -508,6 +508,7 @@ folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeat(folly::EventBase* eb,
     req->set_last_log_term_sent(lastLogTerm);
     req->set_last_log_id_sent(lastLogId);
     folly::Promise<cpp2::HeartbeatResponse> promise;
+    auto future = promise.getFuture();
     sendHeartbeatRequest(eb, std::move(req))
         .via(eb)
         .then([self = shared_from_this(), pro = std::move(promise)]
@@ -522,7 +523,7 @@ folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeat(folly::EventBase* eb,
                 pro.setValue(std::move(t.value()));
             }
         });
-    return promise.getFuture();
+    return future;
 }
 
 folly::Future<cpp2::HeartbeatResponse> Host::sendHeartbeatRequest(
