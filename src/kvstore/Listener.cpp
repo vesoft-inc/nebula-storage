@@ -273,10 +273,8 @@ bool Listener::pursueLeaderDone() {
     if (leaderCommitId_ == 0 && lastApplyLogId_ == 0) {
         return false;
     }
-    // VLOG(1) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
-    //                           leaderCommitId_, lastApplyLogId_);
-    LOG(INFO) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
-                                leaderCommitId_, lastApplyLogId_);
+    VLOG(1) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
+                              leaderCommitId_, lastApplyLogId_);
     return (leaderCommitId_ - lastApplyLogId_) <= FLAGS_listener_pursue_leader_threshold;
 }
 }  // namespace kvstore
