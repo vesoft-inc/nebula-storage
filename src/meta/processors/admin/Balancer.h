@@ -191,6 +191,7 @@ private:
     hostWithMinimalPartsForZone(const HostAddr& source,
                                 const HostParts& hostParts,
                                 PartitionID partId);
+
     bool balanceParts(BalanceID balanceId,
                       GraphSpaceID spaceId,
                       HostParts& newHostParts,
@@ -239,7 +240,7 @@ private:
     nebula::cpp2::ErrorCode
     collectZoneParts(const std::string& groupName, HostParts& hostParts);
 
-    bool checkZoneLegal(const HostAddr& source, const HostAddr& target, PartitionID part);
+    bool checkZoneLegal(const HostAddr& source, const HostAddr& target);
 
 private:
     std::atomic_bool running_{false};
@@ -256,6 +257,12 @@ private:
 
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
     std::unordered_map<HostAddr, ZoneNameAndParts> zoneParts_;
+
+    // if the space dependent on group, it use to record the partition
+    // contained in the zone related to the node.
+    std::unordered_map<HostAddr, std::vector<PartitionID>> relatedParts_;
+
+    bool innerBalance_ = false;
 };
 
 }  // namespace meta
