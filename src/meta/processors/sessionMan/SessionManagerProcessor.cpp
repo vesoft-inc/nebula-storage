@@ -179,34 +179,38 @@ void RemoveSessionProcessor::process(const cpp2::RemoveSessionReq& req) {
 
 void KillQueryProcessor::process(const cpp2::KillQueryReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::sessionLock());
-    auto sessionId = req.get_session_id();
-    auto epId = req.get_ep_id();
+    auto& killQueries = req.get_kill_queries();
 
-    auto sessionKey = MetaServiceUtils::sessionKey(sessionId);
-    auto ret = doGet(sessionKey);
-    if (!nebula::ok(ret)) {
-        auto errCode = nebula::error(ret);
-        LOG(ERROR) << "Session id `" << sessionId << "' not found";
-        if (errCode == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
-            errCode = nebula::cpp2::ErrorCode::E_SESSION_NOT_FOUND;
-        }
-        handleErrorCode(errCode);
-        onFinished();
-        return;
-    }
-
-    auto session = MetaServiceUtils::parseSessionVal(nebula::value(ret));
-    auto query = session.queries_ref()->find(epId);
-    if (query == session.queries_ref()->end()) {
-        handleErrorCode(nebula::cpp2::ErrorCode::E_QUERY_NOT_FOUND);
-        onFinished();
-        return;
-    }
-
-    query->second.set_status(cpp2::QueryStatus::KILLING);
     std::vector<kvstore::KV> data;
-    data.emplace_back(MetaServiceUtils::sessionKey(sessionId),
-                          MetaServiceUtils::sessionVal(session));
+    for (auto& kv : killQueries) {
+        auto sessionId = kv.first;
+        auto sessionKey = MetaServiceUtils::sessionKey(sessionId);
+        auto ret = doGet(sessionKey);
+        if (!nebula::ok(ret)) {
+            auto errCode = nebula::error(ret);
+            LOG(ERROR) << "Session id `" << sessionId << "' not found";
+            if (errCode == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+                errCode = nebula::cpp2::ErrorCode::E_SESSION_NOT_FOUND;
+            }
+            handleErrorCode(errCode);
+            onFinished();
+            return;
+        }
+
+        auto session = MetaServiceUtils::parseSessionVal(nebula::value(ret));
+        for (auto& epId : kv.second) {
+            auto query = session.queries_ref()->find(epId);
+            if (query == session.queries_ref()->end()) {
+                handleErrorCode(nebula::cpp2::ErrorCode::E_QUERY_NOT_FOUND);
+                onFinished();
+                return;
+            }
+            query->second.set_status(cpp2::QueryStatus::KILLING);
+        }
+
+        data.emplace_back(MetaServiceUtils::sessionKey(sessionId),
+                            MetaServiceUtils::sessionVal(session));
+    }
 
     auto putRet = doSyncPut(std::move(data));
     if (putRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
