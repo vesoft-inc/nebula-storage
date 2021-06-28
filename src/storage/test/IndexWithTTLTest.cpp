@@ -282,13 +282,13 @@ TEST(IndexWithTTLTest, UpdateVerticesIndexWithTTL) {
         std::vector<cpp2::UpdatedProp> updatedProps;
         cpp2::UpdatedProp uProp1;
         uProp1.set_name("c1");
-        auto val1 = *ConstantExpression::make(pool, 2L);
+        const auto& val1 = *ConstantExpression::make(pool, 2L);
         uProp1.set_value(Expression::encode(val1));
         updatedProps.emplace_back(uProp1);
 
         cpp2::UpdatedProp uProp2;
         uProp2.set_name("c2");
-        auto val2 = *ConstantExpression::make(pool, 5555L);
+        const auto& val2 = *ConstantExpression::make(pool, 5555L);
         uProp2.set_value(Expression::encode(val2));
         updatedProps.emplace_back(uProp2);
         req.set_updated_props(std::move(updatedProps));
@@ -359,13 +359,13 @@ TEST(IndexWithTTLTest, UpdateEdgesIndexWithTTL) {
         std::vector<cpp2::UpdatedProp> updatedProps;
         cpp2::UpdatedProp uProp1;
         uProp1.set_name("c1");
-        auto val1 = *ConstantExpression::make(pool, 2L);
+        const auto& val1 = *ConstantExpression::make(pool, 2L);
         uProp1.set_value(Expression::encode(val1));
         updatedProps.emplace_back(uProp1);
 
         cpp2::UpdatedProp uProp2;
         uProp2.set_name("c2");
-        auto val2 = *ConstantExpression::make(pool, 5555L);
+        const auto& val2 = *ConstantExpression::make(pool, 5555L);
         uProp2.set_value(Expression::encode(val2));
         updatedProps.emplace_back(uProp2);
         req.set_updated_props(std::move(updatedProps));
@@ -698,11 +698,11 @@ TEST(IndexWithTTLTest, LookupTagIndexWithTTL) {
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
-    auto expr = *RelationalExpression::makeNE(pool,
+    auto expr = RelationalExpression::makeNE(pool,
                                               TagPropertyExpression::make(pool, "2021001", "c1"),
                                               ConstantExpression::make(pool, Value(34L)));
     cpp2::IndexQueryContext context1;
-    context1.set_filter(expr.encode());
+    context1.set_filter(expr->encode());
     context1.set_index_id(2021002);
     decltype(indices.contexts) contexts;
     contexts.emplace_back(std::move(context1));
@@ -741,11 +741,11 @@ TEST(IndexWithTTLTest, LookupEdgeIndexWithTTL) {
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
-    auto expr = *RelationalExpression::makeNE(pool,
+    auto expr = RelationalExpression::makeNE(pool,
                                               TagPropertyExpression::make(pool, "2021001", "c1"),
                                               ConstantExpression::make(pool, Value(34L)));
     cpp2::IndexQueryContext context1;
-    context1.set_filter(expr.encode());
+    context1.set_filter(expr->encode());
     context1.set_index_id(2021002);
     decltype(indices.contexts) contexts;
     contexts.emplace_back(std::move(context1));
@@ -786,11 +786,11 @@ TEST(IndexWithTTLTest, LookupTagIndexWithTTLExpired) {
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
-    auto expr = *RelationalExpression::makeNE(pool,
+    auto expr = RelationalExpression::makeNE(pool,
                                               TagPropertyExpression::make(pool, "2021001", "c1"),
                                               ConstantExpression::make(pool, Value(34L)));
     cpp2::IndexQueryContext context1;
-    context1.set_filter(expr.encode());
+    context1.set_filter(expr->encode());
     context1.set_index_id(2021002);
     decltype(indices.contexts) contexts;
     contexts.emplace_back(std::move(context1));
@@ -831,11 +831,11 @@ TEST(IndexWithTTLTest, LookupEdgeIndexWithTTLExpired) {
     returnCols.emplace_back(kVid);
     returnCols.emplace_back(kTag);
     req.set_return_columns(std::move(returnCols));
-    auto expr = *RelationalExpression::makeNE(pool,
+    auto expr = RelationalExpression::makeNE(pool,
                                              TagPropertyExpression::make(pool, "2021001", "c1"),
                                              ConstantExpression::make(pool, Value(34L)));
     cpp2::IndexQueryContext context1;
-    context1.set_filter(expr.encode());
+    context1.set_filter(expr->encode());
     context1.set_index_id(2021002);
     decltype(indices.contexts) contexts;
     contexts.emplace_back(std::move(context1));

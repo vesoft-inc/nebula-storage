@@ -26,7 +26,7 @@ Value StorageExpressionContext::readValue(const std::string& propName) const {
         auto nullType = value.getNull();
         if (nullType == NullType::UNKNOWN_PROP && field->hasDefault()) {
             DefaultValueContext expCtx;
-            auto expr = field->defaultValue();
+            auto expr = field->defaultValue()->clone();
             return Value(Expression::eval(expr, expCtx));
         }
         return Value::kNullValue;

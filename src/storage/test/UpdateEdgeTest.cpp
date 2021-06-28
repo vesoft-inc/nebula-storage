@@ -92,19 +92,19 @@ static bool mockEdgeData(storage::StorageEnv* env, int32_t totalParts, int32_t s
 
 void addEdgePropInKey(std::vector<std::string>& returnCols) {
     {
-        auto exp = *EdgePropertyExpression::make(pool, "101", kSrc);
+        const auto& exp = *EdgePropertyExpression::make(pool, "101", kSrc);
         returnCols.emplace_back(Expression::encode(exp));
     }
     {
-        auto exp = *EdgePropertyExpression::make(pool, "101", kType);
+        const auto& exp = *EdgePropertyExpression::make(pool, "101", kType);
         returnCols.emplace_back(Expression::encode(exp));
     }
     {
-        auto exp = *EdgePropertyExpression::make(pool, "101", kRank);
+        const auto& exp = *EdgePropertyExpression::make(pool, "101", kRank);
         returnCols.emplace_back(Expression::encode(exp));
     }
     {
-        auto exp = *EdgePropertyExpression::make(pool, "101", kDst);
+        const auto& exp = *EdgePropertyExpression::make(pool, "101", kDst);
         returnCols.emplace_back(Expression::encode(exp));
     }
 }
@@ -146,7 +146,7 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         // int: 101.teamCareer = 20
         cpp2::UpdatedProp uProp1;
         uProp1.set_name("teamCareer");
-        auto val1 = *ConstantExpression::make(pool, 20);
+        const auto& val1 = *ConstantExpression::make(pool, 20);
         uProp1.set_value(Expression::encode(val1));
         props.emplace_back(uProp1);
 
@@ -154,7 +154,7 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         cpp2::UpdatedProp uProp2;
         uProp2.set_name("type");
         std::string colnew("trade");
-        auto val2 = *ConstantExpression::make(pool, colnew);
+        const auto& val2 = *ConstantExpression::make(pool, colnew);
         uProp2.set_value(Expression::encode(val2));
         props.emplace_back(uProp2);
         req.set_updated_props(std::move(props));
@@ -162,16 +162,16 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         LOG(INFO) << "Build yield...";
         // Return serve props: playerName, teamName, teamCareer, type
         std::vector<std::string> tmpProps;
-        auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+        const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
         tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-        auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+        const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
         tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-        auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+        const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
         tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-        auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+        const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
         tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
         addEdgePropInKey(tmpProps);
@@ -254,7 +254,7 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         // int: 101.teamCareer = 20
         cpp2::UpdatedProp uProp1;
         uProp1.set_name("teamCareer");
-        auto val1 = *ConstantExpression::make(pool, 20);
+        const auto& val1 = *ConstantExpression::make(pool, 20);
         uProp1.set_value(Expression::encode(val1));
         props.emplace_back(uProp1);
 
@@ -262,7 +262,7 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         cpp2::UpdatedProp uProp2;
         uProp2.set_name("type");
         std::string colnew("trade");
-        auto val2 = *ConstantExpression::make(pool, colnew);
+        const auto& val2 = *ConstantExpression::make(pool, colnew);
         uProp2.set_value(Expression::encode(val2));
         props.emplace_back(uProp2);
         req.set_updated_props(std::move(props));
@@ -270,16 +270,16 @@ TEST(UpdateEdgeTest, No_Filter_Test) {
         LOG(INFO) << "Build yield...";
         // Return serve props: playerName, teamName, teamCareer, type
         std::vector<std::string> tmpProps;
-        auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+        const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
         tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-        auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+        const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
         tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-        auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+        const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
         tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-        auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+        const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
         tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
         addEdgePropInKey(tmpProps);
@@ -389,7 +389,7 @@ TEST(UpdateEdgeTest, Filter_Yield_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 20);
+    const auto& val1 = *ConstantExpression::make(pool, 20);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -397,7 +397,7 @@ TEST(UpdateEdgeTest, Filter_Yield_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("type");
     std::string colnew("trade");
-    auto val2 = *ConstantExpression::make(pool, colnew);
+    const auto& val2 = *ConstantExpression::make(pool, colnew);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -405,16 +405,16 @@ TEST(UpdateEdgeTest, Filter_Yield_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     addEdgePropInKey(tmpProps);
@@ -516,7 +516,7 @@ TEST(UpdateEdgeTest, Insertable_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Brandon Ingram");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -524,21 +524,21 @@ TEST(UpdateEdgeTest, Insertable_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Lakers");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // int: 101.startYear = 2016
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("startYear");
-    auto val3 = *ConstantExpression::make(pool, 2016L);
+    const auto& val3 = *ConstantExpression::make(pool, 2016L);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
     // int: 101.teamCareer = 1
     cpp2::UpdatedProp uProp4;
     uProp4.set_name("teamCareer");
-    auto val4 = *ConstantExpression::make(pool, 1L);
+    const auto& val4 = *ConstantExpression::make(pool, 1L);
     uProp4.set_value(Expression::encode(val4));
     props.emplace_back(uProp4);
     req.set_updated_props(std::move(props));
@@ -546,16 +546,16 @@ TEST(UpdateEdgeTest, Insertable_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     addEdgePropInKey(tmpProps);
@@ -650,14 +650,14 @@ TEST(UpdateEdgeTest, Invalid_Update_Prop_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 30);
+    const auto& val1 = *ConstantExpression::make(pool, 30);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
     // bool: 101.birth = 1997
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("birth");
-    auto val2 = *ConstantExpression::make(pool, 1997);
+    const auto& val2 = *ConstantExpression::make(pool, 1997);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -665,16 +665,16 @@ TEST(UpdateEdgeTest, Invalid_Update_Prop_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     req.set_return_props(std::move(tmpProps));
@@ -760,7 +760,7 @@ TEST(UpdateEdgeTest, Invalid_Filter_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 30);
+    const auto& val1 = *ConstantExpression::make(pool, 30);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -768,7 +768,7 @@ TEST(UpdateEdgeTest, Invalid_Filter_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("type");
     std::string colnew("trade");
-    auto val2 = *ConstantExpression::make(pool, colnew);
+    const auto& val2 = *ConstantExpression::make(pool, colnew);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -776,16 +776,16 @@ TEST(UpdateEdgeTest, Invalid_Filter_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     req.set_return_props(std::move(tmpProps));
@@ -859,7 +859,7 @@ TEST(UpdateEdgeTest, Insertable_Filter_value_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Brandon Ingram");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -867,21 +867,21 @@ TEST(UpdateEdgeTest, Insertable_Filter_value_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Lakers");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // int: 101.startYear = 2016
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("startYear");
-    auto val3 = *ConstantExpression::make(pool, 2016L);
+    const auto& val3 = *ConstantExpression::make(pool, 2016L);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
     // int: 101.teamCareer = 1
     cpp2::UpdatedProp uProp4;
     uProp4.set_name("teamCareer");
-    auto val4 = *ConstantExpression::make(pool, 1L);
+    const auto& val4 = *ConstantExpression::make(pool, 1L);
     uProp4.set_value(Expression::encode(val4));
     props.emplace_back(uProp4);
     req.set_updated_props(std::move(props));
@@ -904,16 +904,16 @@ TEST(UpdateEdgeTest, Insertable_Filter_value_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     addEdgePropInKey(tmpProps);
@@ -1020,20 +1020,20 @@ TEST(UpdateEdgeTest, CorruptDataTest) {
     // int: 101.teamCareer = 2
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 2);
+    const auto& val1 = *ConstantExpression::make(pool, 2);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     req.set_return_props(std::move(tmpProps));
@@ -1090,7 +1090,7 @@ TEST(UpdateEdgeTest, TTL_NoInsert_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 30);
+    const auto& val1 = *ConstantExpression::make(pool, 30);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1098,7 +1098,7 @@ TEST(UpdateEdgeTest, TTL_NoInsert_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("type");
     std::string colnew("trade");
-    auto val2 = *ConstantExpression::make(pool, colnew);
+    const auto& val2 = *ConstantExpression::make(pool, colnew);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -1106,10 +1106,10 @@ TEST(UpdateEdgeTest, TTL_NoInsert_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     req.set_return_props(std::move(tmpProps));
@@ -1169,7 +1169,7 @@ TEST(UpdateEdgeTest, TTL_Insert_No_Exist_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Tim");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1177,14 +1177,14 @@ TEST(UpdateEdgeTest, TTL_Insert_No_Exist_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Spurs");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // int: 101.teamCareer = 1
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("teamCareer");
-    auto val3 = *ConstantExpression::make(pool, 1);
+    const auto& val3 = *ConstantExpression::make(pool, 1);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
@@ -1193,16 +1193,16 @@ TEST(UpdateEdgeTest, TTL_Insert_No_Exist_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     addEdgePropInKey(tmpProps);
@@ -1303,7 +1303,7 @@ TEST(UpdateEdgeTest, TTL_Insert_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Tim Duncan");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1311,14 +1311,14 @@ TEST(UpdateEdgeTest, TTL_Insert_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Spurs");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // bool: 101.teamCareer = 40
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("teamCareer");
-    auto val3 = *ConstantExpression::make(pool, 40);
+    const auto& val3 = *ConstantExpression::make(pool, 40);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
@@ -1327,16 +1327,16 @@ TEST(UpdateEdgeTest, TTL_Insert_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     addEdgePropInKey(tmpProps);
@@ -1451,7 +1451,7 @@ TEST(UpdateEdgeTest, Yield_Key_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 20);
+    const auto& val1 = *ConstantExpression::make(pool, 20);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1459,7 +1459,7 @@ TEST(UpdateEdgeTest, Yield_Key_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("type");
     std::string colnew("trade");
-    auto val2 = *ConstantExpression::make(pool, colnew);
+    const auto& val2 = *ConstantExpression::make(pool, colnew);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -1467,29 +1467,29 @@ TEST(UpdateEdgeTest, Yield_Key_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
     // same as pass by EdgePropertyExpression
-    auto edgeSrcIdExp5 = *EdgeSrcIdExpression::make(pool, "101");
+    const auto& edgeSrcIdExp5 = *EdgeSrcIdExpression::make(pool, "101");
     tmpProps.emplace_back(Expression::encode(edgeSrcIdExp5));
 
-    auto edgeDstIdExp6 = *EdgeDstIdExpression::make(pool, "101");
+    const auto& edgeDstIdExp6 = *EdgeDstIdExpression::make(pool, "101");
     tmpProps.emplace_back(Expression::encode(edgeDstIdExp6));
 
-    auto edgeRankExp7 = *EdgeRankExpression::make(pool, "101");
+    const auto& edgeRankExp7 = *EdgeRankExpression::make(pool, "101");
     tmpProps.emplace_back(Expression::encode(edgeRankExp7));
 
-    auto edgeTypeExp8 = *EdgeTypeExpression::make(pool, "101");
+    const auto& edgeTypeExp8 = *EdgeTypeExpression::make(pool, "101");
     tmpProps.emplace_back(Expression::encode(edgeTypeExp8));
 
     req.set_return_props(std::move(tmpProps));
@@ -1582,7 +1582,7 @@ TEST(UpdateEdgeTest, Yield_Illegal_Key_Test) {
     // int: 101.teamCareer = 20
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *ConstantExpression::make(pool, 20);
+    const auto& val1 = *ConstantExpression::make(pool, 20);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1590,7 +1590,7 @@ TEST(UpdateEdgeTest, Yield_Illegal_Key_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("type");
     std::string colnew("trade");
-    auto val2 = *ConstantExpression::make(pool, colnew);
+    const auto& val2 = *ConstantExpression::make(pool, colnew);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
     req.set_updated_props(std::move(props));
@@ -1598,28 +1598,28 @@ TEST(UpdateEdgeTest, Yield_Illegal_Key_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer, type
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
-    auto edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp4 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp4));
 
-    auto edgeSrcIdExp5 = *EdgeSrcIdExpression::make(pool, "1010");
+    const auto& edgeSrcIdExp5 = *EdgeSrcIdExpression::make(pool, "1010");
     tmpProps.emplace_back(Expression::encode(edgeSrcIdExp5));
 
-    auto edgeDstIdExp6 = *EdgeDstIdExpression::make(pool, "1011");
+    const auto& edgeDstIdExp6 = *EdgeDstIdExpression::make(pool, "1011");
     tmpProps.emplace_back(Expression::encode(edgeDstIdExp6));
 
-    auto edgeRankExp7 = *EdgeRankExpression::make(pool, "1012");
+    const auto& edgeRankExp7 = *EdgeRankExpression::make(pool, "1012");
     tmpProps.emplace_back(Expression::encode(edgeRankExp7));
 
-    auto edgeTypeExp8 = *EdgeTypeExpression::make(pool, "1013");
+    const auto& edgeTypeExp8 = *EdgeTypeExpression::make(pool, "1013");
     tmpProps.emplace_back(Expression::encode(edgeTypeExp8));
 
     req.set_return_props(std::move(tmpProps));
@@ -1693,7 +1693,7 @@ TEST(UpdateEdgeTest, Insertable_No_Default_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Brandon Ingram");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1701,27 +1701,27 @@ TEST(UpdateEdgeTest, Insertable_No_Default_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Lakers");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // int: 101.startYear = 2016
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("startYear");
-    auto val3 = *ConstantExpression::make(pool, 2016L);
+    const auto& val3 = *ConstantExpression::make(pool, 2016L);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     req.set_return_props(std::move(tmpProps));
@@ -1777,7 +1777,7 @@ TEST(UpdateEdgeTest, Insertable_In_Set_Test) {
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("playerName");
     std::string col1new("Brandon Ingram");
-    auto val1 = *ConstantExpression::make(pool, col1new);
+    const auto& val1 = *ConstantExpression::make(pool, col1new);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
 
@@ -1785,21 +1785,21 @@ TEST(UpdateEdgeTest, Insertable_In_Set_Test) {
     cpp2::UpdatedProp uProp2;
     uProp2.set_name("teamName");
     std::string col2new("Lakers");
-    auto val2 = *ConstantExpression::make(pool, col2new);
+    const auto& val2 = *ConstantExpression::make(pool, col2new);
     uProp2.set_value(Expression::encode(val2));
     props.emplace_back(uProp2);
 
     // int: 101.startYear = 2016
     cpp2::UpdatedProp uProp3;
     uProp3.set_name("startYear");
-    auto val3 = *ConstantExpression::make(pool, 2016L);
+    const auto& val3 = *ConstantExpression::make(pool, 2016L);
     uProp3.set_value(Expression::encode(val3));
     props.emplace_back(uProp3);
 
     // int: 101.teamCareer = 1
     cpp2::UpdatedProp uProp4;
     uProp4.set_name("teamCareer");
-    auto val4 = *ConstantExpression::make(pool, 1L);
+    const auto& val4 = *ConstantExpression::make(pool, 1L);
     uProp4.set_value(Expression::encode(val4));
     props.emplace_back(uProp4);
     req.set_updated_props(std::move(props));
@@ -1807,13 +1807,13 @@ TEST(UpdateEdgeTest, Insertable_In_Set_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     addEdgePropInKey(tmpProps);
@@ -1905,7 +1905,7 @@ TEST(UpdateEdgeTest, Update_Multi_edge_Test) {
     // string: Serve.teamCareer_ = Teammate.endYear_
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *EdgePropertyExpression::make(pool, "102", "endYear");
+    const auto& val1 = *EdgePropertyExpression::make(pool, "102", "endYear");
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
     req.set_updated_props(std::move(props));
@@ -1913,13 +1913,13 @@ TEST(UpdateEdgeTest, Update_Multi_edge_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamCareer
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     addEdgePropInKey(tmpProps);
@@ -1991,7 +1991,7 @@ TEST(UpdateEdgeTest, Upsert_Multi_edge_Test) {
     // string: Serve.teamCareer_ = Teammate.endYear_
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("teamCareer");
-    auto val1 = *EdgePropertyExpression::make(pool, "102", "endYear");
+    const auto& val1 = *EdgePropertyExpression::make(pool, "102", "endYear");
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
     req.set_updated_props(std::move(props));
@@ -1999,13 +1999,13 @@ TEST(UpdateEdgeTest, Upsert_Multi_edge_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "teamCareer");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     addEdgePropInKey(tmpProps);
@@ -2077,7 +2077,7 @@ TEST(UpdateEdgeTest, Upsert_Field_Type_And_Value_Match_Test) {
     // string: Serve.type_ = 2011(value int)
     cpp2::UpdatedProp uProp1;
     uProp1.set_name("type");
-    auto val1 = *ConstantExpression::make(pool, 2016L);
+    const auto& val1 = *ConstantExpression::make(pool, 2016L);
     uProp1.set_value(Expression::encode(val1));
     props.emplace_back(uProp1);
     req.set_updated_props(std::move(props));
@@ -2085,13 +2085,13 @@ TEST(UpdateEdgeTest, Upsert_Field_Type_And_Value_Match_Test) {
     LOG(INFO) << "Build yield...";
     // Return serve props: playerName, teamName, teamCareer
     std::vector<std::string> tmpProps;
-    auto edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
+    const auto& edgePropExp1 = *EdgePropertyExpression::make(pool, "101", "playerName");
     tmpProps.emplace_back(Expression::encode(edgePropExp1));
 
-    auto edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
+    const auto& edgePropExp2 = *EdgePropertyExpression::make(pool, "101", "teamName");
     tmpProps.emplace_back(Expression::encode(edgePropExp2));
 
-    auto edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "type");
+    const auto& edgePropExp3 = *EdgePropertyExpression::make(pool, "101", "type");
     tmpProps.emplace_back(Expression::encode(edgePropExp3));
 
     addEdgePropInKey(tmpProps);

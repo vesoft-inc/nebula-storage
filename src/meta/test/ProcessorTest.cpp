@@ -844,7 +844,7 @@ TEST(ProcessorTest, CreateTagTest) {
         cpp2::ColumnDef columnWithDefault;
         columnWithDefault.set_name(folly::stringPrintf("col_type_mismatch"));
         columnWithDefault.type.set_type(PropertyType::BOOL);
-        auto strValue = *ConstantExpression::make(metaPool, "default value");;
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");;
         columnWithDefault.set_default_value(Expression::encode(strValue));
 
         colsWithDefault.push_back(std::move(columnWithDefault));
@@ -868,7 +868,7 @@ TEST(ProcessorTest, CreateTagTest) {
         cpp2::ColumnDef columnWithDefault;
         columnWithDefault.set_name(folly::stringPrintf("col_value_mismatch"));
         columnWithDefault.type.set_type(PropertyType::INT8);
-        auto intValue = *ConstantExpression::make(metaPool, 256);;
+        const auto& intValue = *ConstantExpression::make(metaPool, 256);;
         columnWithDefault.set_default_value(Expression::encode(intValue));
 
         colsWithDefault.push_back(std::move(columnWithDefault));
@@ -1919,7 +1919,7 @@ TEST(ProcessorTest, AlterTagTest) {
         cpp2::ColumnDef column;
         column.name = "add_col_mismatch_type";
         column.type.set_type(PropertyType::INT64);
-        auto strValue = *ConstantExpression::make(metaPool, "default value");
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -1944,7 +1944,7 @@ TEST(ProcessorTest, AlterTagTest) {
         column.name = "add_col_fixed_string_type";
         column.type.set_type(PropertyType::FIXED_STRING);
         column.type.set_type_length(5);;
-        auto strValue = *ConstantExpression::make(metaPool, "Hello world!");
+        const auto& strValue = *ConstantExpression::make(metaPool, "Hello world!");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -2417,7 +2417,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         cpp2::ColumnDef column;
         column.name = "add_col_mismatch_type";
         column.type.set_type(PropertyType::INT64);
-        auto strValue = *ConstantExpression::make(metaPool, "default value");
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -2442,7 +2442,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         column.name = "add_col_fixed_string_type";
         column.type.set_type(PropertyType::FIXED_STRING);
         column.type.set_type_length(5);;
-        auto strValue = *ConstantExpression::make(metaPool, "Hello world!");
+        const auto& strValue = *ConstantExpression::make(metaPool, "Hello world!");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 

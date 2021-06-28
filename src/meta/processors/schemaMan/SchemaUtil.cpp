@@ -122,7 +122,7 @@ bool SchemaUtil::checkType(std::vector<cpp2::ColumnDef> &columns) {
                     if (value.getStr().size() > typeLen) {
                         const auto trimStr = value.getStr().substr(0, typeLen);
                         value.setStr(trimStr);
-                        auto fixedValue = *ConstantExpression::make(pool, value);
+                        const auto& fixedValue = *ConstantExpression::make(pool, value);
                         column.set_default_value(Expression::encode(fixedValue));
                     }
                     break;

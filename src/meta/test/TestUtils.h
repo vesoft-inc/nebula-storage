@@ -50,7 +50,7 @@ public:
         cpp2::ColumnDef column;
         column.set_name(folly::stringPrintf("col_%d", index));
         if (!defaultValue.empty()) {
-            auto defaultExpr = *ConstantExpression::make(metaPool, defaultValue);
+            const auto& defaultExpr = *ConstantExpression::make(metaPool, defaultValue);
             column.set_default_value(Expression::encode(defaultExpr));
         }
         column.set_nullable(isNull);

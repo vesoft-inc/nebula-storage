@@ -200,8 +200,8 @@ UpdateEdgeProcessor::buildEdgeContext(const cpp2::UpdateEdgeRequest& req) {
     auto pool = &planContext_->objPool;
     // Build context of the update edge prop
     for (auto& edgeProp : updatedProps_) {
-        auto edgePropExp = *EdgePropertyExpression::make(pool, edgeName, edgeProp.get_name());
-        auto retCode = checkExp(&edgePropExp, false, false);
+        auto edgePropExp = EdgePropertyExpression::make(pool, edgeName, edgeProp.get_name());
+        auto retCode = checkExp(edgePropExp, false, false);
         if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             VLOG(1) << "Invalid update edge expression!";
             return retCode;

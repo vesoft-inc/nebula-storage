@@ -117,7 +117,7 @@ void goFilter(int32_t iters,
         req = nebula::storage::buildRequest(vertex, playerProps, serveProps);
         if (oneFilter) {
             // where serve.startYear < value
-            auto exp = *nebula::RelationalExpression::makeLT(
+            const auto& exp = *nebula::RelationalExpression::makeLT(
                 pool,
                 nebula::EdgePropertyExpression::make(
                     pool, folly::to<std::string>(serve), "startYear"),
@@ -127,7 +127,7 @@ void goFilter(int32_t iters,
             // where serve.startYear < value && serve.endYear < value
             // since startYear always equal to endYear, the data of which can pass filter is same,
             // just to test perf of multiple filter
-            auto exp = *nebula::LogicalExpression::makeAnd(
+            const auto& exp = *nebula::LogicalExpression::makeAnd(
                 pool,
                 nebula::RelationalExpression::makeLT(
                     pool,

@@ -54,7 +54,7 @@ public:
     getDefaultOrNullValue(const meta::SchemaProviderIf::Field* field,
                           const std::string& name) {
         if (field->hasDefault()) {
-            auto expr = field->defaultValue();
+            auto expr = field->defaultValue()->clone();
             props_[field->name()] = Expression::eval(expr, *expCtx_);
         } else if (field->nullable()) {
             props_[name] = Value::kNullValue;

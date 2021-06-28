@@ -195,8 +195,8 @@ UpdateVertexProcessor::buildTagContext(const cpp2::UpdateVertexRequest& req) {
 
     auto pool = &planContext_->objPool;
     for (auto& prop : updatedProps_) {
-        auto sourcePropExp = *SourcePropertyExpression::make(pool, tagName, prop.get_name());
-        auto retCode = checkExp(&sourcePropExp, false, false);
+        auto sourcePropExp = SourcePropertyExpression::make(pool, tagName, prop.get_name());
+        auto retCode = checkExp(sourcePropExp, false, false);
         if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
             VLOG(1) << "Invalid update vertex expression!";
             return retCode;

@@ -641,7 +641,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         columnHints.emplace_back(std::move(columnHint));
         cpp2::IndexQueryContext context1;
         context1.set_column_hints(std::move(columnHints));
-        auto expr =
+        const auto& expr =
             *RelationalExpression::makeEQ(pool,
                                           TagPropertyExpression::make(pool, "player", "age"),
                                           ConstantExpression::make(pool, Value(34L)));
@@ -694,7 +694,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
      *            +----------+-----------+
      *            +    IndexScanNode     +
      *            +----------+-----------+
-    **/
+     **/
     {
         auto* processor = LookupProcessor::instance(env, nullptr, nullptr);
         cpp2::LookupIndexRequest req;
@@ -721,7 +721,7 @@ TEST(LookupIndexTest, TagIndexFilterTest) {
         columnHints.emplace_back(std::move(columnHint));
         cpp2::IndexQueryContext context1;
         context1.set_column_hints(std::move(columnHints));
-        auto expr =
+        const auto& expr =
             *RelationalExpression::makeGT(pool,
                                           TagPropertyExpression::make(pool, "player", "age"),
                                           ConstantExpression::make(pool, Value(34L)));
@@ -810,10 +810,10 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         columnHints.emplace_back(std::move(columnHint));
         cpp2::IndexQueryContext context1;
         context1.set_column_hints(std::move(columnHints));
-        auto expr = *RelationalExpression::makeGT(
-            pool,
-            EdgePropertyExpression::make(pool, "Teammate", "teamName"),
-            ConstantExpression::make(pool, Value("Spurs")));
+        // const auto& expr = *RelationalExpression::makeEQ(
+        //     pool,
+        //     EdgePropertyExpression::make(pool, "Teammate", "teamName"),
+        //     ConstantExpression::make(pool, Value("Spurs")));
         context1.set_filter("");
         context1.set_index_id(102);
         decltype(indices.contexts) contexts;
@@ -907,7 +907,7 @@ TEST(LookupIndexTest, EdgeIndexFilterTest) {
         columnHints.emplace_back(std::move(columnHint));
         cpp2::IndexQueryContext context1;
         context1.set_column_hints(std::move(columnHints));
-        auto expr = *RelationalExpression::makeNE(
+        const auto& expr = *RelationalExpression::makeNE(
             pool,
             EdgePropertyExpression::make(pool, "Teammate", "teamName"),
             ConstantExpression::make(pool, Value("Spurs")));
@@ -1811,7 +1811,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             columnHints.emplace_back(std::move(columnHint));
         }
 
-        auto expr = *RelationalExpression::makeGT(pool,
+        const auto& expr = *RelationalExpression::makeGT(pool,
                                                   TagPropertyExpression::make(pool, "111", "col3"),
                                                   ConstantExpression::make(pool, Value(1)));
 
@@ -1854,7 +1854,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             columnHint.set_begin_value("ccc");
             columnHints.emplace_back(std::move(columnHint));
         }
-        auto expr = *RelationalExpression::makeLT(pool,
+        const auto& expr = *RelationalExpression::makeLT(pool,
                                                   TagPropertyExpression::make(pool, "111", "col3"),
                                                   ConstantExpression::make(pool, Value(5)));
 
@@ -1897,7 +1897,7 @@ TEST(LookupIndexTest, NullableInIndexAndFilterTest) {
             columnHint.set_begin_value("ccc");
             columnHints.emplace_back(std::move(columnHint));
         }
-        auto expr = *nebula::LogicalExpression::makeAnd(
+        const auto& expr = *nebula::LogicalExpression::makeAnd(
             pool,
             RelationalExpression::makeGT(pool,
                                          TagPropertyExpression::make(pool, "111", "col3"),

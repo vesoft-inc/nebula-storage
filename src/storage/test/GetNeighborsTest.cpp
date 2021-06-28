@@ -432,7 +432,7 @@ TEST(GetNeighborsTest, StatTest) {
             // count teamGames_ in all served history
             cpp2::StatProp statProp;
             statProp.set_alias("Total games");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamGames");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::SUM);
@@ -442,7 +442,7 @@ TEST(GetNeighborsTest, StatTest) {
             // avg scores in all served teams
             cpp2::StatProp statProp;
             statProp.set_alias("Avg scores in all served teams");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::AVG);
@@ -452,7 +452,7 @@ TEST(GetNeighborsTest, StatTest) {
             // longest consecutive team career in a team
             cpp2::StatProp statProp;
             statProp.set_alias("Longest consecutive team career in a team");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamCareer");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::MAX);
@@ -462,7 +462,7 @@ TEST(GetNeighborsTest, StatTest) {
             // sum of rank in serve edge
             cpp2::StatProp statProp;
             statProp.set_alias("Sum of rank in serve edge");
-            auto exp = *EdgeRankExpression::make(pool, folly::to<std::string>(serve));
+            const auto& exp = *EdgeRankExpression::make(pool, folly::to<std::string>(serve));
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::SUM);
             statProps.emplace_back(std::move(statProp));
@@ -501,7 +501,7 @@ TEST(GetNeighborsTest, StatTest) {
             // avg scores in all served teams
             cpp2::StatProp statProp;
             statProp.set_alias("Avg scores in all served teams");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::AVG);
@@ -511,7 +511,7 @@ TEST(GetNeighborsTest, StatTest) {
             // min avg scores in all served teams
             cpp2::StatProp statProp;
             statProp.set_alias("Min scores in all served teams");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::MIN);
@@ -521,7 +521,7 @@ TEST(GetNeighborsTest, StatTest) {
             // max avg scores in all served teams
             cpp2::StatProp statProp;
             statProp.set_alias("Max scores in all served teams");
-            auto exp =
+            const auto& exp =
                 *EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore");
             statProp.set_prop(Expression::encode(exp));
             statProp.set_stat(cpp2::StatType::MAX);
@@ -1343,7 +1343,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.teamAvgScore > 20
-            auto exp = *RelationalExpression::makeGT(
+            const auto& exp = *RelationalExpression::makeGT(
                 pool,
                 EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore"),
                 ConstantExpression::make(pool, Value(20)));
@@ -1384,7 +1384,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.endYear - serve.startYear > 5
-            auto exp = *RelationalExpression::makeGT(
+            const auto& exp = *RelationalExpression::makeGT(
                 pool,
                 ArithmeticExpression::makeMinus(
                     pool,
@@ -1429,7 +1429,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.teamAvgScore > 20 && serve.teamCareer <= 4
-            auto exp = *LogicalExpression::makeAnd(
+            const auto& exp = *LogicalExpression::makeAnd(
                 pool,
                 RelationalExpression::makeGT(
                     pool,
@@ -1477,7 +1477,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve._dst == Rockets
-            auto exp = *RelationalExpression::makeEQ(
+            const auto& exp = *RelationalExpression::makeEQ(
                 pool,
                 EdgeDstIdExpression::make(pool, folly::to<std::string>(serve)),
                 ConstantExpression::make(pool, Value("Rockets")));
@@ -1519,7 +1519,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.teamAvgScore > 20 && $^.player.games < 1000
-            auto exp = *LogicalExpression::makeAnd(
+            const auto& exp = *LogicalExpression::makeAnd(
                 pool,
                 RelationalExpression::makeGT(
                     pool,
@@ -1568,7 +1568,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.teamAvgScore > 18 && $^.player.avgScore > 18
-            auto exp = *LogicalExpression::makeAnd(
+            const auto& exp = *LogicalExpression::makeAnd(
                 pool,
                 RelationalExpression::makeGT(
                     pool,
@@ -1670,7 +1670,7 @@ TEST(GetNeighborsTest, FilterTest) {
 
         {
             // where serve.teamGames > 1000
-            auto exp = *RelationalExpression::makeGT(
+            const auto& exp = *RelationalExpression::makeGT(
                 pool,
                 EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamGames"),
                 ConstantExpression::make(pool, Value(1000)));
@@ -1718,7 +1718,7 @@ TEST(GetNeighborsTest, FilterTest) {
         {
             // The edgeName in exp will be unique, we don't distinguish it from reverse edges.
             // where reverseServe.teamAvgScore >= 10
-            auto exp = *RelationalExpression::makeGE(
+            const auto& exp = *RelationalExpression::makeGE(
                 pool,
                 EdgePropertyExpression::make(pool, folly::to<std::string>(serve), "teamAvgScore"),
                 ConstantExpression::make(pool, Value(15)));
@@ -1768,7 +1768,7 @@ TEST(GetNeighborsTest, FilterTest) {
         {
             // The edgeName in exp will be unique, we don't distinguish it from reverse edges.
             // where teammate.startYear < 2002
-            auto exp = *RelationalExpression::makeLT(
+            const auto& exp = *RelationalExpression::makeLT(
                 pool,
                 EdgePropertyExpression::make(pool, folly::to<std::string>(teammate), "startYear"),
                 ConstantExpression::make(pool, Value(2002)));
