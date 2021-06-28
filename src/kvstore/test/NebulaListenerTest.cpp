@@ -55,11 +55,15 @@ public:
                                                LogID committedLogId,
                                                TermID committedLogTerm,
                                                bool finished) override {
-        LOG(INFO) << "Begin commit snapshot";
-        std::lock_guard<std::mutex> g(raftLock_);
-        committedSnapshot_ = Listener::commitSnapshot(data, committedLogId,
-                                                      committedLogTerm, finished);
-        return committedSnapshot_;
+        bool unl = raftLock_.try_lock();
+        auto result = Listener::commitSnapshot(data, committedLogId,
+                                               committedLogTerm, finished);
+        if (unl) {
+            raftLock_.unlock();
+        }
+        committedSnapshot_.first += result.first;
+        committedSnapshot_.second += result.second;
+        return result;
     }
 
     std::pair<int64_t, int64_t> committedSnapshot() {
@@ -75,10 +79,6 @@ protected:
     }
 
     bool apply(const std::vector<KV>& kvs) override {
-        LOG(INFO) << "Begin apply listener";
-        LOG(INFO) << "data size : " << kvs.size();
-        LOG(INFO) << "lastApplyLogId : " << lastApplyLogId_;
-        LOG(INFO) << "committedLogId_ : " << committedLogId_;
         for (const auto& kv : kvs) {
             data_.emplace_back(kv);
         }
@@ -296,8 +296,8 @@ class ListenerAdvanceTest : public ListenerBasicTest {
 public:
     void SetUp() override {
         FLAGS_wal_ttl = 3;
-        FLAGS_wal_file_size = 512;
-        FLAGS_wal_buffer_size = 215;
+        FLAGS_wal_file_size = 128;
+        FLAGS_wal_buffer_size = 1;
         FLAGS_listener_pursue_leader_threshold = 0;
         FLAGS_clean_wal_interval_secs = 3;
         FLAGS_raft_heartbeat_interval_secs = 5;
@@ -503,7 +503,8 @@ TEST_P(ListenerAdvanceTest, ListenerResetBySnapshotTest) {
     for (int32_t partId = 1; partId <= partCount_; partId++) {
         std::vector<KV> data;
         for (int32_t i = 0; i < 1000000; i++) {
-            data.emplace_back(folly::stringPrintf("key_%d_%d", partId, i),
+            auto vKey = NebulaKeyUtils::vertexKey(8, partId, folly::to<std::string>(i), 5);
+            data.emplace_back(std::move(vKey),
                               folly::stringPrintf("val_%d_%d", partId, i));
         }
         auto leader = findLeader(partId);
@@ -526,10 +527,20 @@ TEST_P(ListenerAdvanceTest, ListenerResetBySnapshotTest) {
         CHECK_EQ(1000000, data.size());
     }
 
-    sleep(FLAGS_clean_wal_interval_secs + 30);
+    sleep(FLAGS_clean_wal_interval_secs + 1);
 
     for (int32_t partId = 1; partId <= partCount_; partId++) {
-        LOG(INFO) << "***resetListener , part : " << partId;
+        auto leader = findLeader(partId);
+        auto index = findStoreIndex(leader);
+        auto res = stores_[index]->part(spaceId_, partId);
+        CHECK(ok(res));
+        auto part = value(std::move(res));
+        part->wal()->reset();
+    }
+
+    sleep(FLAGS_clean_wal_interval_secs);
+
+    for (int32_t partId = 1; partId <= partCount_; partId++) {
         dummys_[partId]->resetListener();
         CHECK_EQ(0, dummys_[partId]->getApplyId());
         auto termAndId = dummys_[partId]->committedId();
@@ -537,15 +548,14 @@ TEST_P(ListenerAdvanceTest, ListenerResetBySnapshotTest) {
         CHECK_EQ(0, termAndId.second);
     }
 
-    sleep(FLAGS_clean_wal_interval_secs + 1000);
+    sleep(FLAGS_clean_wal_interval_secs + 1);
 
     std::vector<bool> partResult;
     for (int32_t partId = 1; partId <= partCount_; partId++) {
         auto retry = 0;
         while (retry++ < 6) {
-            sleep(FLAGS_clean_wal_interval_secs);
-            auto pair = dummys_[partId]->committedSnapshot();
-            if (pair.first == 1000000) {
+            auto result = dummys_[partId]->committedSnapshot();
+            if (result.first >= 1000000) {
                 partResult.emplace_back(true);
                 break;
             }
