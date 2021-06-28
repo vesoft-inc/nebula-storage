@@ -586,8 +586,8 @@ MetaServiceHandler::future_getSession(const cpp2::GetSessionReq& req) {
 }
 
 folly::Future<cpp2::ExecResp>
-MetaServiceHandler::future_removeSession(const cpp2::RemoveSessionReq& req) {
-    auto* processor = RemoveSessionProcessor::instance(kvstore_);
+MetaServiceHandler::future_removeSessions(const cpp2::RemoveSessionsReq& req) {
+    auto* processor = RemoveSessionsProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 

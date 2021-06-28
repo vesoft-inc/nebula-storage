@@ -131,9 +131,6 @@ void ListSessionsProcessor::process(const cpp2::ListSessionsReq&) {
         iter->next();
     }
     resp_.set_sessions(std::move(sessions));
-    for (auto &session : resp_.get_sessions()) {
-        LOG(INFO) << "resp list session: " << session.get_session_id();
-    }
     handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     onFinished();
 }
@@ -161,24 +158,26 @@ void GetSessionProcessor::process(const cpp2::GetSessionReq& req) {
     onFinished();
 }
 
-void RemoveSessionProcessor::process(const cpp2::RemoveSessionReq& req) {
+void RemoveSessionsProcessor::process(const cpp2::RemoveSessionsReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::sessionLock());
-    auto sessionId = req.get_session_id();
-    auto sessionKey = MetaServiceUtils::sessionKey(sessionId);
-    auto ret = doGet(sessionKey);
-    if (!nebula::ok(ret)) {
-        auto errCode = nebula::error(ret);
-        LOG(ERROR) << "Session id `" << sessionId << "' not found";
-        if (errCode == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
-            errCode = nebula::cpp2::ErrorCode::E_SESSION_NOT_FOUND;
+    std::vector<std::string> keys;
+    for (auto sessionId : *req.get_session_id_list()) {
+        auto key = MetaServiceUtils::sessionKey(sessionId);
+        auto ret = doGet(key);
+        if (!nebula::ok(ret)) {
+            auto errCode = nebula::error(ret);
+            LOG(ERROR) << "Session id `" << sessionId << "' not found";
+            if (errCode == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+                errCode = nebula::cpp2::ErrorCode::E_SESSION_NOT_FOUND;
+            }
+            handleErrorCode(errCode);
+            onFinished();
+            return;
         }
-        handleErrorCode(errCode);
-        onFinished();
-        return;
+        keys.emplace_back(key);
     }
-
     handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
-    doRemove(sessionKey);
+    doMultiRemove(keys);
 }
 
 void KillQueryProcessor::process(const cpp2::KillQueryReq& req) {
