@@ -10,6 +10,7 @@
 #include <gtest/gtest_prod.h>
 #include <rocksdb/db.h>
 #include <rocksdb/utilities/checkpoint.h>
+#include <rocksdb/utilities/backupable_db.h>
 #include "common/base/Base.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/KVIterator.h"
@@ -94,6 +95,7 @@ public:
     RocksEngine(GraphSpaceID spaceId,
                 int32_t vIdLen,
                 const std::string& dataPath,
+                const std::string& walPath = "",
                 std::shared_ptr<rocksdb::MergeOperator> mergeOp = nullptr,
                 std::shared_ptr<rocksdb::CompactionFilterFactory> cfFactory = nullptr,
                 bool readonly = false);
@@ -110,12 +112,17 @@ public:
         return dataPath_.c_str();
     }
 
+    const char* getWalRoot() const override {
+        return walPath_.c_str();
+    }
+
     std::unique_ptr<WriteBatch> startBatchWrite() override;
 
     nebula::cpp2::ErrorCode
     commitBatchWrite(std::unique_ptr<WriteBatch> batch,
                      bool disableWAL,
-                     bool sync) override;
+                     bool sync,
+                     bool wait) override;
 
     /*********************
      * Data retrieval
@@ -176,6 +183,8 @@ public:
 
     nebula::cpp2::ErrorCode flush() override;
 
+    nebula::cpp2::ErrorCode backup() override;
+
     /*********************
      * Checkpoint operation
      ********************/
@@ -189,9 +198,15 @@ public:
 private:
     std::string partKey(PartitionID partId);
 
+    void openBackupEngine(GraphSpaceID spaceId);
+
 private:
+    GraphSpaceID spaceId_;
     std::string dataPath_;
+    std::string walPath_;
     std::unique_ptr<rocksdb::DB> db_{nullptr};
+    std::string backupPath_;
+    std::unique_ptr<rocksdb::BackupEngine> backupDb_{nullptr};
     int32_t partsNum_ = -1;
 };
 
