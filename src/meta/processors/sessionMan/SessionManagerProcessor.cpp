@@ -77,7 +77,8 @@ void UpdateSessionsProcessor::process(const cpp2::UpdateSessionsReq& req) {
             }
             auto& desc = savedQuery.second;
             if (desc.get_status() == cpp2::QueryStatus::KILLING) {
-                const_cast<cpp2::QueryDesc&>(newQuery->second).set_status(desc.get_status());
+                const_cast<cpp2::QueryDesc&>(newQuery->second)
+                    .set_status(cpp2::QueryStatus::KILLING);
                 killedQueriesInCurrentSession.emplace(epId, desc);
             }
         }
@@ -209,7 +210,7 @@ void KillQueryProcessor::process(const cpp2::KillQueryReq& req) {
         }
 
         data.emplace_back(MetaServiceUtils::sessionKey(sessionId),
-                            MetaServiceUtils::sessionVal(session));
+                          MetaServiceUtils::sessionVal(session));
     }
 
     auto putRet = doSyncPut(std::move(data));
