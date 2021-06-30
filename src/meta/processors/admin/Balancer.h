@@ -242,6 +242,12 @@ private:
 
     bool checkZoneLegal(const HostAddr& source, const HostAddr& target);
 
+    void update(std::pair<HostAddr, int32_t>& maxPartsHost,
+                std::pair<HostAddr, int32_t>& minPartsHost,
+                int32_t& minLoad, int32_t& maxLoad, float& avgLoad,
+                std::vector<std::pair<HostAddr, int32_t>>& sortedHosts,
+                const HostParts& confirmedHostParts);
+
 private:
     std::atomic_bool running_{false};
     kvstore::KVStore* kv_{nullptr};
@@ -256,7 +262,10 @@ private:
     mutable std::mutex lock_;
 
     std::unordered_map<HostAddr, std::pair<int32_t, int32_t>> hostBounds_;
+
+    // TODO: (darion) nesting map maybe better
     std::unordered_map<HostAddr, ZoneNameAndParts> zoneParts_;
+    std::unordered_map<std::string, std::vector<HostAddr>> zoneHosts_;
 
     // if the space dependent on group, it use to record the partition
     // contained in the zone related to the node.
