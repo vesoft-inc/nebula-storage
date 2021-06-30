@@ -45,12 +45,14 @@ public:
     // Otherwise, nullptr will be returned
     virtual const char* getDataRoot() const = 0;
 
+    virtual const char* getWalRoot() const = 0;
+
     virtual std::unique_ptr<WriteBatch> startBatchWrite() = 0;
 
-    virtual nebula::cpp2::ErrorCode
-    commitBatchWrite(std::unique_ptr<WriteBatch> batch,
-                     bool disableWAL = true,
-                     bool sync = false) = 0;
+    virtual nebula::cpp2::ErrorCode commitBatchWrite(std::unique_ptr<WriteBatch> batch,
+                                                     bool disableWAL,
+                                                     bool sync,
+                                                     bool wait) = 0;
 
     // Read a single key
     virtual nebula::cpp2::ErrorCode get(const std::string& key, std::string* value) = 0;
@@ -128,6 +130,9 @@ public:
     backupTable(const std::string& path,
                 const std::string& tablePrefix,
                 std::function<bool(const folly::StringPiece& key)> filter) = 0;
+
+    virtual nebula::cpp2::ErrorCode backup() = 0;
+
 
 protected:
     GraphSpaceID spaceId_;
