@@ -186,7 +186,7 @@ nebula::cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropReq
     } else {
         // not use const reference because we need to modify it when all property need to return
         auto returnProps = std::move(*req.vertex_props_ref());
-        if (*req.get_real_vid()) {
+        if (req.real_vid_ref().has_value() && *req.get_real_vid()) {
             auto lackTags = lackTag(returnProps);  // Check the vid
             ret = handleVertexProps(returnProps, lackTags);
         } else {

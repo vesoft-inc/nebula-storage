@@ -416,13 +416,13 @@ TEST(VertexCacheTest, GetVertexPropTest) {
         // the vertexCache is empty at first, and exactly 51 records are
         // placed in the vertexCache. evicts is 0, hits is 0, total is 51.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        EXPECT_TRUE(checkCache(&cache, 0, 0, 153));
+        EXPECT_TRUE(checkCache(&cache, 0, 0, 51));
 
 
         // When the get vertex prop is executed for the second time,
         // evicts is 0, hits is 51, total is 102.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        EXPECT_TRUE(checkCache(&cache, 0, 51, 306));
+        EXPECT_TRUE(checkCache(&cache, 0, 51, 102));
     }
 
     // Delete vertices
@@ -444,7 +444,7 @@ TEST(VertexCacheTest, GetVertexPropTest) {
         checkVerticesData(spaceVidLen, req.get_space_id(), *req.parts_ref(), env, 0);
     }
      // check vertexCache
-    EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
+    EXPECT_TRUE(checkCache(&cache, 51, 51, 102));
 }
 
 
@@ -495,7 +495,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
         // the vertexCache is empty at first, and exactly 51 records are
         // placed in the vertexCache. evicts is 0, hits is 0, total is 51.
         getVertices(env, parts, &cache, tagId, vertices, 51);
-        EXPECT_TRUE(checkCache(&cache, 0, 0, 153));
+        EXPECT_TRUE(checkCache(&cache, 0, 0, 51));
 
         // Wait ttl data Expire
         sleep(FLAGS_mock_ttl_duration + 1);
@@ -508,7 +508,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
         // TODO At present, when the ttl data expires, tag returns a vid,
         // other attributes are empty value, edge returns a row with an empty value fields.
         getVertices(env, parts, &cache, tagId, vertices, 0);
-        EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
+        EXPECT_TRUE(checkCache(&cache, 51, 51, 102));
     }
 
     // Delete vertices
@@ -531,7 +531,7 @@ TEST(VertexCacheTest, GetVertexPropWithTTLTest) {
     }
 
     // check vertexCache
-    EXPECT_TRUE(checkCache(&cache, 51, 51, 306));
+    EXPECT_TRUE(checkCache(&cache, 51, 51, 102));
 
     FLAGS_mock_ttl_col = false;
 }
