@@ -60,7 +60,7 @@ LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupIndexRequest& req
         (*req.return_columns_ref()).empty()) {
         return nebula::cpp2::ErrorCode::E_INVALID_OPERATION;
     }
-    contexts_ = indices.get_contexts();
+    indexContexts_ = indices.get_contexts();
 
     // setup yield columns.
     if (req.return_columns_ref().has_value()) {
@@ -144,10 +144,6 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
  *              +--------+---------+
  *                       |
  *              +--------+---------+
- *              |  AggregateNode   |
- *              +--------+---------+
- *                       |
- *              +--------+---------+
  *              |    DeDupNode     |
  *              +--------+---------+
  *                       |
@@ -157,14 +153,15 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
 **/
 
 template<typename REQ, typename RESP>
-StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
+StatusOr<StoragePlan<IndexID>>
+LookupBaseProcessor<REQ, RESP>::buildPlan(IndexFilterItem* filterItem, nebula::DataSet* result) {
     StoragePlan<IndexID> plan;
-    auto IndexAggr = std::make_unique<AggregateNode<IndexID>>(&resultDataSet_);
-    auto deDup = std::make_unique<DeDupNode<IndexID>>(&resultDataSet_, deDupColPos_);
+    auto deDup = std::make_unique<DeDupNode<IndexID>>(result, deDupColPos_);
     int32_t filterId = 0;
     std::unique_ptr<IndexOutputNode<IndexID>> out;
+    auto pool = &planContext_->objPool_;
 
-    for (const auto& ctx : contexts_) {
+    for (const auto& ctx : indexContexts_) {
         const auto& indexId = ctx.get_index_id();
         auto needFilter = ctx.filter_ref().is_set() && !(*ctx.filter_ref()).empty();
 
@@ -210,7 +207,6 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         auto colHints = ctx.get_column_hints();
 
         // Check WHERE clause contains columns that ware not indexed
-        auto pool = context_->objPool();
         if (ctx.filter_ref().is_set() && !(*ctx.filter_ref()).empty()) {
             auto filter = Expression::decode(pool, *ctx.filter_ref());
             auto isFieldsOutsideIndex = isOutsideIndex(filter, indexItem);
@@ -220,18 +216,21 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         }
 
         if (!needData && !needFilter) {
-            out = buildPlanBasic(ctx, plan, hasNullableCol, fields);
+            out = buildPlanBasic(result, ctx, plan, hasNullableCol, fields);
         } else if (needData && !needFilter) {
-            out = buildPlanWithData(ctx, plan);
+            out = buildPlanWithData(result, ctx, plan);
         } else if (!needData && needFilter) {
             auto expr = Expression::decode(pool, ctx.get_filter());
             auto exprCtx = std::make_unique<StorageExpressionContext>(context_->vIdLen(),
                                                                       context_->isIntId(),
                                                                       hasNullableCol,
                                                                       fields);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
-            out = buildPlanWithFilter(
-                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
+            filterItem->emplace(filterId, std::make_pair(std::move(exprCtx), expr));
+            out = buildPlanWithFilter(result,
+                                      ctx,
+                                      plan,
+                                      (*filterItem)[filterId].first.get(),
+                                      (*filterItem)[filterId].second);
             filterId++;
         } else {
             auto expr = Expression::decode(pool, ctx.get_filter());
@@ -245,9 +244,12 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
                                                                       schemaName,
                                                                       schemas_.back().get(),
                                                                       context_->isEdge());
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
-            out = buildPlanWithDataAndFilter(
-                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
+            filterItem->emplace(filterId, std::make_pair(std::move(exprCtx), expr));
+            out = buildPlanWithDataAndFilter(result,
+                                             ctx,
+                                             plan,
+                                             (*filterItem)[filterId].first.get(),
+                                             (*filterItem)[filterId].second);
             filterId++;
         }
         if (out == nullptr) {
@@ -256,9 +258,7 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         deDup->addDependency(out.get());
         plan.addNode(std::move(out));
     }
-    IndexAggr->addDependency(deDup.get());
     plan.addNode(std::move(deDup));
-    plan.addNode(std::move(IndexAggr));
     return plan;
 }
 
@@ -280,6 +280,7 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
 LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
+    nebula::DataSet* result,
     const cpp2::IndexQueryContext& ctx,
     StoragePlan<IndexID>& plan,
     bool hasNullableCol,
@@ -290,7 +291,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
                                                               indexId,
                                                               std::move(colHints));
 
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                              context_.get(),
                                                              indexScan.get(),
                                                              hasNullableCol,
@@ -322,7 +323,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanBasic(
  **/
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
-LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext& ctx,
+LookupBaseProcessor<REQ, RESP>::buildPlanWithData(nebula::DataSet* result,
+                                                  const cpp2::IndexQueryContext& ctx,
                                                   StoragePlan<IndexID>& plan) {
     auto indexId = ctx.get_index_id();
     auto colHints = ctx.get_column_hints();
@@ -336,7 +338,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
                                                              schemas_,
                                                              context_->edgeName_);
         edge->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                                  context_.get(),
                                                                  edge.get());
         output->addDependency(edge.get());
@@ -350,7 +352,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
                                                                  schemas_,
                                                                  context_->tagName_);
         vertex->addDependency(indexScan.get());
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                                  context_.get(),
                                                                  vertex.get());
         output->addDependency(vertex.get());
@@ -382,7 +384,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithData(const cpp2::IndexQueryContext&
  **/
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
-LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContext& ctx,
+LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(nebula::DataSet* result,
+                                                    const cpp2::IndexQueryContext& ctx,
                                                     StoragePlan<IndexID>& plan,
                                                     StorageExpressionContext* exprCtx,
                                                     Expression* exp) {
@@ -398,7 +401,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
                                                              exp,
                                                              context_->isEdge());
     filter->addDependency(indexScan.get());
-    auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+    auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                              context_.get(),
                                                              filter.get(), true);
     output->addDependency(filter.get());
@@ -437,7 +440,8 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithFilter(const cpp2::IndexQueryContex
  **/
 template<typename REQ, typename RESP>
 std::unique_ptr<IndexOutputNode<IndexID>>
-LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQueryContext& ctx,
+LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(nebula::DataSet* result,
+                                                           const cpp2::IndexQueryContext& ctx,
                                                            StoragePlan<IndexID>& plan,
                                                            StorageExpressionContext* exprCtx,
                                                            Expression* exp) {
@@ -458,7 +462,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                                  exp);
         filter->addDependency(edge.get());
 
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                                  context_.get(),
                                                                  filter.get());
         output->addDependency(filter.get());
@@ -478,7 +482,7 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(const cpp2::IndexQuer
                                                                  exp);
         filter->addDependency(vertex.get());
 
-        auto output = std::make_unique<IndexOutputNode<IndexID>>(&resultDataSet_,
+        auto output = std::make_unique<IndexOutputNode<IndexID>>(result,
                                                                  context_.get(),
                                                                  filter.get());
         output->addDependency(filter.get());

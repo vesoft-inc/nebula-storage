@@ -169,9 +169,7 @@ public:
 // todo(doodle): after filter is pushed down, I believe all field will not be changed anymore during
 // process
 struct RunTimeContext {
-    explicit RunTimeContext(PlanContext* planContext) : planContext_(planContext) {
-        DCHECK_NOTNULL(planContext_);
-    }
+    explicit RunTimeContext(PlanContext* planContext) : planContext_(planContext) {}
 
     StorageEnv* env() const {
         return planContext_->env_;

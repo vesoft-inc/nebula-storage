@@ -36,9 +36,6 @@ class AggregateNode : public IterateNode<T> {
 public:
     using RelNode<T>::execute;
 
-    explicit AggregateNode(nebula::DataSet* resultSet)
-    : resultSet_(resultSet) {}
-
     AggregateNode(RunTimeContext* context,
                   IterateNode<T>* upstream,
                   EdgeContext* edgeContext)
