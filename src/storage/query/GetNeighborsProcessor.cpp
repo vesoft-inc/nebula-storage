@@ -223,7 +223,8 @@ StoragePlan<VertexID> GetNeighborsProcessor::buildPlan(RunTimeContext* context,
     plan.addNode(std::move(hashJoin));
 
     if (filter_) {
-        auto filter = std::make_unique<FilterNode<VertexID>>(context, upstream, expCtx, filter_);
+        auto filter =
+            std::make_unique<FilterNode<VertexID>>(context, upstream, expCtx, filter_->clone());
         filter->addDependency(upstream);
         upstream = filter.get();
         plan.addNode(std::move(filter));
