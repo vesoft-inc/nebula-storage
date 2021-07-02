@@ -7,7 +7,6 @@
 #ifndef STORAGE_QUERY_QUERYBASEPROCESSOR_H_
 #define STORAGE_QUERY_QUERYBASEPROCESSOR_H_
 
-#include <vector>
 #include "common/base/Base.h"
 #include "common/context/ExpressionContext.h"
 #include "common/expression/Expression.h"
