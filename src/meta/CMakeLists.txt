@@ -51,6 +51,8 @@ nebula_add_library(
     processors/admin/SnapShot.cpp
     processors/admin/CreateBackupProcessor.cpp
     processors/admin/RestoreProcessor.cpp
+    processors/admin/ListClusterInfoProcessor.cpp
+    processors/admin/GetMetaDirInfoProcessor.cpp
     processors/configMan/RegConfigProcessor.cpp
     processors/configMan/GetConfigProcessor.cpp
     processors/configMan/ListConfigsProcessor.cpp
@@ -70,6 +72,7 @@ nebula_add_library(
     processors/jobMan/RebuildJobExecutor.cpp
     processors/jobMan/RebuildTagJobExecutor.cpp
     processors/jobMan/RebuildEdgeJobExecutor.cpp
+    processors/jobMan/RebuildFTJobExecutor.cpp
     processors/jobMan/StatisJobExecutor.cpp
     processors/jobMan/GetStatisProcessor.cpp
     processors/jobMan/ListTagIndexStatusProcessor.cpp

@@ -13,6 +13,7 @@ DEFINE_int32(listener_commit_interval_secs, 1, "Listener commit interval");
 DEFINE_int32(listener_commit_batch_size, 1000, "Max batch size when listener commit");
 DEFINE_int32(ft_request_retry_times, 3, "Retry times if fulltext request failed");
 DEFINE_int32(ft_bulk_batch_size, 100, "Max batch size when bulk insert");
+DEFINE_int32(listener_pursue_leader_threshold, 1000, "Catch up with the leader's threshold");
 
 namespace nebula {
 namespace kvstore {
@@ -26,9 +27,10 @@ Listener::Listener(GraphSpaceID spaceId,
                    std::shared_ptr<folly::Executor> handlers,
                    std::shared_ptr<raftex::SnapshotManager> snapshotMan,
                    std::shared_ptr<RaftClient> clientMan,
+                   std::shared_ptr<DiskManager> diskMan,
                    meta::SchemaManager* schemaMan)
     : RaftPart(FLAGS_cluster_id, spaceId, partId, localAddr, walPath,
-               ioPool, workers, handlers, snapshotMan, clientMan)
+               ioPool, workers, handlers, snapshotMan, clientMan, diskMan)
     , schemaMan_(schemaMan) {
 }
 
@@ -112,20 +114,16 @@ bool Listener::preProcessLog(LogID logId,
     return true;
 }
 
-bool Listener::commitLogs(std::unique_ptr<LogIterator> iter) {
+cpp2::ErrorCode Listener::commitLogs(std::unique_ptr<LogIterator> iter, bool) {
     LogID lastId = -1;
-    TermID lastTerm = -1;
     while (iter->valid()) {
         lastId = iter->logId();
-        lastTerm = iter->logTerm();
         ++(*iter);
     }
     if (lastId > 0) {
-        lastId_ = lastId;
-        lastTerm_ = lastTerm;
+        leaderCommitId_ = lastId;
     }
-    lastCommitTime_ = time::WallClock::fastNowInMilliSec();
-    return true;
+    return cpp2::ErrorCode::SUCCEEDED;
 }
 
 void Listener::doApply() {
@@ -213,9 +211,12 @@ void Listener::doApply() {
         if (apply(data)) {
             std::lock_guard<std::mutex> guard(raftLock_);
             lastApplyLogId_ = lastApplyId;
-            persist(lastId_, lastTerm_, lastApplyLogId_);
+            persist(committedLogId_, term_, lastApplyLogId_);
             VLOG(1) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
             lastApplyTime_ = time::WallClock::fastNowInMilliSec();
+            VLOG(1) << folly::sformat("Commit snapshot to : committedLogId={},"
+                                      "committedLogTerm={}, lastApplyLogId_={}",
+                                      committedLogId_, term_, lastApplyLogId_);
         }
     });
 }
@@ -224,17 +225,57 @@ std::pair<int64_t, int64_t> Listener::commitSnapshot(const std::vector<std::stri
                                                      LogID committedLogId,
                                                      TermID committedLogTerm,
                                                      bool finished) {
-    LOG(WARNING) << "Listener snapshot has not implemented yet";
-    UNUSED(committedLogId); UNUSED(committedLogTerm); UNUSED(finished);
+    VLOG(1) << idStr_ << "Listener is committing snapshot.";
     int64_t count = 0;
     int64_t size = 0;
+    std::vector<KV> data;
+    data.reserve(rows.size());
     for (const auto& row : rows) {
         count++;
         size += row.size();
-        // todo(doodle): could decode and apply
+        auto kv = decodeKV(row);
+        data.emplace_back(kv.first, kv.second);
     }
-    return {count, size};
+    if (!apply(data)) {
+        LOG(ERROR) << idStr_ << "Failed to apply data while committing snapshot.";
+        return std::make_pair(0, 0);
+    }
+    if (finished) {
+        CHECK(!raftLock_.try_lock());
+        leaderCommitId_ = committedLogId;
+        lastApplyLogId_ = committedLogId;
+        persist(committedLogId, committedLogTerm, lastApplyLogId_);
+        LOG(INFO) << idStr_ << "Listener succeeded apply log to " << lastApplyLogId_;
+        lastApplyTime_ = time::WallClock::fastNowInMilliSec();
+        VLOG(3) << folly::sformat("Commit snapshot to : committedLogId={},"
+                                  "committedLogTerm={}, lastApplyLogId_={}",
+                                  committedLogId, committedLogTerm, lastApplyLogId_);
+    }
+    return std::make_pair(count, size);
 }
 
+void Listener::resetListener() {
+    std::lock_guard<std::mutex> g(raftLock_);
+    reset();
+    VLOG(1) << folly::sformat("The listener has been reset : leaderCommitId={},"
+                              "proposedTerm={}, lastLogTerm={}, term={},"
+                              "lastApplyLogId={}",
+                              leaderCommitId_, proposedTerm_, lastLogTerm_,
+                              term_, lastApplyLogId_);
+}
+
+bool Listener::pursueLeaderDone() {
+    std::lock_guard<std::mutex> g(raftLock_);
+    if (status_ != Status::RUNNING) {
+        return false;
+    }
+    // if the leaderCommitId_ and lastApplyLogId_ all are 0. means the snapshot gap.
+    if (leaderCommitId_ == 0 && lastApplyLogId_ == 0) {
+        return false;
+    }
+    VLOG(1) << folly::sformat("pursue leader : leaderCommitId={}, lastApplyLogId_={}",
+                              leaderCommitId_, lastApplyLogId_);
+    return (leaderCommitId_ - lastApplyLogId_) <= FLAGS_listener_pursue_leader_threshold;
+}
 }  // namespace kvstore
 }  // namespace nebula

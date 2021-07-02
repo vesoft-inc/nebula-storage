@@ -19,6 +19,7 @@
 #include "kvstore/Listener.h"
 #include "kvstore/ListenerFactory.h"
 #include "kvstore/KVEngine.h"
+#include "kvstore/DiskManager.h"
 #include "kvstore/raftex/SnapshotManager.h"
 #include "utils/Utils.h"
 
@@ -49,6 +50,7 @@ class NebulaStore : public KVStore, public Handler {
     FRIEND_TEST(NebulaStoreTest, TransLeaderTest);
     FRIEND_TEST(NebulaStoreTest, CheckpointTest);
     FRIEND_TEST(NebulaStoreTest, ThreeCopiesCheckpointTest);
+    FRIEND_TEST(NebulaStoreTest, RemoveInvalidSpaceTest);
     friend class ListenerBasicTest;
 
 public:
@@ -113,6 +115,10 @@ public:
 
     bool isListener() const {
         return !options_.listenerPath_.empty();
+    }
+
+    std::vector<std::string> getDataRoot() const override {
+        return options_.dataPaths_;
     }
 
     nebula::cpp2::ErrorCode
@@ -234,8 +240,11 @@ public:
 
     nebula::cpp2::ErrorCode flush(GraphSpaceID spaceId) override;
 
-    ErrorOr<nebula::cpp2::ErrorCode, std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>
-    createCheckpoint(GraphSpaceID spaceId, const std::string& name) override;
+    ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::CheckpointInfo>> createCheckpoint(
+        GraphSpaceID spaceId,
+        const std::string& name) override;
+
+    nebula::cpp2::ErrorCode backup();
 
     nebula::cpp2::ErrorCode
     dropCheckpoint(GraphSpaceID spaceId, const std::string& name) override;
@@ -246,6 +255,9 @@ public:
 
     ErrorOr<nebula::cpp2::ErrorCode, std::shared_ptr<SpacePartInfo>>
     space(GraphSpaceID spaceId);
+
+    ErrorOr<nebula::cpp2::ErrorCode, std::shared_ptr<SpaceListenerInfo>>
+    spaceListener(GraphSpaceID spaceId);
 
     /**
      * Implement four interfaces in Handler.
@@ -303,7 +315,9 @@ private:
                            const std::unordered_map<std::string, std::string>& options,
                            bool isDbOption) override;
 
-    std::unique_ptr<KVEngine> newEngine(GraphSpaceID spaceId, const std::string& path);
+    std::unique_ptr<KVEngine> newEngine(GraphSpaceID spaceId,
+                                        const std::string& dataPath,
+                                        const std::string& walPath);
 
     std::shared_ptr<Part> newPart(GraphSpaceID spaceId,
                                   PartitionID partId,
@@ -325,6 +339,8 @@ private:
 
     int32_t getSpaceVidLen(GraphSpaceID spaceId);
 
+    void removeSpaceDir(const std::string& dir);
+
 private:
     // The lock used to protect spaces_
     folly::RWSpinLock                                                    lock_;
@@ -332,7 +348,7 @@ private:
     std::unordered_map<GraphSpaceID, std::shared_ptr<SpaceListenerInfo>> spaceListeners_;
 
     std::shared_ptr<folly::IOThreadPoolExecutor>                         ioPool_;
-    std::shared_ptr<thread::GenericWorker>                               cleanWalWorker_;
+    std::shared_ptr<thread::GenericWorker>                               storeWorker_;
     std::shared_ptr<thread::GenericThreadPool>                           bgWorkers_;
     HostAddr                                                             storeSvcAddr_;
     std::shared_ptr<folly::Executor>                                     workers_;
@@ -342,6 +358,7 @@ private:
     std::shared_ptr<raftex::RaftexService>                               raftService_;
     std::shared_ptr<raftex::SnapshotManager>                             snapshot_;
     std::shared_ptr<thrift::ThriftClientManager<raftex::cpp2::RaftexServiceAsyncClient>> clientMan_;
+    std::shared_ptr<DiskManager> diskMan_;
 };
 
 }   // namespace kvstore

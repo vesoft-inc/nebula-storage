@@ -68,6 +68,8 @@
 #include "meta/processors/zoneMan/UpdateGroupProcessor.h"
 #include "meta/processors/listenerMan/ListenerProcessor.h"
 #include "meta/processors/admin/RestoreProcessor.h"
+#include "meta/processors/admin/ListClusterInfoProcessor.h"
+#include "meta/processors/admin/GetMetaDirInfoProcessor.h"
 #include "meta/processors/sessionMan/SessionManagerProcessor.h"
 
 #define RETURN_FUTURE(processor) \
@@ -546,13 +548,26 @@ MetaServiceHandler::future_getStatis(const cpp2::GetStatisReq &req) {
     RETURN_FUTURE(processor);
 }
 
+folly::Future<cpp2::ListClusterInfoResp> MetaServiceHandler::future_listCluster(
+    const cpp2::ListClusterInfoReq& req) {
+    auto* processor = ListClusterInfoProcessor::instance(kvstore_, adminClient_.get());
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::GetMetaDirInfoResp> MetaServiceHandler::future_getMetaDirInfo(
+    const cpp2::GetMetaDirInfoReq& req) {
+    auto* processor = GetMetaDirInfoProcessor::instance(kvstore_);
+
+    RETURN_FUTURE(processor);
+}
+
 folly::Future<cpp2::CreateSessionResp>
 MetaServiceHandler::future_createSession(const cpp2::CreateSessionReq& req) {
     auto* processor = CreateSessionProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 
-folly::Future<cpp2::ExecResp>
+folly::Future<cpp2::UpdateSessionsResp>
 MetaServiceHandler::future_updateSessions(const cpp2::UpdateSessionsReq& req) {
     auto* processor = UpdateSessionsProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
@@ -573,6 +588,12 @@ MetaServiceHandler::future_getSession(const cpp2::GetSessionReq& req) {
 folly::Future<cpp2::ExecResp>
 MetaServiceHandler::future_removeSession(const cpp2::RemoveSessionReq& req) {
     auto* processor = RemoveSessionProcessor::instance(kvstore_);
+    RETURN_FUTURE(processor);
+}
+
+folly::Future<cpp2::ExecResp>
+MetaServiceHandler::future_killQuery(const cpp2::KillQueryReq& req) {
+    auto* processor = KillQueryProcessor::instance(kvstore_);
     RETURN_FUTURE(processor);
 }
 }  // namespace meta

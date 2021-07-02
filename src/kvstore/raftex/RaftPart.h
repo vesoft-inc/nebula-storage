@@ -12,7 +12,9 @@
 #include "common/interface/gen-cpp2/RaftexServiceAsyncClient.h"
 #include "common/time/Duration.h"
 #include "common/thread/GenericThreadPool.h"
+#include "kvstore/Common.h"
 #include "kvstore/raftex/SnapshotManager.h"
+#include "kvstore/DiskManager.h"
 #include <folly/futures/SharedPromise.h>
 #include <folly/Function.h>
 #include <gtest/gtest_prod.h>
@@ -223,6 +225,10 @@ public:
         const cpp2::SendSnapshotRequest& req,
         cpp2::SendSnapshotResponse& resp);
 
+    void processHeartbeatRequest(
+        const cpp2::HeartbeatRequest& req,
+        cpp2::HeartbeatResponse& resp);
+
     bool leaseValid();
 
     bool needToCleanWal();
@@ -233,6 +239,9 @@ public:
     std::set<HostAddr> listeners() const;
 
     std::pair<LogID, TermID> lastLogInfo() const;
+
+    // Reset the part, clean up all data and WALs.
+    void reset();
 
 protected:
     // Protected constructor to prevent from instantiating directly
@@ -246,7 +255,8 @@ protected:
          std::shared_ptr<thread::GenericThreadPool> workers,
          std::shared_ptr<folly::Executor> executor,
          std::shared_ptr<SnapshotManager> snapshotMan,
-         std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>> clientMan);
+         std::shared_ptr<thrift::ThriftClientManager<cpp2::RaftexServiceAsyncClient>> clientMan,
+         std::shared_ptr<kvstore::DiskManager> diskMan);
 
     enum class Status {
         STARTING = 0,   // The part is starting, not ready for service
@@ -289,7 +299,7 @@ protected:
 
     // The inherited classes need to implement this method to commit
     // a batch of log messages
-    virtual bool commitLogs(std::unique_ptr<LogIterator> iter) = 0;
+    virtual nebula::cpp2::ErrorCode commitLogs(std::unique_ptr<LogIterator> iter, bool wait) = 0;
 
     virtual bool preProcessLog(LogID logId,
                                TermID termId,
@@ -302,11 +312,8 @@ protected:
                                                        TermID committedLogTerm,
                                                        bool finished) = 0;
 
-    // Clean up all data about current part in storage.
+    // Clean up extra data about the part, usually related to state machine
     virtual void cleanup() = 0;
-
-    // Reset the part, clean up all data and WALs.
-    void reset();
 
     void addPeer(const HostAddr& peer);
 
@@ -315,12 +322,10 @@ protected:
 private:
     // A list of <idx, resp>
     // idx  -- the index of the peer
-    // resp -- AskForVoteResponse
+    // resp -- coresponding response of peer[index]
     using ElectionResponses = std::vector<std::pair<size_t, cpp2::AskForVoteResponse>>;
-    // A list of <idx, resp>
-    // idx  -- the index of the peer
-    // resp -- AppendLogResponse
     using AppendLogResponses = std::vector<std::pair<size_t, cpp2::AppendLogResponse>>;
+    using HeartbeatResponses = std::vector<std::pair<size_t, cpp2::HeartbeatResponse>>;
 
     // <source, logType, log>
     using LogCache = std::vector<
@@ -337,13 +342,15 @@ private:
      ***************************************************/
     const char* roleStr(Role role) const;
 
-    cpp2::ErrorCode verifyLeader(const cpp2::AppendLogRequest& req);
+    template<typename REQ>
+    cpp2::ErrorCode verifyLeader(const REQ& req);
 
     /*****************************************************************
-     * Asynchronously send a heartbeat (An empty log entry)
+     *
+     * Asynchronously send a heartbeat
      *
      ****************************************************************/
-    folly::Future<AppendLogResult> sendHeartbeat();
+    void sendHeartbeat();
 
     /****************************************************
      *
@@ -379,6 +386,10 @@ private:
     // Check whether new logs can be appended
     // Pre-condition: The caller needs to hold the raftLock_
     AppendLogResult canAppendLogs();
+
+    // Also check if term has changed
+    // Pre-condition: The caller needs to hold the raftLock_
+    AppendLogResult canAppendLogs(TermID currTerm);
 
     folly::Future<AppendLogResult> appendLogAsync(ClusterID source,
                                                   LogType logType,
@@ -564,6 +575,9 @@ protected:
     std::atomic_bool inElection_{false};
     // Speed up first election when I don't know who is leader
     bool isBlindFollower_{true};
+    // Check leader has commit log in this term (accepted by majority is not enough),
+    // leader is not allowed to service until it is true.
+    bool commitInThisTerm_{false};
 
     // Write-ahead Log
     std::shared_ptr<wal::FileBasedWal> wal_;
@@ -582,6 +596,9 @@ protected:
     int64_t lastTotalCount_ = 0;
     int64_t lastTotalSize_ = 0;
     time::Duration lastSnapshotRecvDur_;
+
+    // Check if disk has enough space before write wal
+    std::shared_ptr<kvstore::DiskManager> diskMan_;
 
     // Used to bypass the stale command
     int64_t startTimeMs_ = 0;

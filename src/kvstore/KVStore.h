@@ -34,6 +34,8 @@ struct KVOptions {
     // otherwise it would mix up the data on disk.
     std::vector<std::string> dataPaths_;
 
+    std::string walPath_;
+
     // Path for listener, only wal is stored, the structure would be spaceId/partId/wal
     std::string listenerPath_;
 
@@ -42,9 +44,8 @@ struct KVOptions {
 
     // Custom MergeOperator used in rocksdb.merge method.
     std::shared_ptr<rocksdb::MergeOperator> mergeOp_{nullptr};
-    /**
-     * Custom CompactionFilter used in compaction.
-     * */
+
+    // Custom CompactionFilter used in compaction.
     std::unique_ptr<CompactionFilterFactoryBuilder> cffBuilder_{nullptr};
 };
 
@@ -68,8 +69,7 @@ public:
     virtual void stop() = 0;
 
     // Retrieve the current leader for the given partition. This
-    // is usually called when ERR_LEADER_CHANGED result code is
-    // returned
+    // is usually called when E_LEADER_CHANGED error code is returned.
     virtual ErrorOr<nebula::cpp2::ErrorCode, HostAddr>
     partLeader(GraphSpaceID spaceId, PartitionID partID) = 0;
 
@@ -201,9 +201,9 @@ public:
 
     virtual nebula::cpp2::ErrorCode flush(GraphSpaceID spaceId) = 0;
 
-    virtual ErrorOr<nebula::cpp2::ErrorCode,
-                    std::pair<std::string, nebula::cpp2::PartitionBackupInfo>>
-    createCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
+    virtual ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::CheckpointInfo>> createCheckpoint(
+        GraphSpaceID spaceId,
+        const std::string& name) = 0;
 
     virtual nebula::cpp2::ErrorCode
     dropCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
@@ -217,11 +217,14 @@ public:
                 const std::string& tablePrefix,
                 std::function<bool(const folly::StringPiece& key)> filter) = 0;
 
-    virtual nebula::cpp2::ErrorCode
-    restoreFromFiles(GraphSpaceID spaceId, const std::vector<std::string>& files) = 0;
+    // for meta BR
+    virtual nebula::cpp2::ErrorCode restoreFromFiles(GraphSpaceID spaceId,
+                                                     const std::vector<std::string>& files) = 0;
 
     virtual nebula::cpp2::ErrorCode
     multiPutWithoutReplicator(GraphSpaceID spaceId, std::vector<KV> keyValues) = 0;
+
+    virtual std::vector<std::string> getDataRoot() const = 0;
 
 protected:
     KVStore() = default;

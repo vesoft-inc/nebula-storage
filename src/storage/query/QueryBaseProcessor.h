@@ -190,8 +190,8 @@ protected:
             std::unordered_map<SchemaID, size_t>& indexMap,
             std::unordered_map<SchemaID, std::string>& names,
             int32_t entryId,
-            const std::string* entryName,
-            const std::string* propName,
+            const std::string& entryName,
+            const std::string& propName,
             const meta::SchemaProviderIf::Field* field,
             bool returned,
             bool filtered,
@@ -202,7 +202,7 @@ protected:
     folly::Executor*                                    executor_{nullptr};
     TagContext                                          tagContext_;
     EdgeContext                                         edgeContext_;
-    std::unique_ptr<Expression>                         filter_;
+    Expression*                                         filter_{nullptr};
 
     // Collect prop in value expression in upsert set clause
     std::unordered_set<std::string>                     valueProps_;

@@ -844,7 +844,7 @@ TEST(ProcessorTest, CreateTagTest) {
         cpp2::ColumnDef columnWithDefault;
         columnWithDefault.set_name(folly::stringPrintf("col_type_mismatch"));
         columnWithDefault.type.set_type(PropertyType::BOOL);
-        ConstantExpression strValue("default value");;
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");;
         columnWithDefault.set_default_value(Expression::encode(strValue));
 
         colsWithDefault.push_back(std::move(columnWithDefault));
@@ -868,7 +868,7 @@ TEST(ProcessorTest, CreateTagTest) {
         cpp2::ColumnDef columnWithDefault;
         columnWithDefault.set_name(folly::stringPrintf("col_value_mismatch"));
         columnWithDefault.type.set_type(PropertyType::INT8);
-        ConstantExpression intValue(256);;
+        const auto& intValue = *ConstantExpression::make(metaPool, 256);;
         columnWithDefault.set_default_value(Expression::encode(intValue));
 
         colsWithDefault.push_back(std::move(columnWithDefault));
@@ -1919,7 +1919,7 @@ TEST(ProcessorTest, AlterTagTest) {
         cpp2::ColumnDef column;
         column.name = "add_col_mismatch_type";
         column.type.set_type(PropertyType::INT64);
-        ConstantExpression strValue("default value");
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -1944,7 +1944,7 @@ TEST(ProcessorTest, AlterTagTest) {
         column.name = "add_col_fixed_string_type";
         column.type.set_type(PropertyType::FIXED_STRING);
         column.type.set_type_length(5);;
-        ConstantExpression strValue("Hello world!");
+        const auto& strValue = *ConstantExpression::make(metaPool, "Hello world!");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -1976,9 +1976,9 @@ TEST(ProcessorTest, AlterTagTest) {
         for (const auto &col : cols) {
             if (col.get_name() == "add_col_fixed_string_type") {
                 ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
-                auto defaultValueExpr = Expression::decode(*col.get_default_value());
+                auto defaultValueExpr = Expression::decode(metaPool, *col.get_default_value());
                 DefaultValueContext mContext;
-                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                auto value = Expression::eval(defaultValueExpr, mContext);
                 ASSERT_TRUE(value.isStr());
                 ASSERT_EQ("Hello", value.getStr());
                 expected = true;
@@ -2417,7 +2417,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         cpp2::ColumnDef column;
         column.name = "add_col_mismatch_type";
         column.type.set_type(PropertyType::INT64);
-        ConstantExpression strValue("default value");
+        const auto& strValue = *ConstantExpression::make(metaPool, "default value");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -2442,7 +2442,7 @@ TEST(ProcessorTest, AlterEdgeTest) {
         column.name = "add_col_fixed_string_type";
         column.type.set_type(PropertyType::FIXED_STRING);
         column.type.set_type_length(5);;
-        ConstantExpression strValue("Hello world!");
+        const auto& strValue = *ConstantExpression::make(metaPool, "Hello world!");
         column.set_default_value(Expression::encode(strValue));
         (*schema.columns_ref()).emplace_back(std::move(column));
 
@@ -2471,12 +2471,12 @@ TEST(ProcessorTest, AlterEdgeTest) {
         ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp1.get_code());
         std::vector<cpp2::ColumnDef> cols = resp1.get_schema().get_columns();
         bool expected = false;
-        for (const auto &col : cols) {
+        for (const auto& col : cols) {
             if (col.get_name() == "add_col_fixed_string_type") {
                 ASSERT_EQ(PropertyType::FIXED_STRING, col.get_type().get_type());
-                auto defaultValueExpr = Expression::decode(*col.get_default_value());
+                auto defaultValueExpr = Expression::decode(metaPool, *col.get_default_value());
                 DefaultValueContext mContext;
-                auto value = Expression::eval(defaultValueExpr.get(), mContext);
+                auto value = Expression::eval(defaultValueExpr, mContext);
                 ASSERT_TRUE(value.isStr());
                 ASSERT_EQ("Hello", value.getStr());
                 expected = true;
@@ -2600,6 +2600,7 @@ TEST(ProcessorTest, SessionManagerTest) {
     TestUtils::createSomeHosts(kv.get());
     TestUtils::assembleSpace(kv.get(), 1, 1);
     SessionID sessionId = 0;
+    ExecutionPlanID epId = 1;
     {
         cpp2::CreateUserReq req;
         req.set_if_not_exists(false);
@@ -2630,6 +2631,8 @@ TEST(ProcessorTest, SessionManagerTest) {
         meta::cpp2::Session session;
         session.set_session_id(sessionId);
         session.set_space_name("test");
+        session.set_update_time(time::WallClock::fastNowInMicroSec());
+        session.queries_ref()->emplace(epId, cpp2::QueryDesc());
         req.set_sessions({session});
 
         auto* processor = UpdateSessionsProcessor::instance(kv.get());
@@ -2637,6 +2640,7 @@ TEST(ProcessorTest, SessionManagerTest) {
         processor->process(req);
         auto resp = std::move(f).get();
         ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_TRUE(resp.get_killed_queries().empty());
     }
     // list session
     {
@@ -2647,6 +2651,8 @@ TEST(ProcessorTest, SessionManagerTest) {
         processor->process(req);
         auto resp = std::move(f).get();
         ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        ASSERT_EQ(resp.get_sessions().size(), 1);
+        ASSERT_EQ("test", resp.get_sessions()[0].get_space_name());
     }
     // get session
     {
@@ -2659,6 +2665,43 @@ TEST(ProcessorTest, SessionManagerTest) {
         auto resp = std::move(f).get();
         ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
         ASSERT_EQ("test", resp.get_session().get_space_name());
+    }
+    // Kill query
+    {
+        cpp2::KillQueryReq killReq;
+        std::unordered_map<SessionID, std::unordered_set<ExecutionPlanID>> killedQueries;
+        std::unordered_set<ExecutionPlanID> eps = {epId};
+        killedQueries.emplace(sessionId, std::move(eps));
+        killReq.set_kill_queries(std::move(killedQueries));
+
+        auto* processor = KillQueryProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(killReq);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+    }
+    // update session and get all killed queries
+    {
+        cpp2::UpdateSessionsReq req;
+        meta::cpp2::Session session;
+        session.set_session_id(sessionId);
+        session.set_space_name("test");
+        session.queries_ref()->emplace(epId, cpp2::QueryDesc());
+        req.set_sessions({session});
+
+        auto* processor = UpdateSessionsProcessor::instance(kv.get());
+        auto f = processor->getFuture();
+        processor->process(req);
+        auto resp = std::move(f).get();
+        ASSERT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, resp.get_code());
+        auto& killedQueries = resp.get_killed_queries();
+        EXPECT_EQ(killedQueries.size(), 1);
+        for (auto& s : killedQueries) {
+            EXPECT_EQ(s.first, sessionId);
+            for (auto& q : s.second) {
+                EXPECT_EQ(q.first, epId);
+            }
+        }
     }
     // delete session
     {

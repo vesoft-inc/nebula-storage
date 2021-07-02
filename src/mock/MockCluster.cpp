@@ -196,9 +196,10 @@ void MockCluster::initStorageKV(const char* dataPath,
         indexMan_ = meta::ServerBasedIndexManager::create(metaClient_.get());
     } else {
         LOG(INFO) << "Use meta in memory!";
-        options.partMan_ = memPartMan(1, parts);;
         schemaMan_ = memSchemaMan(schemaVerCount, 1, hasProp);
         indexMan_ = memIndexMan(1, hasProp);
+        options.partMan_ = memPartMan(1, parts);;
+        options.schemaMan_ = schemaMan_.get();
     }
     std::vector<std::string> paths;
     paths.emplace_back(folly::stringPrintf("%s/disk1", dataPath));
@@ -256,13 +257,13 @@ MockCluster::memSchemaMan(SchemaVer schemaVerCount, GraphSpaceID spaceId, bool h
     for (SchemaVer ver = 0; ver < schemaVerCount; ver++) {
         // Vertex has two tags: players and teams
         // When tagId is 1, use players data
-        schemaMan->addTagSchema(spaceId, 1, MockData::mockPlayerTagSchema(ver, hasProp));
+        schemaMan->addTagSchema(spaceId, 1, MockData::mockPlayerTagSchema(&pool_, ver, hasProp));
         // When tagId is 2, use teams data
         schemaMan->addTagSchema(spaceId, 2, MockData::mockTeamTagSchema(ver, hasProp));
 
         // Edge has two type: serve and teammate
         // When edgeType is 101, use serve data
-        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeEdgeSchema(ver, hasProp));
+        schemaMan->addEdgeSchema(spaceId, 101, MockData::mockServeEdgeSchema(&pool_, ver, hasProp));
         // When edgeType is 102, use teammate data
         schemaMan->addEdgeSchema(spaceId, 102, MockData::mockTeammateEdgeSchema(ver, hasProp));
     }
