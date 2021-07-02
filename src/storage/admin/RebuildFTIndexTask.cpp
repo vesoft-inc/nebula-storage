@@ -24,7 +24,7 @@ RebuildFTIndexTask::genSubTasks() {
     }
     auto space = nebula::value(listenerRet);
     for (const auto& part : parts) {
-        nebula::kvstore::Listener *listener;
+        nebula::kvstore::Listener *listener = nullptr;
         for (auto& lMap : space->listeners_) {
             if (part != lMap.first) {
                 continue;
@@ -37,7 +37,7 @@ RebuildFTIndexTask::genSubTasks() {
                 break;
             }
         }
-        if (!listener) {
+        if (listener == nullptr) {
             return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
         }
         if (!listener->isRunning()) {
