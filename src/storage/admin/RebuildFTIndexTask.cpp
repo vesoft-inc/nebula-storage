@@ -7,16 +7,8 @@
 #include "storage/admin/RebuildFTIndexTask.h"
 #include "common/base/Logging.h"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 DECLARE_uint32(raft_heartbeat_interval_secs);
 
-=======
->>>>>>> rebuild fulltext index via listener
-=======
-DECLARE_uint32(raft_heartbeat_interval_secs);
-
->>>>>>> rebase master; rebuild done logic
 namespace nebula {
 namespace storage {
 
@@ -46,11 +38,6 @@ RebuildFTIndexTask::genSubTasks() {
             }
         }
         if (listener == nullptr) {
-            return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
-        }
-        if (!listener->isRunning()) {
-            LOG(ERROR) << "listener not ready, may be starting or waiting snapshot";
-            // TODO : add ErrorCode for listener not ready.
             return nebula::cpp2::ErrorCode::E_LISTENER_NOT_FOUND;
         }
         if (!listener->isRunning()) {
