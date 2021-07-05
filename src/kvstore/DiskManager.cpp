@@ -70,6 +70,7 @@ StatusOr<std::string> DiskManager::path(GraphSpaceID spaceId, PartitionID partId
 void DiskManager::addPartToPath(GraphSpaceID spaceId,
                                 PartitionID partId,
                                 const std::string& path) {
+    std::lock_guard<std::mutex> lg(lock_);
     try {
         auto canonical = boost::filesystem::canonical(path);
         auto dataPath = canonical.parent_path().parent_path();
@@ -85,6 +86,7 @@ void DiskManager::addPartToPath(GraphSpaceID spaceId,
 void DiskManager::removePartFromPath(GraphSpaceID spaceId,
                                      PartitionID partId,
                                      const std::string& path) {
+    std::lock_guard<std::mutex> lg(lock_);
     try {
         auto canonical = boost::filesystem::canonical(path);
         auto dataPath = canonical.parent_path().parent_path();
