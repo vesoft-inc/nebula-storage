@@ -112,7 +112,7 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "tagItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                ConstantExpression defaultValue(std::to_string(i));
+                const auto& defaultValue = *ConstantExpression::make(metaPool, std::to_string(i));
                 column.set_default_value(Expression::encode(defaultValue));
                 (*schema.columns_ref()).emplace_back(std::move(column));
             }
@@ -126,9 +126,10 @@ TEST(MetaClientTest, InterfacesTest) {
             column.name = "tagItem";
             column.type.set_type(PropertyType::STRING);
             column.set_nullable(true);
-            ArithmeticExpression defaultValue(Expression::Kind::kDivision,
-                                              new ConstantExpression(1),
-                                              new ConstantExpression(0));
+            const auto& defaultValue =
+                *ArithmeticExpression::makeDivision(metaPool,
+                                                    ConstantExpression::make(metaPool, 1),
+                                                    ConstantExpression::make(metaPool, 0));
             column.set_default_value(Expression::encode(defaultValue));
             (*schema.columns_ref()).emplace_back(std::move(column));
             auto ret = client->createTagSchema(spaceId, "tagWithWrongDefault", schema).get();
@@ -137,7 +138,7 @@ TEST(MetaClientTest, InterfacesTest) {
         {
             // Create edge schema
             cpp2::Schema schema;
-            for (auto i = 0 ; i < 5; i++) {
+            for (auto i = 0; i < 5; i++) {
                 cpp2::ColumnDef column;
                 column.name = "edgeItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
@@ -155,7 +156,7 @@ TEST(MetaClientTest, InterfacesTest) {
                 cpp2::ColumnDef column;
                 column.name = "edgeItem" + std::to_string(i);
                 column.type.set_type(PropertyType::STRING);
-                ConstantExpression defaultValue(std::to_string(i));
+                const auto& defaultValue = *ConstantExpression::make(metaPool, std::to_string(i));
                 column.set_default_value(Expression::encode(defaultValue));
                 (*schema.columns_ref()).emplace_back(std::move(column));
             }
@@ -272,7 +273,6 @@ TEST(MetaClientTest, InterfacesTest) {
     {
         auto ret = client->getSpaceIdByNameFromCache("default_space_1");
         ASSERT_FALSE(ret.ok());
-        ASSERT_EQ(Status::SpaceNotFound(), ret.status());
     }
     {
         // Multi Put Test
@@ -533,18 +533,18 @@ TEST(MetaClientTest, TagTest) {
         std::vector<cpp2::ColumnDef> columns;
         columns.emplace_back();
         columns.back().set_name("column_i");
-        ConstantExpression intValue(Value(0L));
+        const auto& intValue = *ConstantExpression::make(metaPool, Value(0L));
         columns.back().set_default_value(Expression::encode(intValue));
         columns.back().type.set_type(PropertyType::INT64);
 
         columns.emplace_back();
-        ConstantExpression floatValue(Value(3.14));
+        const auto& floatValue = *ConstantExpression::make(metaPool, Value(3.14));
         columns.back().set_default_value(Expression::encode(floatValue));
         columns.back().set_name("column_d");
         columns.back().type.set_type(PropertyType::DOUBLE);
 
         columns.emplace_back();
-        ConstantExpression strValue("test");
+        const auto& strValue = *ConstantExpression::make(metaPool, "test");
         columns.back().set_default_value(Expression::encode(strValue));
         columns.back().set_name("column_s");
         columns.back().type.set_type(PropertyType::STRING);
@@ -560,14 +560,14 @@ TEST(MetaClientTest, TagTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        const auto& intValue = *ConstantExpression::make(metaPool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression floatValue(Value(3.14));
+        const auto& floatValue = *ConstantExpression::make(metaPool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
@@ -617,14 +617,14 @@ TEST(MetaClientTest, TagTest) {
         std::vector<cpp2::ColumnDef> columns;
         columns.emplace_back();
         columns.back().set_name("colName");
-        ConstantExpression valueExpr(std::move(value));
+        auto valueExpr = ConstantExpression::make(metaPool, std::move(value));
         if (isFunction) {
-            ArgumentList *argList = new ArgumentList();
-            argList->addArgument(std::make_unique<ConstantExpression>(std::move(valueExpr)));
-            FunctionCallExpression fExpr(new std::string("timestamp"), argList);
-            columns.back().set_default_value(Expression::encode(fExpr));
+            ArgumentList *argList = ArgumentList::make(metaPool);
+            argList->addArgument(valueExpr);
+            auto fExpr = FunctionCallExpression::make(metaPool, "timestamp", argList);
+            columns.back().set_default_value(Expression::encode(*fExpr));
         } else {
-            columns.back().set_default_value(Expression::encode(valueExpr));
+            columns.back().set_default_value(Expression::encode(*valueExpr));
         }
         columns.back().type.set_type(type);
 
@@ -766,21 +766,21 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        const auto& intValue = *ConstantExpression::make(metaPool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::DOUBLE);
-        ConstantExpression floatValue(Value(3.14));
+        const auto& floatValue = *ConstantExpression::make(metaPool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
 
         cpp2::ColumnDef stringColumn;
         stringColumn.set_name("column_s");
         stringColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression strValue("test");
+        const auto& strValue = *ConstantExpression::make(metaPool, "test");
         stringColumn.set_default_value(Expression::encode(strValue));
         columns.emplace_back(std::move(stringColumn));
         expectedColumns = columns;
@@ -795,14 +795,14 @@ TEST(MetaClientTest, EdgeTest) {
         cpp2::ColumnDef intColumn;
         intColumn.set_name("column_i");
         intColumn.type.set_type(PropertyType::INT64);
-        ConstantExpression intValue(Value(0L));
+        const auto& intValue = *ConstantExpression::make(metaPool, Value(0L));
         intColumn.set_default_value(Expression::encode(intValue));
         columns.emplace_back(std::move(intColumn));
 
         cpp2::ColumnDef doubleColumn;
         doubleColumn.set_name("column_d");
         doubleColumn.type.set_type(PropertyType::STRING);
-        ConstantExpression floatValue(Value(3.14));
+        const auto& floatValue = *ConstantExpression::make(metaPool, Value(3.14));
         doubleColumn.set_default_value(Expression::encode(floatValue));
         columns.emplace_back(std::move(doubleColumn));
         cpp2::Schema schema;
@@ -1002,10 +1002,10 @@ TEST(MetaClientTest, TagIndexTest) {
         GraphSpaceID spaceNotExist = 99;
         IndexID tagIndexNotExist = 99;
         auto checkTagIndexNotExist = client->checkTagIndexed(space, tagIndexNotExist);
-        ASSERT_EQ(Status::IndexNotFound(), checkTagIndexNotExist);
+        ASSERT_FALSE(checkTagIndexNotExist.ok());
 
         auto checkSpaceNotExist = client->checkTagIndexed(spaceNotExist, singleFieldIndexID);
-        ASSERT_EQ(Status::SpaceNotFound(), checkSpaceNotExist);
+        ASSERT_FALSE(checkSpaceNotExist.ok());
 
         auto spaceNotExistRet = client->getTagIndexFromCache(spaceNotExist, singleFieldIndexID);
         ASSERT_FALSE(spaceNotExistRet.ok());
@@ -1027,12 +1027,10 @@ TEST(MetaClientTest, TagIndexTest) {
     {
         auto result = client->getTagIndex(space, "tag_single_field_index").get();
         ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
     }
     {
         auto result = client->dropTagIndex(space, "tag_single_field_index").get();
         ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
     }
 }
 
@@ -1113,7 +1111,6 @@ TEST(MetaClientTest, EdgeIndexTest) {
                                               "edge_not_exist",
                                               std::move(fields)).get();
         ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
     }
     {
         std::vector<cpp2::IndexFieldDef> fields;
@@ -1189,10 +1186,10 @@ TEST(MetaClientTest, EdgeIndexTest) {
         GraphSpaceID spaceNotExist = 99;
         IndexID edgeIndexNotExist = 99;
         auto checkEdgeIndexNotExist = client->checkEdgeIndexed(space, edgeIndexNotExist);
-        ASSERT_EQ(Status::IndexNotFound(), checkEdgeIndexNotExist);
+        ASSERT_FALSE(checkEdgeIndexNotExist.ok());
 
         auto checkSpaceNotExist = client->checkEdgeIndexed(spaceNotExist, singleFieldIndexID);
-        ASSERT_EQ(Status::SpaceNotFound(), checkSpaceNotExist);
+        ASSERT_FALSE(checkSpaceNotExist.ok());
 
         auto spaceNotExistRet = client->getEdgeIndexFromCache(spaceNotExist, singleFieldIndexID);
         ASSERT_FALSE(spaceNotExistRet.ok());
@@ -1214,12 +1211,10 @@ TEST(MetaClientTest, EdgeIndexTest) {
     {
         auto result = client->getEdgeIndex(space, "edge_single_field_index").get();
         ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
     }
     {
         auto result = client->dropEdgeIndex(space, "edge_single_field_index").get();
         ASSERT_FALSE(result.ok());
-        ASSERT_EQ(Status::Error("not existed!"), result.status());
     }
 }
 
@@ -1233,7 +1228,7 @@ TEST(MetaClientTest, GroupAndZoneTest) {
     auto* kv = cluster.metaKV_.get();
     auto* client = cluster.metaClient_.get();
     std::vector<HostAddr> hosts;
-    for (int32_t i = 0; i < 12; i++) {
+    for (int32_t i = 0; i < 13; i++) {
         hosts.emplace_back(std::to_string(i), i);
     }
     TestUtils::createSomeHosts(kv, std::move(hosts));
@@ -1302,9 +1297,15 @@ TEST(MetaClientTest, GroupAndZoneTest) {
     }
     // Add host into zone
     {
-        HostAddr node("3", 3);
+        HostAddr node("12", 12);
         auto result = client->addHostIntoZone(node, "zone_0").get();
         ASSERT_TRUE(result.ok());
+    }
+    // Add host into zone overlap with another zone
+    {
+        HostAddr node("3", 3);
+        auto result = client->addHostIntoZone(node, "zone_0").get();
+        ASSERT_FALSE(result.ok());
     }
     // Add host into zone which zone is not exist
     {
@@ -1314,7 +1315,7 @@ TEST(MetaClientTest, GroupAndZoneTest) {
     }
     // Add host into zone which the node have existed
     {
-        HostAddr node("3", 3);
+        HostAddr node("0", 0);
         auto result = client->addHostIntoZone(node, "zone_0").get();
         ASSERT_FALSE(result.ok());
     }
@@ -1326,7 +1327,7 @@ TEST(MetaClientTest, GroupAndZoneTest) {
     }
     // Drop host from zone
     {
-        HostAddr node("3", 3);
+        HostAddr node("12", 12);
         auto result = client->dropHostFromZone(node, "zone_0").get();
         ASSERT_TRUE(result.ok());
     }
@@ -1778,7 +1779,7 @@ public:
         folly::Promise<cpp2::HBResp> pro;
         auto f = pro.getFuture();
         cpp2::HBResp resp;
-        resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+        resp.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
         pro.setValue(std::move(resp));
         return f;
     }
@@ -1801,9 +1802,9 @@ public:
         auto f = pro.getFuture();
         cpp2::HBResp resp;
         if (addr_ == leader_) {
-            resp.set_code(cpp2::ErrorCode::SUCCEEDED);
+            resp.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
         } else {
-            resp.set_code(cpp2::ErrorCode::E_LEADER_CHANGED);
+            resp.set_code(nebula::cpp2::ErrorCode::E_LEADER_CHANGED);
             resp.set_leader(leader_);
         }
         pro.setValue(std::move(resp));

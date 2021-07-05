@@ -48,21 +48,23 @@ protected:
 
     void onProcessFinished() override;
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::GetPropRequest& req) override;
+    nebula::cpp2::ErrorCode
+    checkAndBuildContexts(const cpp2::GetPropRequest& req) override;
 
-    cpp2::ErrorCode checkRequest(const cpp2::GetPropRequest& req);
+    nebula::cpp2::ErrorCode checkRequest(const cpp2::GetPropRequest& req);
 
-    cpp2::ErrorCode buildTagContext(const cpp2::GetPropRequest& req);
+    nebula::cpp2::ErrorCode buildTagContext(const cpp2::GetPropRequest& req);
 
-    cpp2::ErrorCode buildEdgeContext(const cpp2::GetPropRequest& req);
+    nebula::cpp2::ErrorCode buildEdgeContext(const cpp2::GetPropRequest& req);
 
     void buildTagColName(const std::vector<cpp2::VertexProp>& tagProps);
+
     void buildEdgeColName(const std::vector<cpp2::EdgeProp>& edgeProps);
 
 private:
     bool isEdge_ = false;                   // true for edge, false for tag
     std::unique_ptr<StorageExpressionContext> expCtx_;
-    std::vector<std::unique_ptr<Expression>> yields_;
+    std::vector<Expression*> yields_;
 };
 
 }  // namespace storage

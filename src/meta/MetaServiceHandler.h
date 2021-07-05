@@ -146,6 +146,15 @@ public:
     folly::Future<cpp2::ListFTClientsResp>
     future_listFTClients(const cpp2::ListFTClientsReq& req) override;
 
+    folly::Future<cpp2::ExecResp>
+    future_createFTIndex(const cpp2::CreateFTIndexReq& req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_dropFTIndex(const cpp2::DropFTIndexReq& req) override;
+
+    folly::Future<cpp2::ListFTIndexesResp>
+    future_listFTIndexes(const cpp2::ListFTIndexesReq& req) override;
+
     /**
      * User manager
      **/
@@ -270,6 +279,29 @@ public:
 
     folly::Future<cpp2::ExecResp>
     future_reportTaskFinish(const cpp2::ReportTaskReq& req) override;
+
+    folly::Future<cpp2::ListClusterInfoResp>
+    future_listCluster(const cpp2::ListClusterInfoReq &req) override;
+
+    folly::Future<cpp2::GetMetaDirInfoResp>
+    future_getMetaDirInfo(const cpp2::GetMetaDirInfoReq &req) override;
+    folly::Future<cpp2::CreateSessionResp>
+    future_createSession(const cpp2::CreateSessionReq& req) override;
+
+    folly::Future<cpp2::UpdateSessionsResp>
+    future_updateSessions(const cpp2::UpdateSessionsReq& req) override;
+
+    folly::Future<cpp2::ListSessionsResp>
+    future_listSessions(const cpp2::ListSessionsReq& req) override;
+
+    folly::Future<cpp2::GetSessionResp>
+    future_getSession(const cpp2::GetSessionReq& req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_removeSession(const cpp2::RemoveSessionReq& req) override;
+
+    folly::Future<cpp2::ExecResp>
+    future_killQuery(const cpp2::KillQueryReq& req) override;
 
 private:
     kvstore::KVStore* kvstore_ = nullptr;

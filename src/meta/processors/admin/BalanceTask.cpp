@@ -170,7 +170,7 @@ void BalanceTask::invoke() {
                     LOG(ERROR) << taskIdStr_ << " Update meta failed, status " << resp;
                     ret_ = BalanceTaskResult::FAILED;
                 } else {
-                    LOG(INFO) << "Update meta succeeded!";
+                    LOG(INFO) << taskIdStr_ << " Update meta succeeded!";
                     status_ = BalanceTaskStatus::REMOVE_PART_ON_SRC;
                 }
                 invoke();
@@ -245,8 +245,8 @@ bool BalanceTask::saveInStore() {
     kv_->asyncMultiPut(kDefaultSpaceId,
                        kDefaultPartId,
                        std::move(data),
-                       [this, &ret, &baton] (kvstore::ResultCode code) {
-        if (kvstore::ResultCode::SUCCEEDED != code) {
+                       [this, &ret, &baton] (nebula::cpp2::ErrorCode code) {
+        if (nebula::cpp2::ErrorCode::SUCCEEDED != code) {
             ret = false;
             LOG(ERROR) << taskIdStr_ << " Can't persist task!";
         }

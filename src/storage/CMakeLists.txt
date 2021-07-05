@@ -16,11 +16,12 @@ nebula_add_library(
     admin/AdminTask.cpp
     admin/CompactTask.cpp
     admin/FlushTask.cpp
-    admin/TaskUtils.cpp
     admin/RebuildIndexTask.cpp
     admin/RebuildTagIndexTask.cpp
     admin/RebuildEdgeIndexTask.cpp
+    admin/RebuildFTIndexTask.cpp
     admin/StatisTask.cpp
+    admin/ListClusterInfoProcessor.cpp
 )
 
 nebula_add_library(

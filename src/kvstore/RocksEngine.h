@@ -10,6 +10,7 @@
 #include <gtest/gtest_prod.h>
 #include <rocksdb/db.h>
 #include <rocksdb/utilities/checkpoint.h>
+#include <rocksdb/utilities/backupable_db.h>
 #include "common/base/Base.h"
 #include "kvstore/KVEngine.h"
 #include "kvstore/KVIterator.h"
@@ -94,6 +95,7 @@ public:
     RocksEngine(GraphSpaceID spaceId,
                 int32_t vIdLen,
                 const std::string& dataPath,
+                const std::string& walPath = "",
                 std::shared_ptr<rocksdb::MergeOperator> mergeOp = nullptr,
                 std::shared_ptr<rocksdb::CompactionFilterFactory> cfFactory = nullptr,
                 bool readonly = false);
@@ -104,46 +106,58 @@ public:
 
     void stop() override;
 
+    // return path to a spaceId, e.g. "/DataPath/nebula/spaceId", usally it should contain
+    // two subdir: data and wal.
     const char* getDataRoot() const override {
         return dataPath_.c_str();
     }
 
+    const char* getWalRoot() const override {
+        return walPath_.c_str();
+    }
+
     std::unique_ptr<WriteBatch> startBatchWrite() override;
 
-    ResultCode commitBatchWrite(std::unique_ptr<WriteBatch> batch,
-                                bool disableWAL,
-                                bool sync) override;
+    nebula::cpp2::ErrorCode
+    commitBatchWrite(std::unique_ptr<WriteBatch> batch,
+                     bool disableWAL,
+                     bool sync,
+                     bool wait) override;
 
     /*********************
      * Data retrieval
      ********************/
-    ResultCode get(const std::string& key, std::string* value) override;
+    nebula::cpp2::ErrorCode get(const std::string& key, std::string* value) override;
 
     std::vector<Status> multiGet(const std::vector<std::string>& keys,
                                  std::vector<std::string>* values) override;
 
-    ResultCode range(const std::string& start,
-                     const std::string& end,
-                     std::unique_ptr<KVIterator>* iter) override;
+    nebula::cpp2::ErrorCode
+    range(const std::string& start,
+          const std::string& end,
+          std::unique_ptr<KVIterator>* iter) override;
 
-    ResultCode prefix(const std::string& prefix, std::unique_ptr<KVIterator>* iter) override;
+    nebula::cpp2::ErrorCode
+    prefix(const std::string& prefix, std::unique_ptr<KVIterator>* iter) override;
 
-    ResultCode rangeWithPrefix(const std::string& start,
-                               const std::string& prefix,
-                               std::unique_ptr<KVIterator>* iter) override;
+    nebula::cpp2::ErrorCode
+    rangeWithPrefix(const std::string& start,
+                    const std::string& prefix,
+                    std::unique_ptr<KVIterator>* iter) override;
 
     /*********************
      * Data modification
      ********************/
-    ResultCode put(std::string key, std::string value) override;
+    nebula::cpp2::ErrorCode put(std::string key, std::string value) override;
 
-    ResultCode multiPut(std::vector<KV> keyValues) override;
+    nebula::cpp2::ErrorCode multiPut(std::vector<KV> keyValues) override;
 
-    ResultCode remove(const std::string& key) override;
+    nebula::cpp2::ErrorCode remove(const std::string& key) override;
 
-    ResultCode multiRemove(std::vector<std::string> keys) override;
+    nebula::cpp2::ErrorCode multiRemove(std::vector<std::string> keys) override;
 
-    ResultCode removeRange(const std::string& start, const std::string& end) override;
+    nebula::cpp2::ErrorCode
+    removeRange(const std::string& start, const std::string& end) override;
 
     /*********************
      * Non-data operation
@@ -156,35 +170,47 @@ public:
 
     int32_t totalPartsNum() override;
 
-    ResultCode ingest(const std::vector<std::string>& files) override;
+    nebula::cpp2::ErrorCode ingest(const std::vector<std::string>& files,
+                                   bool verifyFileChecksum = false) override;
 
-    ResultCode setOption(const std::string& configKey, const std::string& configValue) override;
+    nebula::cpp2::ErrorCode
+    setOption(const std::string& configKey, const std::string& configValue) override;
 
-    ResultCode setDBOption(const std::string& configKey, const std::string& configValue) override;
+    nebula::cpp2::ErrorCode
+    setDBOption(const std::string& configKey, const std::string& configValue) override;
 
-    ResultCode compact() override;
+    nebula::cpp2::ErrorCode compact() override;
 
-    ResultCode flush() override;
+    nebula::cpp2::ErrorCode flush() override;
+
+    nebula::cpp2::ErrorCode backup() override;
 
     /*********************
      * Checkpoint operation
      ********************/
-    ResultCode createCheckpoint(const std::string& path) override;
+    nebula::cpp2::ErrorCode createCheckpoint(const std::string& path) override;
 
-    ErrorOr<ResultCode, std::string> backupTable(
-        const std::string& path,
-        const std::string& tablePrefix,
-        std::function<bool(const folly::StringPiece& key)> filter) override;
+    ErrorOr<nebula::cpp2::ErrorCode, std::string>
+    backupTable(const std::string& path,
+                const std::string& tablePrefix,
+                std::function<bool(const folly::StringPiece& key)> filter) override;
 
 private:
     std::string partKey(PartitionID partId);
 
+    void openBackupEngine(GraphSpaceID spaceId);
+
 private:
+    GraphSpaceID spaceId_;
     std::string dataPath_;
+    std::string walPath_;
     std::unique_ptr<rocksdb::DB> db_{nullptr};
+    std::string backupPath_;
+    std::unique_ptr<rocksdb::BackupEngine> backupDb_{nullptr};
     int32_t partsNum_ = -1;
 };
 
 }   // namespace kvstore
 }   // namespace nebula
+
 #endif   // KVSTORE_ROCKSENGINE_H_

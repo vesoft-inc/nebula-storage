@@ -223,7 +223,7 @@ WriteResult RowWriterV2::setValue(ssize_t index, const Value& val) noexcept {
 }
 
 
-WriteResult RowWriterV2::setValue(folly::StringPiece name, const Value& val) noexcept {
+WriteResult RowWriterV2::setValue(const std::string &name, const Value& val) noexcept {
     CHECK(!finished_) << "You have called finish()";
     int64_t index = schema_->getFieldIndex(name);
     return setValue(index, val);
@@ -248,7 +248,7 @@ WriteResult RowWriterV2::setNull(ssize_t index) noexcept {
 }
 
 
-WriteResult RowWriterV2::setNull(folly::StringPiece name) noexcept {
+WriteResult RowWriterV2::setNull(const std::string& name) noexcept {
     CHECK(!finished_) << "You have called finish()";
     int64_t index = schema_->getFieldIndex(name);
     return setNull(index);
@@ -780,21 +780,28 @@ WriteResult RowWriterV2::write(ssize_t index, const Time& v) noexcept {
 WriteResult RowWriterV2::write(ssize_t index, const DateTime& v) noexcept {
     auto field = schema_->field(index);
     auto offset = headerLen_ + numNullBytes_ + field->offset();
+    int16_t year = v.year;
+    int8_t month = v.month;
+    int8_t day = v.day;
+    int8_t hour = v.hour;
+    int8_t minute = v.minute;
+    int8_t sec = v.sec;
+    int32_t microsec = v.microsec;
     switch (field->type()) {
         case meta::cpp2::PropertyType::DATE:
-            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.year), sizeof(int16_t));
-            buf_[offset + sizeof(int16_t)] = v.month;
-            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.day;
+            memcpy(&buf_[offset], reinterpret_cast<const void*>(&year), sizeof(int16_t));
+            buf_[offset + sizeof(int16_t)] = month;
+            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = day;
             break;
         case meta::cpp2::PropertyType::DATETIME:
-            memcpy(&buf_[offset], reinterpret_cast<const void*>(&v.year), sizeof(int16_t));
-            buf_[offset + sizeof(int16_t)] = v.month;
-            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = v.day;
-            buf_[offset + sizeof(int16_t) + 2 * sizeof(int8_t)] = v.hour;
-            buf_[offset + sizeof(int16_t) + 3 * sizeof(int8_t)] = v.minute;
-            buf_[offset + sizeof(int16_t) + 4 * sizeof(int8_t)] = v.sec;
+            memcpy(&buf_[offset], reinterpret_cast<const void*>(&year), sizeof(int16_t));
+            buf_[offset + sizeof(int16_t)] = month;
+            buf_[offset + sizeof(int16_t) + sizeof(int8_t)] = day;
+            buf_[offset + sizeof(int16_t) + 2 * sizeof(int8_t)] = hour;
+            buf_[offset + sizeof(int16_t) + 3 * sizeof(int8_t)] = minute;
+            buf_[offset + sizeof(int16_t) + 4 * sizeof(int8_t)] = sec;
             memcpy(&buf_[offset + sizeof(int16_t) + 5 * sizeof(int8_t)],
-                   reinterpret_cast<const void*>(&v.microsec),
+                   reinterpret_cast<const void*>(&microsec),
                    sizeof(int32_t));
             break;
         default:
@@ -821,7 +828,7 @@ WriteResult RowWriterV2::checkUnsetFields() noexcept {
             WriteResult r = WriteResult::SUCCEEDED;
             if (field->hasDefault()) {
                 auto expr = field->defaultValue()->clone();
-                auto defVal = Expression::eval(expr.get(), expCtx);
+                auto defVal = Expression::eval(expr, expCtx);
                 switch (defVal.type()) {
                     case Value::Type::NULLVALUE:
                         setNullBit(field->nullFlagPos());

@@ -34,6 +34,8 @@ struct KVOptions {
     // otherwise it would mix up the data on disk.
     std::vector<std::string> dataPaths_;
 
+    std::string walPath_;
+
     // Path for listener, only wal is stored, the structure would be spaceId/partId/wal
     std::string listenerPath_;
 
@@ -42,9 +44,8 @@ struct KVOptions {
 
     // Custom MergeOperator used in rocksdb.merge method.
     std::shared_ptr<rocksdb::MergeOperator> mergeOp_{nullptr};
-    /**
-     * Custom CompactionFilter used in compaction.
-     * */
+
+    // Custom CompactionFilter used in compaction.
     std::unique_ptr<CompactionFilterFactoryBuilder> cffBuilder_{nullptr};
 };
 
@@ -68,24 +69,25 @@ public:
     virtual void stop() = 0;
 
     // Retrieve the current leader for the given partition. This
-    // is usually called when ERR_LEADER_CHANGED result code is
-    // returned
-    virtual ErrorOr<ResultCode, HostAddr> partLeader(GraphSpaceID spaceId, PartitionID partID) = 0;
+    // is usually called when E_LEADER_CHANGED error code is returned.
+    virtual ErrorOr<nebula::cpp2::ErrorCode, HostAddr>
+    partLeader(GraphSpaceID spaceId, PartitionID partID) = 0;
 
     virtual PartManager* partManager() const {
         return nullptr;
     }
 
     // Read a single key
-    virtual ResultCode get(GraphSpaceID spaceId,
-                           PartitionID partId,
-                           const std::string& key,
-                           std::string* value,
-                           bool canReadFromFollower = false) = 0;
+    virtual nebula::cpp2::ErrorCode
+    get(GraphSpaceID spaceId,
+        PartitionID partId,
+        const std::string& key,
+        std::string* value,
+        bool canReadFromFollower = false) = 0;
 
-    // Read multiple keys, if error occurs a ResultCode is returned,
+    // Read multiple keys, if error occurs a cpp2::ErrorCode is returned,
     // If key[i] does not exist, the i-th value in return value would be Status::KeyNotFound
-    virtual std::pair<ResultCode, std::vector<Status>>
+    virtual std::pair<nebula::cpp2::ErrorCode, std::vector<Status>>
     multiGet(GraphSpaceID spaceId,
              PartitionID partId,
              const std::vector<std::string>& keys,
@@ -93,54 +95,61 @@ public:
              bool canReadFromFollower = false) = 0;
 
     // Get all results in range [start, end)
-    virtual ResultCode range(GraphSpaceID spaceId,
-                             PartitionID partId,
-                             const std::string& start,
-                             const std::string& end,
-                             std::unique_ptr<KVIterator>* iter,
-                             bool canReadFromFollower = false) = 0;
+    virtual nebula::cpp2::ErrorCode
+    range(GraphSpaceID spaceId,
+          PartitionID partId,
+          const std::string& start,
+          const std::string& end,
+          std::unique_ptr<KVIterator>* iter,
+          bool canReadFromFollower = false) = 0;
 
     // Since the `range' interface will hold references to its 3rd & 4th parameter, in `iter',
     // thus the arguments must outlive `iter'.
     // Here we forbid one to invoke `range' with rvalues, which is the common mistake.
-    virtual ResultCode range(GraphSpaceID spaceId,
-                             PartitionID partId,
-                             std::string&& start,
-                             std::string&& end,
-                             std::unique_ptr<KVIterator>* iter,
-                             bool canReadFromFollower = false) = delete;
+    virtual nebula::cpp2::ErrorCode
+    range(GraphSpaceID spaceId,
+          PartitionID partId,
+          std::string&& start,
+          std::string&& end,
+          std::unique_ptr<KVIterator>* iter,
+          bool canReadFromFollower = false) = delete;
 
     // Get all results with prefix.
-    virtual ResultCode prefix(GraphSpaceID spaceId,
-                              PartitionID partId,
-                              const std::string& prefix,
-                              std::unique_ptr<KVIterator>* iter,
-                              bool canReadFromFollower = false) = 0;
+    virtual nebula::cpp2::ErrorCode
+    prefix(GraphSpaceID spaceId,
+           PartitionID partId,
+           const std::string& prefix,
+           std::unique_ptr<KVIterator>* iter,
+           bool canReadFromFollower = false) = 0;
 
     // To forbid to pass rvalue via the `prefix' parameter.
-    virtual ResultCode prefix(GraphSpaceID spaceId,
-                              PartitionID partId,
-                              std::string&& prefix,
-                              std::unique_ptr<KVIterator>* iter,
-                              bool canReadFromFollower = false) = delete;
+    virtual nebula::cpp2::ErrorCode
+    prefix(GraphSpaceID spaceId,
+           PartitionID partId,
+           std::string&& prefix,
+           std::unique_ptr<KVIterator>* iter,
+           bool canReadFromFollower = false) = delete;
 
     // Get all results with prefix starting from start
-    virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
-                                       PartitionID partId,
-                                       const std::string& start,
-                                       const std::string& prefix,
-                                       std::unique_ptr<KVIterator>* iter,
-                                       bool canReadFromFollower = false) = 0;
+    virtual nebula::cpp2::ErrorCode
+    rangeWithPrefix(GraphSpaceID spaceId,
+                    PartitionID partId,
+                    const std::string& start,
+                    const std::string& prefix,
+                    std::unique_ptr<KVIterator>* iter,
+                    bool canReadFromFollower = false) = 0;
 
     // To forbid to pass rvalue via the `rangeWithPrefix' parameter.
-    virtual ResultCode rangeWithPrefix(GraphSpaceID spaceId,
-                                       PartitionID partId,
-                                       std::string&& start,
-                                       std::string&& prefix,
-                                       std::unique_ptr<KVIterator>* iter,
-                                       bool canReadFromFollower = false) = delete;
+    virtual nebula::cpp2::ErrorCode
+    rangeWithPrefix(GraphSpaceID spaceId,
+                    PartitionID partId,
+                    std::string&& start,
+                    std::string&& prefix,
+                    std::unique_ptr<KVIterator>* iter,
+                    bool canReadFromFollower = false) = delete;
 
-    virtual ResultCode sync(GraphSpaceID spaceId, PartitionID partId) = 0;
+    virtual nebula::cpp2::ErrorCode
+    sync(GraphSpaceID spaceId, PartitionID partId) = 0;
 
     virtual void asyncMultiPut(GraphSpaceID spaceId,
                                PartitionID partId,
@@ -180,36 +189,42 @@ public:
                                   std::string&& batch,
                                   KVCallback cb) = 0;
 
-    virtual ResultCode ingest(GraphSpaceID spaceId) = 0;
+    virtual nebula::cpp2::ErrorCode ingest(GraphSpaceID spaceId) = 0;
 
     virtual int32_t allLeader(std::unordered_map<GraphSpaceID,
                               std::vector<meta::cpp2::LeaderInfo>>& leaderIds) = 0;
 
-    virtual ErrorOr<ResultCode, std::shared_ptr<Part>> part(GraphSpaceID spaceId,
-                                                            PartitionID partId) = 0;
+    virtual ErrorOr<nebula::cpp2::ErrorCode, std::shared_ptr<Part>>
+    part(GraphSpaceID spaceId, PartitionID partId) = 0;
 
-    virtual ResultCode compact(GraphSpaceID spaceId) = 0;
+    virtual nebula::cpp2::ErrorCode compact(GraphSpaceID spaceId) = 0;
 
-    virtual ResultCode flush(GraphSpaceID spaceId) = 0;
+    virtual nebula::cpp2::ErrorCode flush(GraphSpaceID spaceId) = 0;
 
-    virtual ErrorOr<ResultCode, std::string> createCheckpoint(GraphSpaceID spaceId,
-                                                              const std::string& name) = 0;
-
-    virtual ResultCode dropCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
-
-    virtual ResultCode setWriteBlocking(GraphSpaceID spaceId, bool sign) = 0;
-
-    virtual ErrorOr<ResultCode, std::vector<std::string>> backupTable(
+    virtual ErrorOr<nebula::cpp2::ErrorCode, std::vector<cpp2::CheckpointInfo>> createCheckpoint(
         GraphSpaceID spaceId,
-        const std::string& name,
-        const std::string& tablePrefix,
-        std::function<bool(const folly::StringPiece& key)> filter) = 0;
+        const std::string& name) = 0;
 
-    virtual ResultCode restoreFromFiles(GraphSpaceID spaceId,
-                                        const std::vector<std::string>& files) = 0;
+    virtual nebula::cpp2::ErrorCode
+    dropCheckpoint(GraphSpaceID spaceId, const std::string& name) = 0;
 
-    virtual ResultCode multiPutWithoutReplicator(GraphSpaceID spaceId,
-                                                std::vector<KV> keyValues) = 0;
+    virtual nebula::cpp2::ErrorCode
+    setWriteBlocking(GraphSpaceID spaceId, bool sign) = 0;
+
+    virtual ErrorOr<nebula::cpp2::ErrorCode, std::vector<std::string>>
+    backupTable(GraphSpaceID spaceId,
+                const std::string& name,
+                const std::string& tablePrefix,
+                std::function<bool(const folly::StringPiece& key)> filter) = 0;
+
+    // for meta BR
+    virtual nebula::cpp2::ErrorCode restoreFromFiles(GraphSpaceID spaceId,
+                                                     const std::vector<std::string>& files) = 0;
+
+    virtual nebula::cpp2::ErrorCode
+    multiPutWithoutReplicator(GraphSpaceID spaceId, std::vector<KV> keyValues) = 0;
+
+    virtual std::vector<std::string> getDataRoot() const = 0;
 
 protected:
     KVStore() = default;
@@ -217,4 +232,5 @@ protected:
 
 }   // namespace kvstore
 }   // namespace nebula
+
 #endif   // KVSTORE_KVSTORE_H_

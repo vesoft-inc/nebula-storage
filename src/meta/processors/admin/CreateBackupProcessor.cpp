@@ -4,16 +4,19 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
-#include "meta/processors/admin/CreateBackupProcessor.h"
+#include "common/time/TimeUtils.h"
+
 #include "meta/ActiveHostsMan.h"
+#include "meta/processors/admin/CreateBackupProcessor.h"
 #include "meta/processors/admin/SnapShot.h"
+#include "meta/processors/jobMan/JobManager.h"
+
 
 namespace nebula {
 namespace meta {
 
-ErrorOr<cpp2::ErrorCode, std::unordered_set<GraphSpaceID>>
-CreateBackupProcessor::spaceNameToId(
-    const std::vector<std::string>* backupSpaces) {
+ErrorOr<nebula::cpp2::ErrorCode, std::unordered_set<GraphSpaceID>>
+CreateBackupProcessor::spaceNameToId(const std::vector<std::string>* backupSpaces) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     std::unordered_set<GraphSpaceID> spaces;
 
@@ -29,10 +32,13 @@ CreateBackupProcessor::spaceNameToId(
 
         auto result = doMultiGet(std::move(keys));
         if (!nebula::ok(result)) {
-            auto retCode = nebula::error(result);
-            LOG(ERROR) << "MultiGet space failed, error: "
-                       << apache::thrift::util::enumNameSafe(retCode);
-            return retCode;
+            auto err = nebula::error(result);
+            LOG(ERROR) << "Failed to get space id, error: "
+                       << apache::thrift::util::enumNameSafe(err);
+            if (err == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+                return nebula::cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND;
+            }
+            return err;
         }
 
         auto values = std::move(nebula::value(result));
@@ -65,45 +71,25 @@ CreateBackupProcessor::spaceNameToId(
 
     if (spaces.empty()) {
         LOG(ERROR) << "Failed to create a full backup because there is currently no space.";
-        return cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_BACKUP_SPACE_NOT_FOUND;
     }
 
     return spaces;
-}
-
-ErrorOr<cpp2::ErrorCode, bool> CreateBackupProcessor::isIndexRebuilding() {
-    folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
-    const auto& prefix = MetaServiceUtils::rebuildIndexStatusPrefix();
-    auto ret = doPrefix(prefix);
-    if (!nebula::ok(ret)) {
-        auto retCode = nebula::error(ret);
-        LOG(ERROR) << "Prefix index rebuilding state failed, result code: "
-                   << static_cast<int32_t>(retCode);;
-        return retCode;
-    }
-
-    auto iter = nebula::value(ret).get();
-    while (iter->valid()) {
-        if (iter->val() == "RUNNING") {
-            return true;
-        }
-        iter->next();
-    }
-
-    return false;
 }
 
 void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     auto* backupSpaces = req.get_spaces();
     auto* store = static_cast<kvstore::NebulaStore*>(kvstore_);
     if (!store->isLeader(kDefaultSpaceId, kDefaultPartId)) {
-        handleErrorCode(cpp2::ErrorCode::E_LEADER_CHANGED);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_LEADER_CHANGED);
         onFinished();
         return;
     }
+    JobManager* jobMgr = JobManager::getInstance();
 
-    auto result = isIndexRebuilding();
+    auto result = jobMgr->checkIndexJobRuning();
     if (!nebula::ok(result)) {
+        LOG(ERROR) << "get Index status failed, not allowed to create backup.";
         handleErrorCode(nebula::error(result));
         onFinished();
         return;
@@ -111,7 +97,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     if (nebula::value(result)) {
         LOG(ERROR) << "Index is rebuilding, not allowed to create backup.";
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_BUILDING_INDEX);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_BACKUP_BUILDING_INDEX);
         onFinished();
         return;
     }
@@ -128,7 +114,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     if (hosts.empty()) {
         LOG(ERROR) << "There has some offline hosts";
-        handleErrorCode(cpp2::ErrorCode::E_NO_HOSTS);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_NO_HOSTS);
         onFinished();
         return;
     }
@@ -153,11 +139,11 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
 
     // step 1 : Blocking all writes action for storage engines.
     auto ret = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_ON);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Send blocking sign to storage engine error";
         handleErrorCode(ret);
         ret = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_OFF);
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Cancel write blocking error";
         }
         onFinished();
@@ -170,7 +156,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         LOG(ERROR) << "Checkpoint create error on storage engine";
         handleErrorCode(nebula::error(sret));
         ret = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_OFF);
-        if (ret != cpp2::ErrorCode::SUCCEEDED) {
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Cancel write blocking error";
         }
         onFinished();
@@ -178,17 +164,17 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
     }
 
     // step 4 created backup for meta(export sst).
-    auto backupFiles = MetaServiceUtils::backup(kvstore_, spaces, backupName, backupSpaces);
-    if (!backupFiles.hasValue()) {
+    auto backupFiles = MetaServiceUtils::backupSpaces(kvstore_, spaces, backupName, backupSpaces);
+    if (!nebula::ok(backupFiles)) {
         LOG(ERROR) << "Failed backup meta";
-        handleErrorCode(cpp2::ErrorCode::E_BACKUP_FAILURE);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_BACKUP_FAILED);
         onFinished();
         return;
     }
 
     // step 5 : checkpoint created done, so release the write blocking.
     ret = Snapshot::instance(kvstore_, client_)->blockingWrites(SignType::BLOCK_OFF);
-    if (ret != cpp2::ErrorCode::SUCCEEDED) {
+    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Cancel write blocking error";
         handleErrorCode(ret);
         onFinished();
@@ -201,7 +187,7 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
                                                     NetworkUtils::toHostsStr(hosts)));
 
     auto putRet = doSyncPut(std::move(data));
-    if (putRet != cpp2::ErrorCode::SUCCEEDED) {
+    if (putRet != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "All checkpoint creations are done, "
                       "but update checkpoint status error. "
                       "backup : "
@@ -229,17 +215,24 @@ void CreateBackupProcessor::process(const cpp2::CreateBackupReq& req) {
         // todo we should save partition info.
         auto it = snapshotInfo.find(id);
         DCHECK(it != snapshotInfo.end());
-        spaceInfo.set_cp_dirs(it->second);
+        spaceInfo.set_info(std::move(it->second));
         spaceInfo.set_space(std::move(properties));
         backupInfo.emplace(id, std::move(spaceInfo));
     }
     cpp2::BackupMeta backup;
-    LOG(INFO) << "sst files count was:" << backupFiles.value().size();
-    backup.set_meta_files(std::move(backupFiles.value()));
+    LOG(INFO) << "sst files count was:" << nebula::value(backupFiles).size();
+    backup.set_meta_files(std::move(nebula::value(backupFiles)));
     backup.set_backup_info(std::move(backupInfo));
     backup.set_backup_name(std::move(backupName));
+    backup.set_full(true);
+    if (backupSpaces == nullptr) {
+        backup.set_include_system_space(true);
+    } else {
+        backup.set_include_system_space(false);
+    }
+    backup.set_create_time(time::WallClock::fastNowInMilliSec());
 
-    handleErrorCode(cpp2::ErrorCode::SUCCEEDED);
+    handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     resp_.set_meta(std::move(backup));
     LOG(INFO) << "backup done";
 

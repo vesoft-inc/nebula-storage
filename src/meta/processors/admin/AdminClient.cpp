@@ -54,11 +54,11 @@ folly::Future<Status> AdminClient::transLeader(GraphSpaceID spaceId,
                return client->future_transLeader(request);
            }, [] (auto&& resp) -> Status {
                switch (resp.get_code()) {
-                   case storage::cpp2::ErrorCode::SUCCEEDED:
-                   case storage::cpp2::ErrorCode::E_LEADER_CHANGED: {
+                   case nebula::cpp2::ErrorCode::SUCCEEDED:
+                   case nebula::cpp2::ErrorCode::E_LEADER_CHANGED: {
                        return Status::OK();
                    }
-                   case storage::cpp2::ErrorCode::E_PART_NOT_FOUND: {
+                   case nebula::cpp2::ErrorCode::E_PART_NOT_FOUND: {
                        return Status::PartNotFound();
                    }
                    default:
@@ -88,7 +88,7 @@ folly::Future<Status> AdminClient::addPart(GraphSpaceID spaceId,
                            return client->future_addPart(request);
                        },
                        [] (auto&& resp) -> Status {
-                           if (resp.get_code() == storage::cpp2::ErrorCode::SUCCEEDED) {
+                           if (resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED) {
                                return Status::OK();
                            } else {
                                return Status::Error("Add part failed! code=%d",
@@ -207,26 +207,22 @@ folly::Future<Status> AdminClient::updateMeta(GraphSpaceID spaceId,
         peers.emplace_back(dst);
     }
 
-    auto partRet = kv_->part(kDefaultSpaceId, kDefaultPartId);
-    CHECK(ok(partRet));
-    auto part = nebula::value(partRet);
-
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
     std::vector<kvstore::KV> data;
     data.emplace_back(MetaServiceUtils::partKey(spaceId, partId),
                       MetaServiceUtils::partVal(peers));
-    part->asyncMultiPut(std::move(data), [] (kvstore::ResultCode) {});
-    part->sync([this, p = std::move(pro)] (kvstore::ResultCode code) mutable {
-        // To avoid dead lock, we call future callback in ioThreadPool_
-        folly::via(ioThreadPool_.get(), [code, p = std::move(p)] () mutable {
-            if (code == kvstore::ResultCode::SUCCEEDED) {
-                p.setValue(Status::OK());
-            } else {
-                p.setValue(Status::Error("Access kv failed, code: %d", static_cast<int32_t>(code)));
-            }
+    kv_->asyncMultiPut(kDefaultSpaceId, kDefaultPartId, std::move(data),
+        [this, p = std::move(pro)] (nebula::cpp2::ErrorCode code) mutable {
+            folly::via(ioThreadPool_.get(), [code, p = std::move(p)]() mutable {
+                if (code == nebula::cpp2::ErrorCode::SUCCEEDED) {
+                    p.setValue(Status::OK());
+                } else {
+                    p.setValue(Status::Error("Access kv failed, code: %s",
+                                             apache::thrift::util::enumNameSafe(code).c_str()));
+                }
+            });
         });
-    });
     return f;
 }
 
@@ -240,7 +236,7 @@ folly::Future<Status> AdminClient::removePart(GraphSpaceID spaceId,
            [] (auto client, auto request) {
                return client->future_removePart(request);
            }, [] (auto&& resp) -> Status {
-               if (resp.get_code() == storage::cpp2::ErrorCode::SUCCEEDED) {
+               if (resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED) {
                    return Status::OK();
                } else {
                    return Status::Error("Remove part failed! code=%d",
@@ -281,7 +277,7 @@ folly::Future<Status> AdminClient::checkPeers(GraphSpaceID spaceId, PartitionID 
                  [] (auto client, auto request) {
                     return client->future_checkPeers(request);
                  }, [] (auto&& resp) -> Status {
-                    if (resp.get_code() == storage::cpp2::ErrorCode::SUCCEEDED) {
+                    if (resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED) {
                         return Status::OK();
                     } else {
                         return Status::Error("Check peers failed! code=%d",
@@ -342,7 +338,7 @@ folly::Future<Status> AdminClient::getResponse(
                 auto&& result = std::move(t).value().get_result();
                 if (result.get_failed_parts().empty()) {
                     storage::cpp2::PartitionResult resultCode;
-                    resultCode.set_code(storage::cpp2::ErrorCode::SUCCEEDED);
+                    resultCode.set_code(nebula::cpp2::ErrorCode::SUCCEEDED);
                     resultCode.set_part_id(partId);
                     p.setValue(respGen(resultCode));
                 } else {
@@ -410,7 +406,7 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
             }
             auto resp = adminResp.result.get_failed_parts().front();
             switch (resp.get_code()) {
-                case storage::cpp2::ErrorCode::E_LEADER_CHANGED: {
+                case nebula::cpp2::ErrorCode::E_LEADER_CHANGED: {
                     if (retry < retryLimit) {
                         HostAddr leader("", 0);
                         if (resp.get_leader() != nullptr) {
@@ -493,16 +489,16 @@ void AdminClient::getResponse(std::vector<HostAddr> hosts,
     });  // via
 }
 
-ErrorOr<cpp2::ErrorCode, std::vector<HostAddr>>
+ErrorOr<nebula::cpp2::ErrorCode, std::vector<HostAddr>>
 AdminClient::getPeers(GraphSpaceID spaceId, PartitionID partId) {
     CHECK_NOTNULL(kv_);
     auto partKey = MetaServiceUtils::partKey(spaceId, partId);
     std::string value;
     auto code = kv_->get(kDefaultSpaceId, kDefaultPartId, partKey, &value);
-    if (code == kvstore::ResultCode::SUCCEEDED) {
+    if (code == nebula::cpp2::ErrorCode::SUCCEEDED) {
         return MetaServiceUtils::parsePartVal(value);
     }
-    return MetaCommon::to(code);
+    return code;
 }
 
 std::vector<HostAddr> AdminClient::getAdminAddrFromPeers(const std::vector<HostAddr> &peers) {
@@ -590,22 +586,22 @@ folly::Future<Status> AdminClient::getLeaderDist(HostLeaderMap* result) {
     return future;
 }
 
-folly::Future<StatusOr<std::string>> AdminClient::createSnapshot(GraphSpaceID spaceId,
-                                                                 const std::string& name,
-                                                                 const HostAddr& host) {
-    folly::Promise<StatusOr<std::string>> pro;
+folly::Future<StatusOr<cpp2::BackupInfo>> AdminClient::createSnapshot(GraphSpaceID spaceId,
+                                                                      const std::string& name,
+                                                                      const HostAddr& host) {
+    folly::Promise<StatusOr<cpp2::BackupInfo>> pro;
     auto f = pro.getFuture();
 
     auto* evb = ioThreadPool_->getEventBase();
     auto storageHost = Utils::getAdminAddrFromStoreAddr(host);
-    folly::via(evb, [evb, storageHost, pro = std::move(pro), spaceId, name, this]() mutable {
+    folly::via(evb, [evb, storageHost, host, pro = std::move(pro), spaceId, name, this]() mutable {
         auto client = clientsMan_->client(storageHost, evb);
         storage::cpp2::CreateCPRequest req;
         req.set_space_id(spaceId);
         req.set_name(name);
         client->future_createCheckpoint(std::move(req))
             .via(evb)
-            .then([p = std::move(pro), storageHost](
+            .then([p = std::move(pro), storageHost, host](
                       folly::Try<storage::cpp2::CreateCPResp>&& t) mutable {
                 if (t.hasException()) {
                     LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
@@ -616,7 +612,10 @@ folly::Future<StatusOr<std::string>> AdminClient::createSnapshot(GraphSpaceID sp
                 auto&& resp = std::move(t).value();
                 auto&& result = resp.get_result();
                 if (result.get_failed_parts().empty()) {
-                    p.setValue(std::move(resp.get_path()));
+                    cpp2::BackupInfo backupInfo;
+                    backupInfo.set_host(host);
+                    backupInfo.set_info(std::move(resp.get_info()));
+                    p.setValue(std::move(backupInfo));
                     return;
                 }
                 p.setValue(Status::Error("create checkpoint failed"));
@@ -634,10 +633,14 @@ folly::Future<Status> AdminClient::dropSnapshot(GraphSpaceID spaceId,
     req.set_name(name);
     folly::Promise<Status> pro;
     auto f = pro.getFuture();
-    getResponse({Utils::getAdminAddrFromStoreAddr(host)}, 0, std::move(req),
-                [] (auto client, auto request) {
-                    return client->future_dropCheckpoint(request);
-                }, 0, std::move(pro), 3 /*The snapshot operation need to retry 3 times*/);
+    getResponse(
+        {Utils::getAdminAddrFromStoreAddr(host)},
+        0,
+        std::move(req),
+        [](auto client, auto request) { return client->future_dropCheckpoint(request); },
+        0,
+        std::move(pro),
+        3 /*The snapshot operation need to retry 3 times*/);
     return f;
 }
 
@@ -734,6 +737,38 @@ AdminClient::stopTask(const std::vector<HostAddr>& target,
                 [] (auto client, auto request) {
                     return client->future_stopAdminTask(request);
                 }, 0, std::move(pro), 1);
+    return f;
+}
+
+folly::Future<StatusOr<nebula::cpp2::DirInfo>> AdminClient::listClusterInfo(const HostAddr& host) {
+    folly::Promise<StatusOr<nebula::cpp2::DirInfo>> pro;
+    auto f = pro.getFuture();
+
+    auto* evb = ioThreadPool_->getEventBase();
+    auto storageHost = Utils::getAdminAddrFromStoreAddr(host);
+    folly::via(evb, [evb, storageHost, pro = std::move(pro), this]() mutable {
+        auto client = clientsMan_->client(storageHost, evb);
+        storage::cpp2::ListClusterInfoReq req;
+        client->future_listClusterInfo(std::move(req))
+            .via(evb)
+            .then([p = std::move(pro),
+                   storageHost](folly::Try<storage::cpp2::ListClusterInfoResp>&& t) mutable {
+                if (t.hasException()) {
+                    LOG(ERROR) << folly::stringPrintf("RPC failure in AdminClient: %s",
+                                                      t.exception().what().c_str());
+                    p.setValue(Status::Error("RPC failure in listClusterInfo"));
+                    return;
+                }
+                auto&& resp = std::move(t).value();
+                auto&& result = resp.get_result();
+                if (result.get_failed_parts().empty()) {
+                    p.setValue(resp.get_dir());
+                    return;
+                }
+                p.setValue(Status::Error("list clusterInfo failed"));
+            });
+    });
+
     return f;
 }
 

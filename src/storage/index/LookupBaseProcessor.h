@@ -21,8 +21,7 @@
 namespace nebula {
 namespace storage {
 using IndexFilterItem =
-    std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>,
-                                          std::unique_ptr<Expression>>>;
+    std::unordered_map<int32_t, std::pair<std::unique_ptr<StorageExpressionContext>, Expression*>>;
 
 template<typename REQ, typename RESP>
 class LookupBaseProcessor : public BaseProcessor<RESP> {
@@ -42,7 +41,7 @@ protected:
 
     virtual void onProcessFinished() = 0;
 
-    cpp2::ErrorCode requestCheck(const cpp2::LookupIndexRequest& req);
+    nebula::cpp2::ErrorCode requestCheck(const cpp2::LookupIndexRequest& req);
 
     bool isOutsideIndex(Expression* filter, const meta::cpp2::IndexItem* index);
 
@@ -82,7 +81,9 @@ protected:
     std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> schemas_;
     std::vector<size_t>                                            deDupColPos_;
 };
+
 }  // namespace storage
 }  // namespace nebula
+
 #include "storage/index/LookupBaseProcessor.inl"
 #endif  // STORAGE_QUERY_LOOKUPBASEPROCESSOR_H_

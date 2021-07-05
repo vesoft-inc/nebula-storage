@@ -17,10 +17,16 @@ namespace nebula {
 namespace meta {
 
 using PartsOfHost = std::pair<HostAddr, std::vector<PartitionID>>;
-using ErrOrHosts  = ErrorOr<cpp2::ErrorCode, std::vector<PartsOfHost>>;
+using ErrOrHosts  = ErrorOr<nebula::cpp2::ErrorCode, std::vector<PartsOfHost>>;
 
 class MetaJobExecutor {
 public:
+    enum class TargetHosts {
+        LEADER = 0,
+        LISTENER,
+        DEFAULT
+    };
+
     MetaJobExecutor(JobID jobId,
                     kvstore::KVStore* kvstore,
                     AdminClient* adminClient,
@@ -36,34 +42,37 @@ public:
     virtual bool check() = 0;
 
     // Prepare the Job info from the arguments.
-    virtual cpp2::ErrorCode prepare() = 0;
+    virtual nebula::cpp2::ErrorCode prepare() = 0;
 
     // The skeleton to run the job.
     // You should rewrite the executeInternal to trigger the calling.
-    cpp2::ErrorCode  execute();
+    nebula::cpp2::ErrorCode  execute();
 
     void interruptExecution(JobID jobId);
 
     // Stop the job when the user cancel it.
-    virtual cpp2::ErrorCode stop() = 0;
+    virtual nebula::cpp2::ErrorCode stop() = 0;
 
-    virtual cpp2::ErrorCode finish(bool) {
-        return cpp2::ErrorCode::SUCCEEDED;
+    virtual nebula::cpp2::ErrorCode finish(bool) {
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
 
     void setSpaceId(GraphSpaceID spaceId) { space_ = spaceId; }
 
-    virtual cpp2::ErrorCode saveSpecialTaskStatus(const cpp2::ReportTaskReq&) {
-        return cpp2::ErrorCode::SUCCEEDED;
+    virtual nebula::cpp2::ErrorCode
+    saveSpecialTaskStatus(const cpp2::ReportTaskReq&) {
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
 
 protected:
-    ErrorOr<cpp2::ErrorCode, GraphSpaceID>
+    ErrorOr<nebula::cpp2::ErrorCode, GraphSpaceID>
     getSpaceIdFromName(const std::string& spaceName);
 
     ErrOrHosts getTargetHost(GraphSpaceID space);
 
     ErrOrHosts getLeaderHost(GraphSpaceID space);
+
+    ErrOrHosts getListenerHost(GraphSpaceID space, cpp2::ListenerType type);
 
     virtual folly::Future<Status>
     executeInternal(HostAddr&& address, std::vector<PartitionID>&& parts) = 0;
@@ -75,7 +84,7 @@ protected:
     AdminClient*                adminClient_{nullptr};
     GraphSpaceID                space_;
     std::vector<std::string>    paras_;
-    bool                        toLeader_{false};
+    TargetHosts                 toHost_{TargetHosts::DEFAULT};
     int32_t                     concurrency_{INT_MAX};
     bool                        stopped_{false};
     std::mutex                  muInterrupt_;

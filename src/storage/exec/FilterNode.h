@@ -21,7 +21,7 @@ could pass the expression filter. FilterNode can only accept one upstream node, 
 must make sure that the upstream only output only tag data or edge data, but not both.
 
 As for GetNeighbors, it will have filter that involves both tag and edge expression. In
-that case, FilterNode has a upstream of HashJoinNode, which will keeps poping out edge
+that case, FilterNode has a upstream of HashJoinNode, which will keep popping out edge
 data. All tage data has been put into ExpressionContext before FilterNode is executed.
 By that means, it can check the filter of tag + edge.
 */
@@ -39,9 +39,9 @@ public:
         , expCtx_(expCtx)
         , filterExp_(exp) {}
 
-    kvstore::ResultCode execute(PartitionID partId, const T& vId) override {
+    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::execute(partId, vId);
-        if (ret != kvstore::ResultCode::SUCCEEDED) {
+        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
 
@@ -56,7 +56,7 @@ public:
             }
             break;
         } while (true);
-        return kvstore::ResultCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
 
 private:

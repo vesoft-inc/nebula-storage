@@ -80,7 +80,7 @@ public:
                 auto info = HostInfo::decode(val);
                 auto role = apache::thrift::util::enumNameSafe(info.role_);
                 auto time =
-                    time::TimeUtils::unixSecondsToDateTime(info.lastHBTimeInMilliSec_ / 1000);
+                    time::TimeConversion::unixSecondsToDateTime(info.lastHBTimeInMilliSec_ / 1000);
                 LOG(INFO) << folly::sformat("host addr: {}, role: {}, last hb time: {}",
                                             host.toString(),
                                             role,
@@ -130,12 +130,29 @@ public:
         }
         {
             LOG(INFO) << "Leader info";
-            prefix = "__leaders__";
+            prefix = "__leader_terms__";
+            HostAddr host;
+            TermID term;
+            nebula::cpp2::ErrorCode code;
             iter->Seek(rocksdb::Slice(prefix));
             while (iter->Valid() && iter->key().starts_with(prefix)) {
                 auto key = folly::StringPiece(iter->key().data(), iter->key().size());
-                auto host = MetaServiceUtils::parseLeaderKey(key);
-                LOG(INFO) << folly::sformat("leader addr: {}", host.toString());
+                auto val = folly::StringPiece(iter->value().data(), iter->value().size());
+                auto spaceIdAndPartId = MetaServiceUtils::parseLeaderKeyV3(key);
+
+                std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(val);
+                if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                    LOG(ERROR) << folly::sformat("leader space id: {}, part id: {} illegal.",
+                                                 spaceIdAndPartId.first,
+                                                 spaceIdAndPartId.second);
+                } else {
+                    LOG(INFO) << folly::sformat(
+                            "leader space id: {}, part id: {}, host: {}, term: {}",
+                            spaceIdAndPartId.first,
+                            spaceIdAndPartId.second,
+                            host.toString(),
+                            term);
+                }
                 iter->Next();
             }
         }

@@ -30,6 +30,7 @@ nebula_add_library(
     processors/indexMan/GetEdgeIndexProcessor.cpp
     processors/indexMan/ListEdgeIndexesProcessor.cpp
     processors/indexMan/FTServiceProcessor.cpp
+    processors/indexMan/FTIndexProcessor.cpp
     processors/customKV/GetProcessor.cpp
     processors/customKV/MultiGetProcessor.cpp
     processors/customKV/MultiPutProcessor.cpp
@@ -50,6 +51,8 @@ nebula_add_library(
     processors/admin/SnapShot.cpp
     processors/admin/CreateBackupProcessor.cpp
     processors/admin/RestoreProcessor.cpp
+    processors/admin/ListClusterInfoProcessor.cpp
+    processors/admin/GetMetaDirInfoProcessor.cpp
     processors/configMan/RegConfigProcessor.cpp
     processors/configMan/GetConfigProcessor.cpp
     processors/configMan/ListConfigsProcessor.cpp
@@ -69,6 +72,7 @@ nebula_add_library(
     processors/jobMan/RebuildJobExecutor.cpp
     processors/jobMan/RebuildTagJobExecutor.cpp
     processors/jobMan/RebuildEdgeJobExecutor.cpp
+    processors/jobMan/RebuildFTJobExecutor.cpp
     processors/jobMan/StatisJobExecutor.cpp
     processors/jobMan/GetStatisProcessor.cpp
     processors/jobMan/ListTagIndexStatusProcessor.cpp
@@ -84,6 +88,7 @@ nebula_add_library(
     processors/zoneMan/ListGroupsProcessor.cpp
     processors/zoneMan/UpdateGroupProcessor.cpp
     processors/listenerMan/ListenerProcessor.cpp
+    processors/sessionMan/SessionManagerProcessor.cpp
 )
 
 nebula_add_library(

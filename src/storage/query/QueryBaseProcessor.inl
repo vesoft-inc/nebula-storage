@@ -12,21 +12,21 @@ namespace nebula {
 namespace storage {
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
-        std::vector<cpp2::VertexProp>& vertexProps) {
+nebula::cpp2::ErrorCode
+QueryBaseProcessor<REQ, RESP>::handleVertexProps(std::vector<cpp2::VertexProp>& vertexProps) {
     for (auto& vertexProp : vertexProps) {
         auto tagId = vertexProp.get_tag();
         auto iter = tagContext_.schemas_.find(tagId);
         if (iter == tagContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
         CHECK(!iter->second.empty());
         const auto& tagSchema = iter->second.back();
         auto tagName = this->env_->schemaMan_->toTagName(spaceId_, tagId);
         if (!tagName.ok()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
 
         std::vector<PropContext> ctxs;
@@ -36,7 +36,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
                     auto field = tagSchema->field(name);
                     if (field == nullptr) {
                         VLOG(1) << "Can't find prop " << name << " tagId " << tagId;
-                        return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+                        return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
                     }
                     addReturnPropContext(ctxs, name.c_str(), field);
                 } else {
@@ -58,25 +58,25 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleVertexProps(
         tagContext_.indexMap_.emplace(tagId, tagContext_.propContexts_.size() - 1);
         tagContext_.tagNames_.emplace(tagId, std::move(tagName).value());
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
-        std::vector<cpp2::EdgeProp>& edgeProps) {
+nebula::cpp2::ErrorCode
+QueryBaseProcessor<REQ, RESP>::handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps) {
     for (auto& edgeProp : edgeProps) {
         auto edgeType = edgeProp.get_type();
         auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
         if (iter == edgeContext_.schemas_.end()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
         CHECK(!iter->second.empty());
         const auto& edgeSchema = iter->second.back();
         auto edgeName = this->env_->schemaMan_->toEdgeName(spaceId_, std::abs(edgeType));
         if (!edgeName.ok()) {
             VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << edgeType;
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
 
         std::vector<PropContext> ctxs;
@@ -86,7 +86,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
                     auto field = edgeSchema->field(name);
                     if (field == nullptr) {
                         VLOG(1) << "Can't find prop " << name << " edgeType " << edgeType;
-                        return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+                        return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
                     }
                     addReturnPropContext(ctxs, name.c_str(), field);
                 } else {
@@ -108,7 +108,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::handleEdgeProps(
         edgeContext_.indexMap_.emplace(edgeType, edgeContext_.propContexts_.size() - 1);
         edgeContext_.edgeNames_.emplace(edgeType, std::move(edgeName).value());
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename REQ, typename RESP>
@@ -123,32 +123,35 @@ void QueryBaseProcessor<REQ, RESP>::addReturnPropContext(
 }
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
+nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildYields(const REQ& req) {
     const auto& traverseSpec = req.get_traverse_spec();
     resultDataSet_.colNames.emplace_back("_expr");
     if (!traverseSpec.expressions_ref().has_value()) {
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
     // todo(doodle): support expression yields later
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
+nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::buildFilter(const REQ& req) {
     const auto& traverseSpec = req.get_traverse_spec();
     if (!traverseSpec.filter_ref().has_value()) {
-        return cpp2::ErrorCode::SUCCEEDED;
+        return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
     const auto& filterStr = *traverseSpec.filter_ref();
+
+    auto pool = &this->planContext_->objPool;
+    // auto v = env_;
     if (!filterStr.empty()) {
         // the filter expression **must** return a bool
-        filter_ = std::move(Expression::decode(filterStr));
+        filter_ = Expression::decode(pool, filterStr);
         if (filter_ == nullptr) {
-            return cpp2::ErrorCode::E_INVALID_FILTER;
+            return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
-        return checkExp(filter_.get(), false, true);
+        return checkExp(filter_, false, true);
     }
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename REQ, typename RESP>
@@ -231,39 +234,40 @@ std::vector<cpp2::EdgeProp> QueryBaseProcessor<REQ, RESP>::buildAllEdgeProps(
 }
 
 template <typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceVertexSchema() {
+nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceVertexSchema() {
     auto tags = this->env_->schemaMan_->getAllVerTagSchema(spaceId_);
     if (!tags.ok()) {
-        return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
     tagContext_.schemas_ = std::move(tags).value();
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceEdgeSchema() {
+nebula::cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::getSpaceEdgeSchema() {
     auto edges = this->env_->schemaMan_->getAllVerEdgeSchema(spaceId_);
     if (!edges.ok()) {
-        return cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+        return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
 
     edgeContext_.schemas_ = std::move(edges).value();
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template <typename REQ, typename RESP>
-cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
-                                                        bool returned,
-                                                        bool filtered,
-                                                        bool updated) {
+nebula::cpp2::ErrorCode
+QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
+                                        bool returned,
+                                        bool filtered,
+                                        bool updated) {
     switch (exp->kind()) {
         case Expression::Kind::kConstant: {
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kVar: {
             auto* varExp = static_cast<const VariableExpression*>(exp);
-            return varExp->isInner() ? cpp2::ErrorCode::SUCCEEDED
-                                     : cpp2::ErrorCode::E_INVALID_FILTER;
+            return varExp->isInner() ? nebula::cpp2::ErrorCode::SUCCEEDED
+                                     : nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
         case Expression::Kind::kAdd:
         case Expression::Kind::kMinus:
@@ -272,11 +276,15 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kMod: {
             auto* ariExp = static_cast<const ArithmeticExpression*>(exp);
             auto ret = checkExp(ariExp->left(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
             return checkExp(ariExp->right(), returned, filtered, updated);
         }
+        case Expression::Kind::kIsNull:
+        case Expression::Kind::kIsNotNull:
+        case Expression::Kind::kIsEmpty:
+        case Expression::Kind::kIsNotEmpty:
         case Expression::Kind::kUnaryPlus:
         case Expression::Kind::kUnaryNegate:
         case Expression::Kind::kUnaryNot:
@@ -302,7 +310,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kRelIn: {
             auto* relExp = static_cast<const RelationalExpression*>(exp);
             auto ret = checkExp(relExp->left(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
             return checkExp(relExp->right(), returned, filtered, updated);
@@ -310,114 +318,114 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kList: {
             auto* listExp = static_cast<const ListExpression*>(exp);
             for (auto& item : listExp->items()) {
-                auto ret = checkExp(item.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(item, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kSet: {
             auto* setExp = static_cast<const SetExpression*>(exp);
             for (auto& item : setExp->items()) {
-                auto ret = checkExp(item.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(item, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kMap: {
             auto* mapExp = static_cast<const MapExpression*>(exp);
             for (auto& item : mapExp->items()) {
-                auto ret = checkExp(item.second.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(item.second, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kCase: {
             auto* caseExp = static_cast<const CaseExpression*>(exp);
             if (caseExp->hasCondition()) {
                 auto ret = checkExp(caseExp->condition(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
             if (caseExp->hasDefault()) {
                 auto ret = checkExp(caseExp->defaultResult(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
             for (auto& whenThen : caseExp->cases()) {
-                auto ret = checkExp(whenThen.when.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(whenThen.when, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
-                ret = checkExp(whenThen.then.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                ret = checkExp(whenThen.then, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kListComprehension: {
             auto* lcExp = static_cast<const ListComprehensionExpression*>(exp);
             auto ret = checkExp(lcExp->collection(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
             if (lcExp->hasFilter()) {
                 ret = checkExp(lcExp->filter(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
             if (lcExp->hasMapping()) {
                 ret = checkExp(lcExp->mapping(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kPredicate: {
             auto* predExp = static_cast<const PredicateExpression*>(exp);
             auto ret = checkExp(predExp->collection(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
             ret = checkExp(predExp->filter(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kReduce: {
             auto* reduceExp = static_cast<const ReduceExpression*>(exp);
             auto ret = checkExp(reduceExp->collection(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
             ret = checkExp(reduceExp->mapping(), returned, filtered, updated);
-            if (ret != cpp2::ErrorCode::SUCCEEDED) {
+            if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 return ret;
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kLogicalAnd:
         case Expression::Kind::kLogicalOr:
         case Expression::Kind::kLogicalXor: {
             auto* logExp = static_cast<const LogicalExpression*>(exp);
             for (auto &expr : logExp->operands()) {
-                auto ret = checkExp(expr.get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(expr, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kTypeCasting: {
             auto* typExp = static_cast<const TypeCastingExpression*>(exp);
@@ -427,40 +435,40 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             auto* funExp = static_cast<const FunctionCallExpression*>(exp);
             auto& args = funExp->args()->args();
             for (auto iter = args.begin(); iter < args.end(); ++iter) {
-                auto ret = checkExp(iter->get(), returned, filtered, updated);
-                if (ret != cpp2::ErrorCode::SUCCEEDED) {
+                auto ret = checkExp(*iter, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return ret;
                 }
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kSrcProperty: {
             auto* sourceExp = static_cast<const SourcePropertyExpression*>(exp);
-            const auto* tagName = sourceExp->sym();
-            const auto* propName = sourceExp->prop();
-            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, *tagName);
+            const auto& tagName = sourceExp->sym();
+            const auto& propName = sourceExp->prop();
+            auto tagRet = this->env_->schemaMan_->toTagID(spaceId_, tagName);
             if (!tagRet.ok()) {
-                VLOG(1) << "Can't find tag " << *tagName << ", in space " << spaceId_;
-                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+                VLOG(1) << "Can't find tag " << tagName << ", in space " << spaceId_;
+                return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
             }
 
             auto tagId = tagRet.value();
             auto iter = tagContext_.schemas_.find(tagId);
             if (iter == tagContext_.schemas_.end()) {
                 VLOG(1) << "Can't find spaceId " << spaceId_ << " tagId " << tagId;
-                return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+                return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
             }
             CHECK(!iter->second.empty());
             const auto& tagSchema = iter->second.back();
 
-            if (*propName == kVid || *propName == kTag) {
-                return cpp2::ErrorCode::SUCCEEDED;
+            if (propName == kVid || propName == kTag) {
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             }
 
-            auto field = tagSchema->field(*propName);
+            auto field = tagSchema->field(propName);
             if (field == nullptr) {
-                VLOG(1) << "Can't find related prop " << *propName << " on tag " << *tagName;
-                return cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
+                VLOG(1) << "Can't find related prop " << propName << " on tag " << tagName;
+                return nebula::cpp2::ErrorCode::E_TAG_PROP_NOT_FOUND;
             }
 
             addPropContextIfNotExists(tagContext_.propContexts_,
@@ -473,9 +481,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                       returned,
                                       filtered);
             if (updated) {
-                valueProps_.emplace(*propName);
+                valueProps_.emplace(propName);
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kEdgeRank:
         case Expression::Kind::kEdgeDst:
@@ -483,34 +491,34 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kEdgeType:
         case Expression::Kind::kEdgeProperty: {
             auto* edgeExp = static_cast<const PropertyExpression*>(exp);
-            const auto* edgeName = edgeExp->sym();
-            const auto* propName = edgeExp->prop();
-            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, *edgeName);
+            const auto& edgeName = edgeExp->sym();
+            const auto& propName = edgeExp->prop();
+            auto edgeRet = this->env_->schemaMan_->toEdgeType(spaceId_, edgeName);
             if (!edgeRet.ok()) {
-                VLOG(1) << "Can't find edge " << *edgeName << ", in space " << spaceId_;
-                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+                VLOG(1) << "Can't find edge " << edgeName << ", in space " << spaceId_;
+                return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
             }
 
             auto edgeType = edgeRet.value();
             auto iter = edgeContext_.schemas_.find(std::abs(edgeType));
             if (iter == edgeContext_.schemas_.end()) {
                 VLOG(1) << "Can't find spaceId " << spaceId_ << " edgeType " << std::abs(edgeType);
-                return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+                return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
             }
             CHECK(!iter->second.empty());
             const auto& edgeSchema = iter->second.back();
 
-            if (*propName == kSrc || *propName == kType ||
-                *propName == kRank || *propName == kDst) {
-                return cpp2::ErrorCode::SUCCEEDED;
+            if (propName == kSrc || propName == kType ||
+                propName == kRank || propName == kDst) {
+                return nebula::cpp2::ErrorCode::SUCCEEDED;
             }
 
             const meta::SchemaProviderIf::Field* field = nullptr;
             if (exp->kind() == Expression::Kind::kEdgeProperty) {
-                field = edgeSchema->field(*propName);
+                field = edgeSchema->field(propName);
                 if (field == nullptr) {
-                    VLOG(1) << "Can't find related prop " << *propName << " on edge " << *edgeName;
-                    return cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
+                    VLOG(1) << "Can't find related prop " << propName << " on edge " << edgeName;
+                    return nebula::cpp2::ErrorCode::E_EDGE_PROP_NOT_FOUND;
                 }
             }
             /*
@@ -519,7 +527,9 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             So when checkExp is called, user need to make sure that related contexts have been
             set correctly, which are propContexts_, indexMap_, edgeNames_ in EdgeContext.
             */
+            bool inEdgeContext = false;
             if (edgeContext_.indexMap_.count(edgeType)) {
+                inEdgeContext = true;
                 addPropContextIfNotExists(edgeContext_.propContexts_,
                                           edgeContext_.indexMap_,
                                           edgeContext_.edgeNames_,
@@ -531,6 +541,7 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                           filtered);
             }
             if (edgeContext_.indexMap_.count(-edgeType)) {
+                inEdgeContext = true;
                 addPropContextIfNotExists(edgeContext_.propContexts_,
                                           edgeContext_.indexMap_,
                                           edgeContext_.edgeNames_,
@@ -541,10 +552,14 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
                                           returned,
                                           filtered);
             }
-            if (updated) {
-                valueProps_.emplace(*propName);
+            if (!inEdgeContext) {
+                VLOG(1) << "Edge context not find related edge " << edgeName;
+                return nebula::cpp2::ErrorCode::E_MUTATE_EDGE_CONFLICT;
             }
-            return cpp2::ErrorCode::SUCCEEDED;
+            if (updated) {
+                valueProps_.emplace(propName);
+            }
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         case Expression::Kind::kInputProperty:
         case Expression::Kind::kSubscript:
@@ -557,13 +572,20 @@ cpp2::ErrorCode QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
         case Expression::Kind::kVarProperty:
         case Expression::Kind::kDstProperty:
         case Expression::Kind::kUUID:
-        case Expression::Kind::kVersionedVar:
-        default: {
-            LOG(INFO) << "Unimplemented expression type! kind = " << exp->kind();
-            return cpp2::ErrorCode::E_INVALID_FILTER;
+        case Expression::Kind::kPathBuild:
+        case Expression::Kind::kColumn:
+        case Expression::Kind::kTSPrefix:
+        case Expression::Kind::kTSWildcard:
+        case Expression::Kind::kTSRegexp:
+        case Expression::Kind::kTSFuzzy:
+        case Expression::Kind::kAggregate:
+        case Expression::Kind::kSubscriptRange:
+        case Expression::Kind::kVersionedVar: {
+            LOG(ERROR) << "Unimplemented expression type! kind = " << exp->kind();
+            return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
         }
     }
-    return cpp2::ErrorCode::E_INVALID_FILTER;
+    return nebula::cpp2::ErrorCode::E_INVALID_FILTER;
 }
 
 template <typename REQ, typename RESP>
@@ -572,8 +594,8 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
         std::unordered_map<SchemaID, size_t>& indexMap,
         std::unordered_map<SchemaID, std::string>& names,
         int32_t entryId,
-        const std::string* entryName,
-        const std::string* propName,
+        const std::string& entryName,
+        const std::string& propName,
         const meta::SchemaProviderIf::Field* field,
         bool returned,
         bool filtered,
@@ -581,20 +603,20 @@ void QueryBaseProcessor<REQ, RESP>::addPropContextIfNotExists(
     auto idxIter = indexMap.find(entryId);
     if (idxIter == indexMap.end()) {
         // if no property of tag/edge has been add to propContexts
-        PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
+        PropContext ctx(propName.c_str(), field, returned, filtered, statInfo);
         std::vector<PropContext> ctxs;
         ctxs.emplace_back(std::move(ctx));
         propContexts.emplace_back(entryId, std::move(ctxs));
         indexMap.emplace(entryId, propContexts.size() - 1);
-        names.emplace(entryId, *entryName);
+        names.emplace(entryId, entryName);
     } else {
         // some property of tag/edge has been add to propContexts
         auto& props = propContexts[idxIter->second].second;
-        auto iter = std::find_if(props.begin(), props.end(), [propName] (const auto& prop) {
-                                 return prop.name_ == *propName; });
+        auto iter = std::find_if(props.begin(), props.end(), [&propName] (const auto& prop) {
+                                 return prop.name_ == propName; });
         if (iter == props.end()) {
             // this prop has not been add to propContexts
-            PropContext ctx(propName->c_str(), field, returned, filtered, statInfo);
+            PropContext ctx(propName.c_str(), field, returned, filtered, statInfo);
             props.emplace_back(std::move(ctx));
         } else {
             // this prop been add to propContexts, just update the flag

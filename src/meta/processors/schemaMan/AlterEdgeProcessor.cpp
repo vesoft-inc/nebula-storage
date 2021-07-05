@@ -44,7 +44,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     if (!iter->valid()) {
         LOG(ERROR) << "Edge could not be found, spaceId " << spaceId
                    << ", edgename: " << edgeName;
-        handleErrorCode(cpp2::ErrorCode::E_NOT_FOUND);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND);
         onFinished();
         return;
     }
@@ -69,7 +69,7 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     auto existIndex = !indexes.empty();
     if (existIndex) {
         auto iStatus = indexCheck(indexes, edgeItems);
-        if (iStatus != cpp2::ErrorCode::SUCCEEDED) {
+        if (iStatus != nebula::cpp2::ErrorCode::SUCCEEDED) {
             LOG(ERROR) << "Alter edge error, index conflict : "
                        << apache::thrift::util::enumNameSafe(iStatus);
             handleErrorCode(iStatus);
@@ -90,18 +90,37 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
         }
         if (!col.empty() && duration > 0) {
             LOG(ERROR) << "Alter edge error, index and ttl conflict";
-            handleErrorCode(cpp2::ErrorCode::E_UNSUPPORTED);
+            handleErrorCode(nebula::cpp2::ErrorCode::E_UNSUPPORTED);
             onFinished();
             return;
         }
     }
 
+    // check fulltext index
+    auto ftIdxRet = getFTIndex(spaceId, edgeType);
+    if (nebula::ok(ftIdxRet)) {
+        auto fti = std::move(nebula::value(ftIdxRet));
+        auto ftStatus = ftIndexCheck(fti.get_fields(), edgeItems);
+        if (ftStatus != nebula::cpp2::ErrorCode::SUCCEEDED) {
+            handleErrorCode(ftStatus);
+            onFinished();
+            return;
+        }
+    } else if (nebula::error(ftIdxRet) != nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND) {
+        handleErrorCode(nebula::error(ftIdxRet));
+        onFinished();
+        return;
+    }
+
     for (auto& edgeItem : edgeItems) {
         auto &cols = edgeItem.get_schema().get_columns();
         for (auto& col : cols) {
-            auto retCode =
-                MetaServiceUtils::alterColumnDefs(columns, prop, col, *edgeItem.op_ref());
-            if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+            auto retCode = MetaServiceUtils::alterColumnDefs(columns,
+                                                             prop,
+                                                             col,
+                                                             *edgeItem.op_ref(),
+                                                             true);
+            if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 LOG(ERROR) << "Alter edge column error "
                            << apache::thrift::util::enumNameSafe(retCode);
                 handleErrorCode(retCode);
@@ -112,14 +131,18 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
     }
 
     if (!SchemaUtil::checkType(columns)) {
-        handleErrorCode(cpp2::ErrorCode::E_INVALID_PARM);
+        handleErrorCode(nebula::cpp2::ErrorCode::E_INVALID_PARM);
         onFinished();
         return;
     }
 
     // Update schema property if edge not index
-    auto retCode = MetaServiceUtils::alterSchemaProp(columns, prop, alterSchemaProp, existIndex);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    auto retCode = MetaServiceUtils::alterSchemaProp(columns,
+                                                     prop,
+                                                     alterSchemaProp,
+                                                     existIndex,
+                                                     true);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         LOG(ERROR) << "Alter edge property error "
                    << apache::thrift::util::enumNameSafe(retCode);
         handleErrorCode(retCode);
@@ -140,4 +163,3 @@ void AlterEdgeProcessor::process(const cpp2::AlterEdgeReq& req) {
 
 }  // namespace meta
 }  // namespace nebula
-

@@ -40,7 +40,7 @@ public:
         bool nullable_;
         int32_t offset_;
         size_t nullFlagPos_;
-        std::unique_ptr<Expression> defaultValue_;
+        Expression* defaultValue_;
     };
 
 
@@ -57,15 +57,15 @@ public:
 
     size_t size() const noexcept override;
 
-    int64_t getFieldIndex(const folly::StringPiece name) const override;
+    int64_t getFieldIndex(const std::string& name) const override;
     const char* getFieldName(int64_t index) const override;
 
     meta::cpp2::PropertyType getFieldType(int64_t index) const override;
-    meta::cpp2::PropertyType getFieldType(const folly::StringPiece name)
+    meta::cpp2::PropertyType getFieldType(const std::string& name)
         const override;
 
     const meta::SchemaProviderIf::Field* field(int64_t index) const override;
-    const meta::SchemaProviderIf::Field* field(const folly::StringPiece name)
+    const meta::SchemaProviderIf::Field* field(const std::string& name)
         const override;
 
 protected:

@@ -83,9 +83,9 @@ public:
 
     virtual folly::Future<Status> getLeaderDist(HostLeaderMap* result);
 
-    virtual folly::Future<StatusOr<std::string>> createSnapshot(GraphSpaceID spaceId,
-                                                                const std::string& name,
-                                                                const HostAddr& host);
+    virtual folly::Future<StatusOr<cpp2::BackupInfo>> createSnapshot(GraphSpaceID spaceId,
+                                                                     const std::string& name,
+                                                                     const HostAddr& host);
 
     virtual folly::Future<Status> dropSnapshot(GraphSpaceID spaceId,
                                                const std::string& name,
@@ -108,6 +108,8 @@ public:
     virtual folly::Future<Status> stopTask(const std::vector<HostAddr>& target,
                                            int32_t jobId,
                                            int32_t taskId);
+
+    virtual folly::Future<StatusOr<nebula::cpp2::DirInfo>> listClusterInfo(const HostAddr& host);
 
 private:
     template<class Request,
@@ -136,7 +138,7 @@ private:
 
     Status handleResponse(const storage::cpp2::AdminExecResp& resp);
 
-    ErrorOr<cpp2::ErrorCode, std::vector<HostAddr>>
+    ErrorOr<nebula::cpp2::ErrorCode, std::vector<HostAddr>>
     getPeers(GraphSpaceID spaceId, PartitionID partId);
 
     std::vector<HostAddr> getAdminAddrFromPeers(const std::vector<HostAddr> &peers);

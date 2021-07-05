@@ -37,7 +37,7 @@ int64_t verifyResultNum(GraphSpaceID spaceId, PartitionID partId,
                         const std::string& prefix,
                         nebula::kvstore::KVStore *kv) {
     std::unique_ptr<kvstore::KVIterator> iter;
-    EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, kv->prefix(spaceId, partId, prefix, &iter));
+    EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, kv->prefix(spaceId, partId, prefix, &iter));
     int64_t rowCount = 0;
     while (iter->valid()) {
         rowCount++;
@@ -240,11 +240,12 @@ TEST(IndexTest, VerticesValueTest) {
     cluster.initStorageKV(rootPath.path());
     auto* env = cluster.storageEnv_.get();
     auto vIdLen = env->schemaMan_->getSpaceVidLen(spaceId).value();
+    auto pool = &cluster.pool_;
 
     // Mock a tag schema for nullable column and default column.
     {
         auto* schemaMan = reinterpret_cast<mock::AdHocSchemaManager*>(env->schemaMan_);
-        schemaMan->addTagSchema(spaceId, tagId, mock::MockData::mockTypicaSchemaV2());
+        schemaMan->addTagSchema(spaceId, tagId, mock::MockData::mockTypicaSchemaV2(pool));
     }
     // Mock a index for nullable column and default column.
     {
@@ -331,7 +332,7 @@ TEST(IndexTest, VerticesValueTest) {
                                                           std::move(index));
             std::unique_ptr<kvstore::KVIterator> iter;
             auto ret = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-            EXPECT_EQ(kvstore::ResultCode::SUCCEEDED, ret);
+            EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, ret);
             int64_t rowCount = 0;
             while (iter->valid()) {
                 EXPECT_EQ(indexKey, iter->key().str());

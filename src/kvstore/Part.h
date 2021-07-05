@@ -32,7 +32,8 @@ public:
          std::shared_ptr<thread::GenericThreadPool> workers,
          std::shared_ptr<folly::Executor> handlers,
          std::shared_ptr<raftex::SnapshotManager> snapshotMan,
-         std::shared_ptr<RaftClient> clientMan);
+         std::shared_ptr<RaftClient> clientMan,
+         std::shared_ptr<DiskManager> diskMan);
 
     virtual ~Part() {
         LOG(INFO) << idStr_ << "~Part()";
@@ -77,14 +78,9 @@ public:
     }
 
     // clean up all data about this part.
-    void reset() {
-        LOG(INFO) << idStr_ << "Clean up all wals";
-        wal()->reset();
-        ResultCode res = engine_->remove(NebulaKeyUtils::systemCommitKey(partId_));
-        if (res != ResultCode::SUCCEEDED) {
-            LOG(WARNING) << idStr_ << "Remove the committedLogId failed, error "
-                         << static_cast<int32_t>(res);
-        }
+    void resetPart() {
+        std::lock_guard<std::mutex> g(raftLock_);
+        reset();
     }
 
 private:
@@ -99,7 +95,7 @@ private:
 
     void onDiscoverNewLeader(HostAddr nLeader) override;
 
-    bool commitLogs(std::unique_ptr<LogIterator> iter) override;
+    cpp2::ErrorCode commitLogs(std::unique_ptr<LogIterator> iter, bool wait) override;
 
     bool preProcessLog(LogID logId,
                        TermID termId,
@@ -111,24 +107,12 @@ private:
                                                TermID committedLogTerm,
                                                bool finished) override;
 
-    ResultCode putCommitMsg(WriteBatch* batch, LogID committedLogId, TermID committedLogTerm);
+    nebula::cpp2::ErrorCode
+    putCommitMsg(WriteBatch* batch, LogID committedLogId, TermID committedLogTerm);
 
-    void cleanup() override {
-        LOG(INFO) << idStr_ << "Clean up all data, just reset the committedLogId!";
-        auto batch = engine_->startBatchWrite();
-        if (ResultCode::SUCCEEDED != putCommitMsg(batch.get(), 0, 0)) {
-            LOG(ERROR) << idStr_ << "Put failed in commit";
-            return;
-        }
-        if (ResultCode::SUCCEEDED != engine_->commitBatchWrite(std::move(batch))) {
-            LOG(ERROR) << idStr_ << "Put failed in commit";
-            return;
-        }
-        return;
-    }
+    void cleanup() override;
 
-
-    ResultCode toResultCode(raftex::AppendLogResult res);
+    nebula::cpp2::ErrorCode toResultCode(raftex::AppendLogResult res);
 
 protected:
     GraphSpaceID spaceId_;

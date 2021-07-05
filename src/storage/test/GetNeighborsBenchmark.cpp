@@ -17,7 +17,7 @@ DEFINE_bool(go_record, false, "");
 DEFINE_bool(kv_record, false, "");
 
 std::unique_ptr<nebula::mock::MockCluster> gCluster;
-
+auto pool = &gCluster->pool_;
 namespace nebula {
 namespace storage {
 
@@ -47,7 +47,7 @@ void setUp(const char* path, EdgeRanking maxRank) {
 }
 
 }  // namespace storage
-}  // namespace nebula
+}   // namespace nebula
 
 std::string encode(const nebula::storage::cpp2::GetNeighborsResponse &resp) {
     std::string val;
@@ -117,31 +117,28 @@ void goFilter(int32_t iters,
         req = nebula::storage::buildRequest(vertex, playerProps, serveProps);
         if (oneFilter) {
             // where serve.startYear < value
-            nebula::RelationalExpression exp(
-                nebula::Expression::Kind::kRelLT,
-                new nebula::EdgePropertyExpression(
-                    new std::string(folly::to<std::string>(serve)),
-                    new std::string("startYear")),
-                new nebula::ConstantExpression(nebula::Value(value)));
+            const auto& exp = *nebula::RelationalExpression::makeLT(
+                pool,
+                nebula::EdgePropertyExpression::make(
+                    pool, folly::to<std::string>(serve), "startYear"),
+                nebula::ConstantExpression::make(pool, nebula::Value(value)));
             (*req.traverse_spec_ref()).set_filter(nebula::Expression::encode(exp));
         } else {
             // where serve.startYear < value && serve.endYear < value
             // since startYear always equal to endYear, the data of which can pass filter is same,
             // just to test perf of multiple filter
-            nebula::LogicalExpression exp(
-                nebula::Expression::Kind::kLogicalAnd,
-                new nebula::RelationalExpression(
-                    nebula::Expression::Kind::kRelLT,
-                    new nebula::EdgePropertyExpression(
-                        new std::string(folly::to<std::string>(serve)),
-                        new std::string("startYear")),
-                    new nebula::ConstantExpression(nebula::Value(value))),
-                new nebula::RelationalExpression(
-                    nebula::Expression::Kind::kRelLT,
-                    new nebula::EdgePropertyExpression(
-                        new std::string(folly::to<std::string>(serve)),
-                        new std::string("endYear")),
-                    new nebula::ConstantExpression(nebula::Value(value))));
+            const auto& exp = *nebula::LogicalExpression::makeAnd(
+                pool,
+                nebula::RelationalExpression::makeLT(
+                    pool,
+                    nebula::EdgePropertyExpression::make(
+                        pool, folly::to<std::string>(serve), "startYear"),
+                    nebula::ConstantExpression::make(pool, nebula::Value(value))),
+                nebula::RelationalExpression::makeLT(
+                    pool,
+                    nebula::EdgePropertyExpression::make(
+                        pool, folly::to<std::string>(serve), "endYear"),
+                    nebula::ConstantExpression::make(pool, nebula::Value(value))));
             (*req.traverse_spec_ref()).set_filter(nebula::Expression::encode(exp));
         }
     }
@@ -258,7 +255,7 @@ void prefix(int32_t iters,
                 std::unique_ptr<nebula::kvstore::KVIterator> iter;
                 auto prefix = nebula::NebulaKeyUtils::vertexPrefix(vIdLen, partId, vId, player);
                 auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-                CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+                ASSERT_EQ(code, nebula::cpp2::ErrorCode::SUCCEEDED);
                 CHECK(iter->valid());
                 auto val = iter->val();
                 reader.reset(*tagSchema, val);
@@ -273,7 +270,7 @@ void prefix(int32_t iters,
                 std::unique_ptr<nebula::kvstore::KVIterator> iter;
                 auto prefix = nebula::NebulaKeyUtils::edgePrefix(vIdLen, partId, vId, serve);
                 auto code = env->kvstore_->prefix(spaceId, partId, prefix, &iter);
-                CHECK_EQ(code, nebula::kvstore::ResultCode::SUCCEEDED);
+                ASSERT_EQ(code, nebula::cpp2::ErrorCode::SUCCEEDED);
                 int32_t count = 0;
                 auto& cell = row[2].mutableList();
                 for (; iter->valid(); iter->next()) {

@@ -40,25 +40,27 @@ private:
                                                                             counters,
                                                                             executor) {}
 
-    cpp2::ErrorCode checkAndBuildContexts(const cpp2::UpdateEdgeRequest& req) override;
+    nebula::cpp2::ErrorCode
+    checkAndBuildContexts(const cpp2::UpdateEdgeRequest& req) override;
 
     StoragePlan<cpp2::EdgeKey> buildPlan(nebula::DataSet* result);
 
     // Get the schema of all versions of edgeType in the spaceId
-    cpp2::ErrorCode buildEdgeSchema();
+    nebula::cpp2::ErrorCode buildEdgeSchema();
 
     // Build EdgeContext by parsing return props expressions,
     // filter expression, update props expression
-    cpp2::ErrorCode buildEdgeContext(const cpp2::UpdateEdgeRequest& req);
+    nebula::cpp2::ErrorCode buildEdgeContext(const cpp2::UpdateEdgeRequest& req);
 
     void onProcessFinished() override;
 
     std::vector<Expression*> getReturnPropsExp() {
-        std::vector<Expression*> result;
-        result.resize(returnPropsExp_.size());
-        auto get = [] (auto &ptr) {return ptr.get(); };
-        std::transform(returnPropsExp_.begin(), returnPropsExp_.end(), result.begin(), get);
-        return result;
+        // std::vector<Expression*> result;
+        // result.resize(returnPropsExp_.size());
+        // auto get = [] (auto &ptr) {return ptr.get(); };
+        // std::transform(returnPropsExp_.begin(), returnPropsExp_.end(), result.begin(), get);
+        // return result;
+        return returnPropsExp_;
     }
 
 private:
@@ -74,10 +76,10 @@ private:
     std::vector<storage::cpp2::UpdatedProp>                              updatedProps_;
 
     // return props expression
-    std::vector<std::unique_ptr<Expression>>                             returnPropsExp_;
+    std::vector<Expression*>                                             returnPropsExp_;
 
     // condition expression
-    std::unique_ptr<Expression>                                          filterExp_;
+    Expression*                                                          filterExp_{nullptr};
 
     // updatedProps_ dependent props in value expression
     std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap_;
@@ -85,4 +87,5 @@ private:
 
 }  // namespace storage
 }  // namespace nebula
+
 #endif  // STORAGE_MUTATE_UPDATEEDGEROCESSOR_H_

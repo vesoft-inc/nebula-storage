@@ -9,10 +9,11 @@ namespace nebula {
 namespace storage {
 
 template<typename REQ, typename RESP>
-cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupIndexRequest& req) {
+nebula::cpp2::ErrorCode
+LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupIndexRequest& req) {
     spaceId_ = req.get_space_id();
     auto retCode = this->getSpaceVidLen(spaceId_);
-    if (retCode != cpp2::ErrorCode::SUCCEEDED) {
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return retCode;
     }
 
@@ -24,15 +25,15 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         planContext_->edgeType_ = indices.get_tag_or_edge_id();
         auto edgeName = this->env_->schemaMan_->toEdgeName(spaceId_, planContext_->edgeType_);
         if (!edgeName.ok()) {
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
         planContext_->edgeName_ = std::move(edgeName.value());
         auto allEdges = this->env_->schemaMan_->getAllVerEdgeSchema(spaceId_);
         if (!allEdges.ok()) {
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
         if (!allEdges.value().count(planContext_->edgeType_)) {
-            return cpp2::ErrorCode::E_EDGE_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_EDGE_NOT_FOUND;
         }
         schemas_ = std::move(allEdges).value()[planContext_->edgeType_];
         planContext_->edgeSchema_ = schemas_.back().get();
@@ -40,15 +41,15 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         planContext_->tagId_ = indices.get_tag_or_edge_id();
         auto tagName = this->env_->schemaMan_->toTagName(spaceId_, planContext_->tagId_);
         if (!tagName.ok()) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
         planContext_->tagName_ = std::move(tagName.value());
         auto allTags = this->env_->schemaMan_->getAllVerTagSchema(spaceId_);
         if (!allTags.ok()) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
         if (!allTags.value().count(planContext_->tagId_)) {
-            return cpp2::ErrorCode::E_TAG_NOT_FOUND;
+            return nebula::cpp2::ErrorCode::E_TAG_NOT_FOUND;
         }
         schemas_ = std::move(allTags).value()[planContext_->tagId_];
         planContext_->tagSchema_ = schemas_.back().get();
@@ -56,7 +57,7 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
 
     if (indices.get_contexts().empty() || !req.return_columns_ref().has_value() ||
         (*req.return_columns_ref()).empty()) {
-        return cpp2::ErrorCode::E_INVALID_OPERATION;
+        return nebula::cpp2::ErrorCode::E_INVALID_OPERATION;
     }
     contexts_ = indices.get_contexts();
 
@@ -65,14 +66,14 @@ cpp2::ErrorCode LookupBaseProcessor<REQ, RESP>::requestCheck(const cpp2::LookupI
         yieldCols_ = *req.return_columns_ref();
     }
 
-    for (size_t i = 0; i < yieldCols_.size(); i++) {
-        resultDataSet_.colNames.emplace_back(yieldCols_[i]);
-        if (QueryUtils::toReturnColType(yieldCols_[i]) != QueryUtils::ReturnColType::kOther) {
-            deDupColPos_.emplace_back(i);
+    for (auto&& it : folly::enumerate(yieldCols_)) {
+        resultDataSet_.colNames.emplace_back(*it);
+        if (QueryUtils::toReturnColType(*it) != QueryUtils::ReturnColType::kOther) {
+            deDupColPos_.emplace_back(it.index);
         }
     }
 
-    return cpp2::ErrorCode::SUCCEEDED;
+    return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
 
 template<typename REQ, typename RESP>
@@ -85,7 +86,7 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
         case Expression::Kind::kLogicalAnd: {
             auto *lExpr = static_cast<LogicalExpression*>(filter);
             for (auto &expr : lExpr->operands()) {
-                auto ret = isOutsideIndex(expr.get(), index);
+                auto ret = isOutsideIndex(expr, index);
                 if (ret) {
                     return ret;
                 }
@@ -116,13 +117,13 @@ bool LookupBaseProcessor<REQ, RESP>::isOutsideIndex(Expression* filter,
         case Expression::Kind::kEdgeRank:
         case Expression::Kind::kEdgeDst: {
             auto* sExpr = static_cast<PropertyExpression*>(filter);
-            auto propName = *(sExpr->prop());
+            auto propName = sExpr->prop();
             return propsInEdgeKey.find(propName) == propsInEdgeKey.end();
         }
         case Expression::Kind::kTagProperty:
         case Expression::Kind::kEdgeProperty: {
             auto* sExpr = static_cast<PropertyExpression*>(filter);
-            auto propName = *(sExpr->prop());
+            auto propName = sExpr->prop();
             auto it = std::find_if(fields.begin(), fields.end(), [&propName] (const auto& f) {
                 return f.get_name() == propName;
             });
@@ -208,9 +209,10 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         auto colHints = ctx.get_column_hints();
 
         // Check WHERE clause contains columns that ware not indexed
+        auto pool = &planContext_->objPool;
         if (ctx.filter_ref().is_set() && !(*ctx.filter_ref()).empty()) {
-            auto filter = Expression::decode(*ctx.filter_ref());
-            auto isFieldsOutsideIndex = isOutsideIndex(filter.get(), indexItem);
+            auto filter = Expression::decode(pool, *ctx.filter_ref());
+            auto isFieldsOutsideIndex = isOutsideIndex(filter, indexItem);
             if (isFieldsOutsideIndex) {
                 needData = needFilter = true;
             }
@@ -221,19 +223,17 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
         } else if (needData && !needFilter) {
             out = buildPlanWithData(ctx, plan);
         } else if (!needData && needFilter) {
-            auto expr = Expression::decode(ctx.get_filter());
+            auto expr = Expression::decode(pool, ctx.get_filter());
             auto exprCtx = std::make_unique<StorageExpressionContext>(planContext_->vIdLen_,
                                                                         planContext_->isIntId_,
                                                                         hasNullableCol,
                                                                         fields);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithFilter(ctx,
-                                        plan,
-                                        filterItems_[filterId].first.get(),
-                                        filterItems_[filterId].second.get());
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
+            out = buildPlanWithFilter(
+                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
             filterId++;
         } else {
-            auto expr = Expression::decode(ctx.get_filter());
+            auto expr = Expression::decode(pool, ctx.get_filter());
             // Need to get columns in data, expr ctx need to be aware of schema
             const auto& schemaName = planContext_->isEdge_ ? planContext_->edgeName_ :
                                                              planContext_->tagName_;
@@ -245,11 +245,9 @@ StatusOr<StoragePlan<IndexID>> LookupBaseProcessor<REQ, RESP>::buildPlan() {
                                                                       schemaName,
                                                                       schemas_.back().get(),
                                                                       planContext_->isEdge_);
-            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), std::move(expr)));
-            out = buildPlanWithDataAndFilter(ctx,
-                                             plan,
-                                             filterItems_[filterId].first.get(),
-                                             filterItems_[filterId].second.get());
+            filterItems_.emplace(filterId, std::make_pair(std::move(exprCtx), expr));
+            out = buildPlanWithDataAndFilter(
+                ctx, plan, filterItems_[filterId].first.get(), filterItems_[filterId].second);
             filterId++;
         }
         if (out == nullptr) {

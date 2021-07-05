@@ -27,9 +27,10 @@ public:
               std::shared_ptr<folly::Executor> handlers,
               std::shared_ptr<raftex::SnapshotManager> snapshotMan,
               std::shared_ptr<RaftClient> clientMan,
+              std::shared_ptr<DiskManager> diskMan,
               meta::SchemaManager* schemaMan)
         : Listener(spaceId, partId, std::move(localAddr), walPath,
-                   ioPool, workers, handlers, snapshotMan, clientMan, schemaMan) {
+                   ioPool, workers, handlers, snapshotMan, clientMan, diskMan, schemaMan) {
             CHECK(!!schemaMan);
             lastApplyLogFile_ = std::make_unique<std::string>(
             folly::stringPrintf("%s/last_apply_log_%d", walPath.c_str(), partId));
@@ -46,9 +47,6 @@ protected:
 
     LogID lastApplyLogId() override;
 
-    void cleanup() override {
-    }
-
 private:
     bool writeAppliedId(LogID lastId, TermID lastTerm, LogID lastApplyLogId);
 
@@ -60,11 +58,8 @@ private:
 
     bool appendTagDocItem(std::vector<DocItem>& items, const KV& kv) const;
 
-    bool appendDocs(std::vector<DocItem>& items,
-                    const meta::SchemaProviderIf* schema,
-                    RowReader* reader,
-                    int32_t schemaId,
-                    bool isEdge) const;
+    bool appendDocs(std::vector<DocItem>& items, RowReader* reader,
+                    const std::pair<std::string, nebula::meta::cpp2::FTIndex>& fti) const;
 
     bool writeData(const std::vector<nebula::plugin::DocItem>& items) const;
 

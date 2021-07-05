@@ -52,7 +52,7 @@ derived class.
 
     // For listener, we just return true directly. Another background thread trigger the actual
     // apply work, and do it in worker thread, and update lastApplyLogId_
-    bool commitLogs(std::unique_ptr<LogIterator> iter)
+    cpp2::Errorcode commitLogs(std::unique_ptr<LogIterator> iter, bool)
 
     // For most of the listeners, just return true is enough. However, if listener need to be aware
     // of membership change, some log type of wal need to be pre-processed, could do it here.
@@ -60,7 +60,7 @@ derived class.
 
     // If listener falls far behind from leader, leader would send snapshot to listener. The
     // snapshot is a vector of kv, listener could decode them and treat them as normal logs until
-    // all snapshot has been received. However, we did nothing with snapshot for now
+    // all snapshot has been received.
     std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
                                                LogID committedLogId,
                                                TermID committedLogTerm,
@@ -82,7 +82,7 @@ derived class.
     // persist last commit log id/term and lastApplyId
     bool persist(LogID, TermID, LogID)
 
-    // extra cleanup work, will be invoked when listener is about to be removed
+    // extra cleanup work, will be invoked when listener is about to be removed, or raft is reseted
     virtual void cleanup() = 0
 */
 
@@ -97,6 +97,7 @@ public:
              std::shared_ptr<folly::Executor> handlers,
              std::shared_ptr<raftex::SnapshotManager> snapshotMan,
              std::shared_ptr<RaftClient> clientMan,
+             std::shared_ptr<DiskManager> diskMan,
              meta::SchemaManager* schemaMan);
 
     // Initialize listener, all Listener must call this method
@@ -105,18 +106,20 @@ public:
     // Stop listener
     void stop() override;
 
-    int64_t logGapInMs() {
-        return lastCommitTime_ - lastApplyTime_;
-    }
-
     LogID getApplyId() {
         return lastApplyLogId_;
     }
 
-    void reset() {
-        LOG(INFO) << idStr_ << "Clean up all wals";
-        wal_->reset();
+    void cleanup() override {
+        CHECK(!raftLock_.try_lock());
+        leaderCommitId_ = 0;
+        lastApplyLogId_ = 0;
+        persist(0, 0, lastApplyLogId_);
     }
+
+    void resetListener();
+
+    bool pursueLeaderDone();
 
 protected:
     virtual void init() = 0;
@@ -151,7 +154,7 @@ protected:
 
     // For listener, we just return true directly. Another background thread trigger the actual
     // apply work, and do it in worker thread, and update lastApplyLogId_
-    bool commitLogs(std::unique_ptr<LogIterator>) override;
+    cpp2::ErrorCode commitLogs(std::unique_ptr<LogIterator>, bool) override;
 
     // For most of the listeners, just return true is enough. However, if listener need to be aware
     // of membership change, some log type of wal need to be pre-processed, could do it here.
@@ -171,11 +174,8 @@ protected:
     void doApply();
 
 protected:
-    // lastId_ and lastTerm_ is same as committedLogId_ and term_
-    LogID lastId_ = -1;
-    TermID lastTerm_ = -1;
+    LogID leaderCommitId_ = 0;
     LogID lastApplyLogId_ = 0;
-    int64_t lastCommitTime_ = 0;
     int64_t lastApplyTime_ = 0;
     std::set<HostAddr> peers_;
     meta::SchemaManager* schemaMan_{nullptr};
