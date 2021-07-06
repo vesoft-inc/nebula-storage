@@ -1084,11 +1084,13 @@ void NebulaStore::cleanWAL() {
             FLAGS_clean_wal_interval_secs * 1000, &NebulaStore::cleanWAL, this);
     };
     for (const auto& spaceEntry : spaces_) {
+        /*
         if (FLAGS_rocksdb_disable_wal) {
             for (const auto& engine : spaceEntry.second->engines_) {
                 engine->flush();
             }
         }
+        */
         for (const auto& partEntry : spaceEntry.second->parts_) {
             auto& part = partEntry.second;
             if (part->needToCleanWal()) {
