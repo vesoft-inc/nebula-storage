@@ -48,8 +48,8 @@ StatusOr<std::vector<std::string>> DiskManager::path(GraphSpaceID spaceId) {
         return Status::Error("Space not found");
     }
     std::vector<std::string> paths;
-    for (const auto& [path, _] : spaceIt->second) {
-        paths.emplace_back(path);
+    for (const auto& partEntry : spaceIt->second) {
+        paths.emplace_back(partEntry.first);
     }
     return paths;
 }
