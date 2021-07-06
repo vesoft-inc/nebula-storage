@@ -68,6 +68,21 @@ TEST_F(MemoryLockTest, MoveTest) {
     }
 }
 
+TEST_F(MemoryLockTest, PrepTest) {
+    MemoryLockCore<std::string> mlock;
+    {
+        EXPECT_TRUE(mlock.try_lock("1"));
+        EXPECT_TRUE(mlock.try_lock("2"));
+        EXPECT_FALSE(mlock.try_lock("1"));
+        EXPECT_FALSE(mlock.try_lock("2"));
+        std::vector<std::string> keys{"1", "2"};
+        auto* lk = new LockGuard(&mlock, keys, false, false);
+        EXPECT_TRUE(lk);
+        delete lk;
+    }
+    EXPECT_EQ(0, mlock.size());
+}
+
 }  // namespace storage
 }  // namespace nebula
 
