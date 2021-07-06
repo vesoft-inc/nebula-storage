@@ -32,18 +32,17 @@ public:
             return ret;
         }
 
-        auto ttlProp = CommonUtils::ttlProps(planContext_->edgeSchema_);
-
         data_.clear();
+        const auto& [effective, duration, col] = CommonUtils::ttlProps(planContext_->edgeSchema_);
         std::vector<storage::cpp2::EdgeKey> edges;
         auto* iter = static_cast<EdgeIndexIterator*>(indexScanNode_->iterator());
         while (iter && iter->valid()) {
-            if (!iter->val().empty() && ttlProp.first) {
+            if (!iter->val().empty() && effective) {
                 auto v = IndexKeyUtils::parseIndexTTL(iter->val());
                 if (CommonUtils::checkDataExpiredForTTL(planContext_->edgeSchema_,
                                                         std::move(v),
-                                                        ttlProp.second.second,
-                                                        ttlProp.second.first)) {
+                                                        col,
+                                                        duration)) {
                     iter->next();
                     continue;
                 }
