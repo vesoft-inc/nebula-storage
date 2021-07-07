@@ -169,8 +169,8 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
                     code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                     break;
                 }
+                dummyLock.emplace_back(std::move(l));
             }
-            dummyLock.emplace_back(std::move(l));
             VLOG(3) << "PartitionID: " << partId << ", VertexID: " << *edgeKey.src_ref()
                     << ", EdgeType: " << *edgeKey.edge_type_ref() << ", EdgeRanking: "
                     << *edgeKey.ranking_ref() << ", VertexID: "
@@ -300,7 +300,7 @@ void AddEdgesProcessor::doProcessWithIndex(const cpp2::AddEdgesRequest& req) {
         }
         auto batch = encodeBatchValue(std::move(batchHolder)->getBatch());
         DCHECK(!batch.empty());
-        nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), true, false);
+        nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), false, false);
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
             [l = std::move(lg), icw = std::move(wrapper), partId, this]
             (nebula::cpp2::ErrorCode retCode) {

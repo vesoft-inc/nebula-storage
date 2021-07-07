@@ -175,8 +175,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                         code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                         break;
                     }
+                    dummyLock.emplace_back(std::move(l));
                 }
-                dummyLock.emplace_back(std::move(l));
                 VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
                         << ", TagID: " << tagId;
 
@@ -307,7 +307,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
         DCHECK(!batch.empty());
         nebula::MemoryLockGuard<VMLI> lg(env_->verticesML_.get(),
                                          std::move(dummyLock),
-                                         true,
+                                         false,
                                          false);
         env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(batch),
             [l = std::move(lg), icw = std::move(wrapper), partId, this] (
