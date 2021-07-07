@@ -12,7 +12,8 @@
 #include "common/thread/GenericWorker.h"
 #include "common/thrift/ThriftTypes.h"
 #include <gtest/gtest_prod.h>
-#include <filesystem>
+#include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace nebula {
 namespace kvstore {
@@ -55,7 +56,7 @@ private:
     std::shared_ptr<thread::GenericWorker> bgThread_;
 
     // canonical path of data_path flag
-    std::vector<std::filesystem::path> dataPaths_;
+    std::vector<boost::filesystem::path> dataPaths_;
     // free space available to a non-privileged process, in bytes
     std::vector<std::atomic_uint64_t> freeBytes_;
 
@@ -64,6 +65,9 @@ private:
 
     // the index in dataPaths_ for a given space + part
     std::unordered_map<GraphSpaceID, std::unordered_map<PartitionID, size_t>> partIndex_;
+
+    // lock used to protect partPath_ and partIndex_
+    std::mutex lock_;
 };
 
 }  // namespace kvstore

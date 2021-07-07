@@ -22,7 +22,7 @@
 #   ENABLE_TESTING                 -- Build unit test
 #   ENABLE_PACK_ONE                -- Package to one or multi packages
 #
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.9.0)
 
 project("Nebula Storage" C CXX)
 

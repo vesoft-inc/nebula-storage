@@ -338,7 +338,7 @@ std::shared_ptr<Part> NebulaStore::newPart(GraphSpaceID spaceId,
                                            KVEngine* engine,
                                            bool asLearner,
                                            const std::vector<HostAddr>& defaultPeers) {
-    auto walPath = folly::stringPrintf("%s/wal/%d", engine->getDataRoot(), partId);
+    auto walPath = folly::stringPrintf("%s/wal/%d", engine->getWalRoot(), partId);
     auto part = std::make_shared<Part>(spaceId,
                                        partId,
                                        raftAddr_,
@@ -556,8 +556,8 @@ void NebulaStore::updateSpaceOption(GraphSpaceID spaceId,
 void NebulaStore::removeSpaceDir(const std::string& dir) {
     try {
         LOG(INFO) << "Try to remove space directory: " << dir;
-        std::filesystem::remove_all(dir);
-    } catch (const std::filesystem::filesystem_error& e) {
+        boost::filesystem::remove_all(dir);
+    } catch (const boost::filesystem::filesystem_error& e) {
         LOG(ERROR) << "Exception caught while remove directory, please delelte it by manual: "
                    << e.what();
     }
@@ -1038,6 +1038,16 @@ NebulaStore::space(GraphSpaceID spaceId) {
     folly::RWSpinLock::ReadHolder rh(&lock_);
     auto it = spaces_.find(spaceId);
     if (UNLIKELY(it == spaces_.end())) {
+        return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
+    }
+    return it->second;
+}
+
+ErrorOr<nebula::cpp2::ErrorCode, std::shared_ptr<SpaceListenerInfo>>
+NebulaStore::spaceListener(GraphSpaceID spaceId) {
+    folly::RWSpinLock::ReadHolder rh(&lock_);
+    auto it = spaceListeners_.find(spaceId);
+    if (UNLIKELY(it == spaceListeners_.end())) {
         return nebula::cpp2::ErrorCode::E_SPACE_NOT_FOUND;
     }
     return it->second;
