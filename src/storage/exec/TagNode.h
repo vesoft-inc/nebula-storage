@@ -20,13 +20,13 @@ class TagNode final : public IterateNode<T> {
 public:
     using RelNode<T>::execute;
 
-    TagNode(PlanContext* planCtx,
+    TagNode(RunTimeContext* context,
             TagContext* ctx,
             TagID tagId,
             const std::vector<PropContext>* props,
             StorageExpressionContext* expCtx = nullptr,
             Expression* exp = nullptr)
-        : planContext_(planCtx)
+        : context_(context)
         , tagContext_(ctx)
         , tagId_(tagId)
         , props_(props)
@@ -62,7 +62,7 @@ public:
         if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
             auto cache = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_));
             if (cache.ok()) {
-                key_ = NebulaKeyUtils::vertexKey(planContext_->vIdLen_, partId, vId, tagId_);
+                key_ = NebulaKeyUtils::vertexKey(context_->vIdLen(), partId, vId, tagId_);
                 value_ = std::move(cache.value());
                 // if data in vertex cache is valid, don't read from kv
                 if (resetReader(vId)) {
@@ -72,8 +72,8 @@ public:
         }
 
         std::unique_ptr<kvstore::KVIterator> iter;
-        auto prefix = NebulaKeyUtils::vertexPrefix(planContext_->vIdLen_, partId, vId, tagId_);
-        ret = planContext_->env_->kvstore_->prefix(planContext_->spaceId_, partId, prefix, &iter);
+        auto prefix = NebulaKeyUtils::vertexPrefix(context_->vIdLen(), partId, vId, tagId_);
+        ret = context_->env()->kvstore_->prefix(context_->spaceId(), partId, prefix, &iter);
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED && iter && iter->valid()) {
             key_ = iter->key().str();
             value_ = iter->val().str();
@@ -135,7 +135,7 @@ private:
         return true;
     }
 
-    PlanContext                                                          *planContext_;
+    RunTimeContext                                                       *context_;
     TagContext                                                           *tagContext_;
     TagID                                                                 tagId_;
     const std::vector<PropContext>                                       *props_;

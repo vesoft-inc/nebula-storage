@@ -39,8 +39,8 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
         return;
     }
     planContext_ = std::make_unique<PlanContext>(env_, spaceId_, spaceVidLen_, isIntId_);
-    expCtx_ = std::make_unique<StorageExpressionContext>(spaceVidLen_, isIntId_);
 
+    // build TagContext and EdgeContext
     retCode = checkAndBuildContexts(req);
     if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
         for (auto& p : req.get_parts()) {
@@ -61,8 +61,22 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
         }
     }
 
+    // todo(doodle): specify by each query
+    if (!FLAGS_query_concurrently) {
+        runInSingleThread(req, limit, random);
+    } else {
+        runInMultipleThread(req, limit, random);
+    }
+}
+
+void GetNeighborsProcessor::runInSingleThread(const cpp2::GetNeighborsRequest& req,
+                                              int64_t limit,
+                                              bool random) {
+    contexts_.emplace_back(RunTimeContext(planContext_.get()));
+    expCtxs_.emplace_back(StorageExpressionContext(spaceVidLen_, isIntId_));
     if (!withDst_) {
-        auto plan = buildPlan<VertexID>(&resultDataSet_, limit, random);
+        auto plan = buildPlan<VertexID>(&contexts_.front(), &expCtxs_.front(),
+            &resultDataSet_, limit, random);
         std::unordered_set<PartitionID> failedParts;
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
@@ -89,7 +103,8 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
             }
         }
     } else {
-        auto plan = buildPlan<std::pair<VertexID, VertexID>>(&resultDataSet_, limit, random);
+        auto plan = buildPlan<std::pair<VertexID, VertexID>>(&contexts_.front(), &expCtxs_.front(),
+            &resultDataSet_, limit, random);
         std::unordered_set<PartitionID> failedParts;
         for (const auto& partEntry : req.get_parts()) {
             auto partId = partEntry.first;
@@ -122,10 +137,100 @@ void GetNeighborsProcessor::doProcess(const cpp2::GetNeighborsRequest& req) {
     onFinished();
 }
 
-template<typename T>
-StoragePlan<T> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
+void GetNeighborsProcessor::runInMultipleThread(const cpp2::GetNeighborsRequest& req,
                                                 int64_t limit,
                                                 bool random) {
+    for (size_t i = 0; i < req.get_parts().size(); i++) {
+        nebula::DataSet result = resultDataSet_;
+        results_.emplace_back(std::move(result));
+        contexts_.emplace_back(RunTimeContext(planContext_.get()));
+        expCtxs_.emplace_back(StorageExpressionContext(spaceVidLen_, isIntId_));
+    }
+    size_t i = 0;
+    std::vector<folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>> futures;
+    for (const auto& [partId, rows] : req.get_parts()) {
+        futures.emplace_back(
+            runInExecutor(&contexts_[i], &expCtxs_[i], &results_[i], partId, rows, limit, random));
+        i++;
+    }
+
+    folly::collectAll(futures).via(executor_).thenTry([this] (auto&& t) mutable {
+        CHECK(!t.hasException());
+        const auto& tries = t.value();
+        for (size_t j = 0; j < tries.size(); j++) {
+            CHECK(!tries[j].hasException());
+            const auto& [code, partId] = tries[j].value();
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                handleErrorCode(code, spaceId_, partId);
+            } else {
+                resultDataSet_.append(std::move(results_[j]));
+            }
+        }
+        this->onProcessFinished();
+        this->onFinished();
+    });
+}
+
+folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>>
+GetNeighborsProcessor::runInExecutor(RunTimeContext* context,
+                                     StorageExpressionContext* expCtx,
+                                     nebula::DataSet* result,
+                                     PartitionID partId,
+                                     const std::vector<nebula::Row>& rows,
+                                     int64_t limit,
+                                     bool random) {
+    return folly::via(
+        executor_,
+        [this, context, expCtx, result, partId, input = std::move(rows), limit, random]() {
+            if (!withDst_) {
+                auto plan = buildPlan<VertexID>(context, expCtx, result, limit, random);
+                for (const auto& row : input) {
+                    CHECK_GE(row.values.size(), 1);
+                    auto vId = row.values[0].getStr();
+
+                    if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
+                        LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                        return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
+                    }
+
+                    // the first column of each row would be the vertex id
+                    auto ret = plan.go(partId, vId);
+                    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                        return std::make_pair(ret, partId);
+                    }
+                }
+            } else {
+                auto plan = buildPlan<std::pair<VertexID, VertexID>>(context, expCtx, result,
+                    limit, random);
+                for (const auto& row : input) {
+                    CHECK_GE(row.values.size(), 2);
+                    auto vId = row.values[0].getStr();
+                    auto dstId = row.values[1].getStr();
+
+                    if (!(NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId) &&
+                        NebulaKeyUtils::isValidVidLen(spaceVidLen_, dstId))) {
+                        LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
+                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vId
+                                << " dstId is " << dstId;
+                        return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
+                    }
+                    auto ret = plan.go(partId, std::make_pair(vId, dstId));
+                    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                            return std::make_pair(ret, partId);
+                    }
+                }
+            }
+            return std::make_pair(nebula::cpp2::ErrorCode::SUCCEEDED, partId);
+        });
+}
+
+template <typename T>
+StoragePlan<T> GetNeighborsProcessor::buildPlan(RunTimeContext* context,
+                                                       StorageExpressionContext* expCtx,
+                                                       nebula::DataSet* result,
+                                                       int64_t limit,
+                                                       bool random) {
     /*
     The StoragePlan looks like this:
                  +--------+---------+
@@ -151,20 +256,20 @@ StoragePlan<T> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     std::vector<TagNode<T>*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
         auto tag = std::make_unique<TagNode<T>>(
-                planContext_.get(), &tagContext_, tc.first, &tc.second);
+                context, &tagContext_, tc.first, &tc.second);
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }
     std::vector<EdgeNode<T>*> edges;
     for (const auto& ec : edgeContext_.propContexts_) {
         auto edge = std::make_unique<SingleEdgeNode<T>>(
-                planContext_.get(), &edgeContext_, ec.first, &ec.second);
+                context, &edgeContext_, ec.first, &ec.second);
         edges.emplace_back(edge.get());
         plan.addNode(std::move(edge));
     }
 
     auto hashJoin = std::make_unique<HashJoinNode<T>>(
-            planContext_.get(), tags, edges, &tagContext_, &edgeContext_, expCtx_.get());
+            context, tags, edges, &tagContext_, &edgeContext_, expCtx);
     for (auto* tag : tags) {
         hashJoin->addDependency(tag);
     }
@@ -177,15 +282,14 @@ StoragePlan<T> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
 
     if (filter_) {
         auto filter = std::make_unique<FilterNode<T>>(
-                planContext_.get(), upstream, expCtx_.get(), filter_);
+                context, upstream, expCtx, filter_->clone());
         filter->addDependency(upstream);
         upstream = filter.get();
         plan.addNode(std::move(filter));
     }
 
     if (edgeContext_.statCount_ > 0) {
-        auto agg = std::make_unique<AggregateNode<T>>(
-                planContext_.get(), upstream, &edgeContext_);
+        auto agg = std::make_unique<AggregateNode<T>>(context, upstream, &edgeContext_);
         agg->addDependency(upstream);
         upstream = agg.get();
         plan.addNode(std::move(agg));
@@ -194,10 +298,10 @@ StoragePlan<T> GetNeighborsProcessor::buildPlan(nebula::DataSet* result,
     std::unique_ptr<GetNeighborsNode<T>> output;
     if (random) {
         output = std::make_unique<GetNeighborsSampleNode<T>>(
-                planContext_.get(), join, upstream, &edgeContext_, result, limit);
+                context, join, upstream, &edgeContext_, result, limit);
     } else {
         output = std::make_unique<GetNeighborsNode<T>>(
-                planContext_.get(), join, upstream, &edgeContext_, result, limit);
+                context, join, upstream, &edgeContext_, result, limit);
     }
     output->addDependency(upstream);
     plan.addNode(std::move(output));
@@ -242,27 +346,19 @@ GetNeighborsProcessor::checkAndBuildContexts(const cpp2::GetNeighborsRequest& re
 
 nebula::cpp2::ErrorCode
 GetNeighborsProcessor::buildTagContext(const cpp2::TraverseSpec& req) {
-    auto ret = nebula::cpp2::ErrorCode::SUCCEEDED;
     if (!req.vertex_props_ref().has_value()) {
         // If the list is not given, no prop will be returned.
         return nebula::cpp2::ErrorCode::SUCCEEDED;
-    } else if ((*req.vertex_props_ref()).empty()) {
-        // If no props specified, get all property of all tagId in space
-        auto returnProps = buildAllTagProps();
-        // generate tag prop context
-        ret = handleVertexProps(returnProps);
-        buildTagColName(returnProps);
-    } else {
-        // Generate related props according to property specified.
-        // not use const reference because we need to modify it when all property need to return
-        auto returnProps = std::move(*req.vertex_props_ref());
-        ret = handleVertexProps(returnProps);
-        buildTagColName(returnProps);
     }
+    auto returnProps = (*req.vertex_props_ref()).empty()
+                     ? buildAllTagProps()
+                     : *req.vertex_props_ref();
+    auto ret = handleVertexProps(returnProps);
 
     if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
+    buildTagColName(std::move(returnProps));
     buildTagTTLInfo();
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
@@ -270,34 +366,24 @@ GetNeighborsProcessor::buildTagContext(const cpp2::TraverseSpec& req) {
 nebula::cpp2::ErrorCode
 GetNeighborsProcessor::buildEdgeContext(const cpp2::TraverseSpec& req) {
     edgeContext_.offset_ = tagContext_.propContexts_.size() + 2;
-    auto ret = nebula::cpp2::ErrorCode::SUCCEEDED;
     if (!req.edge_props_ref().has_value()) {
         // If the list is not given, no prop will be returned.
         return nebula::cpp2::ErrorCode::SUCCEEDED;
-    } else if ((*req.edge_props_ref()).empty()) {
-        // If no props specified, get all property of all edge type in space
-        auto returnProps = buildAllEdgeProps(*req.edge_direction_ref());
-        // generate edge prop context
-        ret = handleEdgeProps(returnProps);
-        buildEdgeColName(returnProps);
-    } else {
-        // Generate related props according to property specified.
-        // not use const reference because we need to modify it when all property need to return
-        auto returnProps = std::move(*req.edge_props_ref());
-        ret = handleEdgeProps(returnProps);
-        buildEdgeColName(returnProps);
     }
-
+    auto returnProps = (*req.edge_props_ref()).empty()
+                     ? buildAllEdgeProps(*req.edge_direction_ref())
+                     : *req.edge_props_ref();
+    auto ret = handleEdgeProps(returnProps);
     if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }
-    // TODO : verify req.__isset.stat_props
     if (req.stat_props_ref().has_value()) {
         ret = handleEdgeStatProps(*req.stat_props_ref());
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
     }
+    buildEdgeColName(std::move(returnProps));
     buildEdgeTTLInfo();
     return nebula::cpp2::ErrorCode::SUCCEEDED;
 }
@@ -334,7 +420,7 @@ nebula::cpp2::ErrorCode GetNeighborsProcessor::handleEdgeStatProps(
     const std::vector<cpp2::StatProp>& statProps) {
     edgeContext_.statCount_ = statProps.size();
     std::string colName = "_stats";
-    auto pool = &planContext_->objPool;
+    auto pool = &this->planContext_->objPool_;
 
     for (size_t statIdx = 0; statIdx < statProps.size(); statIdx++) {
         const auto& statProp = statProps[statIdx];

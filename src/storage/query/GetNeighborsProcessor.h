@@ -32,8 +32,6 @@ public:
 
     void process(const cpp2::GetNeighborsRequest& req) override;
 
-    void doProcess(const cpp2::GetNeighborsRequest& req);
-
 protected:
     GetNeighborsProcessor(StorageEnv* env,
                           const ProcessorCounters* counters,
@@ -46,14 +44,19 @@ protected:
                                                          cache) {}
 
     template <typename T>
-    StoragePlan<T> buildPlan(nebula::DataSet* result,
-                             int64_t limit = 0,
-                             bool random = false);
+    StoragePlan<T> buildPlan(RunTimeContext* context,
+                                    StorageExpressionContext* expCtx,
+                                    nebula::DataSet* result,
+                                    int64_t limit = 0,
+                                    bool random = false);
 
     void onProcessFinished() override;
 
     nebula::cpp2::ErrorCode
     checkAndBuildContexts(const cpp2::GetNeighborsRequest& req) override;
+
+private:
+    void doProcess(const cpp2::GetNeighborsRequest& req);
 
     nebula::cpp2::ErrorCode buildTagContext(const cpp2::TraverseSpec& req);
     nebula::cpp2::ErrorCode buildEdgeContext(const cpp2::TraverseSpec& req);
@@ -70,8 +73,22 @@ protected:
     checkStatType(const meta::SchemaProviderIf::Field* field,
                   cpp2::StatType statType);
 
+    void runInSingleThread(const cpp2::GetNeighborsRequest& req, int64_t limit, bool random);
+    void runInMultipleThread(const cpp2::GetNeighborsRequest& req, int64_t limit, bool random);
+
+    folly::Future<std::pair<nebula::cpp2::ErrorCode, PartitionID>> runInExecutor(
+        RunTimeContext* context,
+        StorageExpressionContext* expCtx,
+        nebula::DataSet* result,
+        PartitionID partId,
+        const std::vector<nebula::Row>& rows,
+        int64_t limit,
+        bool random);
+
 private:
-    std::unique_ptr<StorageExpressionContext> expCtx_;
+    std::vector<RunTimeContext>               contexts_;
+    std::vector<StorageExpressionContext>     expCtxs_;
+    std::vector<nebula::DataSet>              results_;
     bool                                      withDst_{false};
 };
 
