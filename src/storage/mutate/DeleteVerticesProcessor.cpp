@@ -137,12 +137,14 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
             auto key = iter->key();
             auto tagId = NebulaKeyUtils::getTagId(spaceVidLen_, key);
             auto l = std::make_tuple(spaceId_, partId, tagId, vertex.getStr());
-            if (!env_->verticesML_->try_lock(l)) {
-                LOG(ERROR) << folly::format("The vertex locked : tag {}, vid {}",
-                                            tagId, vertex.getStr());
-                return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
+            if (std::find(target.begin(), target.end(), l) == target.end()) {
+                if (!env_->verticesML_->try_lock(l)) {
+                    LOG(ERROR) << folly::format("The vertex locked : tag {}, vid {}",
+                                                tagId, vertex.getStr());
+                    return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
+                }
+                target.emplace_back(std::move(l));
             }
-            target.emplace_back(std::move(l));
             RowReaderWrapper reader;
             for (auto& index : indexes_) {
                 if (index->get_schema_id().get_tag_id() == tagId) {

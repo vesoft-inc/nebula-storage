@@ -94,17 +94,19 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                                          *edgeKey.edge_type_ref(),
                                          *edgeKey.ranking_ref(),
                                          (*edgeKey.dst_ref()).getStr());
-                if (!env_->edgesML_->try_lock(l)) {
-                    LOG(ERROR) << folly::format("The edge locked : src {}, "
-                                                "type {}, tank {}, dst {}",
-                                                (*edgeKey.src_ref()).getStr(),
-                                                *edgeKey.edge_type_ref(),
-                                                *edgeKey.ranking_ref(),
-                                                (*edgeKey.dst_ref()).getStr());
-                    err = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
-                    break;
+                if (std::find(dummyLock.begin(), dummyLock.end(), l) == dummyLock.end()) {
+                    if (!env_->edgesML_->try_lock(l)) {
+                        LOG(ERROR) << folly::format("The edge locked : src {}, "
+                                                    "type {}, tank {}, dst {}",
+                                                    (*edgeKey.src_ref()).getStr(),
+                                                    *edgeKey.edge_type_ref(),
+                                                    *edgeKey.ranking_ref(),
+                                                    (*edgeKey.dst_ref()).getStr());
+                        err = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
+                        break;
+                    }
+                    dummyLock.emplace_back(std::move(l));
                 }
-                dummyLock.emplace_back(std::move(l));
             }
             if (err != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 env_->edgesML_->unlockBatch(dummyLock);
