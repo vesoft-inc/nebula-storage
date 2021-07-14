@@ -71,6 +71,12 @@ public:
         return Value::kNullValue;
     }
 
+    StatusOr<std::size_t> getVarPropColIndex(const std::string&,
+                                             const std::string&) const override {
+        DLOG(FATAL) << "Unimplemented";
+        return Status::Error("Unimplemented");
+    }
+
     // Get the specified property of tagName from the destination vertex,
     // such as $$.tagName.prop_name
     const Value& getDstProp(const std::string&, const std::string&) const override {
@@ -82,8 +88,13 @@ public:
         return Value::kNullValue;
     }
 
+    StatusOr<std::size_t> getInputPropColIndex(const std::string&) const override {
+        DLOG(FATAL) << "Unimplemented";
+        return Status::Error("Unimplemented");
+    }
+
     // Get the value by column index
-    Value getColumn(int32_t) const override {
+    const Value& getColumn(int32_t) const override {
         return Value::kNullValue;
     }
 
