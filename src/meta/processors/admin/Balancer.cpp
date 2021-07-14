@@ -174,7 +174,8 @@ nebula::cpp2::ErrorCode Balancer::recovery() {
             return recRet;
         }
     }
-    return nebula::cpp2::ErrorCode::SUCCEEDED;
+    // save the balance plan again because FAILED tasks would be marked as IN_PROGRESS again
+    return plan_->saveInStore();
 }
 
 nebula::cpp2::ErrorCode
