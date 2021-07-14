@@ -306,7 +306,7 @@ protected:
                                ClusterID clusterId,
                                const std::string& log) = 0;
 
-    // Return <size, count> committed;
+    // Return <count, size> committed;
     virtual std::pair<int64_t, int64_t> commitSnapshot(const std::vector<std::string>& data,
                                                        LogID committedLogId,
                                                        TermID committedLogTerm,

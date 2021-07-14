@@ -283,7 +283,6 @@ void Host::appendLogsInternal(folly::EventBase* eb,
                         VLOG(2) << self->idStr_
                                 << "We send nothing in the last request"
                                 << ", so we don't send the same logs again";
-                        self->lastLogIdSent_ = resp.get_last_log_id();
                         self->lastLogTermSent_ = resp.get_last_log_term();
                         self->followerCommittedLogId_ = resp.get_committed_log_id();
                         cpp2::AppendLogResponse r;

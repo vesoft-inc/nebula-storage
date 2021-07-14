@@ -1031,12 +1031,6 @@ bool RaftPart::prepareElectionRequest(
         std::vector<std::shared_ptr<Host>>& hosts) {
     std::lock_guard<std::mutex> g(raftLock_);
 
-    // Make sure the partition is running
-    if (status_ != Status::RUNNING) {
-        VLOG(2) << idStr_ << "The partition is not running";
-        return false;
-    }
-
     if (UNLIKELY(status_ == Status::STOPPED)) {
         VLOG(2) << idStr_
                 << "The part has been stopped, skip the request";
