@@ -27,6 +27,8 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kGraphCounters;
+
 GraphStorageServiceHandler::GraphStorageServiceHandler(StorageEnv* env)
         : env_(env)
         , vertexCache_(FLAGS_vertex_cache_num, FLAGS_vertex_cache_bucket_exp) {
@@ -46,18 +48,19 @@ GraphStorageServiceHandler::GraphStorageServiceHandler(StorageEnv* env)
     }
 
     // Initialize all counters
-    kAddVerticesCounters.init("add_vertices");
-    kAddEdgesCounters.init("add_edges");
-    kAddEdgesAtomicCounters.init("add_edges_atomic");
-    kDelVerticesCounters.init("delete_vertices");
-    kDelEdgesCounters.init("delete_edges");
-    kUpdateVertexCounters.init("update_vertex");
-    kUpdateEdgeCounters.init("update_edge");
-    kGetNeighborsCounters.init("get_neighbors");
-    kGetPropCounters.init("get_prop");
-    kLookupCounters.init("lookup");
-    kScanVertexCounters.init("scan_vertex");
-    kScanEdgeCounters.init("scan_edge");
+    kGraphCounters.init("graph_query", nullptr);
+    kAddVerticesCounters.init("add_vertices", &kGraphCounters);
+    kAddEdgesCounters.init("add_edges", &kGraphCounters);
+    kAddEdgesAtomicCounters.init("add_edges_atomic", &kGraphCounters);
+    kDelVerticesCounters.init("delete_vertices", &kGraphCounters);
+    kDelEdgesCounters.init("delete_edges", &kGraphCounters);
+    kUpdateVertexCounters.init("update_vertex", &kGraphCounters);
+    kUpdateEdgeCounters.init("update_edge", &kGraphCounters);
+    kGetNeighborsCounters.init("get_neighbors", &kGraphCounters);
+    kGetPropCounters.init("get_prop", &kGraphCounters);
+    kLookupCounters.init("lookup", &kGraphCounters);
+    kScanVertexCounters.init("scan_vertex", &kGraphCounters);
+    kScanEdgeCounters.init("scan_edge", &kGraphCounters);
 }
 
 

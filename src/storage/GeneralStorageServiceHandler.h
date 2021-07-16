@@ -13,6 +13,8 @@
 namespace nebula {
 namespace storage {
 
+extern ProcessorCounters kKVCounters;
+
 class StorageEnv;
 
 class GeneralStorageServiceHandler final : public cpp2::GeneralStorageServiceSvIf {

@@ -16,10 +16,13 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kInternalCounters;
+
 InternalStorageServiceHandler::InternalStorageServiceHandler(StorageEnv* env)
         : env_(env) {
-    kForwardTranxCounters.init("forward_tranx");
-    kGetValueCounters.init("get_value");
+    kInternalCounters.init("internal_query", nullptr);
+    kForwardTranxCounters.init("forward_tranx", &kInternalCounters);
+    kGetValueCounters.init("get_value", &kInternalCounters);
 }
 
 

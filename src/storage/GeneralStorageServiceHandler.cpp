@@ -17,11 +17,14 @@
 namespace nebula {
 namespace storage {
 
+ProcessorCounters kKVCounters;
+
 GeneralStorageServiceHandler::GeneralStorageServiceHandler(StorageEnv* env)
         : env_(env) {
-    kPutCounters.init("put");
-    kGetCounters.init("get");
-    kRemoveCounters.init("remove");
+    kKVCounters.init("kv_query", nullptr);
+    kPutCounters.init("put", &kKVCounters);
+    kGetCounters.init("get", &kKVCounters);
+    kRemoveCounters.init("remove", &kKVCounters);
 }
 
 
