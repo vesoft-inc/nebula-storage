@@ -33,6 +33,8 @@ public:
 
     static Status updateMetaV1ToV2(kvstore::KVStore* kv);
 
+    static Status prepareCheckV1ToV2(kvstore::KVStore* kv);
+
 private:
     static MetaVersion getVersionByHost(kvstore::KVStore* kv);
 
