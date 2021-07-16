@@ -304,10 +304,6 @@ Balancer::genTasks(GraphSpaceID spaceId,
         }
     }
 
-    if (confirmedHostParts.size() < 2) {
-        LOG(INFO) << "Too few hosts, no need for balance!";
-        return nebula::cpp2::ErrorCode::E_NO_VALID_HOST;
-    }
     // 2. Make all hosts in confirmedHostParts balanced
     if (balanceParts(plan_->id_, spaceId, confirmedHostParts, totalParts, tasks)) {
         return tasks;
