@@ -13,7 +13,7 @@ void ListSpacesProcessor::process(const cpp2::ListSpacesReq&) {
     folly::SharedMutex::ReadHolder rHolder(LockUtils::spaceLock());
     const auto& prefix = MetaServiceUtils::spacePrefix();
     auto ret = doPrefix(prefix);
-     if (!nebula::ok(ret)) {
+    if (!nebula::ok(ret)) {
         auto retCode = nebula::error(ret);
         LOG(ERROR) << "List spaces failed, error "
                    << apache::thrift::util::enumNameSafe(retCode);
