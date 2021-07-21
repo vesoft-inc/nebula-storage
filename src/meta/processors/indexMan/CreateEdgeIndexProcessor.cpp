@@ -164,7 +164,7 @@ void CreateEdgeIndexProcessor::process(const cpp2::CreateEdgeIndexReq& req) {
     }
 
     std::vector<kvstore::KV> data;
-    auto edgeIndexRet = autoIncrementId();
+    auto edgeIndexRet = autoIncrementIdInSpace(space);
     if (!nebula::ok(edgeIndexRet)) {
         LOG(ERROR) << "Create edge index failed: Get edge index ID failed";
         handleErrorCode(nebula::error(edgeIndexRet));

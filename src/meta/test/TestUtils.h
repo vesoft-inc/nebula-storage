@@ -246,11 +246,12 @@ public:
     }
 
     static void mockTag(kvstore::KVStore* kv, int32_t tagNum,
-                        SchemaVer version = 0, bool nullable = false) {
+                        SchemaVer version = 0, bool nullable = false,
+                        TagID startId = 0, GraphSpaceID spaceId = 1) {
         std::vector<nebula::kvstore::KV> tags;
         SchemaVer ver = version;
         for (auto t = 0; t < tagNum; t++) {
-            TagID tagId = t;
+            TagID tagId = t + startId;
             cpp2::Schema srcsch;
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
@@ -268,8 +269,8 @@ public:
             }
             auto tagName = folly::stringPrintf("tag_%d", tagId);
             auto tagIdVal = std::string(reinterpret_cast<const char*>(&tagId), sizeof(tagId));
-            tags.emplace_back(MetaServiceUtils::indexTagKey(1, tagName), tagIdVal);
-            tags.emplace_back(MetaServiceUtils::schemaTagKey(1, tagId, ver++),
+            tags.emplace_back(MetaServiceUtils::indexTagKey(spaceId, tagName), tagIdVal);
+            tags.emplace_back(MetaServiceUtils::schemaTagKey(spaceId, tagId, ver++),
                               MetaServiceUtils::schemaVal(tagName, srcsch));
         }
         folly::Baton<true, std::atomic> baton;
@@ -338,11 +339,12 @@ public:
     }
 
     static void mockEdge(kvstore::KVStore* kv, int32_t edgeNum,
-                         SchemaVer version = 0, bool nullable = false) {
+                         SchemaVer version = 0, bool nullable = false,
+                         EdgeType startEdgeType = 0, GraphSpaceID spaceId = 1) {
         std::vector<nebula::kvstore::KV> edges;
         SchemaVer ver = version;
         for (auto t = 0; t < edgeNum; t++) {
-            EdgeType edgeType = t;
+            EdgeType edgeType = t + startEdgeType;
             cpp2::Schema srcsch;
             for (auto i = 0; i < 2; i++) {
                 cpp2::ColumnDef column;
@@ -361,8 +363,8 @@ public:
             auto edgeName = folly::stringPrintf("edge_%d", edgeType);
             auto edgeTypeVal = std::string(reinterpret_cast<const char*>(&edgeType),
                                            sizeof(edgeType));
-            edges.emplace_back(MetaServiceUtils::indexEdgeKey(1, edgeName), edgeTypeVal);
-            edges.emplace_back(MetaServiceUtils::schemaEdgeKey(1, edgeType, ver++),
+            edges.emplace_back(MetaServiceUtils::indexEdgeKey(spaceId, edgeName), edgeTypeVal);
+            edges.emplace_back(MetaServiceUtils::schemaEdgeKey(spaceId, edgeType, ver++),
                                MetaServiceUtils::schemaVal(edgeName, srcsch));
         }
 
