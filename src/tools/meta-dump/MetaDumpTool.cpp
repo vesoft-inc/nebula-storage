@@ -131,21 +131,19 @@ public:
         {
             LOG(INFO) << "Leader info";
             prefix = "__leader_terms__";
-            HostAddr host;
-            TermID term;
-            nebula::cpp2::ErrorCode code;
             iter->Seek(rocksdb::Slice(prefix));
             while (iter->Valid() && iter->key().starts_with(prefix)) {
                 auto key = folly::StringPiece(iter->key().data(), iter->key().size());
                 auto val = folly::StringPiece(iter->value().data(), iter->value().size());
                 auto spaceIdAndPartId = MetaServiceUtils::parseLeaderKeyV3(key);
 
-                std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(val);
-                if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                auto result = MetaServiceUtils::parseLeaderValV3(val);
+                if (!ok(result)) {
                     LOG(ERROR) << folly::sformat("leader space id: {}, part id: {} illegal.",
                                                  spaceIdAndPartId.first,
                                                  spaceIdAndPartId.second);
                 } else {
+                    auto [host, term] = value(result);
                     LOG(INFO) << folly::sformat(
                             "leader space id: {}, part id: {}, host: {}, term: {}",
                             spaceIdAndPartId.first,

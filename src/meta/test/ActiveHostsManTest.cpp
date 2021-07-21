@@ -143,8 +143,6 @@ TEST(ActiveHostsManTest, LeaderTest) {
     using SpaceAndPart = std::pair<GraphSpaceID, PartitionID>;
     using HostAndTerm = std::pair<HostAddr, int64_t>;
 
-    TermID term;
-    nebula::cpp2::ErrorCode code;
     std::map<SpaceAndPart, HostAndTerm> results;
     {
         const auto& prefix = MetaServiceUtils::leaderPrefix();
@@ -154,12 +152,12 @@ TEST(ActiveHostsManTest, LeaderTest) {
         int i = 0;
         while (iter->valid()) {
             auto spaceAndPart = MetaServiceUtils::parseLeaderKeyV3(iter->key());
-            std::tie(host, term, code) = MetaServiceUtils::parseLeaderValV3(iter->val());
-            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                LOG(INFO) << "error: " << apache::thrift::util::enumNameSafe(code);
+            auto result = MetaServiceUtils::parseLeaderValV3(iter->val());
+            if (!ok(result)) {
+                LOG(INFO) << "error: " << apache::thrift::util::enumNameSafe(error(result));
                 continue;
             }
-            results[spaceAndPart] = std::make_pair(host, term);
+            results[spaceAndPart] = value(result);
             iter->next();
             i++;
         }
