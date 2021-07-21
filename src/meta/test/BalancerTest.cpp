@@ -260,14 +260,16 @@ TEST(BalanceTest, ExpansionZoneTest) {
         };
         TestUtils::assembleGroupAndZone(kv, zoneInfo, groupInfo);
     }
+
+    sleep(1);
+    LOG(INFO) << "==================================";
     {
         HostParts hostParts;
-        hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
-        hostParts.emplace(HostAddr("1", 0), std::vector<PartitionID>{1, 2, 3, 4});
-        hostParts.emplace(HostAddr("2", 0), std::vector<PartitionID>{1, 2, 3, 4});
-        hostParts.emplace(HostAddr("3", 0), std::vector<PartitionID>{});
-        int32_t totalParts = 12;
+        int32_t totalParts = 0;
+        balancer.getHostParts(1, true, hostParts, totalParts);
+
         std::vector<BalanceTask> tasks;
+        hostParts.emplace(HostAddr("3", 3), std::vector<PartitionID>{});
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
             EXPECT_EQ(3, it->second.size());
@@ -342,15 +344,13 @@ TEST(BalanceTest, ExpansionHostIntoZoneTest) {
     }
     {
         HostParts hostParts;
-        hostParts.emplace(HostAddr("0", 0), std::vector<PartitionID>{1, 2, 3, 4});
-        hostParts.emplace(HostAddr("1", 1), std::vector<PartitionID>{1, 2, 3, 4});
-        hostParts.emplace(HostAddr("2", 2), std::vector<PartitionID>{1, 2, 3, 4});
+        int32_t totalParts = 0;
+        balancer.getHostParts(1, true, hostParts, totalParts);
+
+        std::vector<BalanceTask> tasks;
         hostParts.emplace(HostAddr("3", 3), std::vector<PartitionID>{});
         hostParts.emplace(HostAddr("4", 4), std::vector<PartitionID>{});
         hostParts.emplace(HostAddr("5", 5), std::vector<PartitionID>{});
-
-        int32_t totalParts = 12;
-        std::vector<BalanceTask> tasks;
         balancer.balanceParts(0, 0, hostParts, totalParts, tasks);
         for (auto it = hostParts.begin(); it != hostParts.end(); it++) {
             EXPECT_EQ(2, it->second.size());

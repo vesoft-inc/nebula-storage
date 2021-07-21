@@ -44,139 +44,139 @@ set(meta_test_deps
     $<TARGET_OBJECTS:common_version_obj>
 )
 
-nebula_add_test(
-    NAME
-        meta_utils_test
-    SOURCES
-        MetaServiceUtilsTest.cpp
-        ../MetaServiceUtils.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:common_meta_thrift_obj>
-        $<TARGET_OBJECTS:common_common_thrift_obj>
-        $<TARGET_OBJECTS:common_thrift_obj>
-        $<TARGET_OBJECTS:common_base_obj>
-        $<TARGET_OBJECTS:common_fs_obj>
-        $<TARGET_OBJECTS:common_network_obj>
-        $<TARGET_OBJECTS:common_thread_obj>
-        $<TARGET_OBJECTS:common_datatypes_obj>
-        $<TARGET_OBJECTS:common_process_obj>
-        $<TARGET_OBJECTS:common_encryption_obj>
-        $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
-    LIBRARIES
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         meta_utils_test
+#     SOURCES
+#         MetaServiceUtilsTest.cpp
+#         ../MetaServiceUtils.cpp
+#     OBJECTS
+#         $<TARGET_OBJECTS:common_meta_thrift_obj>
+#         $<TARGET_OBJECTS:common_common_thrift_obj>
+#         $<TARGET_OBJECTS:common_thrift_obj>
+#         $<TARGET_OBJECTS:common_base_obj>
+#         $<TARGET_OBJECTS:common_fs_obj>
+#         $<TARGET_OBJECTS:common_network_obj>
+#         $<TARGET_OBJECTS:common_thread_obj>
+#         $<TARGET_OBJECTS:common_datatypes_obj>
+#         $<TARGET_OBJECTS:common_process_obj>
+#         $<TARGET_OBJECTS:common_encryption_obj>
+#         $<TARGET_OBJECTS:common_ft_es_storage_adapter_obj>
+#     LIBRARIES
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        processor_test
-    SOURCES
-        ProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         processor_test
+#     SOURCES
+#         ProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        index_processor_test
-    SOURCES
-        IndexProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         index_processor_test
+#     SOURCES
+#         IndexProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        hb_processor_test
-    SOURCES
-        HBProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         hb_processor_test
+#     SOURCES
+#         HBProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        meta_client_test
-    SOURCES
-        MetaClientTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         meta_client_test
+#     SOURCES
+#         MetaClientTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        active_hosts_man_test
-    SOURCES
-        ActiveHostsManTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         active_hosts_man_test
+#     SOURCES
+#         ActiveHostsManTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        meta_http_download_test
-    SOURCES
-        MetaHttpDownloadHandlerTest.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:storage_http_handler>
-        $<TARGET_OBJECTS:meta_http_handler>
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         meta_http_download_test
+#     SOURCES
+#         MetaHttpDownloadHandlerTest.cpp
+#     OBJECTS
+#         $<TARGET_OBJECTS:storage_http_handler>
+#         $<TARGET_OBJECTS:meta_http_handler>
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
 
-nebula_add_test(
-    NAME
-        meta_http_ingest_test
-    SOURCES
-        MetaHttpIngestHandlerTest.cpp
-    OBJECTS
-        $<TARGET_OBJECTS:storage_http_handler>
-        $<TARGET_OBJECTS:meta_http_handler>
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         meta_http_ingest_test
+#     SOURCES
+#         MetaHttpIngestHandlerTest.cpp
+#     OBJECTS
+#         $<TARGET_OBJECTS:storage_http_handler>
+#         $<TARGET_OBJECTS:meta_http_handler>
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
 nebula_add_test(
     NAME
@@ -217,157 +217,157 @@ nebula_add_test(
 #)
 
 
-nebula_add_test(
-    NAME
-        admin_client_test
-    SOURCES
-        AdminClientTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         admin_client_test
+#     SOURCES
+#         AdminClientTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
 
-nebula_add_test(
-    NAME
-        authentication_test
-    SOURCES
-        AuthProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         authentication_test
+#     SOURCES
+#         AuthProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        cluster_id_man_test
-    SOURCES
-        ClusterIdManTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         cluster_id_man_test
+#     SOURCES
+#         ClusterIdManTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-#nebula_add_test(
-#    NAME
-#        meta_http_replace_test
-#    SOURCES
-#        MetaHttpReplaceHandlerTest.cpp
-#    OBJECTS
-#        $<TARGET_OBJECTS:storage_http_handler>
-#        $<TARGET_OBJECTS:meta_http_handler>
-#        ${meta_test_deps}
-#    LIBRARIES
-#        ${ROCKSDB_LIBRARIES}
-#        ${THRIFT_LIBRARIES}
-#        ${PROXYGEN_LIBRARIES}
-#        wangle
-#        gtest
-#)
+# #nebula_add_test(
+# #    NAME
+# #        meta_http_replace_test
+# #    SOURCES
+# #        MetaHttpReplaceHandlerTest.cpp
+# #    OBJECTS
+# #        $<TARGET_OBJECTS:storage_http_handler>
+# #        $<TARGET_OBJECTS:meta_http_handler>
+# #        ${meta_test_deps}
+# #    LIBRARIES
+# #        ${ROCKSDB_LIBRARIES}
+# #        ${THRIFT_LIBRARIES}
+# #        ${PROXYGEN_LIBRARIES}
+# #        wangle
+# #        gtest
+# #)
 
-nebula_add_test(
-    NAME
-        job_manager_test
-    SOURCES
-        JobManagerTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-        gmock
-)
+# nebula_add_test(
+#     NAME
+#         job_manager_test
+#     SOURCES
+#         JobManagerTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+#         gmock
+# )
 
-nebula_add_test(
-    NAME
-        get_statis_test
-    SOURCES
-        GetStatisTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-        gmock
-)
+# nebula_add_test(
+#     NAME
+#         get_statis_test
+#     SOURCES
+#         GetStatisTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+#         gmock
+# )
 
-nebula_add_test(
-    NAME
-        group_zone_test
-    SOURCES
-        GroupZoneTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         group_zone_test
+#     SOURCES
+#         GroupZoneTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        create_backup_test
-    SOURCES
-        CreateBackupProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         create_backup_test
+#     SOURCES
+#         CreateBackupProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        restore_test
-    SOURCES
-        RestoreProcessorTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         restore_test
+#     SOURCES
+#         RestoreProcessorTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
 
-nebula_add_test(
-    NAME
-        list_meta_cluster_info_test
-    SOURCES
-        ListClusterInfoTest.cpp
-    OBJECTS
-        ${meta_test_deps}
-    LIBRARIES
-        ${ROCKSDB_LIBRARIES}
-        ${THRIFT_LIBRARIES}
-        ${PROXYGEN_LIBRARIES}
-        wangle
-        gtest
-)
+# nebula_add_test(
+#     NAME
+#         list_meta_cluster_info_test
+#     SOURCES
+#         ListClusterInfoTest.cpp
+#     OBJECTS
+#         ${meta_test_deps}
+#     LIBRARIES
+#         ${ROCKSDB_LIBRARIES}
+#         ${THRIFT_LIBRARIES}
+#         ${PROXYGEN_LIBRARIES}
+#         wangle
+#         gtest
+# )
