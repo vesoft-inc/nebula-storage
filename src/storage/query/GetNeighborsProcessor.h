@@ -43,7 +43,8 @@ protected:
                                                          executor,
                                                          cache) {}
 
-    StoragePlan<VertexID> buildPlan(RunTimeContext* context,
+    template <typename T>
+    StoragePlan<T> buildPlan(RunTimeContext* context,
                                     StorageExpressionContext* expCtx,
                                     nebula::DataSet* result,
                                     int64_t limit = 0,
@@ -88,6 +89,7 @@ private:
     std::vector<RunTimeContext>               contexts_;
     std::vector<StorageExpressionContext>     expCtxs_;
     std::vector<nebula::DataSet>              results_;
+    bool                                      withDst_{false};
 };
 
 }  // namespace storage

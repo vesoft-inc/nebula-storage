@@ -201,9 +201,10 @@ GetPropProcessor::runInExecutor(RunTimeContext* context,
 StoragePlan<VertexID> GetPropProcessor::buildTagPlan(RunTimeContext* context,
                                                      nebula::DataSet* result) {
     StoragePlan<VertexID> plan;
-    std::vector<TagNode*> tags;
+    std::vector<TagNode<VertexID>*> tags;
     for (const auto& tc : tagContext_.propContexts_) {
-        auto tag = std::make_unique<TagNode>(context, &tagContext_, tc.first, &tc.second);
+        auto tag = std::make_unique<TagNode<VertexID>>(
+            context, &tagContext_, tc.first, &tc.second);
         tags.emplace_back(tag.get());
         plan.addNode(std::move(tag));
     }

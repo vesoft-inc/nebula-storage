@@ -7,6 +7,7 @@
 #ifndef STORAGE_EXEC_EDGENODE_H_
 #define STORAGE_EXEC_EDGENODE_H_
 
+#include <ostream>
 #include "common/base/Base.h"
 #include "storage/exec/RelNode.h"
 #include "storage/exec/StorageIterator.h"
@@ -153,41 +154,59 @@ public:
     }
 };
 
+template <typename T>
 // SingleEdgeNode is used to scan all edges of a specified edgeType of the same srcId
-class SingleEdgeNode final : public EdgeNode<VertexID> {
+class SingleEdgeNode final : public EdgeNode<T> {
 public:
-    using RelNode::execute;
+    using RelNode<T>::execute;
     SingleEdgeNode(RunTimeContext* context,
                    EdgeContext* edgeContext,
                    EdgeType edgeType,
                    const std::vector<PropContext>* props,
                    StorageExpressionContext* expCtx = nullptr,
                    Expression* exp = nullptr)
-        : EdgeNode(context, edgeContext, edgeType, props, expCtx, exp) {}
+        : EdgeNode<T>(context, edgeContext, edgeType, props, expCtx, exp) {}
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::execute(partId, vId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
 
-        VLOG(1) << "partId " << partId << ", vId " << vId << ", edgeType " << edgeType_
-                << ", prop size " << props_->size();
         std::unique_ptr<kvstore::KVIterator> iter;
-        prefix_ = NebulaKeyUtils::edgePrefix(context_->vIdLen(), partId, vId, edgeType_);
-        ret = context_->env()->kvstore_->prefix(context_->spaceId(), partId, prefix_, &iter);
+        if constexpr (std::is_same_v<T, VertexID>) {
+            this->prefix_ = NebulaKeyUtils::edgePrefix(this->context_->vIdLen(),
+                                                    partId, vId, this->edgeType_);
+        } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+            this->prefix_ = NebulaKeyUtils::edgePrefix(this->context_->vIdLen(),
+                                                    partId, vId.first, this->edgeType_);
+        } else {
+            LOG(FATAL) << "Invlaid key type for edge scan.";
+        }
+        ret = this->context_->env()->kvstore_->prefix(this->context_->spaceId(),
+                                                         partId, this->prefix_, &iter);
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED && iter && iter->valid()) {
-            if (context_->env()->txnMan_ &&
-                context_->env()->txnMan_->enableToss(context_->spaceId())) {
+            if (this->context_->env()->txnMan_ &&
+                this->context_->env()->txnMan_->enableToss(this->context_->spaceId())) {
                 bool stopAtFirstEdge = false;
-                iter_.reset(new TossEdgeIterator(
-                    context_, std::move(iter), edgeType_, schemas_, &ttl_, stopAtFirstEdge));
+                this->iter_.reset(new TossEdgeIterator(
+                    this->context_, std::move(iter),
+                    this->edgeType_, this->schemas_, &this->ttl_, stopAtFirstEdge));
             } else {
-                iter_.reset(new SingleEdgeIterator(
-                    context_, std::move(iter), edgeType_, schemas_, &ttl_));
+                if constexpr (std::is_same_v<T, VertexID>) {
+                    this->iter_.reset(new SingleEdgeIterator(
+                        this->context_, std::move(iter), this->edgeType_,
+                        this->schemas_, &this->ttl_));
+                } else if constexpr (std::is_same_v<T, std::pair<VertexID, VertexID>>) {
+                    this->iter_.reset(new SingleEdgeIterator(
+                        this->context_, std::move(iter),
+                        this->edgeType_, this->schemas_, &this->ttl_, true, vId.second));
+                } else {
+                    LOG(FATAL) << "Invlaid key type for edge scan.";
+                }
             }
         } else {
-            iter_.reset();
+            this->iter_.reset();
         }
         return ret;
     }

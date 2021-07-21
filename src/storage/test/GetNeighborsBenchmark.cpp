@@ -162,12 +162,12 @@ void goEdgeNode(int32_t iters,
     UNUSED(playerProps);
     std::unique_ptr<nebula::storage::PlanContext> planCtx;
     std::unique_ptr<nebula::storage::RunTimeContext> context;
-    std::unique_ptr<nebula::storage::SingleEdgeNode> edgeNode;
+    std::unique_ptr<nebula::storage::SingleEdgeNode<nebula::VertexID>> edgeNode;
     nebula::storage::EdgeContext edgeContext;
     BENCHMARK_SUSPEND {
         initContext(planCtx, context, edgeContext, serveProps);
         const auto& ec = edgeContext.propContexts_.front();
-        edgeNode = std::make_unique<nebula::storage::SingleEdgeNode>(
+        edgeNode = std::make_unique<nebula::storage::SingleEdgeNode<nebula::VertexID>>(
             context.get(), &edgeContext, ec.first, &ec.second);
     }
     auto totalParts = gCluster->getTotalParts();

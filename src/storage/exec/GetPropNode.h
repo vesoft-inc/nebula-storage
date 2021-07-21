@@ -18,8 +18,8 @@ class GetTagPropNode : public QueryNode<VertexID> {
 public:
     using RelNode<VertexID>::execute;
 
-    explicit GetTagPropNode(RunTimeContext* context,
-                            std::vector<TagNode*> tagNodes,
+    explicit GetTagPropNode(RunTimeContext *context,
+                            std::vector<TagNode<VertexID>*> tagNodes,
                             nebula::DataSet* resultDataSet,
                             VertexCache* vertexCache)
         : context_(context)
@@ -82,8 +82,8 @@ public:
     }
 
 private:
-    RunTimeContext*             context_;
-    std::vector<TagNode*>       tagNodes_;
+    RunTimeContext*                context_;
+    std::vector<TagNode<VertexID>*>       tagNodes_;
     nebula::DataSet*            resultDataSet_;
     VertexCache*                vertexCache_;
 };
