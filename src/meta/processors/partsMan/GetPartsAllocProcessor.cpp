@@ -16,7 +16,7 @@ void GetPartsAllocProcessor::process(const cpp2::GetPartsAllocReq& req) {
     auto iterRet = doPrefix(prefix);
     if (!nebula::ok(iterRet)) {
         auto retCode = nebula::error(iterRet);
-        LOG(ERROR) << "Get parts failed, error " << apache::thrift::util::enumNameSafe(retCode);;
+        LOG(ERROR) << "Get parts failed, error " << apache::thrift::util::enumNameSafe(retCode);
         handleErrorCode(retCode);
         onFinished();
         return;
@@ -34,7 +34,63 @@ void GetPartsAllocProcessor::process(const cpp2::GetPartsAllocReq& req) {
     }
     handleErrorCode(nebula::cpp2::ErrorCode::SUCCEEDED);
     resp_.set_parts(std::move(parts));
+    auto terms = getTerm(spaceId);
+    if (!terms.empty()) {
+        resp_.set_terms(std::move(terms));
+    }
     onFinished();
+}
+
+std::unordered_map<PartitionID, TermID> GetPartsAllocProcessor::getTerm(GraphSpaceID spaceId) {
+    using LeaderInfoMap = std::unordered_map<GraphSpaceID, std::vector<meta::cpp2::LeaderInfo>>;
+    LeaderInfoMap leaderInfoMap;
+    kvstore_->allLeader(leaderInfoMap);
+    std::unordered_map<PartitionID, TermID> ret;
+
+    const auto& prefix = MetaServiceUtils::partPrefix(spaceId);
+    std::unique_ptr<kvstore::KVIterator> iter;
+    auto rc = kvstore_->prefix(kDefaultSpaceId, kDefaultPartId, prefix, &iter);
+    if (rc != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "Access kvstore failed, spaceId " << spaceId
+                   << apache::thrift::util::enumNameSafe(rc);
+        return ret;
+    }
+
+    std::vector<PartitionID> partIdVec;
+    std::vector<std::string> keys;
+    std::vector<std::string> vals;
+    while (iter->valid()) {
+        auto key = iter->key();
+        PartitionID partId;
+        memcpy(&partId, key.data() + prefix.size(), sizeof(PartitionID));
+        partIdVec.emplace_back(partId);
+        keys.emplace_back(MetaServiceUtils::leaderKey(spaceId, partId));
+        iter->next();
+    }
+
+    LOG(INFO) << "keys.size() = " << keys.size();
+    auto [code, statusVec] = kvstore_->multiGet(0, 0, std::move(keys), &vals);
+    if (code != nebula::cpp2::ErrorCode::SUCCEEDED &&
+        code != nebula::cpp2::ErrorCode::E_PARTIAL_RESULT) {
+        LOG(INFO) << "error rc = " << apache::thrift::util::enumNameSafe(code);
+        return ret;
+    }
+
+    TermID term;
+    for (auto i = 0U; i != keys.size(); ++i) {
+        if (statusVec[i].ok()) {
+            std::tie(std::ignore, term, code) = MetaServiceUtils::parseLeaderValV3(vals[i]);
+            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                LOG(WARNING) << apache::thrift::util::enumNameSafe(code);
+                LOG(INFO) << folly::sformat("term of part {} is invalid", partIdVec[i]);
+                continue;
+            }
+            LOG(INFO) << folly::sformat("term of part {} is {}", partIdVec[i], term);
+            ret[partIdVec[i]] = term;
+        }
+    }
+
+    return ret;
 }
 
 }  // namespace meta

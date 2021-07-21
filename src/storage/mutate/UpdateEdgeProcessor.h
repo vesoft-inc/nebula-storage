@@ -32,6 +32,9 @@ public:
 
     void doProcess(const cpp2::UpdateEdgeRequest& req);
 
+    using ContextAdjuster = folly::Function<void(EdgeContext& ctx)>;
+    void adjustContext(ContextAdjuster fn);
+
 private:
     UpdateEdgeProcessor(StorageEnv* env,
                         const ProcessorCounters* counters,
@@ -76,6 +79,9 @@ private:
     // update <prop name, new value expression>
     std::vector<storage::cpp2::UpdatedProp>                              updatedProps_;
 
+    folly::Optional<std::vector<std::string>>                            returnProps_;
+    folly::Optional<std::string>                                         condition_;
+
     // return props expression
     std::vector<Expression*>                                             returnPropsExp_;
 
@@ -84,6 +90,8 @@ private:
 
     // updatedProps_ dependent props in value expression
     std::vector<std::pair<std::string, std::unordered_set<std::string>>> depPropMap_;
+
+    std::list<ContextAdjuster>                                           ctxAdjuster_;
 };
 
 }  // namespace storage

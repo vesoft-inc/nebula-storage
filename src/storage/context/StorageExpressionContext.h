@@ -115,10 +115,12 @@ public:
 
     Value getVertex() const override {
         LOG(FATAL) << "Unimplemented";
+        return Value();
     }
 
     Value getEdge() const override {
         LOG(FATAL) << "Unimplemented";
+        return Value();
     }
 
 

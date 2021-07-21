@@ -172,6 +172,7 @@ bool StorageServer::start() {
     env_->metaClient_ = metaClient_.get();
 
     txnMan_ = std::make_unique<TransactionManager>(env_.get());
+    txnMan_->start();
     env_->txnMan_ = txnMan_.get();
 
     env_->verticesML_ = std::make_unique<VerticesMemLock>();
