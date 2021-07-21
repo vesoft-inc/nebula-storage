@@ -291,7 +291,7 @@ void RaftPart::start(std::vector<HostAddr>&& peers, bool asLearner) {
         LOG(INFO) << idStr_ << "Reset lastLogId " << lastLogId_
                   << " to be the committedLogId " << committedLogId_;
         lastLogId_ = committedLogId_;
-        lastLogTerm_ = term_;
+        lastLogTerm_ = logIdAndTerm.second;
         wal_->reset();
     }
     LOG(INFO) << idStr_ << "There are "
@@ -698,7 +698,7 @@ folly::Future<AppendLogResult> RaftPart::appendLogAsync(ClusterID source,
     }
 
     if (!checkAppendLogResult(res)) {
-        // Mosy likely failed because the parttion is not leader
+        // Most likely failed because the partition is not leader
         LOG_EVERY_N(WARNING, 1000) << idStr_ << "Cannot append logs, clean the buffer";
         return res;
     }
@@ -1030,12 +1030,6 @@ bool RaftPart::prepareElectionRequest(
         cpp2::AskForVoteRequest& req,
         std::vector<std::shared_ptr<Host>>& hosts) {
     std::lock_guard<std::mutex> g(raftLock_);
-
-    // Make sure the partition is running
-    if (status_ != Status::RUNNING) {
-        VLOG(2) << idStr_ << "The partition is not running";
-        return false;
-    }
 
     if (UNLIKELY(status_ == Status::STOPPED)) {
         VLOG(2) << idStr_

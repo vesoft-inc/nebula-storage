@@ -53,7 +53,7 @@ void Listener::start(std::vector<HostAddr>&& peers, bool) {
         LOG(INFO) << idStr_ << "Reset lastLogId " << lastLogId_
                 << " to be the committedLogId " << committedLogId_;
         lastLogId_ = committedLogId_;
-        lastLogTerm_ = term_;
+        lastLogTerm_ = logIdAndTerm.second;
         wal_->reset();
     }
 
