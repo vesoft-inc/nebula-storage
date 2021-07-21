@@ -350,7 +350,7 @@ TEST(GetPropTest, AllPropertyInOneSchemaTest) {
         nebula::Row row({"Tim Duncan", "Tim Duncan", 44, false, 19,
                          1997, 2016, 1392, 19.0, 1, "America", 5});
         expected.rows.emplace_back(std::move(row));
-        ASSERT_EQ(expected, *resp.props_ref());
+        EXPECT_EQ(expected, *resp.props_ref());
     }
     {
         LOG(INFO) << "GetEdgeProp";
@@ -379,7 +379,7 @@ TEST(GetPropTest, AllPropertyInOneSchemaTest) {
                              "101.champions"};
         nebula::Row row({"Tim Duncan", "Spurs", 1997, 2016, 19, 1392, 19.000000, "zzzzz", 5});
         expected.rows.emplace_back(std::move(row));
-        ASSERT_EQ(expected, *resp.props_ref());
+        EXPECT_EQ(expected, *resp.props_ref());
     }
 }
 

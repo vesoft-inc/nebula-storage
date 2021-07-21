@@ -273,7 +273,10 @@ nebula::cpp2::ErrorCode GetPropProcessor::buildTagContext(const cpp2::GetPropReq
     auto returnProps = (*req.vertex_props_ref()).empty()
                      ? buildAllTagProps()
                      : *req.vertex_props_ref();
-    auto ret = handleVertexProps(returnProps);
+    auto lackTags = req.real_vid_ref().has_value() && *req.get_real_vid() ?
+        lackTag(returnProps) :
+        std::vector<TagID>{};
+    auto ret = handleVertexProps(returnProps, {});
     if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
         return ret;
     }

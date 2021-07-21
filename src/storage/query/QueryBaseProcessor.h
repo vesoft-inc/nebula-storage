@@ -161,7 +161,8 @@ protected:
     nebula::cpp2::ErrorCode getSpaceEdgeSchema();
 
     // build tagContexts_ according to return props
-    nebula::cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps);
+    nebula::cpp2::ErrorCode handleVertexProps(std::vector<cpp2::VertexProp>& tagProps,
+                                              const std::vector<TagID>& lackTags = {});
     // build edgeContexts_ according to return props
     nebula::cpp2::ErrorCode handleEdgeProps(std::vector<cpp2::EdgeProp>& edgeProps);
 
@@ -174,6 +175,8 @@ protected:
 
     std::vector<cpp2::VertexProp> buildAllTagProps();
     std::vector<cpp2::EdgeProp> buildAllEdgeProps(const cpp2::EdgeDirection& direction);
+
+    std::vector<TagID> lackTag(const std::vector<cpp2::VertexProp>& tagProps);
 
     nebula::cpp2::ErrorCode
     checkExp(const Expression* exp,
