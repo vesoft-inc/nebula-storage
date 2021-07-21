@@ -88,6 +88,7 @@ nebula::cpp2::ErrorCode ListHostsProcessor::allMetaHostsStatus() {
         item.set_role(cpp2::HostRole::META);
         item.set_git_info_sha(gitInfoSha());
         item.set_status(cpp2::HostStatus::ONLINE);
+        item.set_version(simpleVersionString());
         hostItems_.emplace_back(item);
     }
     return nebula::cpp2::ErrorCode::SUCCEEDED;
@@ -125,6 +126,9 @@ nebula::cpp2::ErrorCode ListHostsProcessor::allHostsWithStatus(cpp2::HostRole ro
 
         item.set_role(info.role_);
         item.set_git_info_sha(info.gitInfoSha_);
+        if (info.version_.has_value()) {
+            item.set_version(info.version_.value());
+        }
         if (now - info.lastHBTimeInMilliSec_ < FLAGS_removed_threshold_sec * 1000) {
             // If meta didn't receive heartbeat with 2 periods, regard hosts as offline.
             // Same as ActiveHostsMan::getActiveHosts
