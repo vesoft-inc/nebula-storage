@@ -49,26 +49,14 @@ public:
         VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << tagId_
                 << ", prop size " << props_->size();
 
-        // when update, has already evicted
-        if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
-            auto cache = tagContext_->vertexCache_->get(std::make_pair(vId, tagId_));
-            if (cache.ok()) {
-                key_ = NebulaKeyUtils::vertexKey(context_->vIdLen(), partId, vId, tagId_);
-                value_ = std::move(cache.value());
-                // if data in vertex cache is valid, don't read from kv
-                if (resetReader(vId)) {
-                    return nebula::cpp2::ErrorCode::SUCCEEDED;
-                }
-            }
-        }
-
+        // doodle
         std::unique_ptr<kvstore::KVIterator> iter;
         auto prefix = NebulaKeyUtils::vertexPrefix(context_->vIdLen(), partId, vId, tagId_);
         ret = context_->env()->kvstore_->prefix(context_->spaceId(), partId, prefix, &iter);
         if (ret == nebula::cpp2::ErrorCode::SUCCEEDED && iter && iter->valid()) {
             key_ = iter->key().str();
             value_ = iter->val().str();
-            resetReader(vId);
+            resetReader();
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
         return ret;
@@ -108,19 +96,19 @@ public:
         return tagName_;
     }
 
+    // doodle
+    /*
     TagID getTagId() {
         return tagId_;
     }
+    */
 
 private:
-    bool resetReader(const VertexID& vId) {
+    bool resetReader() {
         reader_.reset(*schemas_, value_);
         if (!reader_ || (ttl_.hasValue() && CommonUtils::checkDataExpiredForTTL(
             schemas_->back().get(), reader_.get(), ttl_.value().first, ttl_.value().second))) {
             reader_.reset();
-            if (FLAGS_enable_vertex_cache && tagContext_->vertexCache_ != nullptr) {
-                tagContext_->vertexCache_->evict(std::make_pair(vId, tagId_));
-            }
             return false;
         }
         return true;

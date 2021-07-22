@@ -122,12 +122,6 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
                     break;
                 }
                 data.emplace_back(std::move(key), std::move(retEnc.value()));
-
-                if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                    vertexCache_->evict(std::make_pair(vid, tagId));
-                    VLOG(3) << "Evict cache for vId " << vid
-                            << ", tagId " << tagId;
-                }
             }
         }
         if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -287,12 +281,6 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 * step 3 , Insert new vertex data
                 */
                 batchHolder->put(std::move(key), std::move(retEnc.value()));
-
-                if (FLAGS_enable_vertex_cache && vertexCache_ != nullptr) {
-                    vertexCache_->evict(std::make_pair(vid, tagId));
-                    VLOG(3) << "Evict cache for vId " << vid
-                            << ", tagId " << tagId;
-                }
             }
             if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
                 break;
@@ -321,6 +309,7 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
 
 ErrorOr<nebula::cpp2::ErrorCode, std::string>
 AddVerticesProcessor::findOldValue(PartitionID partId, const VertexID& vId, TagID tagId) {
+    // doodle
     const auto& prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
     std::unique_ptr<kvstore::KVIterator> iter;
     auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
