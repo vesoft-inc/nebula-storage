@@ -161,7 +161,7 @@ void GetSessionProcessor::process(const cpp2::GetSessionReq& req) {
 void RemoveSessionsProcessor::process(const cpp2::RemoveSessionsReq& req) {
     folly::SharedMutex::WriteHolder wHolder(LockUtils::sessionLock());
     std::vector<std::string> keys;
-    for (auto sessionId : *req.get_session_id_list()) {
+    for (auto sessionId : req.get_session_id_list()) {
         auto key = MetaServiceUtils::sessionKey(sessionId);
         auto ret = doGet(key);
         if (!nebula::ok(ret)) {
