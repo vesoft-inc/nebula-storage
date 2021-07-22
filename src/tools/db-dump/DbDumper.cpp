@@ -100,7 +100,15 @@ Status DbDumper::initParams() {
     std::vector<std::string> tags, edges;
     try {
         folly::splitTo<PartitionID>(',', FLAGS_parts, std::inserter(parts_, parts_.begin()), true);
-        folly::splitTo<VertexID>(',', FLAGS_vids, std::inserter(vids_, vids_.begin()), true);
+        if (spaceVidType_ == meta::cpp2::PropertyType::INT64) {
+            std::vector<int64_t> intVids;
+            folly::splitTo<int64_t>(',', FLAGS_vids, std::inserter(intVids, intVids.begin()), true);
+            for (auto vid : intVids) {
+                vids_.emplace(std::string(reinterpret_cast<const char*>(&vid), 8));
+            }
+        } else {
+            folly::splitTo<VertexID>(',', FLAGS_vids, std::inserter(vids_, vids_.begin()), true);
+        }
         folly::splitTo<std::string>(',', FLAGS_tags, std::inserter(tags, tags.begin()), true);
         folly::splitTo<std::string>(',', FLAGS_edges, std::inserter(edges, edges.begin()), true);
     } catch (const std::exception& e) {
