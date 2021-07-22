@@ -54,13 +54,13 @@ public:
         }
         for (const auto& vId : vids) {
             VLOG(1) << "partId " << partId << ", vId " << vId << ", tagId " << context_->tagId_;
-            std::unique_ptr<kvstore::KVIterator> vIter;
-            auto prefix = NebulaKeyUtils::vertexPrefix(context_->vIdLen(), partId,
-                                                       vId, context_->tagId_);
-            ret = context_->env()->kvstore_->prefix(context_->spaceId(),
-                                                       partId, prefix, &vIter);
-            if (ret == nebula::cpp2::ErrorCode::SUCCEEDED && vIter && vIter->valid()) {
-                data_.emplace_back(vIter->key(), vIter->val());
+            auto key = NebulaKeyUtils::vertexKey(context_->vIdLen(), partId, vId, context_->tagId_);
+            std::string val;
+            ret = context_->env()->kvstore_->get(context_->spaceId(), partId, key, &val);
+            if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
+                data_.emplace_back(std::move(key), std::move(val));
+            } else if (ret == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+                continue;
             } else {
                 return ret;
             }

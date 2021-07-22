@@ -27,7 +27,7 @@ public:
 
     HashJoinNode(RunTimeContext* context,
                  const std::vector<TagNode*>& tagNodes,
-                 const std::vector<EdgeNode<VertexID>*>& edgeNodes,
+                 const std::vector<SingleEdgeNode*>& edgeNodes,
                  TagContext* tagContext,
                  EdgeContext* edgeContext,
                  StorageExpressionContext* expCtx)
@@ -155,7 +155,7 @@ private:
 private:
     RunTimeContext* context_;
     std::vector<TagNode*> tagNodes_;
-    std::vector<EdgeNode<VertexID>*> edgeNodes_;
+    std::vector<SingleEdgeNode*> edgeNodes_;
     TagContext* tagContext_;
     EdgeContext* edgeContext_;
     StorageExpressionContext* expCtx_;

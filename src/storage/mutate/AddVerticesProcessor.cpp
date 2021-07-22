@@ -309,19 +309,18 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
 
 ErrorOr<nebula::cpp2::ErrorCode, std::string>
 AddVerticesProcessor::findOldValue(PartitionID partId, const VertexID& vId, TagID tagId) {
-    // doodle
-    const auto& prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vId, tagId);
-    std::unique_ptr<kvstore::KVIterator> iter;
-    auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
-    if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
-        LOG(ERROR) << "Error! ret = " << static_cast<int32_t>(ret)
+    auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vId, tagId);
+    std::string val;
+    auto ret = env_->kvstore_->get(spaceId_, partId, key, &val);
+    if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
+        return val;
+    } else if (ret == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+        return std::string();
+    } else {
+        LOG(ERROR) << "Error! ret = " << apache::thrift::util::enumNameSafe(ret)
                    << ", spaceId " << spaceId_;
         return ret;
     }
-    if (iter && iter->valid()) {
-        return iter->val().str();
-    }
-    return std::string();
 }
 
 std::string AddVerticesProcessor::indexKey(PartitionID partId,
