@@ -298,7 +298,7 @@ public:
     future_getSession(const cpp2::GetSessionReq& req) override;
 
     folly::Future<cpp2::ExecResp>
-    future_removeSession(const cpp2::RemoveSessionReq& req) override;
+    future_removeSessions(const cpp2::RemoveSessionsReq& req) override;
 
     folly::Future<cpp2::ExecResp>
     future_killQuery(const cpp2::KillQueryReq& req) override;

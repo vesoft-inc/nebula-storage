@@ -2705,10 +2705,10 @@ TEST(ProcessorTest, SessionManagerTest) {
     }
     // delete session
     {
-        cpp2::RemoveSessionReq delReq;
-        delReq.set_session_id(sessionId);
+        cpp2::RemoveSessionsReq delReq;
+        delReq.set_session_id_list({sessionId});
 
-        auto* dProcessor = RemoveSessionProcessor::instance(kv.get());
+        auto* dProcessor = RemoveSessionsProcessor::instance(kv.get());
         auto delFut = dProcessor->getFuture();
         dProcessor->process(delReq);
         auto dResp = std::move(delFut).get();
