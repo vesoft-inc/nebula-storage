@@ -223,7 +223,7 @@ void DbDumper::run() {
                 if (!isValidVidLen(vid)) {
                     continue;
                 }
-                auto partId = metaClient_->partId(partNum_, vid).value();
+                auto partId = metaClient_->partId(partNum_, vid);
                 auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vid);
                 seek(prefix);
             }
@@ -235,7 +235,7 @@ void DbDumper::run() {
                 if (!isValidVidLen(vid)) {
                     continue;
                 }
-                auto partId = metaClient_->partId(partNum_, vid).value();
+                auto partId = metaClient_->partId(partNum_, vid);
                 for (auto edgeType : edgeTypes_) {
                     auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_, partId, vid, edgeType);
                     seek(prefix);
@@ -249,7 +249,7 @@ void DbDumper::run() {
                 if (!isValidVidLen(vid)) {
                     continue;
                 }
-                auto partId = metaClient_->partId(partNum_, vid).value();
+                auto partId = metaClient_->partId(partNum_, vid);
                 for (auto tagId : tagIds_) {
                     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vid, tagId);
                     seek(prefix);
@@ -263,7 +263,7 @@ void DbDumper::run() {
                 if (!isValidVidLen(vid)) {
                     continue;
                 }
-                auto partId = metaClient_->partId(partNum_, vid).value();
+                auto partId = metaClient_->partId(partNum_, vid);
                 for (auto edgeType : edgeTypes_) {
                     auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_, partId, vid, edgeType);
                     seek(prefix);
@@ -274,7 +274,7 @@ void DbDumper::run() {
                 if (!isValidVidLen(vid)) {
                     continue;
                 }
-                auto partId = metaClient_->partId(partNum_, vid).value();
+                auto partId = metaClient_->partId(partNum_, vid);
                 for (auto tagId : tagIds_) {
                     auto prefix = NebulaKeyUtils::vertexPrefix(spaceVidLen_, partId, vid, tagId);
                     seek(prefix);
