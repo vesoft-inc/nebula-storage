@@ -345,6 +345,16 @@ QueryBaseProcessor<REQ, RESP>::checkExp(const Expression* exp,
             }
             return nebula::cpp2::ErrorCode::SUCCEEDED;
         }
+        case Expression::Kind::kMapProjection: {
+            auto* mapProjExp = static_cast<const MapProjectionExpression*>(exp);
+            for (auto& item : mapProjExp->items()) {
+                auto ret = checkExp(item.second, returned, filtered, updated);
+                if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                    return ret;
+                }
+            }
+            return nebula::cpp2::ErrorCode::SUCCEEDED;
+        }
         case Expression::Kind::kCase: {
             auto* caseExp = static_cast<const CaseExpression*>(exp);
             if (caseExp->hasCondition()) {
