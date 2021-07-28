@@ -19,6 +19,7 @@ DiskManager::DiskManager(const std::vector<std::string>& dataPaths,
     try {
         // atomic is not copy-constructible
         std::vector<std::atomic_uint64_t> freeBytes(dataPaths.size() + 1);
+        std::vector<std::atomic_uint64_t> usedBytes(dataPaths.size() + 1);
         size_t index = 0;
         for (const auto& path : dataPaths) {
             auto absolute = boost::filesystem::absolute(path);
@@ -31,8 +32,10 @@ DiskManager::DiskManager(const std::vector<std::string>& dataPaths,
             auto info = boost::filesystem::space(canonical);
             dataPaths_.emplace_back(std::move(canonical));
             freeBytes[index++] = info.available;
+            usedBytes[index++] = info.capacity - info.available;;
         }
         freeBytes_ = std::move(freeBytes);
+        usedBytes_ = std::move(usedBytes);
     } catch (boost::filesystem::filesystem_error& e) {
         LOG(FATAL) << "DataPath invalid: " << e.what();
     }
@@ -120,6 +123,18 @@ bool DiskManager::hasEnoughSpace(GraphSpaceID spaceId, PartitionID partId) {
            FLAGS_minimum_reserved_bytes;
 }
 
+StatusOr<uint64_t> DiskManager::usedSpace(GraphSpaceID spaceId, PartitionID partId) {
+    auto spaceIt = partIndex_.find(spaceId);
+    if (spaceIt == partIndex_.end()) {
+        return Status::Error("Space not found");
+    }
+    auto partIt = spaceIt->second.find(partId);
+    if (partIt == spaceIt->second.end()) {
+        return Status::Error("Part not found");
+    }
+    return usedBytes_[partIt->second].load(std::memory_order_relaxed);
+}
+
 void DiskManager::refresh() {
     // refresh the available bytes of each data path, skip the dummy path
     for (size_t i = 0; i < dataPaths_.size(); i++) {
@@ -128,6 +143,7 @@ void DiskManager::refresh() {
         if (!ec) {
             VLOG(1) << "Refresh filesystem info of " << dataPaths_[i];
             freeBytes_[i] = info.available;
+            usedBytes_[i] = info.capacity - info.available;
         } else {
             LOG(WARNING) << "Get filesystem info of " << dataPaths_[i] << " failed";
         }

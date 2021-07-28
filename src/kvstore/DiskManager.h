@@ -21,7 +21,7 @@ namespace kvstore {
 using PartDiskMap = std::unordered_map<std::string, std::set<PartitionID>>;
 
 class DiskManager {
-    FRIEND_TEST(DiskManagerTest, AvailableTest);
+    FRIEND_TEST(DiskManagerTest, AvailableAndUsedTest);
     FRIEND_TEST(DiskManagerTest, WalNoSpaceTest);
 
 public:
@@ -45,6 +45,8 @@ public:
 
     bool hasEnoughSpace(GraphSpaceID spaceId, PartitionID partId);
 
+    StatusOr<uint64_t> usedSpace(GraphSpaceID spaceId, PartitionID partId);
+
     // Given a space, return data path and all partition in the path
     StatusOr<PartDiskMap> partDist(GraphSpaceID spaceId);
 
@@ -59,6 +61,9 @@ private:
     std::vector<boost::filesystem::path> dataPaths_;
     // free space available to a non-privileged process, in bytes
     std::vector<std::atomic_uint64_t> freeBytes_;
+
+    // used space to a non-privileged process, in bytes
+    std::vector<std::atomic_uint64_t> usedBytes_;
 
     // given a space and data path, return all parts in the path
     std::unordered_map<GraphSpaceID, PartDiskMap> partPath_;

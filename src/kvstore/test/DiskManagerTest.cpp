@@ -72,7 +72,7 @@ TEST(DiskManagerTest, SimpleTest) {
     }
 }
 
-TEST(DiskManagerTest, AvailableTest) {
+TEST(DiskManagerTest, AvailableAndUsedTest) {
     GraphSpaceID spaceId = 1;
     fs::TempDir disk1("/tmp/disk_man_test.XXXXXX");
     auto path1 = folly::stringPrintf("%s/nebula/%d", disk1.path(), spaceId);
@@ -104,6 +104,10 @@ TEST(DiskManagerTest, AvailableTest) {
     GraphSpaceID unknownSpace = 2;
     PartitionID unknownPart = 1;
     EXPECT_FALSE(diskMan.hasEnoughSpace(unknownSpace, unknownPart));
+
+    for (PartitionID partId = 1; partId <= 20; partId++) {
+        EXPECT_TRUE(diskMan.usedSpace(spaceId, partId).ok());
+    }
 }
 
 TEST(DiskManagerTest, WalNoSpaceTest) {
@@ -144,7 +148,6 @@ TEST(DiskManagerTest, WalNoSpaceTest) {
         }
     }
 }
-
 
 }  // namespace kvstore
 }  // namespace nebula
