@@ -370,6 +370,171 @@ TEST(RocksEngineTest, BackupRestoreWithData) {
     FLAGS_rocksdb_backup_dir = "";
 }
 
+TEST(RocksEngineTest, VertexBloomFilterTest) {
+    FLAGS_enable_rocksdb_statistics = true;
+    fs::TempDir rootPath("/tmp/rocksdb_engine_VertexBloomFilterTest.XXXXXX");
+    auto engine = std::make_unique<RocksEngine>(0, kDefaultVIdLen, rootPath.path());
+    PartitionID partId = 1;
+    VertexID vId = "vertex";
+
+    auto writeVertex = [&](TagID tagId) {
+        std::vector<KV> data;
+        data.emplace_back(NebulaKeyUtils::vertexKey(kDefaultVIdLen, partId, vId, tagId),
+                          folly::stringPrintf("val_%d", tagId));
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, engine->multiPut(std::move(data)));
+    };
+
+    auto readVertex = [&](TagID tagId) {
+        auto key = NebulaKeyUtils::vertexKey(kDefaultVIdLen, partId, vId, tagId);
+        std::string val;
+        auto ret = engine->get(key, &val);
+        if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
+            EXPECT_EQ(folly::stringPrintf("val_%d", tagId), val);
+        } else {
+            EXPECT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, ret);
+        }
+    };
+
+    auto statistics = kvstore::getDBStatistics();
+
+    // write initial vertex
+    writeVertex(0);
+
+    // read data while in memtable
+    readVertex(0);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+    readVertex(1);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+
+    // flush to sst, read again
+    EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, engine->flush());
+    readVertex(0);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+    // read not exists data, whole key bloom filter will be useful
+    readVertex(1);
+    EXPECT_GT(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+
+    FLAGS_enable_rocksdb_statistics = false;
+}
+
+
+TEST(RocksEngineTest, EdgeBloomFilterTest) {
+    FLAGS_enable_rocksdb_statistics = true;
+    fs::TempDir rootPath("/tmp/rocksdb_engine_EdgeBloomFilterTest.XXXXXX");
+    auto engine = std::make_unique<RocksEngine>(0, kDefaultVIdLen, rootPath.path());
+    PartitionID partId = 1;
+    VertexID vId = "vertex";
+    auto writeEdge = [&](EdgeType edgeType) {
+        std::vector<KV> data;
+        data.emplace_back(NebulaKeyUtils::edgeKey(kDefaultVIdLen, partId, vId, edgeType, 0, vId),
+                          folly::stringPrintf("val_%d", edgeType));
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, engine->multiPut(std::move(data)));
+    };
+
+    auto readEdge = [&](EdgeType edgeType) {
+        auto key = NebulaKeyUtils::edgeKey(kDefaultVIdLen, partId, vId, edgeType, 0, vId);
+        std::string val;
+        auto ret = engine->get(key, &val);
+        if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
+            EXPECT_EQ(folly::stringPrintf("val_%d", edgeType), val);
+        } else {
+            EXPECT_EQ(nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND, ret);
+        }
+    };
+
+    auto statistics = kvstore::getDBStatistics();
+    statistics->getAndResetTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL);
+
+    // write initial vertex
+    writeEdge(0);
+
+    // read data while in memtable
+    readEdge(0);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+    readEdge(1);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+
+    // flush to sst, read again
+    EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, engine->flush());
+    readEdge(0);
+    EXPECT_EQ(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+    // read not exists data, whole key bloom filter will be useful
+    readEdge(1);
+    EXPECT_GT(statistics->getTickerCount(rocksdb::Tickers::BLOOM_FILTER_USEFUL), 0);
+
+    FLAGS_enable_rocksdb_statistics = false;
+}
+
+class RocksEnginePrefixTest
+    : public ::testing::TestWithParam<std::tuple<bool, std::string, int32_t>> {
+public:
+    void SetUp() override {
+        auto param = GetParam();
+        FLAGS_enable_rocksdb_prefix_filtering = std::get<0>(param);
+        FLAGS_rocksdb_table_format = std::get<1>(param);
+        if (FLAGS_rocksdb_table_format == "PlainTable") {
+            FLAGS_rocksdb_plain_table_prefix_length = std::get<2>(param);
+        }
+    }
+
+    void TearDown() override {}
+};
+
+TEST_P(RocksEnginePrefixTest, PrefixTest) {
+    fs::TempDir rootPath("/tmp/rocksdb_engine_PrefixExtractorTest.XXXXXX");
+    auto engine = std::make_unique<RocksEngine>(0, kDefaultVIdLen, rootPath.path());
+
+    PartitionID partId = 1;
+
+    std::vector<KV> data;
+    for (auto tagId = 0; tagId < 10; tagId++) {
+        data.emplace_back(NebulaKeyUtils::vertexKey(kDefaultVIdLen, partId, "vertex", tagId),
+                          folly::stringPrintf("val_%d", tagId));
+    }
+    data.emplace_back(NebulaKeyUtils::systemCommitKey(partId), "123");
+    EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, engine->multiPut(std::move(data)));
+
+    {
+        std::string prefix = NebulaKeyUtils::vertexPrefix(kDefaultVIdLen, partId, "vertex");
+        std::unique_ptr<KVIterator> iter;
+        auto code = engine->prefix(prefix, &iter);
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
+        int32_t num = 0;
+        while (iter->valid()) {
+            num++;
+            iter->next();
+        }
+        EXPECT_EQ(num, 10);
+    }
+    {
+        std::string prefix = NebulaKeyUtils::vertexPrefix(partId);
+        std::unique_ptr<KVIterator> iter;
+        auto code = engine->prefix(prefix, &iter);
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
+        int32_t num = 0;
+        while (iter->valid()) {
+            num++;
+            iter->next();
+        }
+        EXPECT_EQ(num, 10);
+    }
+    {
+        std::string value;
+        auto code = engine->get(NebulaKeyUtils::systemCommitKey(partId), &value);
+        EXPECT_EQ(nebula::cpp2::ErrorCode::SUCCEEDED, code);
+        EXPECT_EQ("123", value);
+    }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    PrefixExtractor_TableFormat_PlainTablePrefixSize,
+    RocksEnginePrefixTest,
+    ::testing::Values(std::make_tuple(false, "BlockBasedTable", 0),
+                      std::make_tuple(true, "BlockBasedTable", 0),
+                      // PlainTable will always enable prefix extractor
+                      std::make_tuple(true, "PlainTable", sizeof(PartitionID)),
+                      std::make_tuple(true, "PlainTable", sizeof(PartitionID) + kDefaultVIdLen)));
+
 }  // namespace kvstore
 }  // namespace nebula
 
