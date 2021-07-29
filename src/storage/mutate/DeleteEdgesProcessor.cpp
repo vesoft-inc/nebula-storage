@@ -86,33 +86,44 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
             std::vector<EMLI> dummyLock;
             dummyLock.reserve(part.second.size());
 
+            nebula::cpp2::ErrorCode err = nebula::cpp2::ErrorCode::SUCCEEDED;
             for (const auto& edgeKey : part.second) {
-                dummyLock.emplace_back(std::make_tuple(spaceId_,
-                                                       partId,
-                                                       (*edgeKey.src_ref()).getStr(),
-                                                       *edgeKey.edge_type_ref(),
-                                                       *edgeKey.ranking_ref(),
-                                                       (*edgeKey.dst_ref()).getStr()));
+                auto l = std::make_tuple(spaceId_,
+                                         partId,
+                                         (*edgeKey.src_ref()).getStr(),
+                                         *edgeKey.edge_type_ref(),
+                                         *edgeKey.ranking_ref(),
+                                         (*edgeKey.dst_ref()).getStr());
+                if (std::find(dummyLock.begin(), dummyLock.end(), l) == dummyLock.end()) {
+                    if (!env_->edgesML_->try_lock(l)) {
+                        LOG(ERROR) << folly::format("The edge locked : src {}, "
+                                                    "type {}, tank {}, dst {}",
+                                                    (*edgeKey.src_ref()).getStr(),
+                                                    *edgeKey.edge_type_ref(),
+                                                    *edgeKey.ranking_ref(),
+                                                    (*edgeKey.dst_ref()).getStr());
+                        err = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
+                        break;
+                    }
+                    dummyLock.emplace_back(std::move(l));
+                }
+            }
+            if (err != nebula::cpp2::ErrorCode::SUCCEEDED) {
+                env_->edgesML_->unlockBatch(dummyLock);
+                handleAsync(spaceId_, partId, err);
+                continue;
             }
             auto batch = deleteEdges(partId, std::move(part.second));
             if (!nebula::ok(batch)) {
+                env_->edgesML_->unlockBatch(dummyLock);
                 handleAsync(spaceId_, partId, nebula::error(batch));
                 continue;
             }
             DCHECK(!nebula::value(batch).empty());
-            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(), std::move(dummyLock), true);
-            if (!lg) {
-                auto conflict = lg.conflictKey();
-                LOG(ERROR) << "edge conflict "
-                        << std::get<0>(conflict) << ":"
-                        << std::get<1>(conflict) << ":"
-                        << std::get<2>(conflict) << ":"
-                        << std::get<3>(conflict) << ":"
-                        << std::get<4>(conflict) << ":"
-                        << std::get<5>(conflict);
-                handleAsync(spaceId_, partId, nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR);
-                continue;
-            }
+            nebula::MemoryLockGuard<EMLI> lg(env_->edgesML_.get(),
+                                             std::move(dummyLock),
+                                             false,
+                                             false);
             env_->kvstore_->asyncAppendBatch(spaceId_, partId, std::move(nebula::value(batch)),
                 [l = std::move(lg), icw = std::move(wrapper), partId, this] (
                     nebula::cpp2::ErrorCode code) {
@@ -133,21 +144,11 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId, const std::vector<cpp2::Ed
         auto srcId = (*edge.src_ref()).getStr();
         auto rank = *edge.ranking_ref();
         auto dstId = (*edge.dst_ref()).getStr();
-        auto prefix = NebulaKeyUtils::edgePrefix(spaceVidLen_, partId, srcId, type, rank, dstId);
-        std::unique_ptr<kvstore::KVIterator> iter;
-        auto ret = env_->kvstore_->prefix(spaceId_, partId, prefix, &iter);
-        if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
-            VLOG(3) << "Error! ret = " << static_cast<int32_t>(ret)
-                    << ", spaceId " << spaceId_;
-            return ret;
-        }
+        auto key = NebulaKeyUtils::edgeKey(spaceVidLen_, partId, srcId, type, rank, dstId);
+        std::string val;
+        auto ret = env_->kvstore_->get(spaceId_, partId, key, &val);
 
-        while (iter->valid() && NebulaKeyUtils::isLock(spaceVidLen_, iter->key())) {
-            batchHolder->remove(iter->key().str());
-            iter->next();
-        }
-
-        if (iter->valid() && NebulaKeyUtils::isEdge(spaceVidLen_, iter->key())) {
+        if (ret == nebula::cpp2::ErrorCode::SUCCEEDED) {
             /**
              * just get the latest version edge for index.
              */
@@ -160,7 +161,7 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId, const std::vector<cpp2::Ed
                         reader = RowReaderWrapper::getEdgePropReader(env_->schemaMan_,
                                                                      spaceId_,
                                                                      type,
-                                                                     iter->val());
+                                                                     val);
                         if (reader == nullptr) {
                             LOG(WARNING) << "Bad format row!";
                             return nebula::cpp2::ErrorCode::E_INVALID_DATA;
@@ -190,14 +191,13 @@ DeleteEdgesProcessor::deleteEdges(PartitionID partId, const std::vector<cpp2::Ed
                     }
                 }
             }
-
-            batchHolder->remove(iter->key().str());
-            iter->next();
-        }
-
-        while (iter->valid()) {
-            batchHolder->remove(iter->key().str());
-            iter->next();
+            batchHolder->remove(std::move(key));
+        } else if (ret == nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND) {
+            continue;
+        } else {
+            VLOG(3) << "Error! ret = " << apache::thrift::util::enumNameSafe(ret)
+                    << ", spaceId " << spaceId_;
+            return ret;
         }
     }
 
