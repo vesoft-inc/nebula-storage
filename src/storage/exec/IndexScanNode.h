@@ -16,7 +16,7 @@ namespace storage {
 template<typename T>
 class IndexScanNode : public RelNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     IndexScanNode(RunTimeContext* context,
                   IndexID indexId,
@@ -31,6 +31,7 @@ public:
          * if all scanType are PREFIX, means the index scan is prefix scan.
          * there should be only one RANGE hnit, and it must be the last one.
          */
+        RelNode<T>::name_ = "IndexScanNode";
         for (size_t i = 0; i < columnHints_.size(); i++) {
             if (columnHints_[i].get_scan_type() == cpp2::ScanType::RANGE) {
                 isRangeScan_ = true;
@@ -40,8 +41,8 @@ public:
         }
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId) override {
-        auto ret = RelNode<T>::execute(partId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
+        auto ret = RelNode<T>::doExecute(partId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

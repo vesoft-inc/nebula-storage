@@ -44,3 +44,5 @@ DEFINE_int32(max_edge_returned_per_vertex, INT_MAX,
 
 DEFINE_bool(query_concurrently, false,
             "whether to run query of each part concurrently, only lookup and go are supported");
+
+DEFINE_bool(profile_storage_detail, false, "Whether to profile storage plan detail");

@@ -61,6 +61,9 @@ void LookupProcessor::runInSingleThread(const cpp2::LookupIndexRequest& req) {
             }
         }
     }
+    if (FLAGS_profile_storage_detail) {
+        profile_plan(plan.value());
+    }
     onProcessFinished();
     onFinished();
 }
@@ -111,6 +114,9 @@ LookupProcessor::runInExecutor(IndexFilterItem* filterItem,
             return std::make_pair(nebula::cpp2::ErrorCode::E_INDEX_NOT_FOUND, partId);
         }
         auto ret = plan.value().go(partId);
+        if (FLAGS_profile_storage_detail) {
+            profile_plan(plan.value());
+        }
         return std::make_pair(ret, partId);
     });
 }
@@ -128,6 +134,11 @@ void LookupProcessor::onProcessFinished() {
                        [this](const auto& col) { return context_->tagName_ + "." + col; });
     }
     resp_.set_data(std::move(resultDataSet_));
+    if (FLAGS_profile_storage_detail) {
+        for (auto iter : profile_detail_) {
+            resp_.result.get_latency_detail_us()->insert(iter);
+        }
+    }
 }
 
 }  // namespace storage

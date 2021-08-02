@@ -17,7 +17,7 @@ namespace storage {
 template<typename T>
 class UpdateResNode : public RelNode<T>  {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     UpdateResNode(RunTimeContext* context,
                   RelNode<T>* updateNode,
@@ -29,10 +29,11 @@ public:
         , returnPropsExp_(returnPropsExp)
         , expCtx_(expCtx)
         , result_(result) {
+            RelNode<T>::name_ = "UpdateResNode";
         }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& vId) override {
-        auto ret = RelNode<T>::execute(partId, vId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::doExecute(partId, vId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED &&
             ret != nebula::cpp2::ErrorCode::E_FILTER_OUT) {
             return ret;

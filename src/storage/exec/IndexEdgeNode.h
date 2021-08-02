@@ -15,7 +15,7 @@ namespace storage {
 template<typename T>
 class IndexEdgeNode final : public RelNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     IndexEdgeNode(RunTimeContext* context,
                   IndexScanNode<T>* indexScanNode,
@@ -24,10 +24,12 @@ public:
         : context_(context)
         , indexScanNode_(indexScanNode)
         , schemas_(schemas)
-        , schemaName_(schemaName) {}
+        , schemaName_(schemaName) {
+            RelNode<T>::name_ = "IndexEdgeNode";
+        }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId) override {
-        auto ret = RelNode<T>::execute(partId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
+        auto ret = RelNode<T>::doExecute(partId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

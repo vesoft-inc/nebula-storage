@@ -62,6 +62,14 @@ private:
         return returnPropsExp_;
     }
 
+    void profile_plan(StoragePlan<VertexID>& plan) {
+        auto nodes = plan.getNodes();
+        for (auto node : nodes) {
+            resp_.result.get_latency_detail_us()->insert(
+                {node->name_, node->duration_.elapsedInUSec()});
+        }
+    }
+
 private:
     std::unique_ptr<RunTimeContext>                                      context_;
     bool                                                                 insertable_{false};

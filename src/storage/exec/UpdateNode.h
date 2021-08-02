@@ -37,7 +37,9 @@ public:
         , insertable_(insertable)
         , depPropMap_(depPropMap)
         , expCtx_(expCtx)
-        , isEdge_(isEdge) {}
+        , isEdge_(isEdge) {
+            RelNode<T>::name_ = "UpdateNode";
+        }
 
     nebula::cpp2::ErrorCode checkField(const meta::SchemaProviderIf::Field* field) {
         if (!field) {
@@ -150,7 +152,7 @@ protected:
 // Update records, write to kvstore
 class UpdateTagNode : public UpdateNode<VertexID> {
 public:
-    using RelNode<VertexID>::execute;
+    using RelNode<VertexID>::doExecute;
 
     UpdateTagNode(RunTimeContext* context,
                   std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
@@ -164,9 +166,10 @@ public:
                                filterNode, insertable, depPropMap, expCtx, false)
         , tagContext_(tagContext) {
             tagId_ = context_->tagId_;
+            name_ = "UpdateTagNode";
         }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {
         CHECK_NOTNULL(context_->env()->kvstore_);
         IndexCountWrapper wrapper(context_->env());
 
@@ -185,7 +188,7 @@ public:
             return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
         }
 
-        auto ret = RelNode::execute(partId, vId);
+        auto ret = RelNode::doExecute(partId, vId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
@@ -439,7 +442,7 @@ private:
 // Update records, write to kvstore
 class UpdateEdgeNode : public UpdateNode<cpp2::EdgeKey> {
 public:
-    using RelNode<cpp2::EdgeKey>::execute;
+    using RelNode<cpp2::EdgeKey>::doExecute;
 
     UpdateEdgeNode(RunTimeContext* context,
                    std::vector<std::shared_ptr<nebula::meta::cpp2::IndexItem>> indexes,
@@ -459,10 +462,11 @@ public:
                                     true),
           edgeContext_(edgeContext) {
         edgeType_ = context_->edgeType_;
+        name_ = "UpdateEdgeNode";
     }
 
     nebula::cpp2::ErrorCode
-    execute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
+    doExecute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         CHECK_NOTNULL(context_->env()->kvstore_);
         auto ret = nebula::cpp2::ErrorCode::SUCCEEDED;
         IndexCountWrapper wrapper(context_->env());
@@ -491,7 +495,7 @@ public:
         }
 
         auto op = [&partId, &edgeKey, this]() -> folly::Optional<std::string> {
-            this->exeResult_ = RelNode::execute(partId, edgeKey);
+            this->exeResult_ = RelNode::doExecute(partId, edgeKey);
             if (this->exeResult_ == nebula::cpp2::ErrorCode::SUCCEEDED) {
                 if (*edgeKey.edge_type_ref() != this->edgeType_) {
                     this->exeResult_ = nebula::cpp2::ErrorCode::E_KEY_NOT_FOUND;

@@ -17,7 +17,7 @@ namespace storage {
 template<typename T>
 class IndexFilterNode final : public RelNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     // evalExprByIndex_ is true, all fileds in filter is in index. No need to read data anymore.
     IndexFilterNode(IndexScanNode<T>* indexScanNode,
@@ -29,6 +29,7 @@ public:
         , filterExp_(exp)
         , isEdge_(isEdge) {
         evalExprByIndex_ = true;
+        RelNode<T>::name_ = "IndexFilterNode";
     }
 
     // evalExprByIndex_ is false, some fileds in filter is out of index, which need to read data.
@@ -53,9 +54,9 @@ public:
         isEdge_ = false;
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId) override {
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
         data_.clear();
-        auto ret = RelNode<T>::execute(partId);
+        auto ret = RelNode<T>::doExecute(partId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

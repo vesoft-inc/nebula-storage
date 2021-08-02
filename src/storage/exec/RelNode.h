@@ -10,9 +10,10 @@
 #include "common/base/Base.h"
 #include "common/context/ExpressionContext.h"
 #include "utils/NebulaKeyUtils.h"
+#include "storage/query/QueryBaseProcessor.h"
+#include "common/time/Duration.h"
 #include "storage/CommonUtils.h"
 #include "storage/context/StorageExpressionContext.h"
-#include "storage/query/QueryBaseProcessor.h"
 #include "storage/exec/QueryUtils.h"
 #include "storage/exec/StorageIterator.h"
 
@@ -21,20 +22,26 @@ namespace storage {
 
 using NullHandler = std::function<nebula::cpp2::ErrorCode(const std::vector<PropContext>*)>;
 
-using PropHandler = std::function<nebula::cpp2::ErrorCode(folly::StringPiece,
-                                                          RowReader*,
-                                                          const std::vector<PropContext>* props)>;
+using PropHandler = std::function<
+    nebula::cpp2::ErrorCode(folly::StringPiece, RowReader*, const std::vector<PropContext>* props)>;
 
-template<typename T> class StoragePlan;
+template <typename T>
+class StoragePlan;
 
 // RelNode is shortcut for relational algebra node, each RelNode has an execute method,
 // which will be invoked in dag when all its dependencies have finished
-template<typename T>
+template <typename T>
 class RelNode {
     friend class StoragePlan<T>;
 
 public:
     virtual nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) {
+        duration_.resume();
+        auto ret = doExecute(partId, input);
+        duration_.pause();
+        return ret;
+    }
+    virtual nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& input) {
         for (auto* dependency : dependencies_) {
             auto ret = dependency->execute(partId, input);
             if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -43,8 +50,13 @@ public:
         }
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
-
     virtual nebula::cpp2::ErrorCode execute(PartitionID partId) {
+        duration_.resume();
+        auto ret = doExecute(partId);
+        duration_.pause();
+        return ret;
+    }
+    virtual nebula::cpp2::ErrorCode doExecute(PartitionID partId) {
         for (auto* dependency : dependencies_) {
             auto ret = dependency->execute(partId);
             if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
@@ -63,16 +75,17 @@ public:
 
     virtual ~RelNode() = default;
 
-    explicit RelNode(const std::string& name): name_(name) {}
+    explicit RelNode(const std::string& name) : name_(name) {}
 
-    std::string name_;
+    std::string name_ = "RelNode";
     std::vector<RelNode<T>*> dependencies_;
     bool hasDependents_ = false;
+    time::Duration duration_{true};
 };
 
 // QueryNode is the node which would read data from kvstore, it usually generate a row in response
 // or a cell in a row.
-template<typename T>
+template <typename T>
 class QueryNode : public RelNode<T> {
 public:
     const Value& result() {
@@ -96,7 +109,7 @@ The difference between QueryNode and IterateNode is that, the latter one derives
 StorageIterator, which makes IterateNode has a output of RowReader. If the reader is not null,
 user can get property from the reader.
 */
-template<typename T>
+template <typename T>
 class IterateNode : public QueryNode<T>, public StorageIterator {
 public:
     IterateNode() = default;
@@ -135,7 +148,7 @@ protected:
     IterateNode* upstream_;
 };
 
-}  // namespace storage
-}  // namespace nebula
+}   // namespace storage
+}   // namespace nebula
 
-#endif  // STORAGE_EXEC_RELNODE_H_
+#endif   // STORAGE_EXEC_RELNODE_H_
