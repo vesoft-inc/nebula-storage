@@ -22,13 +22,13 @@ must make sure that the upstream only output only tag data or edge data, but not
 
 As for GetNeighbors, it will have filter that involves both tag and edge expression. In
 that case, FilterNode has a upstream of HashJoinNode, which will keep popping out edge
-data. All tage data has been put into ExpressionContext before FilterNode is executed.
+data. All tage data has been put into ExpressionContext before FilterNode is execute.
 By that means, it can check the filter of tag + edge.
 */
 template<typename T>
 class FilterNode : public IterateNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     FilterNode(RunTimeContext* context,
                IterateNode<T>* upstream,
@@ -39,8 +39,8 @@ public:
         , expCtx_(expCtx)
         , filterExp_(exp) {}
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& vId) override {
-        auto ret = RelNode<T>::execute(partId, vId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& vId) override {
+        auto ret = RelNode<T>::doExecute(partId, vId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

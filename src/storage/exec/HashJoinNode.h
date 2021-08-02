@@ -23,7 +23,7 @@ namespace storage {
 // Also it will return a iterator of edges which can pass ttl check and ready to be read.
 class HashJoinNode : public IterateNode<VertexID> {
 public:
-    using RelNode::execute;
+    using RelNode::doExecute;
 
     HashJoinNode(RunTimeContext* context,
                  const std::vector<TagNode*>& tagNodes,
@@ -40,8 +40,8 @@ public:
         UNUSED(tagContext_);
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const VertexID& vId) override {
-        auto ret = RelNode::execute(partId, vId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {
+        auto ret = RelNode::doExecute(partId, vId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

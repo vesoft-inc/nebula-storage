@@ -34,7 +34,7 @@ struct PropStat {
 template<typename T>
 class AggregateNode : public IterateNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     AggregateNode(RunTimeContext* context,
                   IterateNode<T>* upstream,
@@ -43,8 +43,8 @@ public:
         , context_(context)
         , edgeContext_(edgeContext) {}
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) override {
-        auto ret = RelNode<T>::execute(partId, input);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& input) override {
+        auto ret = RelNode<T>::doExecute(partId, input);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
@@ -54,8 +54,8 @@ public:
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId) override {
-        auto ret = RelNode<T>::execute(partId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
+        auto ret = RelNode<T>::doExecute(partId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }

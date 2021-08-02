@@ -16,7 +16,7 @@ namespace storage {
 template<typename T>
 class IndexScanNode : public RelNode<T> {
 public:
-    using RelNode<T>::execute;
+    using RelNode<T>::doExecute;
 
     IndexScanNode(RunTimeContext* context,
                   IndexID indexId,
@@ -40,8 +40,8 @@ public:
         }
     }
 
-    nebula::cpp2::ErrorCode execute(PartitionID partId) override {
-        auto ret = RelNode<T>::execute(partId);
+    nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
+        auto ret = RelNode<T>::doExecute(partId);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
             return ret;
         }
