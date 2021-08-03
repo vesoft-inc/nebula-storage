@@ -37,7 +37,9 @@ public:
         : IterateNode<T>(upstream)
         , context_(context)
         , expCtx_(expCtx)
-        , filterExp_(exp) {}
+        , filterExp_(exp) {
+            IterateNode<T>::name_ = "FilterNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& vId) override {
         auto ret = RelNode<T>::doExecute(partId, vId);

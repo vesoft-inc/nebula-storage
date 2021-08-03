@@ -37,6 +37,7 @@ public:
         , tagContext_(tagContext)
         , edgeContext_(edgeContext)
         , expCtx_(expCtx) {
+        IterateNode::name_ = "HashJoinNode";
         UNUSED(tagContext_);
     }
 

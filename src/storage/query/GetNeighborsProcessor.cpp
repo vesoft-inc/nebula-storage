@@ -12,7 +12,6 @@
 #include "storage/exec/FilterNode.h"
 #include "storage/exec/AggregateNode.h"
 #include "storage/exec/GetNeighborsNode.h"
-
 namespace nebula {
 namespace storage {
 
@@ -100,6 +99,9 @@ void GetNeighborsProcessor::runInSingleThread(const cpp2::GetNeighborsRequest& r
             }
         }
     }
+    if (FLAGS_profile_storage_detail) {
+        profile_plan(plan);
+    }
     onProcessFinished();
     onFinished();
 }
@@ -165,6 +167,9 @@ GetNeighborsProcessor::runInExecutor(RunTimeContext* context,
                 if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {
                     return std::make_pair(ret, partId);
                 }
+            }
+            if (FLAGS_profile_storage_detail) {
+                profile_plan(plan);
             }
             return std::make_pair(nebula::cpp2::ErrorCode::SUCCEEDED, partId);
         });
@@ -459,6 +464,23 @@ GetNeighborsProcessor::checkStatType(const meta::SchemaProviderIf::Field* field,
 
 void GetNeighborsProcessor::onProcessFinished() {
     resp_.set_vertices(std::move(resultDataSet_));
+    if (FLAGS_profile_storage_detail) {
+        for (auto iter : profile_detail_) {
+            resp_.result.get_latency_detail_us()->insert(iter);
+        }
+    }
+}
+void GetNeighborsProcessor::profile_plan(StoragePlan<VertexID>& plan) {
+    auto nodes = plan.getNodes();
+    std::unique_lock<std::mutex> lck(profile_mut_);
+    for (auto& node : nodes) {
+        auto& name = node->name_;
+        auto duration = node->duration_.elapsedInUSec();
+        if (!profile_detail_.count(name)) {
+            profile_detail_[name] = 0;
+        }
+        profile_detail_[name] += duration;
+    }
 }
 
 }  // namespace storage

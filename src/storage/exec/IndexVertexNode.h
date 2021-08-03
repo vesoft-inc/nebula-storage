@@ -25,7 +25,9 @@ public:
         : context_(context)
         , indexScanNode_(indexScanNode)
         , schemas_(schemas)
-        , schemaName_(schemaName) {}
+        , schemaName_(schemaName) {
+            RelNode<T>::name_ = "IndexVertexNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
         auto ret = RelNode<T>::doExecute(partId);

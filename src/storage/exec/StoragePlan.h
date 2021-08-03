@@ -79,6 +79,13 @@ public:
         CHECK_LT(idx, nodes_.size());
         return nodes_[idx].get();
     }
+    std::vector<RelNode<T>*> getNodes() {
+        std::vector<RelNode<T>*> ret;
+        for (auto& node : nodes_) {
+            ret.push_back(node.get());
+        }
+        return ret;
+    }
 
 private:
     bool firstLoop_ = true;

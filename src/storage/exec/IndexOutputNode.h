@@ -41,6 +41,7 @@ public:
         type_ = context_->isEdge()
                 ? IndexResultType::kEdgeFromIndexScan
                 : IndexResultType::kVertexFromIndexScan;
+        RelNode<T>::name_ = "IndexOpuputNode";
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -50,6 +51,7 @@ public:
         , context_(context)
         , indexEdgeNode_(indexEdgeNode) {
         type_ = IndexResultType::kEdgeFromDataScan;
+        RelNode<T>::name_ = "IndexOpuputNode";
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -59,6 +61,7 @@ public:
         , context_(context)
         , indexVertexNode_(indexVertexNode) {
         type_ = IndexResultType::kVertexFromDataScan;
+        RelNode<T>::name_ = "IndexOpuputNode";
     }
 
     IndexOutputNode(nebula::DataSet* result,
@@ -79,6 +82,7 @@ public:
                     ? IndexResultType::kEdgeFromDataFilter
                     : IndexResultType::kVertexFromDataFilter;
         }
+        RelNode<T>::name_ = "IndexOpuputNode";
     }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {

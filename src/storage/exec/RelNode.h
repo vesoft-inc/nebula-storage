@@ -36,6 +36,7 @@ class RelNode {
 
 public:
     virtual nebula::cpp2::ErrorCode execute(PartitionID partId, const T& input) {
+        duration_.resume();
         auto ret = doExecute(partId, input);
         duration_.pause();
         return ret;
@@ -50,6 +51,7 @@ public:
         return nebula::cpp2::ErrorCode::SUCCEEDED;
     }
     virtual nebula::cpp2::ErrorCode execute(PartitionID partId) {
+        duration_.resume();
         auto ret = doExecute(partId);
         duration_.pause();
         return ret;
@@ -78,7 +80,7 @@ public:
     std::string name_;
     std::vector<RelNode<T>*> dependencies_;
     bool hasDependents_ = false;
-    time::Duration duration_;
+    time::Duration duration_{true};
 };
 
 // QueryNode is the node which would read data from kvstore, it usually generate a row in response

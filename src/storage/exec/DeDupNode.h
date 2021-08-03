@@ -22,7 +22,9 @@ public:
 
     explicit DeDupNode(nebula::DataSet* resultSet, const std::vector<size_t>& pos)
         : resultSet_(resultSet)
-        , pos_(pos) {}
+        , pos_(pos) {
+            IterateNode<T>::name_ = "DedupNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId) override {
         auto ret = RelNode<T>::doExecute(partId);

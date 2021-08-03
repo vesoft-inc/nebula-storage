@@ -23,7 +23,9 @@ public:
                             nebula::DataSet* resultDataSet)
         : context_(context)
         , tagNodes_(std::move(tagNodes))
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet) {
+            name_ = "GetTagPropNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::doExecute(partId, vId);
@@ -90,7 +92,10 @@ public:
                     nebula::DataSet* resultDataSet)
         : context_(context)
         , edgeNodes_(std::move(edgeNodes))
-        , resultDataSet_(resultDataSet) {}
+        , resultDataSet_(resultDataSet) {
+            QueryNode::name_ = "GetEdgePropNode";
+        }
+
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::doExecute(partId, edgeKey);

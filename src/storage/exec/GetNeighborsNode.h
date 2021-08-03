@@ -35,7 +35,9 @@ public:
         , upstream_(upstream)
         , edgeContext_(edgeContext)
         , resultDataSet_(resultDataSet)
-        , limit_(limit) {}
+        , limit_(limit) {
+            name_ = "GetNeighborsNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {
         auto ret = RelNode::doExecute(partId, vId);

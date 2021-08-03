@@ -41,7 +41,9 @@ public:
                   EdgeContext* edgeContext)
         : IterateNode<T>(upstream)
         , context_(context)
-        , edgeContext_(edgeContext) {}
+        , edgeContext_(edgeContext) {
+            IterateNode<T>::name_ = "AggregateNode";
+        }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& input) override {
         auto ret = RelNode<T>::doExecute(partId, input);

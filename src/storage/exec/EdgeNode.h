@@ -54,12 +54,15 @@ protected:
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getEdgeTTLInfo(edgeContext_, std::abs(edgeType_));
         edgeName_ = edgeContext_->edgeNames_[edgeType_];
+        IterateNode<T>::name_ = "EdgeNode";
     }
 
     EdgeNode(RunTimeContext* context,
              EdgeContext* ctx)
         : context_(context)
-        , edgeContext_(ctx) {}
+        , edgeContext_(ctx) {
+        IterateNode<T>::name_ = "EdgeNode";
+    }
 
     RunTimeContext* context_;
     EdgeContext* edgeContext_;
@@ -84,7 +87,9 @@ public:
                   const std::vector<PropContext>* props,
                   StorageExpressionContext* expCtx = nullptr,
                   Expression* exp = nullptr)
-        : EdgeNode(context, edgeContext, edgeType, props, expCtx, exp) {}
+        : EdgeNode(context, edgeContext, edgeType, props, expCtx, exp) {
+            name_ = "FetchEdgeNode";
+        }
 
     bool valid() const override {
         return valid_;
@@ -166,7 +171,9 @@ public:
                    const std::vector<PropContext>* props,
                    StorageExpressionContext* expCtx = nullptr,
                    Expression* exp = nullptr)
-        : EdgeNode(context, edgeContext, edgeType, props, expCtx, exp) {}
+        : EdgeNode(context, edgeContext, edgeType, props, expCtx, exp) {
+            name_ = "SingleEdgeNode";
+        }
 
     SingleEdgeIterator* iter() {
         return iter_.get();

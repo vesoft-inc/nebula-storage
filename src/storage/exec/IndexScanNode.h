@@ -31,6 +31,7 @@ public:
          * if all scanType are PREFIX, means the index scan is prefix scan.
          * there should be only one RANGE hnit, and it must be the last one.
          */
+        RelNode<T>::name_ = "IndexScanNode";
         for (size_t i = 0; i < columnHints_.size(); i++) {
             if (columnHints_[i].get_scan_type() == cpp2::ScanType::RANGE) {
                 isRangeScan_ = true;

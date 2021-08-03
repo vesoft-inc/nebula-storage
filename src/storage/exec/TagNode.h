@@ -38,6 +38,7 @@ public:
         schemas_ = &(schemaIter->second);
         ttl_ = QueryUtils::getTagTTLInfo(tagContext_, tagId_);
         tagName_ = tagContext_->tagNames_[tagId_];
+        name_ = "TagNode";
     }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {

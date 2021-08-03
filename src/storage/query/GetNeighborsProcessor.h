@@ -10,6 +10,7 @@
 #include "common/base/Base.h"
 #include <gtest/gtest_prod.h>
 #include "storage/query/QueryBaseProcessor.h"
+#include <map>
 #include "storage/exec/StoragePlan.h"
 
 namespace nebula {
@@ -81,10 +82,14 @@ private:
         int64_t limit,
         bool random);
 
+    void profile_plan(StoragePlan<VertexID>& plan);
+
 private:
     std::vector<RunTimeContext>               contexts_;
     std::vector<StorageExpressionContext>     expCtxs_;
     std::vector<nebula::DataSet>              results_;
+    std::map<std::string, int64_t>             profile_detail_;
+    std::mutex                                profile_mut_;
 };
 
 }  // namespace storage

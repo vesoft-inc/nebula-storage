@@ -37,7 +37,9 @@ public:
         , insertable_(insertable)
         , depPropMap_(depPropMap)
         , expCtx_(expCtx)
-        , isEdge_(isEdge) {}
+        , isEdge_(isEdge) {
+            RelNode<T>::name_ = "UpdateNode";
+        }
 
     nebula::cpp2::ErrorCode checkField(const meta::SchemaProviderIf::Field* field) {
         if (!field) {
@@ -164,6 +166,7 @@ public:
                                filterNode, insertable, depPropMap, expCtx, false)
         , tagContext_(tagContext) {
             tagId_ = context_->tagId_;
+            name_ = "UpdateTagNode";
         }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const VertexID& vId) override {
@@ -459,6 +462,7 @@ public:
                                     true),
           edgeContext_(edgeContext) {
         edgeType_ = context_->edgeType_;
+        name_ = "UpdateEdgeNode";
     }
 
     nebula::cpp2::ErrorCode

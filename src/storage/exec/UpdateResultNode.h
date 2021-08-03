@@ -29,6 +29,7 @@ public:
         , returnPropsExp_(returnPropsExp)
         , expCtx_(expCtx)
         , result_(result) {
+            RelNode<T>::name_ = "UpdateResNode";
         }
 
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const T& vId) override {

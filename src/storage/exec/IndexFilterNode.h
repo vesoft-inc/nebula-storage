@@ -29,6 +29,7 @@ public:
         , filterExp_(exp)
         , isEdge_(isEdge) {
         evalExprByIndex_ = true;
+        RelNode<T>::name_ = "IndexFilterNode";
     }
 
     // evalExprByIndex_ is false, some fileds in filter is out of index, which need to read data.
