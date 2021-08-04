@@ -52,17 +52,12 @@ void DeleteTagsProcessor::process(const cpp2::DeleteTagsRequest& req) {
             auto partId = part.first;
             const auto& delTags = part.second;
             keys.clear();
-            auto code = nebula::cpp2::ErrorCode::SUCCEEDED;
             for (const auto& entry : delTags) {
                 const auto& vId = entry.get_id().getStr();
                 for (const auto& tagId : entry.get_tags()) {
                     auto key = NebulaKeyUtils::vertexKey(spaceVidLen_, partId, vId, tagId);
                     keys.emplace_back(std::move(key));
                 }
-            }
-            if (code != nebula::cpp2::ErrorCode::SUCCEEDED) {
-                handleAsync(spaceId_, partId, code);
-                continue;
             }
             doRemove(spaceId_, partId, std::move(keys));
         }
@@ -135,10 +130,10 @@ DeleteTagsProcessor::deleteTags(PartitionID partId,
                         return nebula::cpp2::ErrorCode::E_INVALID_DATA;
                     }
                     auto indexKey = IndexKeyUtils::vertexIndexKey(spaceVidLen_,
-                                                                    partId,
-                                                                    indexId,
-                                                                    vId,
-                                                                    std::move(valuesRet).value());
+                                                                  partId,
+                                                                  indexId,
+                                                                  vId,
+                                                                  std::move(valuesRet).value());
 
                     // Check the index is building for the specified partition or not
                     auto indexState = env_->getIndexState(spaceId_, partId);
