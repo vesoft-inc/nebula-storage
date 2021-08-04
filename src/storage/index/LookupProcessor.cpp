@@ -135,8 +135,9 @@ void LookupProcessor::onProcessFinished() {
     }
     resp_.set_data(std::move(resultDataSet_));
     if (FLAGS_profile_storage_detail) {
+        this->result_.set_latency_detail_us({});
         for (auto iter : profile_detail_) {
-            resp_.result.get_latency_detail_us()->insert(iter);
+            this->result_.get_latency_detail_us()->insert(iter);
         }
     }
 }

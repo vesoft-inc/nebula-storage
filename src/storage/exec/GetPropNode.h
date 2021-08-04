@@ -96,7 +96,6 @@ public:
             QueryNode::name_ = "GetEdgePropNode";
         }
 
-
     nebula::cpp2::ErrorCode doExecute(PartitionID partId, const cpp2::EdgeKey& edgeKey) override {
         auto ret = RelNode::doExecute(partId, edgeKey);
         if (ret != nebula::cpp2::ErrorCode::SUCCEEDED) {

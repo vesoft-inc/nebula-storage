@@ -22,7 +22,7 @@ must make sure that the upstream only output only tag data or edge data, but not
 
 As for GetNeighbors, it will have filter that involves both tag and edge expression. In
 that case, FilterNode has a upstream of HashJoinNode, which will keep popping out edge
-data. All tage data has been put into ExpressionContext before FilterNode is execute.
+data. All tage data has been put into ExpressionContext before FilterNode is executed.
 By that means, it can check the filter of tag + edge.
 */
 template<typename T>

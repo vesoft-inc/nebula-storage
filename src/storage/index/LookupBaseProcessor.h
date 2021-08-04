@@ -87,7 +87,7 @@ protected:
     std::vector<std::shared_ptr<const meta::NebulaSchemaProvider>> schemas_;
     std::vector<size_t>                                            deDupColPos_;
     std::map<std::string, int64_t>                                  profile_detail_;
-    std::mutex                                                     profile_mut_;
+    std::mutex                                                      profile_mut_;
 };
 
 }  // namespace storage

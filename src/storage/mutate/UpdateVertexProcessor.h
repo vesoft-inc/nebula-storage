@@ -64,9 +64,10 @@ private:
 
     void profile_plan(StoragePlan<VertexID>& plan) {
         auto nodes = plan.getNodes();
+        this->result_.set_latency_detail_us({});
         for (auto node : nodes) {
-            resp_.result.get_latency_detail_us()->insert(
-                {node->name_, node->duration_.elapsedInUSec()});
+            this->result_.get_latency_detail_us()->emplace(node->name_,
+                                                          node->duration_.elapsedInUSec());
         }
     }
 
