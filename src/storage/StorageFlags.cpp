@@ -26,7 +26,7 @@ DEFINE_int32(rebuild_index_batch_num, 256,
 DEFINE_int32(rebuild_index_locked_threshold, 256,
              "The locked threshold will refuse writing.");
 
-DEFINE_int32(rebuild_index_process_interval, 30000,
+DEFINE_int32(rebuild_index_process_interval, 3000,
              "Index rebuild processing interval, microsecond.");
 
 DEFINE_bool(enable_vertex_cache, true, "Enable vertex cache");
