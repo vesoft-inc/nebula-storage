@@ -134,12 +134,6 @@ void LookupProcessor::onProcessFinished() {
                        [this](const auto& col) { return context_->tagName_ + "." + col; });
     }
     resp_.set_data(std::move(resultDataSet_));
-    if (FLAGS_profile_storage_detail) {
-        this->result_.set_latency_detail_us({});
-        for (auto iter : profile_detail_) {
-            this->result_.get_latency_detail_us()->insert(iter);
-        }
-    }
 }
 
 }  // namespace storage

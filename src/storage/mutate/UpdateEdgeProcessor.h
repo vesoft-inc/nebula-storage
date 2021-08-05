@@ -65,10 +65,8 @@ private:
 
     void profile_plan(StoragePlan<cpp2::EdgeKey>& plan) {
         auto& nodes = plan.getNodes();
-        this->result_.set_latency_detail_us({});
         for (auto& node : nodes) {
-            resp_.result.get_latency_detail_us()->insert(
-                {node->name_, node->duration_.elapsedInUSec()});
+            profile_detail(node->name_, node->duration_.elapsedInUSec());
         }
     }
 

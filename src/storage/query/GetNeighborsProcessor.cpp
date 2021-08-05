@@ -465,23 +465,12 @@ GetNeighborsProcessor::checkStatType(const meta::SchemaProviderIf::Field* field,
 
 void GetNeighborsProcessor::onProcessFinished() {
     resp_.set_vertices(std::move(resultDataSet_));
-    if (FLAGS_profile_storage_detail) {
-        this->result_.set_latency_detail_us({});
-        for (auto iter : profile_detail_) {
-            this->result_.get_latency_detail_us()->insert(iter);
-        }
-    }
 }
 void GetNeighborsProcessor::profile_plan(StoragePlan<VertexID>& plan) {
     auto& nodes = plan.getNodes();
-    std::unique_lock<std::mutex> lck(profile_mut_);
+    std::unique_lock<std::mutex> lck(BaseProcessor<cpp2::GetNeighborsResponse>::profile_mut_);
     for (auto& node : nodes) {
-        auto& name = node->name_;
-        auto duration = node->duration_.elapsedInUSec();
-        if (!profile_detail_.count(name)) {
-            profile_detail_[name] = 0;
-        }
-        profile_detail_[name] += duration;
+        profile_detail(node->name_, node->duration_.elapsedInUSec());
     }
 }
 
