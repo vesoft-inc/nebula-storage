@@ -473,7 +473,7 @@ void GetNeighborsProcessor::onProcessFinished() {
     }
 }
 void GetNeighborsProcessor::profile_plan(StoragePlan<VertexID>& plan) {
-    auto nodes = plan.getNodes();
+    auto& nodes = plan.getNodes();
     std::unique_lock<std::mutex> lck(profile_mut_);
     for (auto& node : nodes) {
         auto& name = node->name_;

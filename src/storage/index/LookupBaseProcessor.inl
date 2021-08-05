@@ -492,9 +492,9 @@ LookupBaseProcessor<REQ, RESP>::buildPlanWithDataAndFilter(nebula::DataSet* resu
 }
 template <typename REQ, typename RESP>
 void LookupBaseProcessor<REQ, RESP>::profile_plan(StoragePlan<IndexID>& plan) {
-    auto nodes = plan.getNodes();
+    auto& nodes = plan.getNodes();
     std::unique_lock<std::mutex> lck(profile_mut_);
-    for (auto node : nodes) {
+    for (auto& node : nodes) {
         if (!profile_detail_.count(node->name_)) {
             profile_detail_[node->name_] = 0;
         }
