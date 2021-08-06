@@ -186,6 +186,19 @@ void Part::onLostLeadership(TermID term) {
 
 void Part::onElected(TermID term) {
     VLOG(1) << "Being elected as the leader for the term " << term;
+    CallbackOptions opt;
+    opt.spaceId = spaceId_;
+    opt.partId = partId_;
+    opt.term = term_;
+
+    for (auto& cb : onElectedCallBacks_) {
+        cb(opt);
+    }
+}
+
+void Part::registerOnElected(OnElectedCallBack cb) {
+    // VLOG(1) << "Being elected as the leader for the term " << term;
+    onElectedCallBacks_.emplace_back(std::move(cb));
 }
 
 void Part::onDiscoverNewLeader(HostAddr nLeader) {
