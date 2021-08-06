@@ -468,7 +468,7 @@ void GetNeighborsProcessor::onProcessFinished() {
 }
 void GetNeighborsProcessor::profile_plan(StoragePlan<VertexID>& plan) {
     auto& nodes = plan.getNodes();
-    std::unique_lock<std::mutex> lck(BaseProcessor<cpp2::GetNeighborsResponse>::profile_mut_);
+    std::lock_guard<std::mutex> lck(BaseProcessor<cpp2::GetNeighborsResponse>::profile_mut_);
     for (auto& node : nodes) {
         profile_detail(node->name_, node->duration_.elapsedInUSec());
     }
