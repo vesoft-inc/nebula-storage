@@ -47,10 +47,7 @@ protected:
 
         this->result_.set_latency_in_us(this->duration_.elapsedInUSec());
         if (!profile_detail_.empty()) {
-            this->result_.set_latency_detail_us({});
-            for (auto& iter : profile_detail_) {
-                this->result_.get_latency_detail_us()->insert(iter);
-            }
+            this->result_.set_latency_detail_us(std::move(profile_detail_));
         }
         this->result_.set_failed_parts(this->codes_);
         this->resp_.set_result(std::move(this->result_));
@@ -141,7 +138,7 @@ protected:
     int32_t                                         callingNum_{0};
     int32_t                                         spaceVidLen_;
     bool                                            isIntId_;
-    std::map<std::string, int64_t>                  profile_detail_;
+    std::map<std::string, int32_t>                  profile_detail_;
     std::mutex                                      profile_mut_;
 };
 
