@@ -197,7 +197,6 @@ void Part::onElected(TermID term) {
 }
 
 void Part::registerOnElected(OnElectedCallBack cb) {
-    // VLOG(1) << "Being elected as the leader for the term " << term;
     onElectedCallBacks_.emplace_back(std::move(cb));
 }
 
