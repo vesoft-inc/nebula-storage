@@ -186,6 +186,11 @@ void Part::onLostLeadership(TermID term) {
 
 void Part::onElected(TermID term) {
     VLOG(1) << "Being elected as the leader for the term " << term;
+
+    if (onElectedCallBacks_.empty()) {
+        return;
+    }
+
     CallbackOptions opt;
     opt.spaceId = spaceId_;
     opt.partId = partId_;
