@@ -14,7 +14,7 @@
 namespace nebula {
 namespace meta {
 
-enum class MetaVersion {
+enum class MetaVersion : int64_t {
     UNKNOWN = 0,
     V1      = 1,
     V2      = 2,
