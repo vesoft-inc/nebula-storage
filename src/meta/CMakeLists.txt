@@ -91,6 +91,11 @@ nebula_add_library(
     processors/sessionMan/SessionManagerProcessor.cpp
 )
 
+add_dependencies(
+    meta_service_handler
+    meta_version_man_obj
+)
+
 nebula_add_library(
     meta_http_handler OBJECT
     MetaHttpIngestHandler.cpp

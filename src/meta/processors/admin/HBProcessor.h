@@ -64,6 +64,7 @@ private:
 
     ClusterID clusterId_{0};
     const HBCounters* counters_{nullptr};
+    static std::atomic<int64_t> metaVersion_;
 };
 
 }  // namespace meta

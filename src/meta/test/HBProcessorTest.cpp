@@ -10,8 +10,6 @@
 #include "meta/test/TestUtils.h"
 #include "meta/processors/admin/HBProcessor.h"
 
-DECLARE_bool(hosts_whitelist_enabled);
-
 namespace nebula {
 namespace meta {
 
