@@ -25,16 +25,16 @@ void AddVerticesProcessor::process(const cpp2::AddVerticesRequest& req) {
     const auto& partVertices = req.get_parts();
     ifNotExists_ = req.get_if_not_exists();
     CHECK_NOTNULL(env_->schemaMan_);
-    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
-    if (!ret.ok()) {
-        LOG(ERROR) << ret.status();
+    auto retCode = getSpaceVidLen(spaceId_);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "getSpaceVidLen failed, errorCode: "
+                   << apache::thrift::util::enumNameSafe(retCode).c_str();
         for (auto& part : partVertices) {
             pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
     }
-    spaceVidLen_ = ret.value();
     callingNum_ = partVertices.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -75,14 +75,16 @@ void AddVerticesProcessor::doProcess(const cpp2::AddVerticesRequest& req) {
 
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                 LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                           << " space vid len: " << spaceVidLen_
+                           << ",  vid is " << Utils::vidStrToValue(isIntId_, vid);
                 code = nebula::cpp2::ErrorCode::E_INVALID_VID;
                 break;
             }
 
             for (auto& newTag : newTags) {
                 auto tagId = newTag.get_tag_id();
-                VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
+                VLOG(3) << "PartitionID: " << partId
+                        << ", VertexID: " << Utils::vidStrToValue(isIntId_, vid)
                         << ", TagID: " << tagId;
 
                 auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);
@@ -154,7 +156,8 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
 
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid)) {
                 LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                           << " space vid len: " << spaceVidLen_
+                           << ",  vid is " << Utils::vidStrToValue(isIntId_, vid);
                 code = nebula::cpp2::ErrorCode::E_INVALID_VID;
                 break;
             }
@@ -164,14 +167,16 @@ void AddVerticesProcessor::doProcessWithIndex(const cpp2::AddVerticesRequest& re
                 auto l = std::make_tuple(spaceId_, partId, tagId, vid);
                 if (std::find(dummyLock.begin(), dummyLock.end(), l) == dummyLock.end()) {
                     if (!env_->verticesML_->try_lock(l)) {
-                        LOG(ERROR) << folly::format("The vertex locked : tag {}, vid {}",
-                                                    tagId, vid);
+                        LOG(ERROR) << "The vertex locked, "
+                                   << "tagId: " << tagId
+                                   << ", vid: " << Utils::vidStrToValue(isIntId_, vid);
                         code = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                         break;
                     }
                     dummyLock.emplace_back(std::move(l));
                 }
-                VLOG(3) << "PartitionID: " << partId << ", VertexID: " << vid
+                VLOG(3) << "PartitionID: " << partId
+                        << ", VertexID: " << Utils::vidStrToValue(isIntId_, vid)
                         << ", TagID: " << tagId;
 
                 auto schema = env_->schemaMan_->getTagSchema(spaceId_, tagId);

@@ -48,6 +48,18 @@ public:
         }
         return HostAddr(adminAddr.host, adminAddr.port - 2);
     }
+
+    static Value vidStrToValue(bool isIntVid, const std::string &vidStr) {
+        Value vid;
+        if (isIntVid) {
+            int64_t val;
+            memcpy(reinterpret_cast<void*>(&val), vidStr.c_str(), sizeof(int64_t));
+            vid.setInt(val);
+        } else {
+            vid.setStr(vidStr);
+        }
+        return vid;
+    }
 };
 }  // namespace nebula
 #endif  // UTILS_UTILS_H_

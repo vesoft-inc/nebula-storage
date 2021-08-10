@@ -101,6 +101,10 @@ public:
         return vIdLen_;
     }
 
+    bool isIntId() const {
+        return isIntId_;
+    }
+
     bool hasNullableCol() const {
         return hasNullableCol_;
     }
@@ -201,3 +205,4 @@ private:
 }  // namespace storage
 }  // namespace nebula
 #endif  // STORAGE_CONTEXT_STORAGEEXPRESSIONCONTEXT_H_
+

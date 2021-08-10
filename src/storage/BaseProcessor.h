@@ -18,6 +18,7 @@
 #include "codec/RowReaderWrapper.h"
 #include "codec/RowWriterV2.h"
 #include "utils/IndexKeyUtils.h"
+#include "utils/Utils.h"
 
 namespace nebula {
 namespace storage {

@@ -20,16 +20,16 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
     const auto& partEdges = req.get_parts();
 
     CHECK_NOTNULL(env_->schemaMan_);
-    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
-    if (!ret.ok()) {
-        LOG(ERROR) << ret.status();
+    auto retCode = getSpaceVidLen(spaceId_);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "getSpaceVidLen failed, errorCode: "
+                   << apache::thrift::util::enumNameSafe(retCode).c_str();
         for (auto& part : partEdges) {
             pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
     }
-    spaceVidLen_ = ret.value();
     callingNum_ = partEdges.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -59,8 +59,10 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                         (*edgeKey.dst_ref()).getStr())) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_
-                               << ", edge srcVid: " << *edgeKey.src_ref()
-                               << " dstVid: " << *edgeKey.dst_ref();
+                               << ", edge srcVid: "
+                               << Utils::vidStrToValue(isIntId_, (*edgeKey.src_ref()).getStr())
+                               << " dstVid: "
+                               << Utils::vidStrToValue(isIntId_, (*edgeKey.dst_ref()).getStr());
                     code = nebula::cpp2::ErrorCode::E_INVALID_VID;
                     break;
                 }
@@ -96,12 +98,11 @@ void DeleteEdgesProcessor::process(const cpp2::DeleteEdgesRequest& req) {
                                          (*edgeKey.dst_ref()).getStr());
                 if (std::find(dummyLock.begin(), dummyLock.end(), l) == dummyLock.end()) {
                     if (!env_->edgesML_->try_lock(l)) {
-                        LOG(ERROR) << folly::format("The edge locked : src {}, "
-                                                    "type {}, tank {}, dst {}",
-                                                    (*edgeKey.src_ref()).getStr(),
-                                                    *edgeKey.edge_type_ref(),
-                                                    *edgeKey.ranking_ref(),
-                                                    (*edgeKey.dst_ref()).getStr());
+                        LOG(ERROR) << "The edge locked, srcId:"
+                                   << Utils::vidStrToValue(isIntId_, (*edgeKey.src_ref()).getStr())
+                                   << ", edgeType:" << *edgeKey.edge_type_ref()
+                                   << ", edgeRankding: " << *edgeKey.ranking_ref() << ", dstId:"
+                                   << Utils::vidStrToValue(isIntId_, (*edgeKey.dst_ref()).getStr());
                         err = nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                         break;
                     }

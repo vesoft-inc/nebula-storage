@@ -46,7 +46,8 @@ void UpdateVertexProcessor::doProcess(const cpp2::UpdateVertexRequest& req) {
 
     if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId.getStr())) {
         LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                   << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                   << " space vid len: " << spaceVidLen_
+                   << ",  vid is " << Utils::vidStrToValue(isIntId_, vId.getStr());
         pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
         onFinished();
         return;
@@ -73,7 +74,8 @@ void UpdateVertexProcessor::doProcess(const cpp2::UpdateVertexRequest& req) {
     indexes_ = std::move(iRet).value();
 
     VLOG(3) << "Update vertex, spaceId: " << spaceId_
-            << ", partId: " << partId << ", vId: " << vId;
+            << ", partId: " << partId
+            << ", vId: " << Utils::vidStrToValue(isIntId_, vId.getStr());
     auto plan = buildPlan(&resultDataSet_);
     auto ret = plan.go(partId, vId.getStr());
 

@@ -20,16 +20,16 @@ void DeleteTagsProcessor::process(const cpp2::DeleteTagsRequest& req) {
     const auto& parts = req.get_parts();
 
     CHECK_NOTNULL(env_->schemaMan_);
-    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
-    if (!ret.ok()) {
-        LOG(ERROR) << ret.status();
+    auto retCode = getSpaceVidLen(spaceId_);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "getSpaceVidLen failed, errorCode: "
+                   << apache::thrift::util::enumNameSafe(retCode).c_str();
         for (auto& part : parts) {
             pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
     }
-    spaceVidLen_ = ret.value();
     callingNum_ = parts.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -101,8 +101,9 @@ DeleteTagsProcessor::deleteTags(PartitionID partId,
                 continue;
             }
             if (!env_->verticesML_->try_lock(tup)) {
-                LOG(WARNING) << folly::format(
-                    "The vertex locked : vId {}, tagId {}", vId, tagId);
+                LOG(WARNING) << "The vertex locked, "
+                             << "vId: " << Utils::vidStrToValue(isIntId_, vId)
+                             << ", tagId:" << tagId;
                 return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
             }
 

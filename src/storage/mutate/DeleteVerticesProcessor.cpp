@@ -20,16 +20,16 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
     const auto& partVertices = req.get_parts();
 
     CHECK_NOTNULL(env_->schemaMan_);
-    auto ret = env_->schemaMan_->getSpaceVidLen(spaceId_);
-    if (!ret.ok()) {
-        LOG(ERROR) << ret.status();
+    auto retCode = getSpaceVidLen(spaceId_);
+    if (retCode != nebula::cpp2::ErrorCode::SUCCEEDED) {
+        LOG(ERROR) << "getSpaceVidLen failed, errorCode: "
+                   << apache::thrift::util::enumNameSafe(retCode).c_str();
         for (auto& part : partVertices) {
             pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_SPACEVIDLEN, part.first);
         }
         onFinished();
         return;
     }
-    spaceVidLen_ = ret.value();
     callingNum_ = partVertices.size();
 
     CHECK_NOTNULL(env_->indexMan_);
@@ -57,7 +57,8 @@ void DeleteVerticesProcessor::process(const cpp2::DeleteVerticesRequest& req) {
             for (auto& vid : vertexIds) {
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vid.getStr())) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                               << " space vid len: " << spaceVidLen_ << ",  vid is " << vid;
+                               << " space vid len: " << spaceVidLen_
+                               << ",  vid is " << Utils::vidStrToValue(isIntId_, vid.getStr());
                     code = nebula::cpp2::ErrorCode::E_INVALID_VID;
                     break;
                 }
@@ -132,8 +133,8 @@ DeleteVerticesProcessor::deleteVertices(PartitionID partId,
             auto l = std::make_tuple(spaceId_, partId, tagId, vertex.getStr());
             if (std::find(target.begin(), target.end(), l) == target.end()) {
                 if (!env_->verticesML_->try_lock(l)) {
-                    LOG(ERROR) << folly::format("The vertex locked : tag {}, vid {}",
-                                                tagId, vertex.getStr());
+                    LOG(ERROR) << "The vertex locked, tagId: " << tagId
+                               << ", vid:" << Utils::vidStrToValue(isIntId_, vertex.getStr());
                     return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
                 }
                 target.emplace_back(std::move(l));

@@ -84,7 +84,8 @@ void GetNeighborsProcessor::runInSingleThread(const cpp2::GetNeighborsRequest& r
 
             if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                 LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                           << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                           << " space vid len: " << spaceVidLen_
+                           << ",  vid is " << Utils::vidStrToValue(isIntId_, vId);
                 pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                 onFinished();
                 return;
@@ -156,7 +157,8 @@ GetNeighborsProcessor::runInExecutor(RunTimeContext* context,
 
                 if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                     LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                               << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                               << " space vid len: " << spaceVidLen_
+                               << ",  vid is " << Utils::vidStrToValue(isIntId_, vId);
                     return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                 }
 

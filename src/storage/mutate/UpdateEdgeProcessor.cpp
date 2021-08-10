@@ -47,8 +47,10 @@ void UpdateEdgeProcessor::doProcess(const cpp2::UpdateEdgeRequest& req) {
             spaceVidLen_, edgeKey_.get_src().getStr(), edgeKey_.get_dst().getStr())) {
         LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
                    << " space vid len: " << spaceVidLen_
-                   << ",  edge srcVid: " << edgeKey_.get_src()
-                   << " dstVid: " << edgeKey_.get_dst();
+                   << ",  edge srcVid: "
+                   << Utils::vidStrToValue(isIntId_, edgeKey_.get_src().getStr())
+                   << " dstVid: "
+                   << Utils::vidStrToValue(isIntId_, edgeKey_.get_dst().getStr());
         pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
         onFinished();
         return;
@@ -78,8 +80,10 @@ void UpdateEdgeProcessor::doProcess(const cpp2::UpdateEdgeRequest& req) {
     indexes_ = std::move(iRet).value();
 
     VLOG(3) << "Update edge, spaceId: " << spaceId_ << ", partId:  " << partId
-            << ", src: " << edgeKey_.get_src() << ", edge_type: " << edgeKey_.get_edge_type()
-            << ", dst: " << edgeKey_.get_dst() << ", ranking: " << edgeKey_.get_ranking();
+            << ", src: " << Utils::vidStrToValue(isIntId_, edgeKey_.get_src().getStr())
+            << ", edge_type: " << edgeKey_.get_edge_type()
+            << ", dst: " << Utils::vidStrToValue(isIntId_, edgeKey_.get_dst().getStr())
+            << ", ranking: " << edgeKey_.get_ranking();
 
     auto plan = buildPlan(&resultDataSet_);
 

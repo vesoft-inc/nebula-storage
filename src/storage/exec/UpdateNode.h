@@ -177,11 +177,11 @@ public:
                                          std::move(dummyLock));
         if (!lg) {
             auto conflict = lg.conflictKey();
-            LOG(ERROR) << "vertex conflict "
-                       << std::get<0>(conflict) << ":"
-                       << std::get<1>(conflict) << ":"
-                       << std::get<2>(conflict) << ":"
-                       << std::get<3>(conflict);
+            LOG(ERROR) << "vertex conflict SpaceId:"
+                       << std::get<0>(conflict) << ", PartId:"
+                       << std::get<1>(conflict) << ", TagId:"
+                       << std::get<2>(conflict) << ", VertexId:"
+                       << Utils::vidStrToValue(expCtx_->isIntId(), std::get<3>(conflict));
             return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
         }
 
@@ -480,13 +480,14 @@ public:
                                          std::move(dummyLock));
         if (!lg) {
             auto conflict = lg.conflictKey();
-            LOG(ERROR) << "edge conflict "
-                       << std::get<0>(conflict) << ":"
-                       << std::get<1>(conflict) << ":"
-                       << std::get<2>(conflict) << ":"
-                       << std::get<3>(conflict) << ":"
-                       << std::get<4>(conflict) << ":"
-                       << std::get<5>(conflict);
+            LOG(ERROR) << "edge conflict SpaceId:" << std::get<0>(conflict)
+                       << "PartId:" << std::get<1>(conflict)
+                       << ", SrcId:"
+                       << Utils::vidStrToValue(expCtx_->isIntId(), std::get<2>(conflict))
+                       << ", EdgeType:" << std::get<3>(conflict)
+                       << ", EdgeRanking:" << std::get<4>(conflict)
+                       << ", DstId:"
+                       << Utils::vidStrToValue(expCtx_->isIntId(), std::get<5>(conflict));
             return nebula::cpp2::ErrorCode::E_DATA_CONFLICT_ERROR;
         }
 
@@ -795,3 +796,4 @@ private:
 }  // namespace nebula
 
 #endif  // STORAGE_EXEC_FILTERNODE_H_
+

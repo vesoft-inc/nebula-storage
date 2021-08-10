@@ -94,8 +94,10 @@ void GetPropProcessor::runInSingleThread(const cpp2::GetPropRequest& req) {
                         (*edgeKey.dst_ref()).getStr())) {
                     LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                << "space vid len: " << spaceVidLen_
-                               << ", edge srcVid: " << *edgeKey.src_ref()
-                               << ", dstVid: " << *edgeKey.dst_ref();
+                               << ", edge srcVid: "
+                               << Utils::vidStrToValue(isIntId_, (*edgeKey.src_ref()).getStr())
+                               << ", dstVid: "
+                               << Utils::vidStrToValue(isIntId_, (*edgeKey.dst_ref()).getStr());
                     pushResultCode(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                     onFinished();
                     return;
@@ -159,7 +161,8 @@ GetPropProcessor::runInExecutor(RunTimeContext* context,
 
                     if (!NebulaKeyUtils::isValidVidLen(spaceVidLen_, vId)) {
                         LOG(ERROR) << "Space " << spaceId_ << ", vertex length invalid, "
-                                << " space vid len: " << spaceVidLen_ << ",  vid is " << vId;
+                                << " space vid len: " << spaceVidLen_
+                                << ",  vid is " << Utils::vidStrToValue(isIntId_, vId);
                         return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                     }
 
@@ -183,8 +186,10 @@ GetPropProcessor::runInExecutor(RunTimeContext* context,
                                                        (*edgeKey.dst_ref()).getStr())) {
                         LOG(ERROR) << "Space " << spaceId_ << " vertex length invalid, "
                                 << "space vid len: " << spaceVidLen_
-                                << ", edge srcVid: " << *edgeKey.src_ref()
-                                << ", dstVid: " << *edgeKey.dst_ref();
+                                << ", edge srcVid: " <<
+                                Utils::vidStrToValue(isIntId_, (*edgeKey.src_ref()).getStr())
+                                << ", dstVid: "
+                                << Utils::vidStrToValue(isIntId_, (*edgeKey.dst_ref()).getStr());
                         return std::make_pair(nebula::cpp2::ErrorCode::E_INVALID_VID, partId);
                     }
 
