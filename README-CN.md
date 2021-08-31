@@ -33,6 +33,10 @@
 * 类 SQL 查询语言
 * 用户鉴权
 
+## 发布通告
+
+v2.5.0之后，请访问[Nebula repo](https://github.com/vesoft-inc/nebula)。
+
 ## 支持的客户端
 * [Go](https://github.com/vesoft-inc/nebula-go)
 * [Python](https://github.com/vesoft-inc/nebula-python)
