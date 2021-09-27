@@ -32,6 +32,10 @@ Compared with other graph database solutions, **Nebula Graph** has the following
 * SQL-like query language
 * Role-based access control for higher level security
 
+## Notice of Release
+
+After v2.5.0, we use [Nebula repo](https://github.com/vesoft-inc/nebula).
+
 ## Supported Clients
 * [Go](https://github.com/vesoft-inc/nebula-go)
 * [Python](https://github.com/vesoft-inc/nebula-python)
